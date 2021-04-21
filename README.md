@@ -4,6 +4,10 @@
 - 👯 I’m looking to collaborate with other developers
 - 🥅 myGoals: Contribute more to different projects
 - ⚡ fun_fact: I love playing music, I'm building a home studio 🎶.
+
+![Alan's github stats](https://github-readme-stats.vercel.app/api?username=alanshalem&show_icons=true&theme=dracula)
+
+![Alan's Most used Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=alanshalem&layout=compact)
 ### Connect with me:
 [<img align="left" alt="alanshalem" width="22px" src="https://raw.githubusercontent.com/iconic/open-iconic/master/svg/globe.svg" />][website]
 [<img align="left" alt="alanshalem | Twitter" width="22px" src="https://cdn.jsdelivr.net/npm/simple-icons@v3/icons/twitter.svg" />][twitter]
