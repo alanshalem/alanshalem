@@ -38,6 +38,6 @@
 <br />
 <br />
 
-[website]: https://codeSTACKr.com
-[twitter]: https://twitter.com/codeSTACKr
-[linkedin]: https://linkedin.com/in/codeSTACKr
+[website]: https://alanshalem.github.io
+[twitter]: https://twitter.com/alanshalem_
+[linkedin]: https://linkedin.com/in/alanshalem
