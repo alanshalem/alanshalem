@@ -3,7 +3,7 @@
 - 🌱 I’m currently learning (in fact, always learning) everything 🤣
 - 👯 I’m looking to collaborate with other developers
 - 🥅 myGoals: Contribute more to different projects
-- ⚡ fun_fact: I love playing music, I'm building a home studio.
+- ⚡ fun_fact: I love playing music, I'm building a home studio 🎶.
 ### Connect with me:
 [<img align="left" alt="alanshalem" width="22px" src="https://raw.githubusercontent.com/iconic/open-iconic/master/svg/globe.svg" />][website]
 [<img align="left" alt="alanshalem | Twitter" width="22px" src="https://cdn.jsdelivr.net/npm/simple-icons@v3/icons/twitter.svg" />][twitter]
