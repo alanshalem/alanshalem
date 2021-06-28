@@ -36,6 +36,8 @@
 [CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ "SITIO FREELANCE")
 - FRONTEND STORE (HTML5 - CSS3): 
 [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "FRONTEND STORE")
+- SILKROAD (HTML5 - CSS3 - REACT - FIREBASE): 
+[CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "SILKROAD ECOMMERCE")
 
 [website]: https://alanshalem.github.io
 
