@@ -31,6 +31,7 @@
 <br />
 <br />
 
+
 ### PROJECTS
 - SITIO FREELANCE (HTML5 - CSS3):
 [CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ "SITIO FREELANCE")
@@ -38,10 +39,14 @@
 [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "FRONTEND STORE")
 - PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID (HTML5 - CSS3 - FLEXBOX Y GRID): 
 [CLICK HERE](https://alanshalem.github.io/patrones-diseno-responsive-flex-grid/ "PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID")
+- BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID): 
+[CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ "BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)")
 - TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP): 
 [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ "TAKEPROFIT FINANZAS")
-- SILKROAD (HTML5 - CSS3 - REACT - FIREBASE): 
+- SILKROAD (ECOMMERCE - NON FINISHED) (HTML5 - CSS3 - REACT.JS - FIREBASE): 
 [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "SILKROAD ECOMMERCE")
+- GENERIC ECOMMERCE (HTML5 - CSS3 - REACT.JS - SEMANTIC.UI - FIREBASE)
+[CLICK HERE](https://alanshalem.github.io/generic-ecommerce-shalem/ "GENERIC ECOMMERCE")
 
 
 [website]: https://alanshalem.github.io
