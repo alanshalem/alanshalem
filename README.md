@@ -44,7 +44,7 @@
 [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "FRONTEND STORE")
 - PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID (HTML5 - CSS3 - FLEXBOX Y GRID): 
 [CLICK HERE](https://alanshalem.github.io/patrones-diseno-responsive-flex-grid/ "PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID")
-- BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID): 
+- BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID - LAZY LOADING - PRELOAD - PREFETCH - WEBP - MODERNIZR - ETIQUETAS META - LIGHTHOUSE): 
 [CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ "BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)")
 - TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP): 
 [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ "TAKEPROFIT FINANZAS")
