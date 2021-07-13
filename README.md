@@ -1,13 +1,13 @@
-### Hi! I'm Alan - 👋
+### Hi! I'm Alan - 👋👨‍💻
 ## I'm a Electronic Engineering Student and Full Stack Developer!
 - 🌱 I’m currently learning (in fact, always learning) everything 🤣
 - 👯 I’m looking to collaborate with other developers
 - 🥅 myGoals: Contribute more to different projects
 - ⚡ fun_fact: I love playing music, I'm building a home studio 🎶.
 
-![Alan's github stats](https://github-readme-stats.vercel.app/api?username=alanshalem&show_icons=true&theme=dracula)
+![GITHUB STATS](https://github-readme-stats.vercel.app/api?username=alanshalem&show_icons=true&theme=dracula)
 
-![Alan's Most used Languages](https://github-readme-stats.vercel.app/api/top-langs/?username=alanshalem&layout=compact)
+![MOST USED LANGS](https://github-readme-stats.vercel.app/api/top-langs/?username=alanshalem&layout=compact)
 ---
 ### CONNECT WITH ME:
 [<img align="left" alt="alanshalem" width="22px" src="https://raw.githubusercontent.com/iconic/open-iconic/master/svg/globe.svg" />][website]
@@ -37,7 +37,7 @@
 <br />
 
 ---
-### PROJECTS
+### PROJECTS 🚧
 - SITIO FREELANCE (HTML5 - CSS3):
 [CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ "SITIO FREELANCE")
 - FRONTEND STORE (HTML5 - CSS3): 
