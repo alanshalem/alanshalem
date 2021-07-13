@@ -48,6 +48,10 @@
 [CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ "BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)")
 - TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP): 
 [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ "TAKEPROFIT FINANZAS")
+- PORTFOLIO EXAMPLE (HTML5 - CSS3 - BOOTSTRAP): 
+[CLICK HERE](https://alanshalem.github.io/miportafolio-shalem/ "PORTFOLIO EXAMPLE")
+- DEMO EXCHANGE (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT): 
+[CLICK HERE](https://alanshalem.github.io/demo_exchange/ "DEMO EXCHANGE")
 - COIN TRACKER (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT - BINANCE API)
 [CLICK HERE](https://alanshalem.github.io/coin-tracker-js/ "COIN TRACKER")
 - SILKROAD (ECOMMERCE - NON FINISHED) (HTML5 - CSS3 - REACT.JS - FIREBASE): 
