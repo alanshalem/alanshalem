@@ -48,7 +48,7 @@
 [CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ "BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)")
 - TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP): 
 [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ "TAKEPROFIT FINANZAS")
-- INTRODUCCION A JS (HTML5 - CSS3 - JAVASCRIPT):
+- INTRODUCCION A JAVASCRIPT (HTML5 - CSS3 - JAVASCRIPT):
 [CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem "INTRODUCCION JS")
 - PORTFOLIO EXAMPLE (HTML5 - CSS3 - BOOTSTRAP):
 [CLICK HERE](https://alanshalem.github.io/miportafolio-shalem/ "PORTFOLIO EXAMPLE")
