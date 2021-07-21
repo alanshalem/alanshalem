@@ -2,7 +2,7 @@
 ## I'm a Electronic Engineering Student and Full Stack Developer!
 - 🌱 I’m currently learning (in fact, always learning) everything 🤣
 - 👯 I’m looking to collaborate with other developers
--🏡💻 I currently work at Jefatura de Gabinete de Ministros, Argentina's Government
+- 🏡💻 I currently work at Jefatura de Gabinete de Ministros, Argentina's Government
 - 🥅 myGoals: Contribute more to different projects
 - ⚡ fun_fact: I love playing music, I'm building a home studio 🎶.
 
