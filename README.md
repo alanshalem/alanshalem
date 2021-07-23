@@ -38,7 +38,7 @@
 <br />
 
 ---
-### PROJECTS 🚧
+### PROJECTS|PRACTICE 🚧
 - SITIO FREELANCE (HTML5 - CSS3):
 [CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ "SITIO FREELANCE")
 - FRONTEND STORE (HTML5 - CSS3): 
@@ -51,6 +51,8 @@
 [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ "TAKEPROFIT FINANZAS")
 - INTRODUCCION A JAVASCRIPT (HTML5 - CSS3 - JAVASCRIPT):
 [CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem "INTRODUCCION JS")
+- CODERHOUSE BACKEND (HTML5 - CSS3 - JAVASCRIPT - ECMASCRIPT 6 - ECMASCRIPT 7 - MONGODB - EXPRESS - REACT.JS - NODE.JS):
+[CLICK HERE](https://github.com/alanshalem/coderhouse-backend "CODERHOUSE BACKEND")
 - PORTFOLIO EXAMPLE (HTML5 - CSS3 - BOOTSTRAP):
 [CLICK HERE](https://alanshalem.github.io/miportafolio-shalem/ "PORTFOLIO EXAMPLE")
 - DEMO EXCHANGE (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT): 
