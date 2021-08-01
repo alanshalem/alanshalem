@@ -39,32 +39,54 @@
 
 ---
 ### PROJECTS|PRACTICE 🚧
+
 - SITIO FREELANCE (HTML5 - CSS3):
 [CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ "SITIO FREELANCE")
+
 - FRONTEND STORE (HTML5 - CSS3): 
 [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "FRONTEND STORE")
+
 - PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID (HTML5 - CSS3 - FLEXBOX Y GRID): 
 [CLICK HERE](https://alanshalem.github.io/patrones-diseno-responsive-flex-grid/ "PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID")
+
 - BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID - LAZY LOADING - PRELOAD - PREFETCH - WEBP - MODERNIZR - ETIQUETAS META - LIGHTHOUSE): 
 [CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ "BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)")
+
 - TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP): 
 [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ "TAKEPROFIT FINANZAS")
+
 - INTRODUCCION A JAVASCRIPT (HTML5 - CSS3 - JAVASCRIPT):
 [CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem "INTRODUCCION JS")
+
+- JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING (HTML5 - CSS3 - JAVASCRIPT):
+[CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem "JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING")
+
+- JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT) (HTML5 - CSS3 - JAVASCRIPT):
+[CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem "JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT)")
+
 - CODERHOUSE BACKEND (HTML5 - CSS3 - JAVASCRIPT - ECMASCRIPT 6 - ECMASCRIPT 7 - MONGODB - EXPRESS - REACT.JS - NODE.JS):
 [CLICK HERE](https://github.com/alanshalem/coderhouse-backend "CODERHOUSE BACKEND")
+
 - PORTFOLIO EXAMPLE (HTML5 - CSS3 - BOOTSTRAP):
 [CLICK HERE](https://alanshalem.github.io/miportafolio-shalem/ "PORTFOLIO EXAMPLE")
+
 - DEMO EXCHANGE (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT): 
 [CLICK HERE](https://alanshalem.github.io/demo_exchange/ "DEMO EXCHANGE")
+
 - COIN TRACKER (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT - BINANCE API)
 [CLICK HERE](https://alanshalem.github.io/coin-tracker-js/ "COIN TRACKER")
+
 - SILKROAD (ECOMMERCE - NON FINISHED) (HTML5 - CSS3 - REACT.JS - FIREBASE): 
 [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "SILKROAD ECOMMERCE")
+
 - GENERIC ECOMMERCE (HTML5 - CSS3 - REACT.JS - SEMANTIC.UI - FIREBASE)
 [CLICK HERE](https://alanshalem.github.io/generic-ecommerce-shalem/ "GENERIC ECOMMERCE")
-- CRM TICKET SYSTEM - JEFATURA DE GABINETE DE MINISTROS - ARGENTINA.GOB.AR 🇦🇷 (HTML5 - CSS3 - REACT.JS - BOOTSTRAP - MONGO.DB - EXPRESS - NODE.JS)
+
+- CRM TICKET SYSTEM FRONTEND- JEFATURA DE GABINETE DE MINISTROS - ARGENTINA.GOB.AR 🇦🇷 (HTML5 - CSS3 - REACT.JS - BOOTSTRAP - MONGO.DB - EXPRESS - NODE.JS)
 [CLICK HERE](https://github.com/alanshalem/crm-frontend "CRM TICKET SYSTEM")
+
+- INTRODUCCION PYTHON FINANZAS QUANT (PYTHON)
+[CLICK HERE](https://github.com/alanshalem/python-finanzas-quant "PYTHON FINANZAS QUANT")
 
 [website]: https://alanshalem.github.io
 
