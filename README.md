@@ -1,5 +1,7 @@
 ### Hi! I'm Alan - 👋👨‍💻
+
 ## I'm a Electronic Engineering Student and Full Stack Developer!
+
 - 🌱 I’m currently learning (in fact, always learning) everything 🤣
 - 👯 I’m looking to collaborate with other developers
 - 🏡💻 I currently work at Jefatura de Gabinete de Ministros, Argentina's Government
@@ -8,16 +10,19 @@
 
 ![GITHUB STATS](https://github-readme-stats.vercel.app/api?username=alanshalem&show_icons=true&theme=dracula)
 
-![MOST USED LANGS](https://github-readme-stats.vercel.app/api/top-langs/?username=alanshalem&layout=compact)
----
+## ![MOST USED LANGS](https://github-readme-stats.vercel.app/api/top-langs/?username=alanshalem&layout=compact)
+
 ### CONNECT WITH ME:
+
 [<img align="left" alt="alanshalem" width="22px" src="https://raw.githubusercontent.com/iconic/open-iconic/master/svg/globe.svg" />][website]
 [<img align="left" alt="alanshalem | Twitter" width="22px" src="https://cdn.jsdelivr.net/npm/simple-icons@v3/icons/twitter.svg" />][twitter]
 [<img align="left" alt="alanshalem | LinkedIn" width="22px" src="https://cdn.jsdelivr.net/npm/simple-icons@v3/icons/linkedin.svg" />][linkedin]
 <br />
+
 ### LANGUAGES AND TOOLS:
+
 <img align="left" alt="VISUAL STUDIO CODE" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/visual-studio-code/visual-studio-code.png" />
-<img align="left" alt="HTML5" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/html/html.png" />
+<a href="https://html.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/html/html.svg" alt="html" height="42px"/> </a> 
 <img align="left" alt="CSS3" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/css/css.png" />
 <img align="left" alt="BOOTSTRAP" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/css/css.png" />
 <img align="left" alt="SASS" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/sass/sass.png" />
@@ -38,64 +43,63 @@
 <br />
 
 ---
+
 ### PROJECTS|PRACTICE 🚧
 
 - SITIO FREELANCE (HTML5 - CSS3):
-[CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ "SITIO FREELANCE")
+  [CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ 'SITIO FREELANCE')
 
-- FRONTEND STORE (HTML5 - CSS3): 
-[CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "FRONTEND STORE")
+- FRONTEND STORE (HTML5 - CSS3):
+  [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ 'FRONTEND STORE')
 
-- PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID (HTML5 - CSS3 - FLEXBOX Y GRID): 
-[CLICK HERE](https://alanshalem.github.io/patrones-diseno-responsive-flex-grid/ "PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID")
+- PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID (HTML5 - CSS3 - FLEXBOX Y GRID):
+  [CLICK HERE](https://alanshalem.github.io/patrones-diseno-responsive-flex-grid/ 'PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID')
 
-- BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID - LAZY LOADING - PRELOAD - PREFETCH - WEBP - MODERNIZR - ETIQUETAS META - LIGHTHOUSE): 
-[CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ "BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)")
+- BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID - LAZY LOADING - PRELOAD - PREFETCH - WEBP - MODERNIZR - ETIQUETAS META - LIGHTHOUSE):
+  [CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ 'BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)')
 
-- TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP): 
-[CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ "TAKEPROFIT FINANZAS")
+- TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP):
+  [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ 'TAKEPROFIT FINANZAS')
 
 - INTRODUCCION A JAVASCRIPT (HTML5 - CSS3 - JAVASCRIPT):
-[CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem "INTRODUCCION JS")
+  [CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem 'INTRODUCCION JS')
 
 - JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING (HTML5 - CSS3 - JAVASCRIPT):
-[CLICK HERE](https://github.com/alanshalem/javascript-navegador-DOM-scripting "JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING")
+  [CLICK HERE](https://github.com/alanshalem/javascript-navegador-DOM-scripting 'JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING')
 
 - INTRODUCCION A GULP Y A SASS:
-[CLICK HERE](https://github.com/alanshalem/introduccion_gulp_sass "INTRODUCCION GULP Y SASS")
+  [CLICK HERE](https://github.com/alanshalem/introduccion_gulp_sass 'INTRODUCCION GULP Y SASS')
 
 - FESTIVAL MUSICA:
-[CLICK HERE](https://github.com/alanshalem/festival_musica.git "FESTIVAL MUSICA")
+  [CLICK HERE](https://github.com/alanshalem/festival_musica.git 'FESTIVAL MUSICA')
 
 - JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT) (HTML5 - CSS3 - JAVASCRIPT):
-[CLICK HERE](https://github.com/alanshalem/js-function-generador-promesas-asyncawait-rxjs "JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT)")
+  [CLICK HERE](https://github.com/alanshalem/js-function-generador-promesas-asyncawait-rxjs 'JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT)')
 
 - CODERHOUSE BACKEND (HTML5 - CSS3 - JAVASCRIPT - ECMASCRIPT 6 - ECMASCRIPT 7 - MONGODB - EXPRESS - REACT.JS - NODE.JS):
-[CLICK HERE](https://github.com/alanshalem/coderhouse-backend "CODERHOUSE BACKEND")
+  [CLICK HERE](https://github.com/alanshalem/coderhouse-backend 'CODERHOUSE BACKEND')
 
 - PORTFOLIO EXAMPLE (HTML5 - CSS3 - BOOTSTRAP):
-[CLICK HERE](https://alanshalem.github.io/miportafolio-shalem/ "PORTFOLIO EXAMPLE")
+  [CLICK HERE](https://alanshalem.github.io/miportafolio-shalem/ 'PORTFOLIO EXAMPLE')
 
-- DEMO EXCHANGE (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT): 
-[CLICK HERE](https://alanshalem.github.io/demo_exchange/ "DEMO EXCHANGE")
+- DEMO EXCHANGE (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT):
+  [CLICK HERE](https://alanshalem.github.io/demo_exchange/ 'DEMO EXCHANGE')
 
 - COIN TRACKER (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT - BINANCE API)
-[CLICK HERE](https://alanshalem.github.io/coin-tracker-js/ "COIN TRACKER")
+  [CLICK HERE](https://alanshalem.github.io/coin-tracker-js/ 'COIN TRACKER')
 
-- SILKROAD (ECOMMERCE - NON FINISHED) (HTML5 - CSS3 - REACT.JS - FIREBASE): 
-[CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ "SILKROAD ECOMMERCE")
+- SILKROAD (ECOMMERCE - NON FINISHED) (HTML5 - CSS3 - REACT.JS - FIREBASE):
+  [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ 'SILKROAD ECOMMERCE')
 
 - GENERIC ECOMMERCE (HTML5 - CSS3 - REACT.JS - SEMANTIC.UI - FIREBASE)
-[CLICK HERE](https://alanshalem.github.io/generic-ecommerce-shalem/ "GENERIC ECOMMERCE")
+  [CLICK HERE](https://alanshalem.github.io/generic-ecommerce-shalem/ 'GENERIC ECOMMERCE')
 
 - CRM TICKET SYSTEM FRONTEND- JEFATURA DE GABINETE DE MINISTROS - ARGENTINA.GOB.AR 🇦🇷 (HTML5 - CSS3 - REACT.JS - BOOTSTRAP - MONGO.DB - EXPRESS - NODE.JS)
-[CLICK HERE](https://github.com/alanshalem/crm-frontend "CRM TICKET SYSTEM")
+  [CLICK HERE](https://github.com/alanshalem/crm-frontend 'CRM TICKET SYSTEM')
 
 - INTRODUCCION PYTHON FINANZAS QUANT (PYTHON)
-[CLICK HERE](https://github.com/alanshalem/python-finanzas-quant "PYTHON FINANZAS QUANT")
+  [CLICK HERE](https://github.com/alanshalem/python-finanzas-quant 'PYTHON FINANZAS QUANT')
 
 [website]: https://alanshalem.github.io
-
 [twitter]: https://twitter.com/alanshalem_
-
 [linkedin]: https://linkedin.com/in/alanshalem
