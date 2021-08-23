@@ -21,9 +21,15 @@
 
 ### LANGUAGES AND TOOLS:
 
+<a href="https://en.cppreference.com/w/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/c/c.svg" alt="html" height="42px"/> </a>
+
 <a href="https://html.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/html/html.svg" alt="html" height="42px"/> </a>
 
 <a href="https://www.w3.org/Style/CSS" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/css/css.svg" alt="html" height="42px"/> </a>
+
+<a href="https://getbootstrap.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/bootstrap/bootstrap.svg" alt="html" height="42px"/> </a>
+
+<a href="https://sass-lang.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/sass/sass.svg" alt="html" height="42px"/> </a>
 
 <a href="https://www.javascript.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/javascript/javascript.svg" alt="js" height="42px"/> </a>
 
@@ -31,21 +37,12 @@
 
 <a href="https://nodejs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/node/node.svg" alt="js" height="42px"/> </a>
 
-<img align="left" alt="BOOTSTRAP" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/css/css.png" />
-<img align="left" alt="SASS" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/sass/sass.png" />
-<img align="left" alt="JAVASCRIPT" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/javascript/javascript.png" />
-<img align="left" alt="REACT" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/react/react.png" />
-<img align="left" alt="GATSBY" width="26px" src="https://raw.githubusercontent.com/github/explore/e94815998e4e0713912fed477a1f346ec04c3da2/topics/gatsby/gatsby.png" />
-<img align="left" alt="NODE.JS" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/nodejs/nodejs.png" />
-<img align="left" alt="Deno" width="26px" src="https://raw.githubusercontent.com/github/explore/361e2821e2dea67711cde99c9c40ed357061cf27/topics/deno/deno.png" />
-<img align="left" alt="SQL" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/sql/sql.png" />
-<img align="left" alt="MYSQL" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/mysql/mysql.png" />
-<img align="left" alt="MONGODB" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/mongodb/mongodb.png" />
-<img align="left" alt="GRAPHQL" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/graphql/graphql.png" />
-<img align="left" alt="GIT" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/git/git.png" />
-<img align="left" alt="GITHUB" width="26px" src="https://raw.githubusercontent.com/github/explore/78df643247d429f6cc873026c0622819ad797942/topics/github/github.png" />
-<img align="left" alt="TERMINAL" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/terminal/terminal.png" />
-<img align="left" alt="LINUX" width="26px" src="https://i.imgur.com/IqMJqYq.png" />
+<a href="https://www.python.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/python/python.svg" alt="py" height="42px"/> </a>
+
+<a href="https://git-scm.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/git-scm/git-scm.svg" alt="git" height="42px"/> </a>
+
+<a href="https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/bash/bash.svg" alt="git" height="42px"/> </a>
+
 <br />
 <br />
 
