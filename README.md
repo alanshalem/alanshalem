@@ -21,9 +21,8 @@
 
 ### LANGUAGES AND TOOLS:
 
-<img align="left" alt="VISUAL STUDIO CODE" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/visual-studio-code/visual-studio-code.png" />
-<a href="https://html.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/html/html.svg" alt="html" height="42px"/> </a> 
-<img align="left" alt="CSS3" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/css/css.png" />
+<a href="https://html.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/html/html.svg" alt="html" height="42px"/> </a>
+<a href="https://www.w3.org/Style/CSS" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/css/css.svg" alt="html" height="42px"/> </a>
 <img align="left" alt="BOOTSTRAP" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/css/css.png" />
 <img align="left" alt="SASS" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/sass/sass.png" />
 <img align="left" alt="JAVASCRIPT" width="26px" src="https://raw.githubusercontent.com/github/explore/80688e429a7d4ef2fca1e82350fe8e3517d3494d/topics/javascript/javascript.png" />
