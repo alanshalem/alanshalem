@@ -21,27 +21,27 @@
 
 ### LANGUAGES AND TOOLS:
 
-<a href="https://en.cppreference.com/w/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/c/c.svg" alt="html" height="42px"/> </a>
+<a href="https://en.cppreference.com/w/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/c/c.svg" alt="html" height="42px"/> </a>
 
-<a href="https://html.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/html/html.svg" alt="html" height="42px"/> </a>
+<a href="https://html.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/html/html.svg" alt="html" height="42px"/> </a>
 
-<a href="https://www.w3.org/Style/CSS" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/css/css.svg" alt="html" height="42px"/> </a>
+<a href="https://www.w3.org/Style/CSS" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/css/css.svg" alt="html" height="42px"/> </a>
 
-<a href="https://getbootstrap.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/bootstrap/bootstrap.svg" alt="html" height="42px"/> </a>
+<a href="https://getbootstrap.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/bootstrap/bootstrap.svg" alt="html" height="42px"/> </a>
 
-<a href="https://sass-lang.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/sass/sass.svg" alt="html" height="42px"/> </a>
+<a href="https://sass-lang.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/sass/sass.svg" alt="html" height="42px"/> </a>
 
-<a href="https://www.javascript.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/javascript/javascript.svg" alt="js" height="42px"/> </a>
+<a href="https://www.javascript.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/javascript/javascript.svg" alt="js" height="42px"/> </a>
 
-<a href="https://reactjs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/react/react.svg" alt="js" height="42px"/> </a>
+<a href="https://reactjs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/react/react.svg" alt="js" height="42px"/> </a>
 
-<a href="https://nodejs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/node/node.svg" alt="js" height="42px"/> </a>
+<a href="https://nodejs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/node/node.svg" alt="js" height="42px"/> </a>
 
-<a href="https://www.python.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/python/python.svg" alt="py" height="42px"/> </a>
+<a href="https://www.python.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/python/python.svg" alt="py" height="42px"/> </a>
 
-<a href="https://git-scm.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/git-scm/git-scm.svg" alt="git" height="42px"/> </a>
+<a href="https://git-scm.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/git-scm/git-scm.svg" alt="git" height="42px"/> </a>
 
-<a href="https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/bash/bash.svg" alt="git" height="42px"/> </a>
+<a href="https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/bash/bash.svg" alt="git" height="42px"/> </a>
 
 <br />
 <br />
