@@ -1,17 +1,18 @@
-### Hi! I'm Alan - 👋👨‍💻
+# ```Hey there!, I’m alanshalem.```
 
 ## I'm a Electronic Engineering Student and Full Stack Developer!
 
-- 🌱 I’m currently learning (in fact, always learning) everything 🤣
-- 👯 I’m looking to collaborate with other developers
-- 🏡💻 I currently work at Jefatura de Gabinete de Ministros, Argentina's Government
-- 🥅 myGoals: Contribute more to different projects
-- ⚡ fun_fact: I love playing music, I'm building a home studio 🎶.
+* :godmode: I’m interested in **Programming** and **Cryptocurrencies**
+* :suspect: I’m currently learning, Algorithmic trading, Python, and other stuff
+* :goberserk: I’m looking to collaborate on projects related to python and quant algorithmic trading, data science and machine learning
+* :feelsgood: How to reach me? If you like my repos, you would contact me by _**[e-mail](mailto:alashalem@gmail.com)**_ or _**[linkedin](https://www.linkedin.com/in/alanshalem)**_
 
-![GITHUB STATS](https://github-readme-stats.vercel.app/api?username=alanshalem&show_icons=true&theme=dracula)
-
-## ![MOST USED LANGS](https://github-readme-stats.vercel.app/api/top-langs/?username=alanshalem&layout=compact)
-
+<p align="left">
+  <a href="https://github.com/alanshalem"><img width="400" src="https://github-readme-stats.vercel.app/api?username=alanshalem&show_icons=true&theme=gruvbox">
+  <a href="https://github.com/alanshalem"><img width="400" src="https://github-readme-stats.vercel.app/api/top-langs/?username=alanshalem&hide=html,scss,css,shell&langs_count=10&layout=compact&theme=gruvbox">
+  <a href="https://github.com/alanshalem"><img width="800" src="https://github-profile-trophy.vercel.app/?username=alanshalem&row=1&column=5&theme=gruvbox">
+</p>
+    
 ### CONNECT WITH ME:
 
 [<img align="left" alt="alanshalem" width="22px" src="https://raw.githubusercontent.com/iconic/open-iconic/master/svg/globe.svg" />][website]
