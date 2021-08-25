@@ -93,12 +93,6 @@
 - COIN TRACKER (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT - BINANCE API)
   [CLICK HERE](https://alanshalem.github.io/coin-tracker-js/ 'COIN TRACKER')
 
-- SILKROAD (ECOMMERCE - NON FINISHED) (HTML5 - CSS3 - REACT.JS - FIREBASE):
-  [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ 'SILKROAD ECOMMERCE')
-
-- GENERIC ECOMMERCE (HTML5 - CSS3 - REACT.JS - SEMANTIC.UI - FIREBASE)
-  [CLICK HERE](https://alanshalem.github.io/generic-ecommerce-shalem/ 'GENERIC ECOMMERCE')
-
 - CRM TICKET SYSTEM FRONTEND- JEFATURA DE GABINETE DE MINISTROS - ARGENTINA.GOB.AR 🇦🇷 (HTML5 - CSS3 - REACT.JS - BOOTSTRAP - MONGO.DB - EXPRESS - NODE.JS)
   [CLICK HERE](https://github.com/alanshalem/crm-frontend 'CRM TICKET SYSTEM')
 
