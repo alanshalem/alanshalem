@@ -1,4 +1,4 @@
-# ```Hey there!, I’m alanshalem.```
+# ```Hey there! I’m alanshalem.```
 
 ## I'm a Electronic Engineering Student and Full Stack Developer!
 
