@@ -34,6 +34,8 @@
 
 <a href="https://www.javascript.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/javascript/javascript.svg" alt="js" height="42px"/> </a>
 
+<a href="http://typescriptlang.org" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/typescript/typescript.svg" alt="js" height="42px"/> </a>
+    
 <a href="https://reactjs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/react/react.svg" alt="js" height="42px"/> </a>
 
 <a href="https://nodejs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/node/node.svg" alt="js" height="42px"/> </a>
