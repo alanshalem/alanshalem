@@ -1,11 +1,11 @@
-# ```Hey there! I’m alanshalem.```
+# `Hey there! I’m alanshalem.`
 
 ## I'm a Electronic Engineering Student and Full Stack Developer!
 
-* :godmode: I’m interested in **Programming** and **Cryptocurrencies**
-* :suspect: I’m currently learning, Algorithmic trading, Python, and other stuff
-* :goberserk: I’m looking to collaborate on projects related to python and quant algorithmic trading, data science and machine learning
-* :feelsgood: How to reach me? If you like my repos, you would contact me by _**[e-mail](mailto:alashalem@gmail.com)**_ or _**[linkedin](https://www.linkedin.com/in/alanshalem)**_
+-   :godmode: I’m interested in **Programming** and **Cryptocurrencies**
+-   :suspect: I’m currently learning, Algorithmic trading, Python, and other stuff
+-   :goberserk: I’m looking to collaborate on projects related to python and quant algorithmic trading, data science and machine learning
+-   :feelsgood: How to reach me? If you like my repos, you would contact me by _**[e-mail](mailto:alashalem@gmail.com)**_ or _**[linkedin](https://www.linkedin.com/in/alanshalem)**_
 
 <p align="left">
   <a href="https://github.com/alanshalem"><img width="400" src="https://github-readme-stats.vercel.app/api?username=alanshalem&show_icons=true&theme=gruvbox">
@@ -34,8 +34,8 @@
 
 <a href="https://www.javascript.com/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/javascript/javascript.svg" alt="js" height="42px"/> </a>
 
-<a href="http://typescriptlang.org" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/typescript/typescript.svg" alt="js" height="42px"/> </a>
-    
+<a href="http://typescriptlang.org" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/typescript/typescript.png" alt="js" height="42px"/> </a>
+
 <a href="https://reactjs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/react/react.svg" alt="js" height="42px"/> </a>
 
 <a href="https://nodejs.org/" target="_blank"> <img align="left" src="https://github.com/alanshalem/alanshalem/blob/main/img/node/node.svg" alt="js" height="42px"/> </a>
@@ -53,53 +53,53 @@
 
 ### PROJECTS|PRACTICE 🚧
 
-- SITIO FREELANCE (HTML5 - CSS3):
-  [CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ 'SITIO FREELANCE')
+-   SITIO FREELANCE (HTML5 - CSS3):
+    [CLICK HERE](https://alanshalem.github.io/sitio-freelance-shalem/ 'SITIO FREELANCE')
 
-- FRONTEND STORE (HTML5 - CSS3):
-  [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ 'FRONTEND STORE')
+-   FRONTEND STORE (HTML5 - CSS3):
+    [CLICK HERE](https://alanshalem.github.io/frontend-store-shalem/ 'FRONTEND STORE')
 
-- PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID (HTML5 - CSS3 - FLEXBOX Y GRID):
-  [CLICK HERE](https://alanshalem.github.io/patrones-diseno-responsive-flex-grid/ 'PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID')
+-   PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID (HTML5 - CSS3 - FLEXBOX Y GRID):
+    [CLICK HERE](https://alanshalem.github.io/patrones-diseno-responsive-flex-grid/ 'PATRONES DE DISEÑO RESPONSIVE - FLEX Y GRID')
 
-- BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID - LAZY LOADING - PRELOAD - PREFETCH - WEBP - MODERNIZR - ETIQUETAS META - LIGHTHOUSE):
-  [CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ 'BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)')
+-   BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID - LAZY LOADING - PRELOAD - PREFETCH - WEBP - MODERNIZR - ETIQUETAS META - LIGHTHOUSE):
+    [CLICK HERE](https://alanshalem.github.io/blog-cafe-shalem/ 'BLOG DE CAFÉ (HTML5 - CSS3 - FLEXBOX Y GRID)')
 
-- TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP):
-  [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ 'TAKEPROFIT FINANZAS')
+-   TAKEPROFIT FINANZAS (HTML5 - CSS3 - SCSS - BOOTSTRAP):
+    [CLICK HERE](https://alanshalem.github.io/takeprofit-shalem/ 'TAKEPROFIT FINANZAS')
 
-- INTRODUCCION A JAVASCRIPT (HTML5 - CSS3 - JAVASCRIPT):
-  [CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem 'INTRODUCCION JS')
+-   INTRODUCCION A JAVASCRIPT (HTML5 - CSS3 - JAVASCRIPT):
+    [CLICK HERE](https://github.com/alanshalem/introduccion-js-shalem 'INTRODUCCION JS')
 
-- JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING (HTML5 - CSS3 - JAVASCRIPT):
-  [CLICK HERE](https://github.com/alanshalem/javascript-navegador-DOM-scripting 'JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING')
+-   JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING (HTML5 - CSS3 - JAVASCRIPT):
+    [CLICK HERE](https://github.com/alanshalem/javascript-navegador-DOM-scripting 'JAVASCRIPT EN EL NAVEGADOR Y DOM SCRIPTING')
 
-- INTRODUCCION A GULP Y A SASS:
-  [CLICK HERE](https://github.com/alanshalem/introduccion_gulp_sass 'INTRODUCCION GULP Y SASS')
+-   INTRODUCCION A GULP Y A SASS:
+    [CLICK HERE](https://github.com/alanshalem/introduccion_gulp_sass 'INTRODUCCION GULP Y SASS')
 
-- FESTIVAL MUSICA:
-  [CLICK HERE](https://github.com/alanshalem/festival_musica.git 'FESTIVAL MUSICA')
+-   FESTIVAL MUSICA:
+    [CLICK HERE](https://github.com/alanshalem/festival_musica.git 'FESTIVAL MUSICA')
 
-- JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT) (HTML5 - CSS3 - JAVASCRIPT):
-  [CLICK HERE](https://github.com/alanshalem/js-function-generador-promesas-asyncawait-rxjs 'JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT)')
+-   JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT) (HTML5 - CSS3 - JAVASCRIPT):
+    [CLICK HERE](https://github.com/alanshalem/js-function-generador-promesas-asyncawait-rxjs 'JAVASCRIPT CALLBACKS - PROMISES - ASYNC-AWAIT (PARALLEL|SEQUENTIAL) - RXJS (COLD-OBSERVABLE - HOT-OBSERVABLE - SUBJECT)')
 
-- CODERHOUSE BACKEND (HTML5 - CSS3 - JAVASCRIPT - ECMASCRIPT 6 - ECMASCRIPT 7 - MONGODB - EXPRESS - REACT.JS - NODE.JS):
-  [CLICK HERE](https://github.com/alanshalem/coderhouse-backend 'CODERHOUSE BACKEND')
+-   CODERHOUSE BACKEND (HTML5 - CSS3 - JAVASCRIPT - ECMASCRIPT 6 - ECMASCRIPT 7 - MONGODB - EXPRESS - REACT.JS - NODE.JS):
+    [CLICK HERE](https://github.com/alanshalem/coderhouse-backend 'CODERHOUSE BACKEND')
 
-- PORTFOLIO EXAMPLE (HTML5 - CSS3 - BOOTSTRAP):
-  [CLICK HERE](https://alanshalem.github.io/miportafolio-shalem/ 'PORTFOLIO EXAMPLE')
+-   PORTFOLIO EXAMPLE (HTML5 - CSS3 - BOOTSTRAP):
+    [CLICK HERE](https://alanshalem.github.io/miportafolio-shalem/ 'PORTFOLIO EXAMPLE')
 
-- DEMO EXCHANGE (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT):
-  [CLICK HERE](https://alanshalem.github.io/demo_exchange/ 'DEMO EXCHANGE')
+-   DEMO EXCHANGE (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT):
+    [CLICK HERE](https://alanshalem.github.io/demo_exchange/ 'DEMO EXCHANGE')
 
-- COIN TRACKER (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT - BINANCE API)
-  [CLICK HERE](https://alanshalem.github.io/coin-tracker-js/ 'COIN TRACKER')
+-   COIN TRACKER (HTML5 - CSS3 - BOOTSTRAP - JAVASCRIPT - BINANCE API)
+    [CLICK HERE](https://alanshalem.github.io/coin-tracker-js/ 'COIN TRACKER')
 
-- CRM TICKET SYSTEM FRONTEND- JEFATURA DE GABINETE DE MINISTROS - ARGENTINA.GOB.AR 🇦🇷 (HTML5 - CSS3 - REACT.JS - BOOTSTRAP - MONGO.DB - EXPRESS - NODE.JS)
-  [CLICK HERE](https://github.com/alanshalem/crm-frontend 'CRM TICKET SYSTEM')
+-   CRM TICKET SYSTEM FRONTEND- JEFATURA DE GABINETE DE MINISTROS - ARGENTINA.GOB.AR 🇦🇷 (HTML5 - CSS3 - REACT.JS - BOOTSTRAP - MONGO.DB - EXPRESS - NODE.JS)
+    [CLICK HERE](https://github.com/alanshalem/crm-frontend 'CRM TICKET SYSTEM')
 
-- INTRODUCCION PYTHON FINANZAS QUANT (PYTHON)
-  [CLICK HERE](https://github.com/alanshalem/python-finanzas-quant 'PYTHON FINANZAS QUANT')
+-   INTRODUCCION PYTHON FINANZAS QUANT (PYTHON)
+    [CLICK HERE](https://github.com/alanshalem/python-finanzas-quant 'PYTHON FINANZAS QUANT')
 
 [website]: https://alanshalem.github.io
 [twitter]: https://twitter.com/alanshalem_
