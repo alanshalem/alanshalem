@@ -6,6 +6,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import MainNav from "./main-nav";
 import MobileNav from "./mobile-nav";
+import ModeToggle from "./mode-toggle";
 
 type Props = {};
 
@@ -46,6 +47,7 @@ const SiteHeader = (props: Props) => {
                 <span className="sr-only">Twitter</span>
               </div>
             </Link>
+            <ModeToggle />
             <MobileNav />
           </nav>
         </div>
