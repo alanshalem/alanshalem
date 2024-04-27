@@ -5,6 +5,7 @@ import { siteConfig } from "@/config/site";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import MainNav from "./main-nav";
+import MobileNav from "./mobile-nav";
 
 type Props = {};
 
@@ -23,7 +24,7 @@ const SiteHeader = (props: Props) => {
               <div
                 className={cn(
                   buttonVariants({ variant: "ghost" }),
-                  "w-10 px-0"
+                  "w-10 px-0 hidden sm:inline-flex"
                 )}
               >
                 <Icons.gitHub className="h-4 w-4" />
@@ -38,13 +39,14 @@ const SiteHeader = (props: Props) => {
               <div
                 className={cn(
                   buttonVariants({ variant: "ghost" }),
-                  "w-10 px-0"
+                  "w-10 px-0 hidden sm:inline-flex"
                 )}
               >
                 <Icons.twitter className="h-4 w-4" />
                 <span className="sr-only">Twitter</span>
               </div>
             </Link>
+            <MobileNav />
           </nav>
         </div>
       </div>
