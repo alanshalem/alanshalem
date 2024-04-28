@@ -1,6 +1,7 @@
 import { projects } from "#site/content";
 import { MDXContent } from "@/components/mdx-component";
 import { notFound } from "next/navigation";
+import "@/styles/mdx.css";
 
 interface ProjectPageProps {
   params: {
