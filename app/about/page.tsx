@@ -1,5 +1,11 @@
 import { about } from "#site/content";
 import { MDXContent } from "@/components/mdx-component";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "About Me",
+  description: "Information about me",
+};
 
 const AboutPage = () => {
   return (
