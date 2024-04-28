@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import "@/styles/mdx.css";
 import { Metadata } from "next";
 import { siteConfig } from "@/config/site";
-
+import { Tag } from "@/components/tag";
 interface ProjectPageProps {
   params: {
     slug: string[];
@@ -73,6 +73,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   return (
     <article className="container py-6 prose dark:prose-invert max-w-3xl mx-auto">
       <h1 className="mb-2">{project.title}</h1>
+      <div className="flex gap-2 mb-2">
+        {project.tags?.map((tag) => (
+          <Tag tag={tag} key={tag} />
+        ))}
+      </div>
       {project.description ? (
         <p className="text-xl mt-0 text-muted-foreground">
           {project.description}

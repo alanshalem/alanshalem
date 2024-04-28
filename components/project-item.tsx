@@ -2,21 +2,35 @@ import { Calendar } from "lucide-react";
 import Link from "next/link";
 import { buttonVariants } from "./ui/button";
 import { cn, formatDate } from "@/lib/utils";
+import { Tag } from "./tag";
 
 interface ProjectItemProps {
   slug: string;
   title: string;
   description?: string;
   date: string;
+  tags?: Array<string>;
 }
 
-const ProjectItem = ({ slug, title, description, date }: ProjectItemProps) => {
+const ProjectItem = ({
+  slug,
+  title,
+  description,
+  date,
+  tags,
+}: ProjectItemProps) => {
   return (
     <article className="flex flex-col gap-2 border-border border-b py-3">
       <div>
         <h2 className="text-2xl font-bold">
           <Link href={slug}>{title}</Link>
         </h2>
+      </div>
+
+      <div className="flex gap-2">
+        {tags?.map((tag) => (
+          <Tag tag={tag} key={tag} />
+        ))}
       </div>
       <div className="max-w-none text-muted-foreground">{description}</div>
       <div className="flex justify-between items-center">
