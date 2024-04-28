@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { SiteFooter } from "@/components/site-footer";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -38,6 +39,7 @@ export default function RootLayout({
             <SiteHeader />
             <main className="flex-1">{children}</main>
           </div>
+          <SiteFooter />
         </Providers>
       </body>
     </html>
