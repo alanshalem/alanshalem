@@ -35,7 +35,7 @@ const PostItem = ({ slug, title, description, date, tags }: PostItemProps) => {
           </dd>
         </dl>
         <Link
-          href={slug}
+          href={"/" + slug}
           className={cn(buttonVariants({ variant: "link" }), "py-0")}
         >
           Read more →
