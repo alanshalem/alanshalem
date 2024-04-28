@@ -2,12 +2,24 @@ import { projects } from "#site/content";
 import ProjectItem from "@/components/project-item";
 import { sortProjects } from "@/lib/utils";
 
-const ProjectsPage = async () => {
+const PROJECTS_PER_PAGE = 5;
+
+interface ProjectPageProps {
+  searchParams: {
+    page?: string;
+  };
+}
+const ProjectsPage = async ({ searchParams }: ProjectPageProps) => {
+  const currentPage = Number(searchParams?.page) || 1;
   const sortedProjects = sortProjects(
     projects.filter((project) => project.published)
   );
-  const displayProjects = sortedProjects;
+  const totalPages = Math.ceil(sortedProjects.length / PROJECTS_PER_PAGE);
 
+  const displayProjects = sortedProjects.slice(
+    PROJECTS_PER_PAGE * (currentPage - 1),
+    PROJECTS_PER_PAGE * currentPage
+  );
   return (
     <div className="container max-w-4xl py-6 lg:py-10">
       <div className="flex flex-col items-start gap-4 md:flex-row md:justify-between md:gap-8">
