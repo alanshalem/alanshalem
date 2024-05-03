@@ -31,9 +31,10 @@ export const generateStaticParams = () => {
 export default function TagPage({ params }: TagPageProps) {
   const { tag } = params;
   const title = tag.split("-").join(" ");
-
+  // Filter out unpublished posts before retrieving posts associated with the tag
+  const publishedPosts = posts.filter((post) => post.published !== false);
   const displayPosts = getPostsByTagSlug(posts, tag);
-  const tags = getAllTags(posts);
+  const tags = getAllTags(publishedPosts);
   const sortedTags = sortTagsByCount(tags);
 
   return (

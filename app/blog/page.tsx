@@ -21,7 +21,10 @@ interface BlogPageProps {
 
 const BlogPage = ({ searchParams }: BlogPageProps) => {
   const currentPage = Number(searchParams?.page) || 1;
-  const sortedPosts = sortPosts(posts.filter((post) => post.published));
+  // Filter out unpublished posts
+  const sortedPosts = sortPosts(
+    posts.filter((post) => post.published !== false)
+  );
   const totalPages = Math.ceil(sortedPosts.length / POSTS_PER_PAGE);
 
   const displayPosts = sortedPosts.slice(
@@ -29,7 +32,7 @@ const BlogPage = ({ searchParams }: BlogPageProps) => {
     POSTS_PER_PAGE * currentPage
   );
 
-  const tags = getAllTags(posts);
+  const tags = getAllTags(sortedPosts);
   const sortedTags = sortTagsByCount(tags);
 
   return (

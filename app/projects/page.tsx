@@ -11,8 +11,9 @@ interface ProjectPageProps {
 }
 const ProjectsPage = async ({ searchParams }: ProjectPageProps) => {
   const currentPage = Number(searchParams?.page) || 1;
+  // Filter out unpublished projects
   const sortedProjects = sortProjects(
-    projects.filter((project) => project.published)
+    projects.filter((project) => project.published !== false)
   );
   const totalPages = Math.ceil(sortedProjects.length / PROJECTS_PER_PAGE);
 
