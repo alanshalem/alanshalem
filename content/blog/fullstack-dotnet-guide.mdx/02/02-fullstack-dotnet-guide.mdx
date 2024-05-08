@@ -1,0 +1,153 @@
+---
+title: Creating a .NET Project
+description: NET Framework, NET Core, NET Standard, .NET, .NET Development Environment, NuGet
+date: 2024-05-05
+tags: ["C#", ".NET"]
+published: true
+---
+
+# Creating a .NET Project
+
+Before diving into programming, we should take a moment to think about what kind of project we are going to create, and what obstacles we might encounter in the future. What I'm about to specify now, more than advice for this blog post, is for your professional career:
+
+The choice of our project or architecture is based on the information we have at this moment. It's possible and even probable that this choice may change and evolve in the future. This change is neither good nor bad; it is what it is, happens to everyone, and in every company. If it happens to you, don't despair.
+
+Initially, our application will be a feature flags manager; the architecture is quite simple, if not almost non-existent. Additionally, when starting startups or doing proof of concepts, it's most advisable to start with a monolith. I could write another post about why microservices are not recommended for a startup or an MVP, but it can simply be summarized as they add a lot, and I mean a lot, of complexity to the system. The ideal is a monolith. And this will be our architecture:
+
+![Image 1]
+
+Any choice other than this one complicates life unnecessarily. We could debate about choosing a specific frontend library or framework like Angular JS or Vue JS. But it's crucial to remember that in the initial phases of a project, we should prioritize simplicity over the choice of technologies. Whether you're in .NET with C#, Java, PHP, or Ruby, you can create the same interface as any JS framework. And the most important thing in these projects, above all else, is to deliver functionalities. By having the backend and frontend separated, you'll achieve half of what you would achieve with a monolith or a modular monolith.
+
+In case you're not familiar with what a modular monolith is: it's an application that bases its logic on clearly defined and separated modules or components. The idea is to be able to develop or maintain these modules relatively independently within the system, and if one day we have to migrate to microservices, a significant part of the journey will already be done.
+
+If the application reaches production and a heavy load, we could consider having caching or a load balancer, but, speaking from experience, you won't need it, and when the time comes, include it if necessary.
+
+## Choosing the Project Type in .NET
+
+When we talk about .NET, we have four main different project types that we can choose from. Each of them has specific characteristics over the others; in our case, we will choose a project in ASP.NET Core Web App of MVC (Model-View-Controller).
+
+![Image 2]
+
+The reason is simplicity. I consider that one of the most important qualities of developers is the ability to keep things simple and easy to understand. With MVC, we have a very common approach, so common that among the options we'll see now, it's the only one taught in universities. The MVC architecture is straightforward to understand when switching from one language to another, allowing the same, simplicity for whoever continues our work.
+
+As I mentioned, there are several options, and here we will see and compare them. Of course, there are more, but these are the templates that come by default to start programming, and honestly, that's all we need at this point. However, whatever option you choose, it's just a template, which means you can switch between them (with more or less complication) or even modify the structure a bit to adapt it to your comfort in programming.
+
+### MVC or Model-View-Controller
+
+It's a design pattern or architecture that aims to divide the application into three main layers or components: the model, the view, and the controller. Its operation is based on making calls to the controller, which acts as a link between the model, containing the business logic, and the view. This way, the model never accesses the view, nor does the view access the model.
+
+![Image 3]
+
+Ideally, each layer should be separated and maintain its own logic. If we manage to implement it correctly, it will be much easier for us to expand or migrate from one architecture to another if our application evolves.
+
+### Razor Pages
+
+Razor Pages is a web application framework offered by .NET with Razor syntax, which is unique within the framework. Unlike MVC, in Razor Pages, we don't have a structure of controllers; instead, all the logic is located in the view, commonly referred to as "code behind."
+
+This way of building websites was quite popular when we had .NET Framework, as it brings some "magic" to the user interface that allows us to reduce code.
+
+In my opinion, it's not worth it when compared to other options, but this is a subjective opinion.
+
+### Blazor
+
+Blazor is Microsoft's alternative within ASP.NET Core to SPAs in other languages, mainly JavaScript, which are so popular today (Angular, Vue, React, etc.).
+
+Microsoft's journey with Blazor has had a few bumps. When they announced it, they presented it as the great revolution of the frontend because if you use Blazor, you don't have to use JavaScript for your web applications.
+
+All the actions you might want to perform, such as clicks, mouse position, event responses, etc., can be created with C#, and it's .NET that, through JavaScript Interop, translates them into code that the browser can understand.
+
+The big challenge this framework/library had to face was its late arrival, as it arrived once all the JS frameworks were established. As a side effect, it caused frontend developers to have no intention whatsoever of switching to a different language, which is also owned by Microsoft.
+
+Seeing that they couldn't compete, they decided to abandon that war and start promoting Blazor as a Full Stack language.
+
+Today, I could recommend it if you want to make a website that requires a lot of user actions and dynamism on the web, and although that's where it succeeds.
+
+To finish with Blazor, it's worth mentioning that it has three different models:
+
+- Blazor Server: The application's logic runs on the server, user events, as well as interface updates. This is possible thanks to a websockets connection through SignalR in real-time. And although the actions are performed on the server, the rendering is on the client side.
+
+To better understand what we are talking about, I think an explanation about the different terms is necessary.
+
+Websockets are a standard that allows us to use a single TCP socket to send messages between server and client, both can send messages to each other, and the connection is open, allowing constant updates.
+
+Websockets are not the only way to have constant updates; another way to communicate between client and server is to allow the client to make a request and return a response. If we continuously do this action for the end-user, it's also a constant update, this technique is known as polling.
+
+Alternatively, we can use the long polling technique, which implies that the client waits for a response from the server for a prolonged period, keeping the connection open during this time.
+
+This is where SignalR comes in, a framework that abstracts the different techniques we've just seen for real-time communication. The framework is capable of identifying if the browser or system we are using supports Websockets and if not, it will resort to polling or long polling.
+
+Blazor WebAssembly: The application is executed entirely in the browser, running .NET, and C# on WebAssembly. This option is recommended if we need to execute the application on the client side and if we need to create PWA.
+
+PWA stands for Progressive Web Apps and is a term to describe applications that take advantage of the latest web technologies. Its main characteristics are:
+
+- It's Progressive, meaning it works for any user, regardless of the browser or device used because it is built with progressive enhancement as a core tenet.
+- It's Responsive, meaning it fits any form factor: desktop, mobile, tablet, or whatever comes next.
+- It feels like a Native App, meaning it is built using the best user experience principles of native apps, and this can include content being rendered on the screen without the user seeing it or the feeling of speed, among others.
+- It's Discoverable, meaning it's identifiable as an "application" thanks to the W3C manifests and service workers registration scope, allowing search engines to find it.
+- It's Re-engageable, meaning it makes re-engagement easy through features like push notifications.
+- It's Installable, meaning users can add apps they find most useful to their home screens without the hassle of an app store.
+- It's Linkable, meaning it's easy to share and doesn't require complex installation.
+
+![Image 4]
+
+Blazor Hybrid: This option allows us to create native applications for iOS, Android, and UWP, which can use Blazor for the application's interface.
+
+![Image 5]
+
+And it has several intermediate models between the three main ones mentioned, but it's not worth going into them in detail.
+
+In summary, Blazor allows us to run C# code in the client's browser, or server, or generate native apps, all thanks to WebAssembly, which allows code execution written in languages other than JavaScript.
+
+### Web API
+
+It's another project template that we can use, in this case, to generate a REST API, which is widely used when we have a decoupled application, where the frontend and backend are separate applications.
+
+With Web API, we can create APIs in .NET, and although it's not difficult, it's not the focus of this post.
+
+## Starting Our Project
+
+After choosing the type of project, the next step is to give it a name. It's not something I usually do when I start a project, as I'm more focused on seeing the functionality first. But it's a good idea because it will help us identify the project in our day-to-day work.
+
+Visual Studio allows us to configure the project in several different ways, and here is one of them:
+
+![Image 6]
+
+We can see that it gives us several options for configuration:
+
+- Authentication Type: We can choose between three different types, and it's essential to consider the project's needs. The options are No Authentication, Individual User Accounts, and Work or School Accounts.
+- This time we will choose No Authentication, because adding any of the other options will add a lot of code and components to the project, which we don't need for now.
+- We can choose the Version of ASP.NET Core: I always recommend choosing the latest version, unless you have a specific reason to choose an older version. Doing this guarantees that your project has the latest updates and that you will have a greater community support in case you need it.
+
+![Image 7]
+
+- And that's it. After these configurations, Visual Studio creates the project for us, and we can start coding.
+
+![Image 8]
+
+## Visual Studio
+
+When starting Visual Studio, we will see a screen similar to this:
+
+![Image 9]
+
+We can see that Visual Studio offers us many different options for the project, but in this case, we will select Create a new project.
+
+![Image 10]
+
+Then we will see another screen where we will be asked to select the type of project we want to create. In our case, it's a Web Application, but we could also create a Class Library, Console Application, or a WPF Application, among others.
+
+![Image 11]
+
+After selecting Web Application, we will be presented with the options we saw earlier about configuring the project. Select the necessary options, or leave them as they are, and click Create.
+
+![Image 12]
+
+And that's it. We now have a new project created in Visual Studio, ready to start coding.
+
+![Image 13]
+
+This is the first part of the project creation process. In the next chapter, we will start coding the first functionalities of our project.
+
+
+
+
