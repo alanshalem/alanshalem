@@ -2,9 +2,11 @@ import { useRef } from 'react';
 import type { HeroImage } from '../api/types.ts';
 import { IMAGE_ACCEPT } from '../components/ImageField.tsx';
 import { ImagePreview } from '../components/ImagePreview.tsx';
+import type { I18n, MessageKey } from '../i18n/i18n.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { HeroImageCard } from './HeroImageCard.tsx';
 import { thumbnailUrl } from './heroImage.ts';
-import { HERO_GUIDANCE } from './heroSize.ts';
+import { heroGuidance } from './heroSize.ts';
 import { heroItemKind, previewSourceUrl, VIDEO_ACCEPT } from './heroVideo.ts';
 import { useHeroImages, type PendingUpload, type UploadStatus } from './useHeroImages.ts';
 import { VideoEditor } from './VideoEditor.tsx';
@@ -18,41 +20,35 @@ interface Props {
 // Un solo control para los dos tipos: el hook reparte cada archivo según su MIME.
 const HERO_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
 
-const UPLOAD_BADGES: Record<UploadStatus, { text: string; tone?: 'error' }> = {
-  editing: { text: 'Sin subir' },
-  queued: { text: 'En cola' },
-  uploading: { text: 'Subiendo…' },
-  processing: { text: 'Procesando…' },
-  uploaded: { text: 'Sin guardar' },
-  failed: { text: 'Error', tone: 'error' },
+// "Subiendo…" es el mismo texto de los botones de subida.
+const UPLOAD_BADGES: Record<UploadStatus, { text: MessageKey; tone?: 'error' }> = {
+  editing: { text: 'hero.badge.editing' },
+  queued: { text: 'hero.badge.queued' },
+  uploading: { text: 'common.uploading' },
+  processing: { text: 'hero.badge.processing' },
+  uploaded: { text: 'hero.badge.uploaded' },
+  failed: { text: 'hero.badge.failed', tone: 'error' },
 };
 
-const VIDEO_BADGE = { text: 'Video' };
-const NO_PREVIEW = 'Sin vista previa';
-// Un video recién se puede ver cuando la API terminó de procesarlo (antes no hay póster ni fuente H.264).
-const VIDEO_PREVIEW_LATER = 'La vista previa aparece al terminar el proceso';
-
-const DELETE_QUESTIONS = {
-  photo: '¿Eliminar esta foto del hero? Deja de aparecer en la home.',
-  video: '¿Eliminar este video del hero? Deja de aparecer en la home.',
-} as const;
-
-function pendingThumbnail({ kind, status, previewUrl, video }: PendingUpload) {
+function pendingThumbnail({ kind, status, previewUrl, video }: PendingUpload, { t }: I18n) {
+  const alt = t('common.preview');
+  const noPreview = t('hero.noPreview');
   if (video?.poster) {
     return (
       <ImagePreview
         src={thumbnailUrl(video.poster)}
         video={previewSourceUrl(video)}
-        alt="Vista previa"
-        emptyText={NO_PREVIEW}
+        alt={alt}
+        emptyText={noPreview}
         color={video.poster.color}
         placeholder={video.poster.placeholder}
       />
     );
   }
   // La URL local de un video es para el editor; como miniatura, un video se ve recién procesado.
-  if (kind === 'photo') return <ImagePreview src={previewUrl} alt="Vista previa" emptyText={NO_PREVIEW} />;
-  return <ImagePreview src={null} alt="Vista previa" emptyText={status === 'failed' ? NO_PREVIEW : VIDEO_PREVIEW_LATER} />;
+  if (kind === 'photo') return <ImagePreview src={previewUrl} alt={alt} emptyText={noPreview} />;
+  // Un video recién se puede ver cuando la API terminó de procesarlo (antes no hay póster ni fuente H.264).
+  return <ImagePreview src={null} alt={alt} emptyText={status === 'failed' ? noPreview : t('hero.previewLater')} />;
 }
 
 /**
@@ -61,6 +57,8 @@ function pendingThumbnail({ kind, status, previewUrl, video }: PendingUpload) {
  * fuera del formulario de ajustes.
  */
 export function HeroGallery({ onError }: Props) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const gallery = useHeroImages(onError);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -68,8 +66,8 @@ export function HeroGallery({ onError }: Props) {
     <li key={upload.key}>
       <HeroImageCard
         title={upload.fileName}
-        badge={UPLOAD_BADGES[upload.status]}
-        summary={upload.video ? editSummary(upload.video.edit) : undefined}
+        badge={{ ...UPLOAD_BADGES[upload.status], text: t(UPLOAD_BADGES[upload.status].text) }}
+        summary={upload.video ? editSummary(upload.video.edit, i18n) : undefined}
         thumbnail={
           upload.status === 'editing' && upload.previewUrl && upload.durationSeconds !== null ? (
             <VideoEditor
@@ -78,15 +76,15 @@ export function HeroGallery({ onError }: Props) {
               onConfirm={(edit) => gallery.uploadEdited(upload, edit)}
             />
           ) : (
-            pendingThumbnail(upload)
+            pendingThumbnail(upload, i18n)
           )
         }
         canSave={upload.status === 'uploaded'}
         error={upload.error}
         warnings={upload.warnings}
-        saveLabel="Guardar"
+        saveLabel={t('common.save')}
         onSave={(input) => gallery.savePending(upload, input)}
-        remove={{ label: 'Descartar', tone: 'ghost', onClick: () => gallery.discardPending(upload) }}
+        remove={{ label: t('hero.discard'), tone: 'ghost', onClick: () => gallery.discardPending(upload) }}
       />
     </li>
   );
@@ -96,25 +94,25 @@ export function HeroGallery({ onError }: Props) {
     return (
       <li key={image.id}>
         <HeroImageCard
-          title={`N.º ${index + 1}`}
-          badge={kind === 'video' ? VIDEO_BADGE : undefined}
-          summary={image.video ? editSummary(image.video.edit) : undefined}
+          title={t('hero.savedTitle', { n: index + 1 })}
+          badge={kind === 'video' ? { text: t('hero.badge.video') } : undefined}
+          summary={image.video ? editSummary(image.video.edit, i18n) : undefined}
           thumbnail={
             <ImagePreview
               src={thumbnailUrl(image.media)}
               alt={image.alt}
-              emptyText={NO_PREVIEW}
+              emptyText={t('hero.noPreview')}
               color={image.media.color}
               placeholder={image.media.placeholder}
             />
           }
           saved={{ alt: image.alt, credit: image.credit, altEn: image.altEn, creditEn: image.creditEn }}
-          saveLabel="Guardar cambios"
+          saveLabel={t('hero.saveChanges')}
           onSave={(input) => gallery.updateImage(image.id, input)}
           remove={{
-            label: 'Eliminar',
+            label: t('hero.delete'),
             tone: 'danger',
-            onClick: () => (window.confirm(DELETE_QUESTIONS[kind]) ? gallery.deleteImage(image) : undefined),
+            onClick: () => (window.confirm(t(`hero.confirmDelete.${kind}`)) ? gallery.deleteImage(image) : undefined),
           }}
         />
       </li>
@@ -124,19 +122,17 @@ export function HeroGallery({ onError }: Props) {
   return (
     <section className="settings-section" aria-labelledby="settings-hero">
       <div className="section-head">
-        <h2 id="settings-hero">Fotos y videos del hero</h2>
-        <p className="section-note">
-          La home muestra uno al azar en cada visita, nunca el mismo dos veces seguidas. Cada cambio regenera el sitio.
-        </p>
+        <h2 id="settings-hero">{t('hero.title')}</h2>
+        <p className="section-note">{t('hero.note')}</p>
       </div>
 
       <p className="hero-guidance" id="hero-guidance">
-        {HERO_GUIDANCE}
+        {heroGuidance(i18n)}
       </p>
 
       <div className="hero-upload">
         <button type="button" aria-describedby="hero-guidance" onClick={() => fileInputRef.current?.click()}>
-          Subir fotos o videos
+          {t('hero.upload')}
         </button>
         <input
           ref={fileInputRef}
@@ -149,10 +145,7 @@ export function HeroGallery({ onError }: Props) {
             event.target.value = ''; // permite volver a elegir los mismos archivos
           }}
         />
-        <p className="help">
-          Podés elegir varios a la vez; se optimizan al subir. Antes de subir un video elegís el tramo y el fundido.
-          Cada uno necesita su texto alternativo antes de guardarlo.
-        </p>
+        <p className="help">{t('hero.uploadHelp')}</p>
       </div>
 
       <p className="field-status" role="status" aria-live="polite">
@@ -160,24 +153,21 @@ export function HeroGallery({ onError }: Props) {
       </p>
 
       {gallery.pending.length > 0 && (
-        <ul className="hero-list" aria-label="Por guardar">
+        <ul className="hero-list" aria-label={t('hero.pendingList')}>
           {gallery.pending.map(renderPending)}
         </ul>
       )}
 
       {gallery.loading ? (
-        <p className="help">Cargando…</p>
+        <p className="help">{t('common.loading')}</p>
       ) : gallery.loadError ? (
         <p className="banner banner-error" role="alert">
           {gallery.loadError}
         </p>
       ) : gallery.images.length === 0 ? (
-        <p className="help hero-empty">
-          Todavía no hay fotos ni videos: la home usa la foto por defecto del sitio si existe; si no, un hero tipográfico
-          oscuro.
-        </p>
+        <p className="help hero-empty">{t('hero.empty')}</p>
       ) : (
-        <ol className="hero-list" aria-label="Guardados">
+        <ol className="hero-list" aria-label={t('hero.savedList')}>
           {gallery.images.map(renderSaved)}
         </ol>
       )}

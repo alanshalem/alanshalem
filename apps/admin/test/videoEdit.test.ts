@@ -10,6 +10,7 @@ import {
   FADE_DURATIONS,
   fadeDurationLabel,
   FADES,
+  fadeText,
   formatClock,
   formatSeconds,
   moveTrimEnd,
@@ -23,6 +24,10 @@ import {
   validateEdit,
   VIDEO_DURATION,
 } from '../src/hero/videoEdit.ts';
+import { i18nFor } from '../src/i18n/i18n.ts';
+
+const es = i18nFor('es');
+const en = i18nFor('en');
 
 /*
  * Editor de recorte y fundido antes de subir un video (L19, S12–S15): tramo de 1 a 15 s dentro del video,
@@ -44,30 +49,36 @@ describe('límites y opciones (S12, S14, S15): un solo lugar', () => {
 
   it('tres fundidos con su explicación de una línea, en el orden de L19', () => {
     assert.deepEqual(
-      FADES.map(({ value, label }) => [value, label]),
+      FADES.map((fade) => [fade, fadeText(fade, es).label]),
       [
         ['loop', 'Loop perfecto'],
         ['black', 'Desde y hacia negro'],
         ['none', 'Sin fundido'],
       ],
     );
-    for (const fade of FADES) assert.match(fade.description, /^\S.+\.$/);
+    for (const i18n of [es, en]) {
+      for (const fade of FADES) assert.match(fadeText(fade, i18n).description, /^\S.+\.$/);
+    }
   });
 
   it('duraciones corto / medio / largo = 0,5 / 1 / 2 s', () => {
     assert.deepEqual(
-      FADE_DURATIONS.map(({ seconds, label }) => `${label} ${fadeDurationLabel(seconds)}`),
+      FADE_DURATIONS.map(({ seconds, label }) => `${es.t(label)} ${fadeDurationLabel(seconds, es)}`),
       ['Corto 0,5 s', 'Medio 1 s', 'Largo 2 s'],
+    );
+    assert.deepEqual(
+      FADE_DURATIONS.map(({ seconds, label }) => `${en.t(label)} ${fadeDurationLabel(seconds, en)}`),
+      ['Short 0.5 s', 'Medium 1 s', 'Long 2 s'],
     );
   });
 });
 
 describe('checkVideoDuration: lo que el recorte no puede arreglar', () => {
   it('menos de 1 s: rechaza; 1 s o más (aunque pase de 15 s) va al editor', () => {
-    assert.equal(checkVideoDuration(0.6), 'Dura 0,6 s: el mínimo es 1 s.');
-    assert.equal(checkVideoDuration(1), null);
-    assert.equal(checkVideoDuration(16.1), null);
-    assert.equal(checkVideoDuration(600), null);
+    assert.equal(checkVideoDuration(0.6, es), 'Dura 0,6 s: el mínimo es 1 s.');
+    assert.equal(checkVideoDuration(1, es), null);
+    assert.equal(checkVideoDuration(16.1, es), null);
+    assert.equal(checkVideoDuration(600, es), null);
   });
 });
 
@@ -160,36 +171,46 @@ describe('sliderKeyValue: teclado de las manijas', () => {
 
 describe('validateEdit: espejo de la validación de la API (L19)', () => {
   it('un tramo válido con fundido que entra: sin error', () => {
-    assert.equal(validateEdit(edit({ trimStart: 2, trimEnd: 4, fadeSeconds: 1 }), 20), null);
-    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 1, fadeSeconds: 0.5 }), 20), null);
+    assert.equal(validateEdit(edit({ trimStart: 2, trimEnd: 4, fadeSeconds: 1 }), 20, es), null);
+    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 1, fadeSeconds: 0.5 }), 20, es), null);
   });
 
   it('tramo de menos de 1 s o de más de 15 s', () => {
-    assert.equal(validateEdit(edit({ trimStart: 3, trimEnd: 3.5 }), 20), 'El tramo dura 0,5 s: el mínimo es 1 s.');
-    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 15.5 }), 20), 'El tramo dura 15,5 s: el máximo es 15 s.');
+    assert.equal(validateEdit(edit({ trimStart: 3, trimEnd: 3.5 }), 20, es), 'El tramo dura 0,5 s: el mínimo es 1 s.');
+    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 15.5 }), 20, es), 'El tramo dura 15,5 s: el máximo es 15 s.');
   });
 
   it('fuera del video', () => {
-    assert.equal(validateEdit(edit({ trimStart: 5, trimEnd: 17 }), 16.1), 'El tramo tiene que estar dentro del video (0 a 16,1 s).');
-    assert.equal(validateEdit(edit({ trimStart: -1, trimEnd: 5 }), 16.1), 'El tramo tiene que estar dentro del video (0 a 16,1 s).');
+    assert.equal(validateEdit(edit({ trimStart: 5, trimEnd: 17 }), 16.1, es), 'El tramo tiene que estar dentro del video (0 a 16,1 s).');
+    assert.equal(validateEdit(edit({ trimStart: -1, trimEnd: 5 }), 16.1, es), 'El tramo tiene que estar dentro del video (0 a 16,1 s).');
   });
 
   it('fundido más largo que la mitad del tramo: explica por qué, según el tipo', () => {
     assert.equal(
-      validateEdit(edit({ trimStart: 0, trimEnd: 3.2, fade: 'black', fadeSeconds: 2 }), 20),
+      validateEdit(edit({ trimStart: 0, trimEnd: 3.2, fade: 'black', fadeSeconds: 2 }), 20, es),
       'Un fundido de 2 s necesita un tramo de al menos 4 s: entra en 2 s desde negro y sale en 2 s a negro. ' +
         'Este dura 3,2 s; alargalo o elegí un fundido más corto.',
     );
     assert.equal(
-      validateEdit(edit({ trimStart: 0, trimEnd: 1.5, fade: 'loop', fadeSeconds: 1 }), 20),
+      validateEdit(edit({ trimStart: 0, trimEnd: 1.5, fade: 'loop', fadeSeconds: 1 }), 20, es),
       'Un fundido de 1 s necesita un tramo de al menos 2 s: el final se funde con el principio, 1 s de cada lado. ' +
         'Este dura 1,5 s; alargalo o elegí un fundido más corto.',
     );
   });
 
+  it('en inglés, con punto decimal', () => {
+    assert.equal(checkVideoDuration(0.6, en), 'It’s only 0.6 s long: the minimum is 1 s.');
+    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 15.5 }), 20, en), 'The clip is 15.5 s long: the maximum is 15 s.');
+    assert.equal(
+      validateEdit(edit({ trimStart: 0, trimEnd: 3.2, fade: 'black', fadeSeconds: 2 }), 20, en),
+      'A 2 s fade needs a clip of at least 4 s: it fades in from black over 2 s and out to black over 2 s. ' +
+        'This one is 3.2 s; make it longer or pick a shorter fade.',
+    );
+  });
+
   it('justo el doble pasa; sin fundido no hay regla de fundido', () => {
-    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 4, fade: 'black', fadeSeconds: 2 }), 20), null);
-    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 1.5, fade: 'none', fadeSeconds: 2 }), 20), null);
+    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 4, fade: 'black', fadeSeconds: 2 }), 20, es), null);
+    assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 1.5, fade: 'none', fadeSeconds: 2 }), 20, es), null);
   });
 });
 
@@ -236,29 +257,51 @@ describe('previewFrame: opacidades de la vista previa aproximada en función del
 
 describe('formato y lectura de segundos', () => {
   it('formatSeconds: siempre una décima, con coma', () => {
-    assert.deepEqual([0, 2, 2.5, 15, 16.1].map(formatSeconds), ['0,0', '2,0', '2,5', '15,0', '16,1']);
+    assert.deepEqual(
+      [0, 2, 2.5, 15, 16.1].map((seconds) => formatSeconds(seconds, es)),
+      ['0,0', '2,0', '2,5', '15,0', '16,1'],
+    );
+    assert.deepEqual(
+      [0, 2.5, 16.1].map((seconds) => formatSeconds(seconds, en)),
+      ['0.0', '2.5', '16.1'],
+    );
   });
 
   it('formatClock: m:ss y la décima solo si la hay', () => {
-    assert.deepEqual([0, 2, 2.5, 15, 75.3].map(formatClock), ['0:00', '0:02', '0:02,5', '0:15', '1:15,3']);
+    assert.deepEqual(
+      [0, 2, 2.5, 15, 75.3, 59.9].map((seconds) => formatClock(seconds, es)),
+      ['0:00', '0:02', '0:02,5', '0:15', '1:15,3', '0:59,9'],
+    );
+    assert.deepEqual(
+      [2.5, 75.3].map((seconds) => formatClock(seconds, en)),
+      ['0:02.5', '1:15.3'],
+    );
   });
 
   it('editSummary: el chip de un video guardado', () => {
-    assert.equal(editSummary(edit({ trimStart: 2, trimEnd: 15 })), '0:02–0:15 · Loop perfecto 1 s');
-    assert.equal(editSummary(edit({ trimStart: 0, trimEnd: 8.5, fade: 'black', fadeSeconds: 0.5 })), '0:00–0:08,5 · Desde y hacia negro 0,5 s');
-    assert.equal(editSummary(edit({ fade: 'none', fadeSeconds: 2 })), '0:00–0:10 · Sin fundido');
+    assert.equal(editSummary(edit({ trimStart: 2, trimEnd: 15 }), es), '0:02–0:15 · Loop perfecto 1 s');
+    assert.equal(editSummary(edit({ trimStart: 0, trimEnd: 8.5, fade: 'black', fadeSeconds: 0.5 }), es), '0:00–0:08,5 · Desde y hacia negro 0,5 s');
+    assert.equal(editSummary(edit({ fade: 'none', fadeSeconds: 2 }), es), '0:00–0:10 · Sin fundido');
+    assert.equal(
+      editSummary(edit({ trimStart: 0, trimEnd: 8.5, fade: 'black', fadeSeconds: 0.5 }), en),
+      '0:00–0:08.5 · From and to black 0.5 s',
+    );
   });
 
   it('fadeExplanation: la explicación estática (sin animar) para prefers-reduced-motion', () => {
     assert.equal(
-      fadeExplanation(edit({ fade: 'loop', fadeSeconds: 2 })),
+      fadeExplanation(edit({ fade: 'loop', fadeSeconds: 2 }), es),
       'Loop perfecto (2 s). El final se funde con el principio: vuelve a empezar sin salto.',
     );
     assert.equal(
-      fadeExplanation(edit({ fade: 'black', fadeSeconds: 0.5 })),
+      fadeExplanation(edit({ fade: 'black', fadeSeconds: 0.5 }), es),
       'Desde y hacia negro (0,5 s). Aparece desde negro al empezar y se va a negro al terminar.',
     );
-    assert.equal(fadeExplanation(edit({ fade: 'none' })), 'Sin fundido. Corte directo: al terminar vuelve a empezar tal cual.');
+    assert.equal(fadeExplanation(edit({ fade: 'none' }), es), 'Sin fundido. Corte directo: al terminar vuelve a empezar tal cual.');
+    assert.equal(
+      fadeExplanation(edit({ fade: 'loop', fadeSeconds: 2 }), en),
+      'Seamless loop (2 s). The end blends into the start: it loops without a jump.',
+    );
   });
 
   it('parseSeconds: acepta coma o punto; lo demás no es un número', () => {

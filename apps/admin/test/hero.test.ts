@@ -9,6 +9,10 @@ import {
   validateHeroImage,
   type HeroImageFields,
 } from '../src/hero/heroImage.ts';
+import { i18nFor } from '../src/i18n/i18n.ts';
+
+const es = i18nFor('es');
+const en = i18nFor('en');
 
 /*
  * Reglas de una foto del hero (L10): `alt` obligatorio (≤ 300), `credit` opcional (≤ 200).
@@ -42,11 +46,11 @@ const fields = (overrides: Partial<HeroImageFields> = {}): HeroImageFields => ({
 
 describe('validateHeroImage', () => {
   it('recorta; el crédito vacío viaja como null', () => {
-    assert.deepEqual(validateHeroImage(fields({ alt: '  Nebulosa de Orión  ', credit: '   ' })), {
+    assert.deepEqual(validateHeroImage(fields({ alt: '  Nebulosa de Orión  ', credit: '   ' }), es), {
       ok: true,
       input: { alt: 'Nebulosa de Orión', credit: null, altEn: null, creditEn: null },
     });
-    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', credit: ' Foto: Alan ' })), {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', credit: ' Foto: Alan ' }), es), {
       ok: true,
       input: { alt: 'Luna', credit: 'Foto: Alan', altEn: null, creditEn: null },
     });
@@ -54,7 +58,7 @@ describe('validateHeroImage', () => {
 
   it('el texto alternativo es obligatorio (vacío o solo espacios)', () => {
     for (const alt of ['', '   ']) {
-      assert.deepEqual(validateHeroImage(fields({ alt })), { ok: false, errors: { alt: 'El texto alternativo es obligatorio.' } });
+      assert.deepEqual(validateHeroImage(fields({ alt }), es), { ok: false, errors: { alt: 'El texto alternativo es obligatorio.' } });
     }
   });
 
@@ -66,12 +70,13 @@ describe('validateHeroImage', () => {
         altEn: 'a'.repeat(HERO_IMAGE_LIMITS.altEn),
         creditEn: 'c'.repeat(HERO_IMAGE_LIMITS.creditEn),
       }),
+      es,
     );
     assert.equal(result.ok, true);
   });
 
   it('un carácter de más: junta los dos errores a la vez', () => {
-    assert.deepEqual(validateHeroImage(fields({ alt: 'a'.repeat(301), credit: 'c'.repeat(201) })), {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'a'.repeat(301), credit: 'c'.repeat(201) }), es), {
       ok: false,
       errors: {
         alt: 'El texto alternativo no puede superar 300 caracteres.',
@@ -85,18 +90,31 @@ describe('validateHeroImage', () => {
   });
 
   it('textos en inglés opcionales: recortados, vacíos = null (el sitio en inglés usa los de español)', () => {
-    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: ' Moon ', creditEn: '  ' })), {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: ' Moon ', creditEn: '  ' }), es), {
       ok: true,
       input: { alt: 'Luna', credit: null, altEn: 'Moon', creditEn: null },
     });
   });
 
   it('textos en inglés: un carácter de más, con su propio mensaje', () => {
-    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: 'a'.repeat(301), creditEn: 'c'.repeat(201) })), {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: 'a'.repeat(301), creditEn: 'c'.repeat(201) }), es), {
       ok: false,
       errors: {
         altEn: 'El texto alternativo en inglés no puede superar 300 caracteres.',
         creditEn: 'El crédito en inglés no puede superar 200 caracteres.',
+      },
+    });
+  });
+});
+
+describe('validateHeroImage en inglés', () => {
+  it('obligatorio y largo, con el mensaje de cada campo', () => {
+    assert.deepEqual(validateHeroImage(fields({ alt: '' }), en), { ok: false, errors: { alt: 'The alt text is required.' } });
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', credit: 'c'.repeat(201), altEn: 'a'.repeat(301) }), en), {
+      ok: false,
+      errors: {
+        credit: 'The credit can’t be longer than 200 characters.',
+        altEn: 'The English alt text can’t be longer than 300 characters.',
       },
     });
   });
@@ -109,7 +127,7 @@ describe('toHeroImageFields: lo guardado como texto de los inputs', () => {
   it('los null pasan a vacío; ida y vuelta igual', () => {
     const saved = { alt: 'Luna', credit: null, altEn: 'Moon', creditEn: null };
     assert.deepEqual(toHeroImageFields(saved), { alt: 'Luna', credit: '', altEn: 'Moon', creditEn: '' });
-    assert.deepEqual(validateHeroImage(toHeroImageFields(saved)), { ok: true, input: saved });
+    assert.deepEqual(validateHeroImage(toHeroImageFields(saved), es), { ok: true, input: saved });
   });
 });
 

@@ -1,4 +1,5 @@
 import type { HeroImage, VideoAsset } from '../api/types.ts';
+import type { I18n } from '../i18n/i18n.ts';
 
 /* Reglas puras de los videos del hero (L13): qué archivos son videos, cada cuánto consultar y qué previsualizar. */
 
@@ -13,11 +14,6 @@ const VIDEO_FORMATS = [
 ] as const;
 
 export const VIDEO_ACCEPT = VIDEO_FORMATS.flatMap(({ mime, extension }) => [mime, extension]).join(',');
-
-export const UNSUPPORTED_FILE =
-  'Formato no soportado: subí una foto (JPG, PNG, WebP, AVIF o GIF) o un video (MP4, MOV, WebM o MKV).';
-
-export const VIDEO_FAILED = 'No se pudo procesar el video.';
 
 /**
  * A qué flujo va un archivo, según su tipo MIME. Algunos sistemas no conocen el MIME de .mkv y lo dejan vacío:
@@ -40,15 +36,18 @@ const POLL = { firstMs: 2000, factor: 1.5, maxMs: 15000 } as const;
 /** Espera antes de la consulta número `attempt` (desde 0). */
 export const pollDelay = (attempt: number): number => Math.min(POLL.firstMs * POLL.factor ** attempt, POLL.maxMs);
 
-/** Estado del archivo pendiente que corresponde al estado del video en la API. */
-export function videoProgress(video: VideoAsset): { status: 'processing' | 'uploaded' | 'failed'; error: string | null } {
+/** Estado del archivo pendiente que corresponde al estado del video en la API (su error, si vino, tal cual). */
+export function videoProgress(
+  video: VideoAsset,
+  i18n: I18n,
+): { status: 'processing' | 'uploaded' | 'failed'; error: string | null } {
   switch (video.status) {
     case 'processing':
       return { status: 'processing', error: null };
     case 'ready':
       return { status: 'uploaded', error: null };
     case 'failed':
-      return { status: 'failed', error: video.error ?? VIDEO_FAILED };
+      return { status: 'failed', error: video.error ?? i18n.t('hero.videoFailed') };
   }
 }
 

@@ -1,5 +1,7 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import type { HeroImageInput } from '../api/types.ts';
+import type { MessageKey } from '../i18n/i18n.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import {
   HERO_IMAGE_LIMITS,
   toHeroImageFields,
@@ -29,6 +31,14 @@ interface Props {
   remove: { label: string; tone: 'ghost' | 'danger'; onClick: () => Promise<void> | void };
 }
 
+// Los ejemplos de los campos en inglés están en inglés: muestran qué escribir ahí, en cualquier idioma de la interfaz.
+const FIELDS: readonly { key: keyof HeroImageInput; label: MessageKey; placeholder: MessageKey }[] = [
+  { key: 'alt', label: 'image.alt', placeholder: 'hero.altPlaceholder' },
+  { key: 'credit', label: 'hero.credit', placeholder: 'hero.creditPlaceholder' },
+  { key: 'altEn', label: 'hero.altEn', placeholder: 'hero.altEnPlaceholder' },
+  { key: 'creditEn', label: 'hero.creditEn', placeholder: 'hero.creditEnPlaceholder' },
+];
+
 /**
  * Un ítem del hero (foto o video): miniatura, texto alternativo y crédito, en español y en inglés. La misma tarjeta
  * sirve para un archivo recién subido (POST) y para un ítem guardado (PUT), así el formulario no se duplica. Cada
@@ -47,6 +57,8 @@ export function HeroImageCard({
   onSave,
   remove,
 }: Props) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const id = useId();
   const [fields, setFields] = useState<HeroImageFields>(() => toHeroImageFields(saved));
   const [errors, setErrors] = useState<HeroImageErrors>({});
@@ -63,7 +75,7 @@ export function HeroImageCard({
     try {
       await action();
     } catch (caught) {
-      setFailure(caught instanceof Error ? caught.message : 'Error desconocido.');
+      setFailure(caught instanceof Error ? caught.message : t('error.unknownSentence'));
     } finally {
       setRunning(null);
     }
@@ -71,7 +83,7 @@ export function HeroImageCard({
 
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
-    const result = validateHeroImage(fields);
+    const result = validateHeroImage(fields, i18n);
     setErrors(result.ok ? {} : result.errors);
     if (!result.ok) {
       document.getElementById(`${id}-${Object.keys(result.errors)[0]}`)?.focus();
@@ -84,12 +96,12 @@ export function HeroImageCard({
     });
   };
 
-  const renderField = (key: keyof HeroImageInput, label: string, placeholder: string) => {
+  const renderField = ({ key, label, placeholder }: (typeof FIELDS)[number]) => {
     const fieldError = errors[key];
     return (
-      <label className="field">
+      <label className="field" key={key}>
         <span className="label">
-          {label}
+          {t(label)}
           {key === 'alt' && <span aria-hidden="true"> *</span>}
         </span>
         <input
@@ -100,7 +112,7 @@ export function HeroImageCard({
             setFields((current) => ({ ...current, [key]: value }));
             setErrors(({ [key]: _fixed, ...rest }) => rest);
           }}
-          placeholder={placeholder}
+          placeholder={t(placeholder)}
           maxLength={HERO_IMAGE_LIMITS[key]}
           required={key === 'alt'}
           aria-invalid={fieldError ? true : undefined}
@@ -126,16 +138,11 @@ export function HeroImageCard({
           {badge && <span className={badge.tone === 'error' ? 'chip chip-error' : 'chip'}>{badge.text}</span>}
         </div>
         {summary && <p className="chip hero-card-summary">{summary}</p>}
-        <div className="settings-grid">
-          {renderField('alt', 'Texto alternativo', 'Qué se ve')}
-          {renderField('credit', 'Crédito (opcional)', 'Foto: …')}
-          {renderField('altEn', 'Texto alternativo (inglés)', 'What it shows')}
-          {renderField('creditEn', 'Crédito (inglés)', 'Photo: …')}
-        </div>
-        <p className="help">Opcionales: si quedan vacíos, el sitio en inglés usa los textos en español.</p>
+        <div className="settings-grid">{FIELDS.map(renderField)}</div>
+        <p className="help">{t('hero.fallbackHelp')}</p>
         {warnings.map((warning) => (
           <p key={warning} className="field-warning">
-            Aviso: {warning}
+            {t('hero.warning', { warning })}
           </p>
         ))}
         {problem && (
@@ -145,10 +152,10 @@ export function HeroImageCard({
         )}
         <div className="actions">
           <button type="submit" className="primary" disabled={running !== null || !changed || !canSave}>
-            {running === 'save' ? 'Guardando…' : saveLabel}
+            {running === 'save' ? t('common.saving') : saveLabel}
           </button>
           <button type="button" className={remove.tone} disabled={running !== null} onClick={() => void run('remove', remove.onClick)}>
-            {running === 'remove' ? 'Eliminando…' : remove.label}
+            {running === 'remove' ? t('common.deleting') : remove.label}
           </button>
         </div>
       </div>

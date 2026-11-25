@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { HeroImage, HeroImageInput, HeroMediaRef, MediaAsset, VideoAsset, VideoEdit } from '../api/types.ts';
+import type { I18n } from '../i18n/i18n.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { inUploadOrder } from './heroImage.ts';
 import { checkHeroSize } from './heroSize.ts';
-import { heroItemKind, heroMediaKind, pollDelay, UNSUPPORTED_FILE, videoProgress, type HeroMediaKind } from './heroVideo.ts';
+import { heroItemKind, heroMediaKind, pollDelay, videoProgress, type HeroMediaKind } from './heroVideo.ts';
 import { readDimensions } from './readDimensions.ts';
 import { checkVideoDuration } from './videoEdit.ts';
 
@@ -28,13 +30,8 @@ export interface PendingUpload {
   error: string | null;
 }
 
-const REBUILD_NOTE = 'El sitio se está regenerando.';
-const NOTICES = {
-  photo: { added: 'Foto agregada.', deleted: 'Foto eliminada.' },
-  video: { added: 'Video agregado.', deleted: 'Video eliminado.' },
-} as const;
-
-const errorText = (caught: unknown): string => (caught instanceof Error ? caught.message : 'Error desconocido.');
+const errorText = (caught: unknown, { t }: I18n): string =>
+  caught instanceof Error ? caught.message : t('error.unknownSentence');
 
 /** Qué sigue después del chequeo local: subir ya, abrir el editor (videos) o nada (rechazado, el error ya está). */
 type PrecheckOutcome = 'upload' | 'edit' | 'rejected';
@@ -46,9 +43,12 @@ const mediaRefOf = ({ media, video }: PendingUpload): HeroMediaRef | null =>
 /**
  * Estado de la galería del hero: ítems guardados, archivos en curso y las llamadas a la API.
  * Las acciones que guardan o borran rechazan con el error de la API para que la tarjeta lo muestre;
- * antes avisan a `onError`, que se ocupa de la sesión vencida.
+ * antes avisan a `onError`, que se ocupa de la sesión vencida. Los mensajes quedan en el idioma de la interfaz del
+ * momento en que se produjeron (no se retraducen si se cambia de idioma con una subida en curso).
  */
 export function useHeroImages(onError: (error: unknown) => boolean) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const [images, setImages] = useState<HeroImage[]>([]);
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,9 +72,10 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
       .listHeroImages()
       .then((list) => setImages(inUploadOrder(list)))
       .catch((caught: unknown) => {
-        if (!onError(caught)) setLoadError(`No se pudieron cargar las fotos y videos del hero: ${errorText(caught)}`);
+        if (!onError(caught)) setLoadError(t('hero.loadError', { error: errorText(caught, i18n) }));
       })
       .finally(() => setLoading(false));
+    // Sin `i18n`: cambiar el idioma no vuelve a pedir la galería.
   }, [onError]);
 
   useEffect(() => {
@@ -113,18 +114,21 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
     [onError],
   );
 
+  /** `describe` envuelve el error con su contexto ("No se pudo consultar…: {error}"); sin él, va el error solo. */
   const failUnlessHandled = useCallback(
-    (key: number, caught: unknown, prefix = ''): void => {
-      if (mounted.current && !onError(caught)) patchPending(key, { status: 'failed', error: prefix + errorText(caught) });
+    (key: number, caught: unknown, describe = (error: string) => error): void => {
+      if (mounted.current && !onError(caught)) {
+        patchPending(key, { status: 'failed', error: describe(errorText(caught, i18n)) });
+      }
     },
-    [onError],
+    [onError, i18n],
   );
 
   // Refleja el estado del video y, mientras la API lo procesa, vuelve a consultar con espera creciente.
   const trackVideo = useCallback(
     function track(key: number, video: VideoAsset, attempt: number): void {
       if (!mounted.current || dropped.current.has(key)) return;
-      const progress = videoProgress(video);
+      const progress = videoProgress(video, i18n);
       patchPending(key, { ...progress, video, warnings: video.warnings });
       if (progress.status !== 'processing') return;
 
@@ -132,12 +136,12 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
         pollTimers.current.delete(key);
         api.getVideo(video.id).then(
           (next) => track(key, next, attempt + 1),
-          (caught: unknown) => failUnlessHandled(key, caught, 'No se pudo consultar el estado del video: '),
+          (caught: unknown) => failUnlessHandled(key, caught, (error) => t('hero.pollError', { error })),
         );
       }, pollDelay(attempt));
       pollTimers.current.set(key, timer);
     },
-    [failUnlessHandled],
+    [failUnlessHandled, i18n, t],
   );
 
   /*
@@ -145,27 +149,30 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
    * cambio, abre el editor (S13) aunque dure más de 15 s. Si el navegador no puede leer el archivo (o la duración
    * de un WebM grabado en el navegador), se sube tal cual y decide la API con sus defaults de L19.
    */
-  const precheck = useCallback(async (key: number, file: File, kind: HeroMediaKind): Promise<PrecheckOutcome> => {
-    const dimensions = await readDimensions(file, kind);
-    if (!dimensions) return 'upload';
-    const reject = (error: string): PrecheckOutcome => {
-      patchPending(key, { status: 'failed', error });
-      return 'rejected';
-    };
+  const precheck = useCallback(
+    async (key: number, file: File, kind: HeroMediaKind): Promise<PrecheckOutcome> => {
+      const dimensions = await readDimensions(file, kind);
+      if (!dimensions) return 'upload';
+      const reject = (error: string): PrecheckOutcome => {
+        patchPending(key, { status: 'failed', error });
+        return 'rejected';
+      };
 
-    const check = checkHeroSize(dimensions);
-    if (!check.ok) return reject(check.error);
-    if (check.warning) patchPending(key, { warnings: [check.warning] });
+      const check = checkHeroSize(dimensions, i18n);
+      if (!check.ok) return reject(check.error);
+      if (check.warning) patchPending(key, { warnings: [check.warning] });
 
-    const { durationSeconds } = dimensions;
-    if (kind === 'photo' || durationSeconds === undefined) return 'upload';
-    const tooShort = checkVideoDuration(durationSeconds);
-    if (tooShort) return reject(tooShort);
+      const { durationSeconds } = dimensions;
+      if (kind === 'photo' || durationSeconds === undefined) return 'upload';
+      const tooShort = checkVideoDuration(durationSeconds, i18n);
+      if (tooShort) return reject(tooShort);
 
-    filesToEdit.current.set(key, file);
-    patchPending(key, { status: 'editing', durationSeconds });
-    return 'edit';
-  }, []);
+      filesToEdit.current.set(key, file);
+      patchPending(key, { status: 'editing', durationSeconds });
+      return 'edit';
+    },
+    [i18n],
+  );
 
   const upload = useCallback(
     async (key: number, file: File, kind: HeroMediaKind, edit?: VideoEdit): Promise<void> => {
@@ -202,7 +209,7 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
             media: null,
             video: null,
             warnings: [],
-            error: kind ? null : UNSUPPORTED_FILE,
+            error: kind ? null : t('hero.unsupportedFile'),
           },
         ];
       });
@@ -217,7 +224,7 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
         });
       }
     },
-    [precheck, upload],
+    [precheck, upload, t],
   );
 
   /** Confirma el tramo y el fundido de un video del editor y lo pone en la fila de subida. */
@@ -235,24 +242,24 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
     const image = await reportingErrors(() => api.createHeroImage(ref, input));
     dropPending(pendingUpload);
     setImages((list) => [...list, image]);
-    setNotice(`${NOTICES[heroItemKind(image)].added} ${REBUILD_NOTE}`);
+    setNotice(`${t(`hero.added.${heroItemKind(image)}`)} ${t('hero.rebuilding')}`);
   };
 
   const discardPending = (pendingUpload: PendingUpload): void => {
     dropPending(pendingUpload);
-    setNotice(`Descartada: ${pendingUpload.fileName}.`);
+    setNotice(t('hero.discarded', { name: pendingUpload.fileName }));
   };
 
   const updateImage = async (id: string, input: HeroImageInput): Promise<void> => {
     const image = await reportingErrors(() => api.updateHeroImage(id, input));
     setImages((list) => list.map((current) => (current.id === id ? image : current)));
-    setNotice(`Cambios guardados. ${REBUILD_NOTE}`);
+    setNotice(`${t('hero.changesSaved')} ${t('hero.rebuilding')}`);
   };
 
   const deleteImage = async (image: HeroImage): Promise<void> => {
     await reportingErrors(() => api.deleteHeroImage(image.id));
     setImages((list) => list.filter((current) => current.id !== image.id));
-    setNotice(`${NOTICES[heroItemKind(image)].deleted} ${REBUILD_NOTE}`);
+    setNotice(`${t(`hero.deleted.${heroItemKind(image)}`)} ${t('hero.rebuilding')}`);
   };
 
   return {

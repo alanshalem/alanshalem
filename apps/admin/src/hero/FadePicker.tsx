@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import type { FadeSeconds, VideoFade } from '../api/types.ts';
-import { FADE_DURATIONS, fadeDurationLabel, FADES } from './videoEdit.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
+import { FADE_DURATIONS, fadeDurationLabel, FADES, fadeText } from './videoEdit.ts';
 
 interface Props {
   fade: VideoFade;
@@ -11,25 +12,30 @@ interface Props {
 
 /** Tipo de fundido (S14) con su explicación y duración (S15). Sin fundido, la duración no aplica y se deshabilita. */
 export function FadePicker({ fade, fadeSeconds, onFade, onFadeSeconds }: Props) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const name = useId();
 
   return (
     <div className="fade-picker">
       <fieldset className="fade-group">
-        <legend className="label">Fundido</legend>
-        {FADES.map((option) => (
-          <label key={option.value} className="fade-option">
-            <input type="radio" name={`${name}-fade`} checked={fade === option.value} onChange={() => onFade(option.value)} />
-            <span>
-              <span className="fade-option-label">{option.label}</span>
-              <span className="help">{option.description}</span>
-            </span>
-          </label>
-        ))}
+        <legend className="label">{t('fade.legend')}</legend>
+        {FADES.map((value) => {
+          const { label, description } = fadeText(value, i18n);
+          return (
+            <label key={value} className="fade-option">
+              <input type="radio" name={`${name}-fade`} checked={fade === value} onChange={() => onFade(value)} />
+              <span>
+                <span className="fade-option-label">{label}</span>
+                <span className="help">{description}</span>
+              </span>
+            </label>
+          );
+        })}
       </fieldset>
 
       <fieldset className="fade-group" disabled={fade === 'none'}>
-        <legend className="label">Duración del fundido</legend>
+        <legend className="label">{t('fade.durationLegend')}</legend>
         <div className="fade-durations">
           {FADE_DURATIONS.map((option) => (
             <label key={option.seconds} className="fade-duration">
@@ -39,7 +45,7 @@ export function FadePicker({ fade, fadeSeconds, onFade, onFadeSeconds }: Props) 
                 checked={fadeSeconds === option.seconds}
                 onChange={() => onFadeSeconds(option.seconds)}
               />
-              {option.label} {fadeDurationLabel(option.seconds)}
+              {t(option.label)} {fadeDurationLabel(option.seconds, i18n)}
             </label>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type Ref, type RefObject } from 'react';
 import type { VideoEdit } from '../api/types.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { formatSeconds, parseSeconds, sliderKeyValue, trimBounds, VIDEO_DURATION } from './videoEdit.ts';
 
 type TrimBounds = ReturnType<typeof trimBounds>;
@@ -24,6 +25,8 @@ const percent = (seconds: number, durationSeconds: number): string => `${(second
  * videoEdit.ts; acá solo se traduce puntero, teclado y texto a segundos.
  */
 export function TrimTimeline({ edit, durationSeconds, bounds, selectionSeconds, onStart, onEnd, playheadRef }: Props) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const trackRef = useRef<HTMLDivElement>(null);
   const hintId = useId();
 
@@ -37,7 +40,7 @@ export function TrimTimeline({ edit, durationSeconds, bounds, selectionSeconds, 
         <div className="trim-playhead" ref={playheadRef} aria-hidden="true" />
         <TrimHandle
           side="start"
-          label="Inicio del tramo"
+          label={t('trim.start')}
           value={edit.trimStart}
           bounds={bounds.start}
           durationSeconds={durationSeconds}
@@ -47,7 +50,7 @@ export function TrimTimeline({ edit, durationSeconds, bounds, selectionSeconds, 
         />
         <TrimHandle
           side="end"
-          label="Fin del tramo"
+          label={t('trim.end')}
           value={edit.trimEnd}
           bounds={bounds.end}
           durationSeconds={durationSeconds}
@@ -57,19 +60,18 @@ export function TrimTimeline({ edit, durationSeconds, bounds, selectionSeconds, 
         />
       </div>
       <div className="trim-scale" aria-hidden="true">
-        <span>{formatSeconds(0)} s</span>
-        <span>{formatSeconds(durationSeconds)} s</span>
+        <span>{formatSeconds(0, i18n)} s</span>
+        <span>{formatSeconds(durationSeconds, i18n)} s</span>
       </div>
       <p className="help" id={hintId}>
-        Flechas: 0,1 s; con Shift, 1 s. El tramo dura entre {VIDEO_DURATION.minSeconds} y {VIDEO_DURATION.maxSeconds} s:
-        si una manija lo pasa, la otra la acompaña.
+        {t('trim.hint', { min: VIDEO_DURATION.minSeconds, max: VIDEO_DURATION.maxSeconds })}
       </p>
       <div className="trim-fields">
-        <SecondsField label="Inicio (s)" value={edit.trimStart} onCommit={onStart} />
-        <SecondsField label="Fin (s)" value={edit.trimEnd} onCommit={onEnd} />
+        <SecondsField label={t('trim.startField')} value={edit.trimStart} onCommit={onStart} />
+        <SecondsField label={t('trim.endField')} value={edit.trimEnd} onCommit={onEnd} />
         <p className="trim-length" aria-live="polite">
-          <span className="label">Tramo</span>
-          {formatSeconds(selectionSeconds)} s
+          <span className="label">{t('trim.length')}</span>
+          {formatSeconds(selectionSeconds, i18n)} s
         </p>
       </div>
     </div>
@@ -89,6 +91,7 @@ interface HandleProps {
 
 /** Una manija: slider de WAI-ARIA con arrastre por puntero (pointer capture: sigue aunque el dedo salga de la barra). */
 function TrimHandle({ side, label, value, bounds, durationSeconds, trackRef, hintId, onChange }: HandleProps) {
+  const i18n = useUiLanguage();
   const secondsAt = (clientX: number): number => {
     const track = trackRef.current?.getBoundingClientRect();
     // Fuera de la barra da < 0 o > duración: moveTrimStart/End lo acotan.
@@ -105,7 +108,7 @@ function TrimHandle({ side, label, value, bounds, durationSeconds, trackRef, hin
       aria-valuemin={bounds.min}
       aria-valuemax={bounds.max}
       aria-valuenow={value}
-      aria-valuetext={`${formatSeconds(value)} s`}
+      aria-valuetext={`${formatSeconds(value, i18n)} s`}
       aria-describedby={hintId}
       onKeyDown={(event) => {
         const next = sliderKeyValue(event.key, event.shiftKey, value);
@@ -129,6 +132,7 @@ function TrimHandle({ side, label, value, bounds, durationSeconds, trackRef, hin
  * no mueve el tramo a 1 s en el medio. Enter no envía el formulario de la tarjeta (alt y crédito).
  */
 function SecondsField({ label, value, onCommit }: { label: string; value: number; onCommit: (seconds: number) => void }) {
+  const i18n = useUiLanguage();
   const [draft, setDraft] = useState<string | null>(null);
 
   const commit = (): void => {
@@ -142,7 +146,7 @@ function SecondsField({ label, value, onCommit }: { label: string; value: number
       <span className="label">{label}</span>
       <input
         inputMode="decimal"
-        value={draft ?? formatSeconds(value)}
+        value={draft ?? formatSeconds(value, i18n)}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onKeyDown={(event) => {

@@ -1,9 +1,10 @@
 import type { HeroImage, HeroImageInput, MediaAsset } from '../api/types.ts';
-import { cleanOptional } from '../settings/validate.ts';
+import type { I18n, MessageKey } from '../i18n/i18n.ts';
+import { cleanOptional, tooLongMessage } from '../settings/validate.ts';
 
 /*
  * Reglas puras de una foto del hero, espejo del contrato de la API (L10): sirven para avisar antes de enviar.
- * La API sigue siendo la autoridad y sus errores (ProblemDetails) se muestran igual.
+ * La API sigue siendo la autoridad y sus errores (ProblemDetails) se muestran igual. Los textos, del `I18n` recibido.
  */
 
 const ALT_MAX = 300;
@@ -31,24 +32,22 @@ export const toHeroImageFields = (saved?: HeroImageInput): HeroImageFields => ({
 });
 
 /** Valida todos los campos a la vez (para marcarlos juntos) y devuelve el cuerpo listo para el POST/PUT. */
-export function validateHeroImage(fields: HeroImageFields): HeroImageValidation {
+export function validateHeroImage(fields: HeroImageFields, i18n: I18n): HeroImageValidation {
   const errors: HeroImageErrors = {};
-  const optional = (key: 'credit' | 'altEn' | 'creditEn', what: string): string | null => {
+  const optional = (key: 'credit' | 'altEn' | 'creditEn', subject: MessageKey): string | null => {
     const value = cleanOptional(fields[key]);
     if (value !== null && value.length > HERO_IMAGE_LIMITS[key]) {
-      errors[key] = `${what} no puede superar ${HERO_IMAGE_LIMITS[key]} caracteres.`;
+      errors[key] = tooLongMessage(i18n, subject, HERO_IMAGE_LIMITS[key]);
     }
     return value;
   };
 
   const alt = fields.alt.trim();
-  if (alt === '') errors.alt = 'El texto alternativo es obligatorio.';
-  else if (alt.length > HERO_IMAGE_LIMITS.alt) {
-    errors.alt = `El texto alternativo no puede superar ${HERO_IMAGE_LIMITS.alt} caracteres.`;
-  }
-  const credit = optional('credit', 'El crédito');
-  const altEn = optional('altEn', 'El texto alternativo en inglés');
-  const creditEn = optional('creditEn', 'El crédito en inglés');
+  if (alt === '') errors.alt = i18n.t('hero.altRequired');
+  else if (alt.length > HERO_IMAGE_LIMITS.alt) errors.alt = tooLongMessage(i18n, 'subject.alt', HERO_IMAGE_LIMITS.alt);
+  const credit = optional('credit', 'subject.credit');
+  const altEn = optional('altEn', 'subject.altEn');
+  const creditEn = optional('creditEn', 'subject.creditEn');
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return { ok: true, input: { alt, credit, altEn, creditEn } };

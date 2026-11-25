@@ -1,3 +1,4 @@
+import type { I18n } from '../i18n/i18n.ts';
 import { VIDEO_DURATION } from './videoEdit.ts';
 
 /*
@@ -29,32 +30,21 @@ const formatSize = ({ width, height }: Size): string => `${width}×${height}`;
 
 const IDEAL = formatSize(HERO_SIZE.ideal);
 
-export const HERO_GUIDANCE =
-  `Ideal: ${IDEAL} o más, horizontal 16:9. ` +
-  `Videos: de ${VIDEO_DURATION.minSeconds} a ${VIDEO_DURATION.maxSeconds} segundos (antes de subir elegís el tramo); ` +
-  'se les quita el audio.';
+/** La guía que se ve junto a "Subir", armada con los mismos números que las reglas. */
+export const heroGuidance = (i18n: I18n): string =>
+  i18n.t('hero.guidance', { ideal: IDEAL, min: VIDEO_DURATION.minSeconds, max: VIDEO_DURATION.maxSeconds });
 
 const isBelow = (size: Size, limit: Size): boolean => size.width < limit.width || size.height < limit.height;
 
 /** Primero el formato, después el tamaño: el error más útil para elegir otro archivo. */
-export function checkHeroSize(dimensions: MediaDimensions): HeroSizeCheck {
-  const received = formatSize(dimensions);
+export function checkHeroSize(dimensions: MediaDimensions, i18n: I18n): HeroSizeCheck {
+  const sizes = { received: formatSize(dimensions), ideal: IDEAL, min: formatSize(HERO_SIZE.min) };
 
   if (dimensions.width < HERO_SIZE.minAspect * dimensions.height) {
-    return {
-      ok: false,
-      error: `Formato vertical o cuadrado (${received}): el hero necesita uno horizontal. Ideal: ${IDEAL} (16:9).`,
-    };
+    return { ok: false, error: i18n.t('hero.notLandscape', sizes) };
   }
-  if (isBelow(dimensions, HERO_SIZE.min)) {
-    return {
-      ok: false,
-      error: `Tamaño insuficiente (${received}): el mínimo es ${formatSize(HERO_SIZE.min)}. Ideal: ${IDEAL} o más.`,
-    };
-  }
+  if (isBelow(dimensions, HERO_SIZE.min)) return { ok: false, error: i18n.t('hero.tooSmall', sizes) };
 
-  const warning = isBelow(dimensions, HERO_SIZE.ideal)
-    ? `Mide ${received}, menos que lo ideal (${IDEAL}): puede perder nitidez en pantallas grandes.`
-    : null;
+  const warning = isBelow(dimensions, HERO_SIZE.ideal) ? i18n.t('hero.belowIdeal', sizes) : null;
   return { ok: true, warning };
 }

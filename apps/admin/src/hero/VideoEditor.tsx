@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { VideoEdit } from '../api/types.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { FadePicker } from './FadePicker.tsx';
 import { TrimTimeline } from './TrimTimeline.tsx';
 import { usePrefersReducedMotion, useRangePreview } from './useRangePreview.ts';
@@ -13,18 +14,13 @@ interface Props {
   onConfirm: (edit: VideoEdit) => void;
 }
 
-const APPROXIMATION_NOTE =
-  'Vista previa aproximada en el navegador. El resultado real (recortado y con el fundido) aparece al terminar el ' +
-  'proceso, antes de guardar.';
-const REDUCED_MOTION_NOTE =
-  'Tu sistema pide reducir el movimiento: la vista previa no arranca sola ni anima el fundido. El resultado real ' +
-  'aparece al terminar el proceso, antes de guardar.';
-
 /**
  * Paso previo a subir un video (S13–S15): elegir el tramo y el fundido sobre el archivo local. El servidor recorta y
  * aplica el fundido al procesar (L19); esto solo elige los parámetros y da una idea del resultado.
  */
 export function VideoEditor({ src, durationSeconds, onConfirm }: Props) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const editor = useVideoEditor(durationSeconds);
   const reducedMotion = usePrefersReducedMotion();
   const animate = !reducedMotion;
@@ -37,7 +33,7 @@ export function VideoEditor({ src, durationSeconds, onConfirm }: Props) {
       <div className="video-editor-main">
         {/* Un label y no un heading: el editor va antes del título (h3) de la tarjeta y rompería el orden. */}
         <p id={`${id}-title`} className="label">
-          Recorte y fundido
+          {t('video.editorTitle')}
         </p>
         <div className="video-editor-stage">
           {/* Mudo y en línea: es lo que permite el autoplay; el archivo final tampoco tiene audio. */}
@@ -48,7 +44,7 @@ export function VideoEditor({ src, durationSeconds, onConfirm }: Props) {
             playsInline
             autoPlay={animate}
             preload="auto"
-            aria-label="Vista previa del tramo elegido"
+            aria-label={t('video.previewLabel')}
             {...preview.playbackEvents}
           />
           {edit.fade === 'loop' && animate && (
@@ -58,9 +54,9 @@ export function VideoEditor({ src, durationSeconds, onConfirm }: Props) {
         </div>
         <div className="video-editor-bar">
           <button type="button" className="ghost" onClick={preview.togglePlay}>
-            {preview.playing ? 'Pausar' : 'Reproducir'}
+            {preview.playing ? t('video.pause') : t('video.play')}
           </button>
-          <p className="help">{animate ? APPROXIMATION_NOTE : REDUCED_MOTION_NOTE}</p>
+          <p className="help">{animate ? t('video.approximationNote') : t('video.reducedMotionNote')}</p>
         </div>
         <TrimTimeline
           edit={edit}
@@ -75,7 +71,7 @@ export function VideoEditor({ src, durationSeconds, onConfirm }: Props) {
 
       <div className="video-editor-side">
         <FadePicker fade={edit.fade} fadeSeconds={edit.fadeSeconds} onFade={editor.setFade} onFadeSeconds={editor.setFadeSeconds} />
-        {reducedMotion && <p className="field-warning">{fadeExplanation(edit)}</p>}
+        {reducedMotion && <p className="field-warning">{fadeExplanation(edit, i18n)}</p>}
         {editor.error && (
           <p id={`${id}-error`} className="field-error" role="alert">
             {editor.error}
@@ -89,7 +85,7 @@ export function VideoEditor({ src, durationSeconds, onConfirm }: Props) {
             aria-describedby={editor.error ? `${id}-error` : undefined}
             onClick={() => onConfirm(edit)}
           >
-            Subir video
+            {t('video.upload')}
           </button>
         </div>
       </div>

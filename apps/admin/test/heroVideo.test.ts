@@ -6,11 +6,13 @@ import {
   heroMediaKind,
   pollDelay,
   previewSourceUrl,
-  UNSUPPORTED_FILE,
   VIDEO_ACCEPT,
-  VIDEO_FAILED,
   videoProgress,
 } from '../src/hero/heroVideo.ts';
+import { i18nFor } from '../src/i18n/i18n.ts';
+
+const es = i18nFor('es');
+const en = i18nFor('en');
 
 /* Videos del hero (L13): a qué flujo va cada archivo, cada cuánto consultar el proceso y qué fuente previsualizar. */
 
@@ -45,7 +47,6 @@ describe('heroMediaKind: la subida se reparte por tipo MIME', () => {
 
   it('otros tipos no son del hero', () => {
     assert.equal(heroMediaKind({ type: 'application/pdf', name: 'a.pdf' }), null);
-    assert.match(UNSUPPORTED_FILE, /^Formato no soportado/);
   });
 
   it('el accept del input lista los MIME y las extensiones de video de L13', () => {
@@ -71,16 +72,23 @@ describe('pollDelay: espera creciente con tope', () => {
 
 describe('videoProgress: estado del archivo pendiente según el video', () => {
   it('processing y ready', () => {
-    assert.deepEqual(videoProgress(video({ status: 'processing' })), { status: 'processing', error: null });
-    assert.deepEqual(videoProgress(video({ status: 'ready' })), { status: 'uploaded', error: null });
+    assert.deepEqual(videoProgress(video({ status: 'processing' }), es), { status: 'processing', error: null });
+    assert.deepEqual(videoProgress(video({ status: 'ready' }), es), { status: 'uploaded', error: null });
   });
 
   it('failed: el error de la API o, si no vino, uno genérico', () => {
-    assert.deepEqual(videoProgress(video({ status: 'failed', error: 'ffmpeg: códec no soportado' })), {
+    assert.deepEqual(videoProgress(video({ status: 'failed', error: 'ffmpeg: códec no soportado' }), es), {
       status: 'failed',
       error: 'ffmpeg: códec no soportado',
     });
-    assert.deepEqual(videoProgress(video({ status: 'failed', error: null })), { status: 'failed', error: VIDEO_FAILED });
+    assert.deepEqual(videoProgress(video({ status: 'failed', error: null }), es), {
+      status: 'failed',
+      error: 'No se pudo procesar el video.',
+    });
+    assert.deepEqual(videoProgress(video({ status: 'failed', error: null }), en), {
+      status: 'failed',
+      error: 'Couldn’t process the video.',
+    });
   });
 });
 

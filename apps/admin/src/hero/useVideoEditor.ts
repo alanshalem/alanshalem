@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { FadeSeconds, VideoEdit, VideoFade } from '../api/types.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import {
   defaultEdit,
   endingPreviewTime,
@@ -23,6 +24,7 @@ interface EditorState {
 
 /** Estado del editor de recorte y fundido de un video local (L19). Las reglas viven en videoEdit.ts. */
 export function useVideoEditor(durationSeconds: number) {
+  const i18n = useUiLanguage();
   const [{ edit, cue }, setState] = useState((): EditorState => {
     const initial = defaultEdit(durationSeconds);
     return { edit: initial, cue: { seconds: previewLoopStart(initial) } };
@@ -39,7 +41,7 @@ export function useVideoEditor(durationSeconds: number) {
     cue,
     bounds: trimBounds(durationSeconds),
     selectionSeconds: selectionSeconds(edit),
-    error: validateEdit(edit, durationSeconds),
+    error: validateEdit(edit, durationSeconds, i18n),
     setStart: (seconds: number) => change((current) => moveTrimStart(current, seconds, durationSeconds), previewLoopStart),
     setEnd: (seconds: number) => change((current) => moveTrimEnd(current, seconds, durationSeconds), endingPreviewTime),
     setFade: (fade: VideoFade) => change((current) => ({ ...current, fade }), endingPreviewTime),

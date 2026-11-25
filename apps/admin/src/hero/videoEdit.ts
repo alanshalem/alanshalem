@@ -1,9 +1,11 @@
 import type { FadeSeconds, VideoEdit, VideoFade } from '../api/types.ts';
+import type { I18n, MessageKey } from '../i18n/i18n.ts';
 
 /*
  * Reglas puras del editor de recorte y fundido (L19, S12–S15), espejo de la validación de la API: el tramo, el
  * teclado de las manijas, la vista previa aproximada y los textos. Todo en segundos del archivo original y en
- * décimas, que es la resolución que ve y mueve el usuario. La API sigue siendo la autoridad.
+ * décimas, que es la resolución que ve y mueve el usuario. La API sigue siendo la autoridad. Los textos y la coma
+ * o el punto decimal salen del `I18n` recibido.
  */
 
 /** Lo que puede durar el tramo elegido (S12). */
@@ -12,20 +14,19 @@ export const VIDEO_DURATION = { minSeconds: 1, maxSeconds: 15 } as const;
 /** Flechas: una décima; con Shift (o PageUp/PageDown), un segundo. */
 const TIME_STEP = { fine: 0.1, coarse: 1 } as const;
 
-// Un texto por cada VideoFade: el Record obliga a que no falte ninguno si la API suma otro.
-const FADE_TEXT = {
-  loop: { label: 'Loop perfecto', description: 'El final se funde con el principio: vuelve a empezar sin salto.' },
-  black: { label: 'Desde y hacia negro', description: 'Aparece desde negro al empezar y se va a negro al terminar.' },
-  none: { label: 'Sin fundido', description: 'Corte directo: al terminar vuelve a empezar tal cual.' },
-} as const satisfies Record<VideoFade, { label: string; description: string }>;
-
 /** Las opciones del selector, en el orden de L19 (la primera es la de por defecto). */
-export const FADES = (['loop', 'black', 'none'] as const).map((value) => ({ value, ...FADE_TEXT[value] }));
+export const FADES: readonly VideoFade[] = ['loop', 'black', 'none'];
 
-export const FADE_DURATIONS: readonly { seconds: FadeSeconds; label: string }[] = [
-  { seconds: 0.5, label: 'Corto' },
-  { seconds: 1, label: 'Medio' },
-  { seconds: 2, label: 'Largo' },
+/** Nombre y explicación de un fundido. La clave sale del tipo: si la API suma un VideoFade, falta su texto y no compila. */
+export const fadeText = (fade: VideoFade, i18n: I18n): { label: string; description: string } => ({
+  label: i18n.t(`fade.${fade}.label`),
+  description: i18n.t(`fade.${fade}.description`),
+});
+
+export const FADE_DURATIONS: readonly { seconds: FadeSeconds; label: MessageKey }[] = [
+  { seconds: 0.5, label: 'fade.duration.short' },
+  { seconds: 1, label: 'fade.duration.medium' },
+  { seconds: 2, label: 'fade.duration.long' },
 ];
 
 const DEFAULT_FADE = { fade: 'loop', fadeSeconds: 1 } as const satisfies Pick<VideoEdit, 'fade' | 'fadeSeconds'>;
@@ -41,22 +42,19 @@ const floorTenth = (seconds: number): number => Math.floor(seconds * 10 + 1e-6) 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
 const clamp01 = (value: number): number => clamp(value, 0, 1);
 
-const amount = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 });
-const handleValue = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+/** Segundos como los muestran las manijas y los campos: siempre una décima ("2,0" / "2.0"). */
+export const formatSeconds = (seconds: number, i18n: I18n): string => i18n.formatNumber(seconds, 1);
 
-/** Segundos como los muestran las manijas y los campos: siempre una décima ("2,0"). */
-export const formatSeconds = (seconds: number): string => handleValue.format(seconds);
+/** Duración de fundido como la dicen las opciones ("0,5 s", "1 s"); "s" es el símbolo, igual en los dos idiomas. */
+export const fadeDurationLabel = (seconds: number, i18n: I18n): string => `${i18n.formatNumber(seconds)} s`;
 
-/** Duración de fundido como la dicen las opciones ("0,5 s", "1 s"). */
-export const fadeDurationLabel = (seconds: number): string => `${amount.format(seconds)} s`;
-
-/** Posición en el video, m:ss y la décima solo si la hay ("0:02", "0:02,5"). */
-export function formatClock(seconds: number): string {
+/** Posición en el video, m:ss y la décima solo si la hay ("0:02", "0:02,5" / "0:02.5"). */
+export function formatClock(seconds: number, i18n: I18n): string {
   const tenths = toTenths(seconds);
   const minutes = Math.floor(tenths / 600);
   const rest = tenths - minutes * 600;
-  const tenth = rest % 10;
-  return `${minutes}:${String(Math.floor(rest / 10)).padStart(2, '0')}${tenth ? `,${tenth}` : ''}`;
+  // El formato del idioma pone la coma o el punto; el cero de adelante completa los dos dígitos de "ss".
+  return `${minutes}:${rest < 100 ? '0' : ''}${i18n.formatNumber(rest / 10)}`;
 }
 
 /** Lo que escribe el usuario en los campos de inicio y fin: acepta coma o punto. */
@@ -66,9 +64,9 @@ export function parseSeconds(text: string): number | null {
 }
 
 /** Lo único que el recorte no arregla (el tamaño se chequea antes, con la regla del hero). */
-export function checkVideoDuration(durationSeconds: number): string | null {
+export function checkVideoDuration(durationSeconds: number, i18n: I18n): string | null {
   return durationSeconds < VIDEO_DURATION.minSeconds
-    ? `Dura ${amount.format(durationSeconds)} s: el mínimo es ${VIDEO_DURATION.minSeconds} s.`
+    ? i18n.t('video.tooShort', { seconds: durationSeconds, min: VIDEO_DURATION.minSeconds })
     : null;
 }
 
@@ -138,45 +136,40 @@ export function sliderKeyValue(key: string, shiftKey: boolean, value: number): n
 
 export const selectionSeconds = ({ trimStart, trimEnd }: VideoEdit): number => roundTenth(trimEnd - trimStart);
 
-// Por qué un fundido necesita el doble de su duración, según el tipo (S15: el usuario elige y tiene que entenderlo).
-const FADE_NEEDS: Record<Exclude<VideoFade, 'none'>, (seconds: string) => string> = {
-  black: (seconds) => `entra en ${seconds} desde negro y sale en ${seconds} a negro`,
-  loop: (seconds) => `el final se funde con el principio, ${seconds} de cada lado`,
-};
-
 /** El mismo orden y los mismos límites que la API (L19); `null` = se puede subir. */
-export function validateEdit(edit: VideoEdit, durationSeconds: number): string | null {
+export function validateEdit(edit: VideoEdit, durationSeconds: number, i18n: I18n): string | null {
   const length = selectionSeconds(edit);
   if (length < VIDEO_DURATION.minSeconds) {
-    return `El tramo dura ${amount.format(length)} s: el mínimo es ${VIDEO_DURATION.minSeconds} s.`;
+    return i18n.t('video.trimTooShort', { seconds: length, min: VIDEO_DURATION.minSeconds });
   }
   if (length > VIDEO_DURATION.maxSeconds) {
-    return `El tramo dura ${amount.format(length)} s: el máximo es ${VIDEO_DURATION.maxSeconds} s.`;
+    return i18n.t('video.trimTooLong', { seconds: length, max: VIDEO_DURATION.maxSeconds });
   }
   if (edit.trimStart < 0 || edit.trimEnd > durationSeconds) {
-    return `El tramo tiene que estar dentro del video (0 a ${amount.format(durationSeconds)} s).`;
+    return i18n.t('video.trimOutside', { duration: durationSeconds });
   }
   if (edit.fade !== 'none' && edit.fadeSeconds * 2 > length) {
-    const seconds = fadeDurationLabel(edit.fadeSeconds);
-    return (
-      `Un fundido de ${seconds} necesita un tramo de al menos ${fadeDurationLabel(edit.fadeSeconds * 2)}: ` +
-      `${FADE_NEEDS[edit.fade](seconds)}. Este dura ${amount.format(length)} s; alargalo o elegí un fundido más corto.`
-    );
+    // Explica por qué necesita el doble, según el tipo (S15: el usuario elige y tiene que entenderlo).
+    return i18n.t(`video.fadeTooLong.${edit.fade}`, {
+      fade: fadeDurationLabel(edit.fadeSeconds, i18n),
+      needed: fadeDurationLabel(edit.fadeSeconds * 2, i18n),
+      length,
+    });
   }
   return null;
 }
 
 /** El chip de un video procesado: "0:02–0:15 · Loop perfecto 1 s". */
-export function editSummary(edit: VideoEdit): string {
-  const { label } = FADE_TEXT[edit.fade];
-  const fade = edit.fade === 'none' ? label : `${label} ${fadeDurationLabel(edit.fadeSeconds)}`;
-  return `${formatClock(edit.trimStart)}–${formatClock(edit.trimEnd)} · ${fade}`;
+export function editSummary(edit: VideoEdit, i18n: I18n): string {
+  const { label } = fadeText(edit.fade, i18n);
+  const fade = edit.fade === 'none' ? label : `${label} ${fadeDurationLabel(edit.fadeSeconds, i18n)}`;
+  return `${formatClock(edit.trimStart, i18n)}–${formatClock(edit.trimEnd, i18n)} · ${fade}`;
 }
 
 /** Lo que se muestra en lugar de animar el fundido cuando el sistema pide reducir el movimiento. */
-export function fadeExplanation(edit: VideoEdit): string {
-  const { label, description } = FADE_TEXT[edit.fade];
-  const title = edit.fade === 'none' ? label : `${label} (${fadeDurationLabel(edit.fadeSeconds)})`;
+export function fadeExplanation(edit: VideoEdit, i18n: I18n): string {
+  const { label, description } = fadeText(edit.fade, i18n);
+  const title = edit.fade === 'none' ? label : `${label} (${fadeDurationLabel(edit.fadeSeconds, i18n)})`;
   return `${title}. ${description}`;
 }
 
