@@ -91,7 +91,7 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
         await posts.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("El post no existe.");
 
     private static PostContent ToContent(SavePostRequest request) =>
-        PostContent.Create(request.Title, request.Slug, request.Summary, request.Body, request.Tags);
+        PostContent.Create(request.Title, request.Slug, request.Summary, request.Body, request.Tags, request.CoverUrl, request.CoverAlt);
 
     private async Task EnsureSlugIsFreeAsync(string slug, Guid? excludingId, CancellationToken cancellationToken)
     {

@@ -7,5 +7,10 @@
     <!-- Trae Options, Logging, DI y IHttpClientFactory sin sumar paquetes sueltos. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <!-- Solo para dotnet-ef (generar migraciones). PrivateAssets: no viaja a la API publicada. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

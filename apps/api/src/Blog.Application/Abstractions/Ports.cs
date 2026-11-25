@@ -23,6 +23,17 @@ public interface IPostRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>Persistencia de los ajustes del sitio (una sola fila). La implementa Infrastructure.</summary>
+public interface ISiteSettingsRepository
+{
+    /// <summary>La fila guardada, o null si todavía no se guardó nada desde el admin.</summary>
+    Task<SiteSettings?> GetAsync(CancellationToken cancellationToken);
+
+    void Add(SiteSettings settings);
+
+    Task SaveChangesAsync(CancellationToken cancellationToken);
+}
+
 public interface IClock
 {
     DateTime UtcNow { get; }

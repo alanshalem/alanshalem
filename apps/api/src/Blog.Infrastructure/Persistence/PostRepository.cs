@@ -22,7 +22,8 @@ internal sealed class PostRepository(BlogDbContext db) : IPostRepository
         await db.Posts
             .AsNoTracking()
             .OrderByDescending(post => post.UpdatedAtUtc)
-            .Select(post => new PostSummaryDto(post.Id, post.Slug, post.Title, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc))
+            .Select(post => new PostSummaryDto(
+                post.Id, post.Slug, post.Title, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc, post.CoverUrl, post.CoverAlt))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Post>> ListPublishedAsync(CancellationToken cancellationToken) =>

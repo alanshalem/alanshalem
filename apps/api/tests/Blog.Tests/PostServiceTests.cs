@@ -21,7 +21,8 @@ public class PostServiceTests
         public Task<IReadOnlyList<PostSummaryDto>> ListSummariesAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<PostSummaryDto>>(Items
                 .OrderByDescending(post => post.UpdatedAtUtc)
-                .Select(post => new PostSummaryDto(post.Id, post.Slug, post.Title, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc))
+                .Select(post => new PostSummaryDto(
+                    post.Id, post.Slug, post.Title, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc, post.CoverUrl, post.CoverAlt))
                 .ToList());
 
         public Task<IReadOnlyList<Post>> ListPublishedAsync(CancellationToken cancellationToken) =>
@@ -32,22 +33,6 @@ public class PostServiceTests
         public void Remove(Post post) => Items.Remove(post);
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-    }
-
-    private sealed class FixedClock : IClock
-    {
-        public DateTime UtcNow { get; } = new(2026, 11, 25, 12, 0, 0, DateTimeKind.Utc);
-    }
-
-    private sealed class CountingBuildTrigger : ISiteBuildTrigger
-    {
-        public int Requests { get; private set; }
-
-        public Task RequestBuildAsync(CancellationToken cancellationToken)
-        {
-            Requests++;
-            return Task.CompletedTask;
-        }
     }
 
     private readonly InMemoryPostRepository _repository = new();
@@ -167,5 +152,36 @@ public class PostServiceTests
     {
         await Assert.ThrowsAsync<DomainException>(() => _service.CreateAsync(Request("   "), default));
         Assert.Empty(_repository.Items);
+    }
+
+    [Fact]
+    public async Task The_cover_travels_through_create_get_list_and_the_published_list()
+    {
+        var created = await _service.CreateAsync(new SavePostRequest("Hola", null, null, "cuerpo", null, "/media/a.png", "Alt"), default);
+        await _service.PublishAsync(created.Id, default);
+
+        var loaded = await _service.GetAsync(created.Id, default);
+        var summary = Assert.Single(await _service.ListAsync(default));
+        var published = Assert.Single(await _service.ListPublishedAsync(default));
+
+        Assert.Equal(("/media/a.png", "Alt"), (created.CoverUrl, created.CoverAlt));
+        Assert.Equal(("/media/a.png", "Alt"), (loaded.CoverUrl, loaded.CoverAlt));
+        Assert.Equal(("/media/a.png", "Alt"), (summary.CoverUrl, summary.CoverAlt));
+        Assert.Equal(("/media/a.png", "Alt"), (published.CoverUrl, published.CoverAlt));
+    }
+
+    [Fact]
+    public async Task An_unsafe_cover_is_rejected_and_the_post_stays_as_it_was()
+    {
+        var created = await _service.CreateAsync(new SavePostRequest("Hola", null, null, "cuerpo", null, "/media/a.png", "Alt"), default);
+        await _service.PublishAsync(created.Id, default);
+        var before = await _service.GetAsync(created.Id, default);
+        var buildsBefore = _build.Requests;
+
+        await Assert.ThrowsAsync<DomainException>(() => _service.UpdateAsync(
+            created.Id, new SavePostRequest("Cambiado", null, null, "otro", null, "javascript:alert(1)", "x"), default));
+
+        Assert.Equal(before, await _service.GetAsync(created.Id, default));
+        Assert.Equal(buildsBefore, _build.Requests);
     }
 }

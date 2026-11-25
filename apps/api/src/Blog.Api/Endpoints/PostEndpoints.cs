@@ -45,9 +45,12 @@ public static class PostEndpoints
             })
             .DisableAntiforgery();
 
+        admin.MapAdminSettingsEndpoints();
+
         // ----- Interno: lo consume el builder de Astro, con token. Caddy no lo expone hacia afuera. -----
         app.MapGet("/api/internal/posts", (PostService service, CancellationToken ct) => service.ListPublishedAsync(ct))
             .AddEndpointFilter<BuilderTokenFilter>();
+        app.MapInternalSettingsEndpoints();
 
         return app;
     }

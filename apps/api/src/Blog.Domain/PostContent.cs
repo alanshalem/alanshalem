@@ -4,15 +4,32 @@ namespace Blog.Domain;
 /// El contenido editable de un post, ya validado y normalizado.
 /// Es el único camino para crear o modificar un post: si existe una instancia, es válida.
 /// </summary>
-public sealed record PostContent(string Title, string Slug, string Summary, string Body, IReadOnlyList<string> Tags)
+public sealed record PostContent(
+    string Title,
+    string Slug,
+    string Summary,
+    string Body,
+    IReadOnlyList<string> Tags,
+    string? CoverUrl = null,
+    string? CoverAlt = null)
 {
     public const int MaxTitleLength = 200;
     public const int MaxSummaryLength = 400;
     public const int MaxBodyLength = 500_000;
     public const int MaxTags = 10;
     public const int MaxTagLength = 40;
+    public const int MaxCoverAltLength = 300;
 
-    public static PostContent Create(string? title, string? slug, string? summary, string? body, IEnumerable<string>? tags)
+    /// <param name="coverUrl">Portada opcional: ruta /media/... (subida desde el admin) o URL http(s). Vacía = sin portada.</param>
+    /// <param name="coverAlt">Texto alternativo de la portada. Vacío = null.</param>
+    public static PostContent Create(
+        string? title,
+        string? slug,
+        string? summary,
+        string? body,
+        IEnumerable<string>? tags,
+        string? coverUrl = null,
+        string? coverAlt = null)
     {
         var cleanTitle = (title ?? string.Empty).Trim();
         if (cleanTitle.Length == 0)
@@ -60,6 +77,16 @@ public sealed record PostContent(string Title, string Slug, string Summary, stri
             throw new DomainException($"Cada etiqueta puede tener hasta {MaxTagLength} caracteres.");
         }
 
-        return new PostContent(cleanTitle, cleanSlug, cleanSummary, cleanBody, cleanTags);
+        var cleanCoverUrl = OptionalText.Clean(
+            coverUrl, WebUrl.MaxLength, $"La URL de la portada no puede superar {WebUrl.MaxLength} caracteres.");
+        if (cleanCoverUrl is not null && !WebUrl.IsImageUrl(cleanCoverUrl))
+        {
+            throw new DomainException("La portada debe ser una ruta /media/... o una URL http(s).");
+        }
+
+        var cleanCoverAlt = OptionalText.Clean(
+            coverAlt, MaxCoverAltLength, $"El texto alternativo de la portada no puede superar {MaxCoverAltLength} caracteres.");
+
+        return new PostContent(cleanTitle, cleanSlug, cleanSummary, cleanBody, cleanTags, cleanCoverUrl, cleanCoverAlt);
     }
 }

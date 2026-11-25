@@ -19,6 +19,7 @@ public static class DependencyInjection
             options.UseSqlite(configuration.GetConnectionString("Blog") ?? "Data Source=data/blog.db"));
 
         services.AddScoped<IPostRepository, PostRepository>();
+        services.AddScoped<ISiteSettingsRepository, SiteSettingsRepository>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IMediaStorage, DiskMediaStorage>();
 

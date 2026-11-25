@@ -44,6 +44,9 @@ internal sealed class PostConfiguration : IEntityTypeConfiguration<Post>
             .HasConversion(TagsConverter, TagsComparer)
             .IsRequired();
 
+        builder.Property(post => post.CoverUrl).HasMaxLength(WebUrl.MaxLength);
+        builder.Property(post => post.CoverAlt).HasMaxLength(PostContent.MaxCoverAltLength);
+
         builder.Property(post => post.Status).HasConversion<string>().HasMaxLength(20);
         builder.HasIndex(post => post.Status);
 

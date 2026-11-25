@@ -6,6 +6,7 @@ using Blog.Api.Http;
 using Blog.Api.Security;
 using Blog.Application.Media;
 using Blog.Application.Posts;
+using Blog.Application.Settings;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Persistence;
@@ -54,6 +55,7 @@ builder.Services
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<MediaService>();
+builder.Services.AddScoped<SiteSettingsService>();
 
 // ---------- HTTP ----------
 builder.Services.ConfigureHttpJsonOptions(options =>

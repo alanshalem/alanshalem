@@ -17,6 +17,11 @@ public sealed class Post
     public string Body { get; private set; }
     public IReadOnlyList<string> Tags { get; private set; }
 
+    /// <summary>Portada elegida en el admin (/media/... o http(s)). Null = el sitio usa la primera imagen del cuerpo o una generativa.</summary>
+    public string? CoverUrl { get; private set; }
+
+    public string? CoverAlt { get; private set; }
+
     /// <summary>Idioma del contenido (hoy siempre "es"). Se guarda desde el día uno para poder sumar traducciones sin migrar datos.</summary>
     public string Lang { get; private set; }
 
@@ -62,6 +67,8 @@ public sealed class Post
         Summary = content.Summary;
         Body = content.Body;
         Tags = content.Tags;
+        CoverUrl = content.CoverUrl;
+        CoverAlt = content.CoverAlt;
         UpdatedAtUtc = nowUtc;
     }
 }
