@@ -1,3 +1,4 @@
+using System.Globalization;
 using Blog.Domain;
 
 namespace Blog.Application.Posts;
@@ -20,6 +21,46 @@ public sealed record SavePostRequest(
 /// <summary>Pide la versión del post en otro idioma.</summary>
 public sealed record CreateTranslationRequest(string? Lang);
 
+/// <param name="PublishAt">ISO 8601 con zona horaria (Z o ±hh:mm). Llega como texto para responder 400 en español si no se entiende.</param>
+public sealed record SchedulePostRequest(string? PublishAt)
+{
+    /// <summary>La hora pedida en UTC.</summary>
+    /// <exception cref="DomainException">Si falta o no trae zona horaria: sin ella la hora es ambigua (¿la del admin o la del servidor?).</exception>
+    public DateTime ParsePublishAtUtc()
+    {
+        if (string.IsNullOrWhiteSpace(PublishAt))
+        {
+            throw new DomainException("Indicá la fecha y hora de publicación.");
+        }
+
+        // AdjustToUniversal pasa a UTC usando el desplazamiento del texto; si no hay, el resultado queda Unspecified.
+        if (!DateTime.TryParse(PublishAt, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsed)
+            || parsed.Kind != DateTimeKind.Utc)
+        {
+            throw new DomainException("La fecha de publicación no es válida: usá ISO 8601 con zona horaria (ej. 2026-12-01T09:00:00-03:00).");
+        }
+
+        return parsed;
+    }
+}
+
+/// <summary>Una versión del historial en la lista: sin el cuerpo (el admin lo pide al abrirla).</summary>
+/// <param name="BodyLength">Caracteres del cuerpo: una pista del tamaño sin traerlo.</param>
+public sealed record PostRevisionSummaryDto(Guid Id, int Number, DateTime CreatedAt, string Title, int BodyLength);
+
+/// <summary>Una versión completa del historial: lo que el admin compara con el post actual (la comparación la hace él).</summary>
+public sealed record PostRevisionDto(
+    Guid Id,
+    int Number,
+    DateTime CreatedAt,
+    string Title,
+    string Slug,
+    string Summary,
+    string Body,
+    IReadOnlyList<string> Tags,
+    string? CoverUrl,
+    string? CoverAlt);
+
 /// <summary>Otra versión del mismo artículo (mismo grupo de traducción, otro idioma).</summary>
 public sealed record PostTranslationDto(Guid Id, string Lang, string Slug, PostStatus Status, DateTime UpdatedAt);
 
@@ -33,6 +74,7 @@ public sealed record PostSummaryDto(
     PostStatus Status,
     DateTime UpdatedAt,
     DateTime? PublishedAt,
+    DateTime? ScheduledAt,
     string? CoverUrl,
     string? CoverAlt,
     IReadOnlyList<PostTranslationDto> Translations);
@@ -51,6 +93,7 @@ public sealed record PostDto(
     DateTime CreatedAt,
     DateTime UpdatedAt,
     DateTime? PublishedAt,
+    DateTime? ScheduledAt,
     string? CoverUrl,
     string? CoverAlt,
     IReadOnlyList<PostTranslationDto> Translations);
@@ -71,9 +114,26 @@ public static class PostMapping
         post.CreatedAtUtc,
         post.UpdatedAtUtc,
         post.PublishedAtUtc,
+        post.ScheduledAtUtc,
         post.CoverUrl,
         post.CoverAlt,
         OthersThan(post.Id, versions));
+
+    public static PostRevisionDto ToDto(this PostRevision revision) => new(
+        revision.Id,
+        revision.Number,
+        revision.CreatedAtUtc,
+        revision.Title,
+        revision.Slug,
+        revision.Summary,
+        revision.Body,
+        revision.Tags,
+        revision.CoverUrl,
+        revision.CoverAlt);
+
+    /// <summary>La versión como si el admin la volviera a guardar: restaurar pasa por las mismas validaciones que editar.</summary>
+    public static SavePostRequest ToRequest(this PostRevision revision) =>
+        new(revision.Title, revision.Slug, revision.Summary, revision.Body, revision.Tags, revision.CoverUrl, revision.CoverAlt);
 
     public static PostTranslationDto ToTranslation(this Post post) =>
         new(post.Id, post.Lang, post.Slug, post.Status, post.UpdatedAtUtc);

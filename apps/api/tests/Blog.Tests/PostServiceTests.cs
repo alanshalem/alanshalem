@@ -2,6 +2,7 @@ using Blog.Application;
 using Blog.Application.Abstractions;
 using Blog.Application.Posts;
 using Blog.Domain;
+using Blog.Tests.Http;
 
 namespace Blog.Tests;
 
@@ -29,7 +30,7 @@ public class PostServiceTests
                 .OrderByDescending(post => post.UpdatedAtUtc)
                 .Select(post => new PostSummaryDto(
                     post.Id, post.Slug, post.Title, post.Lang, post.TranslationGroupId, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc,
-                    post.CoverUrl, post.CoverAlt, []))
+                    post.ScheduledAtUtc, post.CoverUrl, post.CoverAlt, []))
                 .ToList());
 
         public Task<IReadOnlyList<Post>> ListPublishedAsync(CancellationToken cancellationToken) =>
@@ -37,9 +38,39 @@ public class PostServiceTests
 
         public void Add(Post post) => Items.Add(post);
 
-        public void Remove(Post post) => Items.Remove(post);
+        public void Remove(Post post)
+        {
+            Items.Remove(post);
+            Revisions.RemoveAll(revision => revision.PostId == post.Id);
+        }
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public List<PostRevision> Revisions { get; } = [];
+
+        public Task<int> LatestRevisionNumberAsync(Guid postId, CancellationToken cancellationToken) =>
+            Task.FromResult(Revisions.Where(revision => revision.PostId == postId).Select(revision => revision.Number).DefaultIfEmpty().Max());
+
+        public void AddRevision(PostRevision revision) => Revisions.Add(revision);
+
+        public Task RemoveRevisionsBeforeAsync(Guid postId, int number, CancellationToken cancellationToken)
+        {
+            Revisions.RemoveAll(revision => revision.PostId == postId && revision.Number < number);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<PostRevisionSummaryDto>> ListRevisionsAsync(Guid postId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<PostRevisionSummaryDto>>(Revisions
+                .Where(revision => revision.PostId == postId)
+                .OrderByDescending(revision => revision.Number)
+                .Select(revision => new PostRevisionSummaryDto(revision.Id, revision.Number, revision.CreatedAtUtc, revision.Title, revision.Body.Length))
+                .ToList());
+
+        public Task<PostRevision?> GetRevisionAsync(Guid postId, Guid revisionId, CancellationToken cancellationToken) =>
+            Task.FromResult(Revisions.FirstOrDefault(revision => revision.PostId == postId && revision.Id == revisionId));
+
+        public Task<IReadOnlyList<Guid>> ListDueAsync(DateTime nowUtc, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Guid>>(Items.Where(post => post.IsDue(nowUtc)).Select(post => post.Id).ToList());
     }
 
     private readonly InMemoryPostRepository _repository = new();
@@ -377,5 +408,199 @@ public class PostServiceTests
         Assert.Empty(beforeEnglishIsPublished.Translations);
         Assert.Equal([english.Id], published[original.Id].Translations.Select(version => version.Id));
         Assert.Equal([original.Id], published[english.Id].Translations.Select(version => version.Id));
+    }
+
+    // ----- Historial de versiones -----
+
+    private Task<IReadOnlyList<PostRevisionSummaryDto>> RevisionsAsync(Guid id) => _service.ListRevisionsAsync(id, default);
+
+    private static SavePostRequest Full() => new("Hola", "hola", "Resumen", "cuerpo", ["net"], "/media/a.png", "Alt");
+
+    [Fact]
+    public async Task Creating_and_each_content_change_record_a_revision_but_no_ops_and_publishing_do_not()
+    {
+        var created = _clock.UtcNow;
+        var post = await _service.CreateAsync(Request("Hola"), default);
+        _clock.UtcNow = _clock.UtcNow.AddMinutes(1);
+
+        await _service.UpdateAsync(post.Id, Request("Hola 2", "hola"), default);
+        await _service.UpdateAsync(post.Id, Request("Hola 2", "hola"), default);
+        await _service.PublishAsync(post.Id, default);
+        await _service.UnpublishAsync(post.Id, default);
+        var translation = await _service.CreateTranslationAsync(post.Id, new CreateTranslationRequest("en"), default);
+
+        var revisions = await RevisionsAsync(post.Id);
+        Assert.Equal([(2, "Hola 2", _clock.UtcNow), (1, "Hola", created)], revisions.Select(revision => (revision.Number, revision.Title, revision.CreatedAt)));
+        Assert.Equal("cuerpo".Length, revisions[0].BodyLength);
+        Assert.Equal([1], (await RevisionsAsync(translation.Id)).Select(revision => revision.Number));
+    }
+
+    [Fact]
+    public async Task A_no_op_update_of_a_published_post_still_saves_and_rebuilds_as_before()
+    {
+        var post = await _service.CreateAsync(Request("Hola"), default);
+        await _service.PublishAsync(post.Id, default);
+        var builds = _build.Requests;
+        _clock.UtcNow = _clock.UtcNow.AddMinutes(5);
+
+        var updated = await _service.UpdateAsync(post.Id, Request("Hola", "hola"), default);
+
+        Assert.Equal(_clock.UtcNow, updated.UpdatedAt);
+        Assert.Equal(builds + 1, _build.Requests);
+        Assert.Single(await RevisionsAsync(post.Id));
+    }
+
+    [Fact]
+    public async Task Only_the_latest_revisions_are_kept_and_numbers_keep_growing()
+    {
+        var post = await _service.CreateAsync(Request("Hola"), default);
+
+        for (var number = 2; number <= PostRevision.MaxPerPost + 10; number++)
+        {
+            await _service.UpdateAsync(post.Id, Request($"Hola {number}", "hola"), default);
+        }
+
+        Assert.Equal(Enumerable.Range(11, PostRevision.MaxPerPost).Reverse(), (await RevisionsAsync(post.Id)).Select(revision => revision.Number));
+    }
+
+    [Fact]
+    public async Task GetRevision_returns_the_whole_snapshot()
+    {
+        var post = await _service.CreateAsync(Full(), default);
+        var first = Assert.Single(await RevisionsAsync(post.Id));
+
+        var revision = await _service.GetRevisionAsync(post.Id, first.Id, default);
+
+        Assert.Equal(
+            new PostRevisionDto(first.Id, 1, _clock.UtcNow, "Hola", "hola", "Resumen", "cuerpo", revision.Tags, "/media/a.png", "Alt"), revision);
+        Assert.Equal(["net"], revision.Tags);
+    }
+
+    [Fact]
+    public async Task Restore_applies_the_snapshot_as_a_normal_update_and_records_a_new_revision()
+    {
+        var post = await _service.CreateAsync(Full(), default);
+        await _service.PublishAsync(post.Id, default);
+        await _service.UpdateAsync(post.Id, new SavePostRequest("Cambiado", "cambiado", null, "otro", null), default);
+        var first = (await RevisionsAsync(post.Id))[^1];
+        var builds = _build.Requests;
+
+        var restored = await _service.RestoreRevisionAsync(post.Id, first.Id, default);
+
+        Assert.Equal(
+            ("Hola", "hola", "Resumen", "cuerpo", "/media/a.png", "Alt", PostStatus.Published),
+            (restored.Title, restored.Slug, restored.Summary, restored.Body, restored.CoverUrl, restored.CoverAlt, restored.Status));
+        Assert.Equal(["net"], restored.Tags);
+        Assert.Equal([3, 2, 1], (await RevisionsAsync(post.Id)).Select(revision => revision.Number));
+        // Es un guardado más: un post publicado pide regenerar el sitio.
+        Assert.Equal(builds + 1, _build.Requests);
+    }
+
+    [Fact]
+    public async Task A_restore_rejected_by_validation_leaves_the_post_and_its_history_unchanged()
+    {
+        var post = await _service.CreateAsync(Request("Hola"), default);
+        await _service.UpdateAsync(post.Id, Request("Hola", "nuevo"), default);
+        await _service.CreateAsync(Request("Otro", "hola"), default);
+        var history = await RevisionsAsync(post.Id);
+        var before = await _service.GetAsync(post.Id, default);
+
+        var error = await Assert.ThrowsAsync<ConflictException>(() => _service.RestoreRevisionAsync(post.Id, history[^1].Id, default));
+
+        Assert.Equal("Ya existe un post en español con el slug \"hola\".", error.Message);
+        Assert.Equivalent(before, await _service.GetAsync(post.Id, default), strict: true);
+        Assert.Equal(history, await RevisionsAsync(post.Id));
+    }
+
+    [Fact]
+    public async Task Revisions_of_an_unknown_post_and_unknown_or_foreign_revisions_are_not_found()
+    {
+        var post = await _service.CreateAsync(Request("Uno"), default);
+        var other = await _service.CreateAsync(Request("Dos"), default);
+        var foreign = Assert.Single(await RevisionsAsync(other.Id));
+
+        var noPost = await Assert.ThrowsAsync<NotFoundException>(() => _service.ListRevisionsAsync(Guid.NewGuid(), default));
+        var noRevision = await Assert.ThrowsAsync<NotFoundException>(() => _service.GetRevisionAsync(post.Id, Guid.NewGuid(), default));
+        var notItsRevision = await Assert.ThrowsAsync<NotFoundException>(() => _service.RestoreRevisionAsync(post.Id, foreign.Id, default));
+
+        Assert.Equal(("El post no existe.", "La versión no existe.", "La versión no existe."), (noPost.Message, noRevision.Message, notItsRevision.Message));
+        Assert.Equal("Uno", (await _service.GetAsync(post.Id, default)).Title);
+        Assert.Single(await RevisionsAsync(post.Id));
+    }
+
+    // ----- Publicación programada -----
+
+    [Fact]
+    public async Task Schedule_stores_the_time_in_utc_and_cancel_clears_it_without_rebuilding()
+    {
+        var post = await _service.CreateAsync(Request("Hola"), default);
+
+        var scheduled = await _service.ScheduleAsync(post.Id, new SchedulePostRequest("2026-11-26T09:00:00-03:00"), default);
+        var listed = Assert.Single(await _service.ListAsync(default));
+        var cancelled = await _service.UnscheduleAsync(post.Id, default);
+
+        Assert.Equal(new DateTime(2026, 11, 26, 12, 0, 0, DateTimeKind.Utc), scheduled.ScheduledAt);
+        Assert.Equal(DateTimeKind.Utc, scheduled.ScheduledAt!.Value.Kind);
+        Assert.Equal(scheduled.ScheduledAt, listed.ScheduledAt);
+        Assert.Null(cancelled.ScheduledAt);
+        Assert.Equal(0, _build.Requests);
+    }
+
+    [Theory]
+    [InlineData(null, ScheduleMessages.Missing)]
+    [InlineData("  ", ScheduleMessages.Missing)]
+    [InlineData("mañana", ScheduleMessages.BadFormat)]
+    [InlineData("2026-11-26T09:00:00", ScheduleMessages.BadFormat)]
+    [InlineData("2026-11-25T11:59:59Z", ScheduleMessages.Past)]
+    [InlineData("2026-11-25T09:00:00-03:00", ScheduleMessages.Past)]
+    public async Task Schedule_rejects_missing_ambiguous_or_past_times_and_keeps_the_current_one(string? publishAt, string expected)
+    {
+        var post = await _service.CreateAsync(Request("Hola"), default);
+        await _service.ScheduleAsync(post.Id, new SchedulePostRequest("2026-12-01T00:00:00Z"), default);
+        var before = await _service.GetAsync(post.Id, default);
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => _service.ScheduleAsync(post.Id, new SchedulePostRequest(publishAt), default));
+
+        Assert.Equal(expected, error.Message);
+        Assert.Equivalent(before, await _service.GetAsync(post.Id, default), strict: true);
+    }
+
+    [Fact]
+    public async Task Publishing_by_hand_clears_the_schedule_and_a_published_post_cannot_be_scheduled()
+    {
+        var post = await _service.CreateAsync(Request("Hola"), default);
+        await _service.ScheduleAsync(post.Id, new SchedulePostRequest("2026-12-01T00:00:00Z"), default);
+
+        var published = await _service.PublishAsync(post.Id, default);
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            _service.ScheduleAsync(post.Id, new SchedulePostRequest("2026-12-02T00:00:00Z"), default));
+
+        Assert.Null(published.ScheduledAt);
+        Assert.Equal(ScheduleMessages.Published, error.Message);
+        Assert.Null((await _service.GetAsync(post.Id, default)).ScheduledAt);
+    }
+
+    [Fact]
+    public async Task Only_due_drafts_are_listed_and_PublishIfDue_publishes_each_one_once_without_rebuilding()
+    {
+        var due = await _service.CreateAsync(Request("Vencido"), default);
+        var later = await _service.CreateAsync(Request("Después"), default);
+        await _service.CreateAsync(Request("Sin programar"), default);
+        await _service.ScheduleAsync(due.Id, new SchedulePostRequest("2026-11-25T13:00:00Z"), default);
+        await _service.ScheduleAsync(later.Id, new SchedulePostRequest("2026-11-27T00:00:00Z"), default);
+        _clock.UtcNow = _clock.UtcNow.AddHours(2);
+
+        Assert.Equal([due.Id], await _service.ListDueAsync(default));
+        Assert.True(await _service.PublishIfDueAsync(due.Id, default));
+        Assert.False(await _service.PublishIfDueAsync(due.Id, default));
+        Assert.False(await _service.PublishIfDueAsync(later.Id, default));
+        Assert.False(await _service.PublishIfDueAsync(Guid.NewGuid(), default));
+
+        var published = await _service.GetAsync(due.Id, default);
+        Assert.Equal((PostStatus.Published, (DateTime?)null, (DateTime?)_clock.UtcNow), (published.Status, published.ScheduledAt, published.PublishedAt));
+        Assert.Equal(PostStatus.Draft, (await _service.GetAsync(later.Id, default)).Status);
+        Assert.Empty(await _service.ListDueAsync(default));
+        // La tanda pide un solo rebuild al final (lo hace el proceso en segundo plano), no uno por post.
+        Assert.Equal(0, _build.Requests);
     }
 }

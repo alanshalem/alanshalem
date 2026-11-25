@@ -2,6 +2,7 @@ using Blog.Application.Abstractions;
 using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Media;
 using Blog.Infrastructure.Persistence;
+using Blog.Infrastructure.Scheduling;
 using Blog.Infrastructure.Videos;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +39,9 @@ public static class DependencyInjection
         services.AddSingleton<ChannelVideoQueue>();
         services.AddSingleton<IVideoQueue>(provider => provider.GetRequiredService<ChannelVideoQueue>());
         services.AddHostedService<VideoProcessingWorker>();
+
+        // Publicación programada: saca PostService (Application) del contenedor, como el worker de videos.
+        services.AddHostedService<ScheduledPublishingWorker>();
 
         // Timeout corto: guardar un post no debe quedarse esperando a un builder que no responde.
         services.AddHttpClient<ISiteBuildTrigger, HttpSiteBuildTrigger>(client => client.Timeout = TimeSpan.FromSeconds(5));

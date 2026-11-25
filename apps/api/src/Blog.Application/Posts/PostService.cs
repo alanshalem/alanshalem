@@ -3,7 +3,10 @@ using Blog.Domain;
 
 namespace Blog.Application.Posts;
 
-/// <summary>Casos de uso de posts. Cada cambio que afecta lo que ve el público dispara una regeneración del sitio.</summary>
+/// <summary>
+/// Casos de uso de posts. Cada cambio que afecta lo que ve el público dispara una regeneración del sitio, y cada guardado
+/// que cambia el contenido deja una versión en el historial.
+/// </summary>
 public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildTrigger siteBuild)
 {
     public async Task<IReadOnlyList<PostSummaryDto>> ListAsync(CancellationToken cancellationToken)
@@ -25,6 +28,7 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
         await EnsureSlugIsFreeAsync(post.Lang, post.Slug, excludingId: null, cancellationToken);
 
         posts.Add(post);
+        await RecordRevisionAsync(post, cancellationToken);
         await posts.SaveChangesAsync(cancellationToken);
 
         // Un borrador nuevo no es visible para el público: no hace falta regenerar.
@@ -42,7 +46,11 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
         var content = ToContent(request);
         await EnsureSlugIsFreeAsync(post.Lang, content.Slug, excludingId: id, cancellationToken);
 
-        post.Update(content, clock.UtcNow);
+        if (post.Update(content, clock.UtcNow))
+        {
+            await RecordRevisionAsync(post, cancellationToken);
+        }
+
         await posts.SaveChangesAsync(cancellationToken);
 
         if (post.Status == PostStatus.Published)
@@ -73,8 +81,68 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
         await EnsureSlugIsFreeAsync(translation.Lang, translation.Slug, excludingId: null, cancellationToken);
 
         posts.Add(translation);
+        await RecordRevisionAsync(translation, cancellationToken);
         await posts.SaveChangesAsync(cancellationToken);
         return translation.ToDto(versions);
+    }
+
+    /// <exception cref="NotFoundException">Si el post no existe.</exception>
+    public async Task<IReadOnlyList<PostRevisionSummaryDto>> ListRevisionsAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await FindAsync(id, cancellationToken);
+        return await posts.ListRevisionsAsync(id, cancellationToken);
+    }
+
+    public async Task<PostRevisionDto> GetRevisionAsync(Guid id, Guid revisionId, CancellationToken cancellationToken) =>
+        (await FindRevisionAsync(id, revisionId, cancellationToken)).ToDto();
+
+    /// <summary>
+    /// Vuelve el post a esa versión con un guardado normal: mismas validaciones (slug libre en su idioma, límites), mismo
+    /// rebuild si está publicado, y una versión nueva en el historial. Las versiones posteriores no se tocan.
+    /// </summary>
+    public async Task<PostDto> RestoreRevisionAsync(Guid id, Guid revisionId, CancellationToken cancellationToken)
+    {
+        var revision = await FindRevisionAsync(id, revisionId, cancellationToken);
+        return await UpdateAsync(id, revision.ToRequest(), cancellationToken);
+    }
+
+    /// <summary>Un borrador programado no se ve en el sitio hasta que se publica: no se regenera.</summary>
+    public async Task<PostDto> ScheduleAsync(Guid id, SchedulePostRequest request, CancellationToken cancellationToken)
+    {
+        var post = await FindAsync(id, cancellationToken);
+        post.Schedule(request.ParsePublishAtUtc(), clock.UtcNow);
+        await posts.SaveChangesAsync(cancellationToken);
+        return await ToDtoAsync(post, cancellationToken);
+    }
+
+    public async Task<PostDto> UnscheduleAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var post = await FindAsync(id, cancellationToken);
+        post.Unschedule(clock.UtcNow);
+        await posts.SaveChangesAsync(cancellationToken);
+        return await ToDtoAsync(post, cancellationToken);
+    }
+
+    /// <summary>Los borradores programados que ya vencieron, para publicarlos de a uno con <see cref="PublishIfDueAsync"/>.</summary>
+    public Task<IReadOnlyList<Guid>> ListDueAsync(CancellationToken cancellationToken) =>
+        posts.ListDueAsync(clock.UtcNow, cancellationToken);
+
+    /// <summary>
+    /// Publica un post programado por el mismo camino que la publicación manual, si sigue vencido: entre la lista y acá
+    /// pudo publicarse a mano, cancelarse o borrarse. No regenera: quien publica la tanda pide un solo rebuild al final.
+    /// </summary>
+    /// <returns>Si lo publicó.</returns>
+    public async Task<bool> PublishIfDueAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var post = await posts.GetByIdAsync(id, cancellationToken);
+        if (post is null || !post.IsDue(clock.UtcNow))
+        {
+            return false;
+        }
+
+        post.Publish(clock.UtcNow);
+        await posts.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<PostDto> PublishAsync(Guid id, CancellationToken cancellationToken)
@@ -130,6 +198,22 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
 
     private async Task<Post> FindAsync(Guid id, CancellationToken cancellationToken) =>
         await posts.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("El post no existe.");
+
+    private async Task<PostRevision> FindRevisionAsync(Guid id, Guid revisionId, CancellationToken cancellationToken)
+    {
+        await FindAsync(id, cancellationToken);
+        return await posts.GetRevisionAsync(id, revisionId, cancellationToken) ?? throw new NotFoundException("La versión no existe.");
+    }
+
+    // La instantánea del contenido actual como versión siguiente, podando las que pasan de PostRevision.MaxPerPost. Se
+    // confirma en el mismo SaveChanges que el post: nunca queda un guardado sin su versión ni al revés.
+    private async Task RecordRevisionAsync(Post post, CancellationToken cancellationToken)
+    {
+        var number = await posts.LatestRevisionNumberAsync(post.Id, cancellationToken) + 1;
+        var revision = PostRevision.Capture(post, number, clock.UtcNow);
+        posts.AddRevision(revision);
+        await posts.RemoveRevisionsBeforeAsync(post.Id, revision.FirstKeptNumber, cancellationToken);
+    }
 
     private async Task<PostDto> ToDtoAsync(Post post, CancellationToken cancellationToken) =>
         post.ToDto(await posts.ListVersionsAsync(post.TranslationGroupId, cancellationToken));

@@ -42,6 +42,20 @@ public static class PostEndpoints
             return Results.NoContent();
         });
 
+        // Historial: la lista sin cuerpos, una versión entera, y restaurarla (un guardado más; responde con el post).
+        posts.MapGet("/{id:guid}/revisions", (Guid id, PostService service, CancellationToken ct) =>
+            service.ListRevisionsAsync(id, ct));
+        posts.MapGet("/{id:guid}/revisions/{revisionId:guid}", (Guid id, Guid revisionId, PostService service, CancellationToken ct) =>
+            service.GetRevisionAsync(id, revisionId, ct));
+        posts.MapPost("/{id:guid}/revisions/{revisionId:guid}/restore", (Guid id, Guid revisionId, PostService service, CancellationToken ct) =>
+            service.RestoreRevisionAsync(id, revisionId, ct));
+
+        // Publicación programada de un borrador; las dos responden con el post.
+        posts.MapPut("/{id:guid}/schedule", (Guid id, SchedulePostRequest request, PostService service, CancellationToken ct) =>
+            service.ScheduleAsync(id, request, ct));
+        posts.MapDelete("/{id:guid}/schedule", (Guid id, PostService service, CancellationToken ct) =>
+            service.UnscheduleAsync(id, ct));
+
         admin.MapAdminMediaEndpoints();
         admin.MapAdminSettingsEndpoints();
         admin.MapAdminHeroImageEndpoints();

@@ -24,7 +24,27 @@ public interface IPostRepository
 
     void Add(Post post);
 
+    /// <summary>Borra el post y, en cascada, su historial.</summary>
     void Remove(Post post);
+
+    /// <summary>Ids de los borradores programados cuya hora ya llegó, del más atrasado al más reciente.</summary>
+    Task<IReadOnlyList<Guid>> ListDueAsync(DateTime nowUtc, CancellationToken cancellationToken);
+
+    // ----- Historial: parte del post (se guarda en el mismo SaveChanges y se borra con él) -----
+
+    /// <summary>El número de la última versión del post; 0 si no tiene.</summary>
+    Task<int> LatestRevisionNumberAsync(Guid postId, CancellationToken cancellationToken);
+
+    void AddRevision(PostRevision revision);
+
+    /// <summary>Marca para borrar (en el próximo SaveChanges) las versiones anteriores a ese número.</summary>
+    Task RemoveRevisionsBeforeAsync(Guid postId, int number, CancellationToken cancellationToken);
+
+    /// <summary>Las versiones del post, la más nueva primero, sin el cuerpo.</summary>
+    Task<IReadOnlyList<PostRevisionSummaryDto>> ListRevisionsAsync(Guid postId, CancellationToken cancellationToken);
+
+    /// <summary>Null si no existe o es de otro post.</summary>
+    Task<PostRevision?> GetRevisionAsync(Guid postId, Guid revisionId, CancellationToken cancellationToken);
 
     /// <exception cref="ConflictException">
     /// Si el slug ya existe en ese idioma o el grupo ya tiene esa versión (carrera entre dos guardados simultáneos).

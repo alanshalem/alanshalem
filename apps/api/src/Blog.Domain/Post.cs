@@ -38,6 +38,9 @@ public sealed class Post
     /// <summary>Primera vez que se publicó. Se conserva si el post se despublica y se vuelve a publicar.</summary>
     public DateTime? PublishedAtUtc { get; private set; }
 
+    /// <summary>Cuándo se publica solo (UTC). Solo la tiene un borrador: publicar, a mano o por la programación, la borra.</summary>
+    public DateTime? ScheduledAtUtc { get; private set; }
+
     /// <summary>Un artículo nuevo: empieza su propio grupo de traducción.</summary>
     /// <exception cref="DomainException">Si el idioma no es uno de <see cref="Language"/>.</exception>
     public static Post CreateDraft(PostContent content, string lang, DateTime nowUtc) =>
@@ -62,14 +65,48 @@ public sealed class Post
         return NewDraft(target, TranslationGroupId, content, nowUtc);
     }
 
-    public void Update(PostContent content, DateTime nowUtc) => Apply(content, nowUtc);
+    /// <returns>Si el contenido cambió: un guardado idéntico no merece una versión nueva en el historial.</returns>
+    public bool Update(PostContent content, DateTime nowUtc)
+    {
+        var changed = !HasContent(content);
+        Apply(content, nowUtc);
+        return changed;
+    }
 
     public void Publish(DateTime nowUtc)
     {
         Status = PostStatus.Published;
         PublishedAtUtc ??= nowUtc;
+        ScheduledAtUtc = null;
         UpdatedAtUtc = nowUtc;
     }
+
+    /// <summary>Programa la publicación. Reemplaza la fecha que hubiera.</summary>
+    /// <exception cref="DomainException">Si el post ya está publicado o la fecha no es futura.</exception>
+    public void Schedule(DateTime publishAtUtc, DateTime nowUtc)
+    {
+        if (Status == PostStatus.Published)
+        {
+            throw new DomainException("El post ya está publicado: no se puede programar.");
+        }
+
+        if (publishAtUtc <= nowUtc)
+        {
+            throw new DomainException("La fecha de publicación tiene que ser en el futuro.");
+        }
+
+        ScheduledAtUtc = publishAtUtc;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    public void Unschedule(DateTime nowUtc)
+    {
+        ScheduledAtUtc = null;
+        UpdatedAtUtc = nowUtc;
+    }
+
+    /// <summary>Un borrador programado cuya hora ya llegó (o pasó, si la API estuvo apagada).</summary>
+    public bool IsDue(DateTime nowUtc) => Status == PostStatus.Draft && ScheduledAtUtc <= nowUtc;
 
     public void Unpublish(DateTime nowUtc)
     {
@@ -90,6 +127,15 @@ public sealed class Post
         post.Apply(content, nowUtc);
         return post;
     }
+
+    private bool HasContent(PostContent content) =>
+        Title == content.Title
+        && Slug == content.Slug
+        && Summary == content.Summary
+        && Body == content.Body
+        && Tags.SequenceEqual(content.Tags, StringComparer.Ordinal)
+        && CoverUrl == content.CoverUrl
+        && CoverAlt == content.CoverAlt;
 
     private void Apply(PostContent content, DateTime nowUtc)
     {

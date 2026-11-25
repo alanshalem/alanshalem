@@ -8,6 +8,8 @@ using Blog.Application.Videos;
 using Blog.Domain;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Persistence;
+using Blog.Infrastructure.Scheduling;
+using Blog.Infrastructure.Videos;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -54,6 +56,7 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
         // el builder de la prueba.
         services.AddSingleton<IClock>(Clock);
         services.AddSingleton<ISiteBuildTrigger>(Build);
+        services.AddScoped<PostService>();
         services.AddScoped<MediaService>();
         services.AddScoped<VideoService>();
         services.AddScoped<VideoProcessor>();
@@ -72,7 +75,10 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
     public ServiceProvider Services { get; }
 
     /// <summary>El proceso de videos en segundo plano, tal como lo registra AddInfrastructure (sin arrancar).</summary>
-    public IHostedService VideoWorker => Services.GetServices<IHostedService>().Single();
+    public IHostedService VideoWorker => Services.GetServices<IHostedService>().OfType<VideoProcessingWorker>().Single();
+
+    /// <summary>El que publica los posts programados, tal como lo registra AddInfrastructure (sin arrancar).</summary>
+    public ScheduledPublishingWorker SchedulerWorker => Services.GetServices<IHostedService>().OfType<ScheduledPublishingWorker>().Single();
 
     public CountingBuildTrigger Build { get; } = new();
 
@@ -195,6 +201,8 @@ public class MigrationTests
         Assert.Contains("CoverUrl", postColumns);
         Assert.Contains("CoverAlt", postColumns);
         Assert.Contains("TranslationGroupId", postColumns);
+        Assert.Contains("ScheduledAtUtc", postColumns);
+        Assert.Contains("post_revisions", tables);
         Assert.Superset(new HashSet<string> { "TaglineEn", "BioEn" }, (await SettingsColumnsAsync(database)).ToHashSet());
         Assert.Superset(
             new HashSet<string> { "AltEn", "CreditEn" }, (await database.ListAsync("SELECT name FROM pragma_table_info('hero_images')")).ToHashSet());
@@ -206,6 +214,7 @@ public class MigrationTests
         Assert.Contains(applied, id => id.EndsWith("_AddHeroVideos", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddVideoEdit", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddTranslations", StringComparison.Ordinal));
+        Assert.Contains(applied, id => id.EndsWith("_AddPostRevisionsAndScheduling", StringComparison.Ordinal));
 
         await database.InScopeAsync<bool>(async provider =>
         {
@@ -388,6 +397,46 @@ public class MigrationTests
         // Un post existente ya puede sumar su versión en inglés con el mismo slug.
         var english = await database.WithPostsAsync(posts => posts.CreateTranslationAsync(firstId, new CreateTranslationRequest("en"), default));
         Assert.Equal((first.TranslationGroupId, "uno"), (english.TranslationGroupId, english.Slug));
+    }
+
+    [Fact]
+    public async Task Upgrading_from_translations_keeps_posts_unscheduled_with_their_current_content_as_revision_1()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InScopeAsync(async provider =>
+        {
+            var db = provider.GetRequiredService<BlogDbContext>();
+            await db.GetService<IMigrator>().MigrateAsync("AddTranslations");
+            return true;
+        });
+        var firstId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e31");
+        var secondId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e32");
+        await database.ExecuteAsync($"""
+            INSERT INTO posts (Id, TranslationGroupId, Slug, Title, Summary, Body, Tags, CoverUrl, CoverAlt, Lang, Status, CreatedAtUtc, UpdatedAtUtc, PublishedAtUtc)
+            VALUES ('{firstId.ToString().ToUpperInvariant()}', '{firstId.ToString().ToUpperInvariant()}', 'uno', 'Uno', 'R1', 'Cuerpo 1', '["net"]',
+                    '/media/a.png', 'Alt', 'es', 'Published', '2026-11-20 10:00:00', '2026-11-21 10:00:00', '2026-11-21 10:00:00'),
+                   ('{secondId.ToString().ToUpperInvariant()}', '{secondId.ToString().ToUpperInvariant()}', 'two', 'Two', '', 'Body 2', '[]',
+                    NULL, NULL, 'en', 'Draft', '2026-11-22 10:00:00', '2026-11-22 11:00:00', NULL);
+            """);
+
+        await database.InitializeAsync();
+
+        var first = await database.WithPostsAsync(posts => posts.GetAsync(firstId, default));
+        var second = await database.WithPostsAsync(posts => posts.GetAsync(secondId, default));
+        Assert.Equal(("Uno", "Cuerpo 1", PostStatus.Published, (DateTime?)null), (first.Title, first.Body, first.Status, first.ScheduledAt));
+        Assert.Equal(("Two", "en", PostStatus.Draft, (DateTime?)null), (second.Title, second.Lang, second.Status, second.ScheduledAt));
+        var revision = Assert.Single(await database.WithPostsAsync(posts => posts.ListRevisionsAsync(firstId, default)));
+        var snapshot = await database.WithPostsAsync(posts => posts.GetRevisionAsync(firstId, revision.Id, default));
+        Assert.Equal(
+            new PostRevisionDto(revision.Id, 1, new DateTime(2026, 11, 21, 10, 0, 0, DateTimeKind.Utc), "Uno", "uno", "R1", "Cuerpo 1", snapshot.Tags, "/media/a.png", "Alt"),
+            snapshot);
+        Assert.Equal(["net"], snapshot.Tags);
+        var other = Assert.Single(await database.WithPostsAsync(posts => posts.ListRevisionsAsync(secondId, default)));
+        Assert.Equal((1, "Two"), (other.Number, other.Title));
+
+        // El primer guardado después de actualizar ya se puede deshacer: sigue la numeración.
+        await database.WithPostsAsync(posts => posts.UpdateAsync(firstId, new SavePostRequest("Uno 2", "uno", null, "x", null), default));
+        Assert.Equal([2, 1], (await database.WithPostsAsync(posts => posts.ListRevisionsAsync(firstId, default))).Select(item => item.Number));
     }
 
     private static Task<IReadOnlyList<string>> SettingsColumnsAsync(SqliteTestDatabase database) =>

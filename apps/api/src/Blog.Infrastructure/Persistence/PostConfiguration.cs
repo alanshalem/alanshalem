@@ -9,13 +9,14 @@ namespace Blog.Infrastructure.Persistence;
 
 internal sealed class PostConfiguration : IEntityTypeConfiguration<Post>
 {
-    // Las etiquetas se guardan como un arreglo JSON en una sola columna: no justifican una tabla aparte.
-    private static readonly ValueConverter<IReadOnlyList<string>, string> TagsConverter = new(
+    // Las etiquetas se guardan como un arreglo JSON en una sola columna: no justifican una tabla aparte. Las comparte
+    // el historial (PostRevisionConfiguration): misma forma en las dos tablas.
+    internal static readonly ValueConverter<IReadOnlyList<string>, string> TagsConverter = new(
         tags => JsonSerializer.Serialize(tags, (JsonSerializerOptions?)null),
         json => (IReadOnlyList<string>)(JsonSerializer.Deserialize<List<string>>(json, (JsonSerializerOptions?)null) ?? new List<string>()));
 
     // Sin comparador EF no puede detectar cambios en la colección (y avisa con un warning).
-    private static readonly ValueComparer<IReadOnlyList<string>> TagsComparer = new(
+    internal static readonly ValueComparer<IReadOnlyList<string>> TagsComparer = new(
         (left, right) => left!.SequenceEqual(right!),
         tags => tags.Aggregate(0, (hash, tag) => HashCode.Combine(hash, tag.GetHashCode())),
         tags => tags.ToList());
@@ -50,5 +51,6 @@ internal sealed class PostConfiguration : IEntityTypeConfiguration<Post>
         builder.Property(post => post.CreatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
         builder.Property(post => post.UpdatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
         builder.Property(post => post.PublishedAtUtc).HasConversion(SqliteConventions.NullableUtcConverter);
+        builder.Property(post => post.ScheduledAtUtc).HasConversion(SqliteConventions.NullableUtcConverter);
     }
 }

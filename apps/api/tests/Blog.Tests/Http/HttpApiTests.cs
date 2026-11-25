@@ -20,6 +20,8 @@ public class HttpApiTests(ApiFactory api)
     [InlineData("/api/admin/settings")]
     [InlineData("/api/admin/hero-images")]
     [InlineData("/api/admin/media/videos/0198f3a0-0000-7000-8000-000000000000")]
+    [InlineData("/api/admin/posts/0198f3a0-0000-7000-8000-000000000000/revisions")]
+    [InlineData("/api/admin/posts/0198f3a0-0000-7000-8000-000000000000/revisions/0198f3a0-0000-7000-8000-000000000001")]
     public async Task Admin_routes_without_a_session_are_401(string url)
     {
         using var client = api.CreateHttpsClient();
@@ -35,6 +37,9 @@ public class HttpApiTests(ApiFactory api)
     [InlineData("PUT", "/api/admin/settings")]
     [InlineData("DELETE", "/api/admin/hero-images/0198f3a0-0000-7000-8000-000000000000")]
     [InlineData("POST", "/api/admin/posts/0198f3a0-0000-7000-8000-000000000000/translations")]
+    [InlineData("POST", "/api/admin/posts/0198f3a0-0000-7000-8000-000000000000/revisions/0198f3a0-0000-7000-8000-000000000001/restore")]
+    [InlineData("PUT", "/api/admin/posts/0198f3a0-0000-7000-8000-000000000000/schedule")]
+    [InlineData("DELETE", "/api/admin/posts/0198f3a0-0000-7000-8000-000000000000/schedule")]
     public async Task Mutations_without_the_csrf_header_are_403_even_with_a_session(string method, string url)
     {
         var admin = await api.AdminClientAsync();

@@ -7,6 +7,8 @@ public sealed class BlogDbContext(DbContextOptions<BlogDbContext> options) : DbC
 {
     public DbSet<Post> Posts => Set<Post>();
 
+    public DbSet<PostRevision> PostRevisions => Set<PostRevision>();
+
     public DbSet<SiteSettings> SiteSettings => Set<SiteSettings>();
 
     public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
