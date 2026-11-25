@@ -1,6 +1,9 @@
+import { VIDEO_DURATION } from './videoEdit.ts';
+
 /*
- * Regla de tamaño del hero (L13, S10, S12), una sola para fotos y videos y espejo de la del dominio de la API:
+ * Regla de tamaño del hero (L13, S10), una sola para fotos y videos y espejo de la del dominio de la API:
  * avisa antes de subir (y de gastar minutos en un video que se va a rechazar). La API sigue siendo la autoridad.
+ * La duración no es de esta regla: un video largo se recorta en el editor (L19, videoEdit.ts); el tamaño, no.
  */
 
 export const HERO_SIZE = {
@@ -8,7 +11,6 @@ export const HERO_SIZE = {
   min: { width: 1280, height: 720 },
   /** Ancho mínimo como múltiplo del alto: por debajo es vertical o casi cuadrado y el hero lo recortaría mal. */
   minAspect: 1.2,
-  maxVideoSeconds: 15,
 } as const;
 
 interface Size {
@@ -16,7 +18,7 @@ interface Size {
   height: number;
 }
 
-/** Medidas leídas del archivo; `durationSeconds` solo existe para videos. */
+/** Medidas leídas del archivo; `durationSeconds` solo existe para videos (la usa el editor de recorte). */
 export interface MediaDimensions extends Size {
   durationSeconds?: number | undefined;
 }
@@ -24,17 +26,17 @@ export interface MediaDimensions extends Size {
 export type HeroSizeCheck = { ok: true; warning: string | null } | { ok: false; error: string };
 
 const formatSize = ({ width, height }: Size): string => `${width}×${height}`;
-const seconds = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 1 });
 
 const IDEAL = formatSize(HERO_SIZE.ideal);
 
 export const HERO_GUIDANCE =
   `Ideal: ${IDEAL} o más, horizontal 16:9. ` +
-  `Videos: hasta ${HERO_SIZE.maxVideoSeconds} segundos; se les quita el audio.`;
+  `Videos: de ${VIDEO_DURATION.minSeconds} a ${VIDEO_DURATION.maxSeconds} segundos (antes de subir elegís el tramo); ` +
+  'se les quita el audio.';
 
 const isBelow = (size: Size, limit: Size): boolean => size.width < limit.width || size.height < limit.height;
 
-/** Primero el formato, después el tamaño y la duración: el error más útil para elegir otro archivo. */
+/** Primero el formato, después el tamaño: el error más útil para elegir otro archivo. */
 export function checkHeroSize(dimensions: MediaDimensions): HeroSizeCheck {
   const received = formatSize(dimensions);
 
@@ -49,10 +51,6 @@ export function checkHeroSize(dimensions: MediaDimensions): HeroSizeCheck {
       ok: false,
       error: `Tamaño insuficiente (${received}): el mínimo es ${formatSize(HERO_SIZE.min)}. Ideal: ${IDEAL} o más.`,
     };
-  }
-  const { durationSeconds } = dimensions;
-  if (durationSeconds !== undefined && durationSeconds > HERO_SIZE.maxVideoSeconds) {
-    return { ok: false, error: `Dura ${seconds.format(durationSeconds)} s: el máximo es ${HERO_SIZE.maxVideoSeconds} s.` };
   }
 
   const warning = isBelow(dimensions, HERO_SIZE.ideal)

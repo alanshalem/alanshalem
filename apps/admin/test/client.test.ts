@@ -44,6 +44,32 @@ describe('api.uploadVideo', () => {
     assert.equal(((call.init.body as FormData).get('file') as File).name, 'mar.mp4');
   });
 
+  it('sin edición no envía campos de recorte (la API aplica los defaults de L19)', async () => {
+    respond = () => json(202, processing);
+    await api.uploadVideo(new File(['x'], 'mar.mp4', { type: 'video/mp4' }));
+    const form = calls[0]?.init.body as FormData;
+    assert.deepEqual([...form.keys()], ['file']);
+  });
+
+  it('con edición suma trimStart, trimEnd, fade y fadeSeconds (L19), con punto decimal', async () => {
+    respond = () => json(202, processing);
+    const file = new File(['x'], 'mar.mp4', { type: 'video/mp4' });
+    await api.uploadVideo(file, { trimStart: 2.5, trimEnd: 15, fade: 'black', fadeSeconds: 0.5 });
+
+    const form = calls[0]?.init.body as FormData;
+    assert.equal(calls[0]?.url, '/api/admin/media/videos');
+    assert.equal((form.get('file') as File).name, 'mar.mp4');
+    assert.deepEqual(
+      [...form.entries()].filter(([key]) => key !== 'file'),
+      [
+        ['trimStart', '2.5'],
+        ['trimEnd', '15'],
+        ['fade', 'black'],
+        ['fadeSeconds', '0.5'],
+      ],
+    );
+  });
+
   it('un 400 llega como ApiError con el detail del ProblemDetails', async () => {
     respond = () => json(400, { title: 'Datos inválidos', detail: 'Dura 20 s: el máximo es 15 s.' });
     await assert.rejects(api.uploadVideo(new File(['x'], 'a.mp4')), (error: unknown) => {

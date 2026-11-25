@@ -413,6 +413,57 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
 .hero-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-0-5); min-width: 0; }
 .hero-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hero-empty { margin-top: var(--space-0-9); }
+/* Recorte y fundido: chip en minúsculas porque lleva tiempos y unidades ("0:02–0:15 · Loop perfecto 1 s"). */
+.hero-card-summary { justify-self: start; text-transform: none; letter-spacing: normal; white-space: normal; }
+/* Con el editor de video abierto la tarjeta pasa a una columna: la barra de recorte necesita el ancho. */
+.hero-card:has(> .video-editor) { grid-template-columns: minmax(0, 1fr); }
+
+/* ----- Editor de recorte y fundido (antes de subir un video) ----- */
+.video-editor { display: grid; gap: var(--space-1-25) var(--space-1-75); padding: var(--space-1); border: var(--rule); min-width: 0; }
+@media (min-width: 1000px) { .video-editor { grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr); } }
+.video-editor-main, .video-editor-side { display: grid; gap: var(--space-0-9); align-content: start; min-width: 0; }
+.video-editor-stage { position: relative; aspect-ratio: var(--aspect-lead); background: #000; border: var(--rule); overflow: hidden; }
+.video-editor-stage video, .video-editor-curtain { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* contain: se ve el cuadro entero que se va a recortar, no el encuadre de una pantalla en particular. */
+.video-editor-stage video { object-fit: contain; }
+.video-editor-overlay, .video-editor-curtain { opacity: 0; pointer-events: none; }
+.video-editor-curtain { background: #000; }
+.video-editor-bar { display: flex; align-items: center; gap: var(--space-0-5) var(--space-1); flex-wrap: wrap; }
+.video-editor-bar .help { flex: 1 1 18rem; }
+
+/* Manijas de 24 px de ancho: el tamaño mínimo de objetivo táctil (WCAG 2.5.8). */
+.trim-timeline { --trim-handle: 1.5rem; display: grid; gap: var(--space-0-5); }
+/* Margen lateral = ancho de una manija: las manijas quedan afuera del tramo y nunca se tapan entre sí. */
+.trim-track { position: relative; height: 2.75rem; margin-inline: var(--trim-handle); background: var(--bg-surface); border: var(--rule); touch-action: none; }
+.trim-selection {
+  position: absolute; top: -1px; bottom: -1px;
+  background: color-mix(in srgb, var(--link-accent) 22%, transparent);
+  border-block: var(--border-strong) solid var(--link-accent);
+}
+.trim-playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text-primary); pointer-events: none; }
+.trim-handle {
+  position: absolute; top: -1px; bottom: -1px; width: var(--trim-handle);
+  background: var(--link-accent); cursor: ew-resize; touch-action: none;
+}
+.trim-handle::after { content: ''; position: absolute; top: 30%; bottom: 30%; left: calc(50% - 1px); width: 2px; background: var(--bg-page); }
+.trim-handle-start { transform: translateX(-100%); }
+.trim-handle:focus-visible { outline-offset: 0; }
+.trim-scale { display: flex; justify-content: space-between; margin-inline: var(--trim-handle); font-size: var(--text-2xs); color: var(--text-tertiary); }
+.trim-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-0-9); align-items: end; }
+.trim-length { display: grid; gap: var(--space-0-5); min-height: 2.75rem; font-variant-numeric: tabular-nums; }
+
+.fade-picker { display: grid; gap: var(--space-1); }
+.fade-group { display: grid; gap: var(--space-0-5); margin: 0; padding: 0; border: 0; min-width: 0; }
+.fade-group legend { margin-bottom: var(--space-0-5); }
+.fade-group:disabled { opacity: 0.45; }
+.fade-option, .fade-duration { display: flex; align-items: flex-start; gap: var(--space-0-7); cursor: pointer; }
+.fade-option { padding: var(--space-0-7) var(--space-0-9); border: var(--rule); transition: border-color var(--ease); }
+.fade-option:has(input:checked) { border-color: var(--link-accent); }
+.fade-option > span { display: grid; gap: var(--space-0-25); }
+.fade-option-label { font-weight: 600; }
+.fade-option input, .fade-duration input { width: auto; min-height: 0; padding: 0; margin-top: 0.2em; accent-color: var(--link-accent); }
+.fade-durations { display: flex; flex-wrap: wrap; gap: var(--space-0-5) var(--space-1-25); }
+.fade-group:disabled .fade-duration { cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }

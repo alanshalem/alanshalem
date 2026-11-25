@@ -83,6 +83,23 @@ export interface VideoSource {
   bytes: number;
 }
 
+/** Cómo empalma el video al repetirse en el hero (L19). */
+export type VideoFade = 'loop' | 'black' | 'none';
+
+export type FadeSeconds = 0.5 | 1 | 2;
+
+/**
+ * Recorte y fundido que aplica la API al procesar (L19): los campos multipart de la subida y el `edit` del
+ * `VideoAssetDto`. Segundos del archivo original.
+ */
+export interface VideoEdit {
+  trimStart: number;
+  trimEnd: number;
+  fade: VideoFade;
+  /** Se envía también con `fade: 'none'` (la API lo ignora): así la elección no se pierde al cambiar de fundido. */
+  fadeSeconds: FadeSeconds;
+}
+
 /**
  * `VideoAssetDto`: lo que devuelven `POST /api/admin/media/videos` (202, en `processing`) y
  * `GET /api/admin/media/videos/{id}`. El proceso corre en segundo plano: hay que consultar hasta `ready` o `failed`.
@@ -93,7 +110,9 @@ export interface VideoAsset {
   error: string | null;
   width: number;
   height: number;
+  /** La duración final (ya recortada). */
   durationSeconds: number;
+  edit: VideoEdit;
   /** Primer cuadro útil, optimizado como cualquier foto; `null` mientras procesa. */
   poster: MediaAsset | null;
   sources: VideoSource[];

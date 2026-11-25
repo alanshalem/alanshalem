@@ -7,6 +7,8 @@ import { thumbnailUrl } from './heroImage.ts';
 import { HERO_GUIDANCE } from './heroSize.ts';
 import { heroItemKind, previewSourceUrl, VIDEO_ACCEPT } from './heroVideo.ts';
 import { useHeroImages, type PendingUpload, type UploadStatus } from './useHeroImages.ts';
+import { VideoEditor } from './VideoEditor.tsx';
+import { editSummary } from './videoEdit.ts';
 
 interface Props {
   /** Devuelve true si el error era una sesión vencida (y ya se manejó). */
@@ -17,6 +19,7 @@ interface Props {
 const HERO_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
 
 const UPLOAD_BADGES: Record<UploadStatus, { text: string; tone?: 'error' }> = {
+  editing: { text: 'Sin subir' },
   queued: { text: 'En cola' },
   uploading: { text: 'Subiendo…' },
   processing: { text: 'Procesando…' },
@@ -47,8 +50,9 @@ function pendingThumbnail({ kind, status, previewUrl, video }: PendingUpload) {
       />
     );
   }
-  const emptyText = kind === 'video' && status !== 'failed' ? VIDEO_PREVIEW_LATER : NO_PREVIEW;
-  return <ImagePreview src={previewUrl} alt="Vista previa" emptyText={emptyText} />;
+  // La URL local de un video es para el editor; como miniatura, un video se ve recién procesado.
+  if (kind === 'photo') return <ImagePreview src={previewUrl} alt="Vista previa" emptyText={NO_PREVIEW} />;
+  return <ImagePreview src={null} alt="Vista previa" emptyText={status === 'failed' ? NO_PREVIEW : VIDEO_PREVIEW_LATER} />;
 }
 
 /**
@@ -65,7 +69,18 @@ export function HeroGallery({ onError }: Props) {
       <HeroImageCard
         title={upload.fileName}
         badge={UPLOAD_BADGES[upload.status]}
-        thumbnail={pendingThumbnail(upload)}
+        summary={upload.video ? editSummary(upload.video.edit) : undefined}
+        thumbnail={
+          upload.status === 'editing' && upload.previewUrl && upload.durationSeconds !== null ? (
+            <VideoEditor
+              src={upload.previewUrl}
+              durationSeconds={upload.durationSeconds}
+              onConfirm={(edit) => gallery.uploadEdited(upload, edit)}
+            />
+          ) : (
+            pendingThumbnail(upload)
+          )
+        }
         canSave={upload.status === 'uploaded'}
         error={upload.error}
         warnings={upload.warnings}
@@ -83,6 +98,7 @@ export function HeroGallery({ onError }: Props) {
         <HeroImageCard
           title={`N.º ${index + 1}`}
           badge={kind === 'video' ? VIDEO_BADGE : undefined}
+          summary={image.video ? editSummary(image.video.edit) : undefined}
           thumbnail={
             <ImagePreview
               src={thumbnailUrl(image.media)}
@@ -134,7 +150,8 @@ export function HeroGallery({ onError }: Props) {
           }}
         />
         <p className="help">
-          Podés elegir varios a la vez; se optimizan al subir. Cada uno necesita su texto alternativo antes de guardarlo.
+          Podés elegir varios a la vez; se optimizan al subir. Antes de subir un video elegís el tramo y el fundido.
+          Cada uno necesita su texto alternativo antes de guardarlo.
         </p>
       </div>
 

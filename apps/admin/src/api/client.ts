@@ -9,6 +9,7 @@ import type {
   PostSummary,
   SiteSettings,
   VideoAsset,
+  VideoEdit,
 } from './types.ts';
 
 export class ApiError extends Error {
@@ -65,6 +66,19 @@ function fileForm(file: File): FormData {
   return form;
 }
 
+/** El archivo y, si se eligieron, el recorte y el fundido (L19). Sin ellos la API usa sus defaults. */
+function videoForm(file: File, edit: VideoEdit | undefined): FormData {
+  const form = fileForm(file);
+  if (edit) {
+    // String(2.5) = "2.5": punto decimal siempre, sin depender del idioma del navegador.
+    form.append('trimStart', String(edit.trimStart));
+    form.append('trimEnd', String(edit.trimEnd));
+    form.append('fade', edit.fade);
+    form.append('fadeSeconds', String(edit.fadeSeconds));
+  }
+  return form;
+}
+
 export const api = {
   /** 200 si hay sesión, ApiError(401) si no. */
   me: () => request<{ authenticated: true }>('GET', '/auth/me'),
@@ -87,8 +101,11 @@ export const api = {
   /** Sube una imagen y devuelve solo su URL pública (/media/...): lo que necesitan el Markdown y la portada. */
   uploadImage: async (file: File): Promise<string> => (await uploadMedia(file)).url,
 
-  /** Sube un video (202): la API lo valida y lo procesa en segundo plano; el estado se consulta con `getVideo`. */
-  uploadVideo: (file: File) => request<VideoAsset>('POST', '/admin/media/videos', fileForm(file)),
+  /**
+   * Sube un video (202) con el recorte y el fundido elegidos: la API lo valida y lo procesa en segundo plano;
+   * el estado se consulta con `getVideo`.
+   */
+  uploadVideo: (file: File, edit?: VideoEdit) => request<VideoAsset>('POST', '/admin/media/videos', videoForm(file, edit)),
   getVideo: (id: string) => request<VideoAsset>('GET', `/admin/media/videos/${encodeURIComponent(id)}`),
 
   // Galería del hero. Cada cambio pide un rebuild del sitio (la galería va embebida en la home).

@@ -3,18 +3,21 @@ import { describe, it } from 'node:test';
 import { checkHeroSize, HERO_GUIDANCE, HERO_SIZE } from '../src/hero/heroSize.ts';
 
 /*
- * Regla de tamaño del hero (L13, S10, S12), la misma para fotos y videos: rechaza vertical/cuadrado
- * (ancho < 1,2 × alto), menos de 1280×720 o un video de más de 15 s; avisa (pero acepta) bajo 1920×1080.
+ * Regla de tamaño del hero (L13, S10), la misma para fotos y videos: rechaza vertical/cuadrado
+ * (ancho < 1,2 × alto) o menos de 1280×720; avisa (pero acepta) bajo 1920×1080. La duración ya no es de esta
+ * regla: un video largo va al editor de recorte (L19, test/videoEdit.test.ts).
  */
 
 describe('HERO_GUIDANCE: la guía que ve el usuario', () => {
-  it('es el texto de S10 y S12, armado con los mismos números que la regla', () => {
-    assert.equal(HERO_GUIDANCE, 'Ideal: 1920×1080 o más, horizontal 16:9. Videos: hasta 15 segundos; se les quita el audio.');
+  it('es el texto de S10, S12 y S13, armado con los mismos números que las reglas', () => {
+    assert.equal(
+      HERO_GUIDANCE,
+      'Ideal: 1920×1080 o más, horizontal 16:9. Videos: de 1 a 15 segundos (antes de subir elegís el tramo); se les quita el audio.',
+    );
     assert.deepEqual(HERO_SIZE, {
       ideal: { width: 1920, height: 1080 },
       min: { width: 1280, height: 720 },
       minAspect: 1.2,
-      maxVideoSeconds: 15,
     });
   });
 });
@@ -58,19 +61,12 @@ describe('checkHeroSize', () => {
     assert.notEqual((checkHeroSize({ width: 2560, height: 1000 }) as { warning: string | null }).warning, null);
   });
 
-  it('video de más de 15 s: rechaza con la duración recibida; 15 s justos pasan', () => {
-    assert.deepEqual(checkHeroSize({ width: 1920, height: 1080, durationSeconds: 20 }), {
-      ok: false,
-      error: 'Dura 20 s: el máximo es 15 s.',
-    });
-    assert.deepEqual(checkHeroSize({ width: 1920, height: 1080, durationSeconds: 15.46 }), {
-      ok: false,
-      error: 'Dura 15,5 s: el máximo es 15 s.',
-    });
-    assert.deepEqual(checkHeroSize({ width: 1920, height: 1080, durationSeconds: 15 }), { ok: true, warning: null });
+  it('video de más de 15 s: ya no se rechaza (S13: se recorta en el editor antes de subir)', () => {
+    assert.deepEqual(checkHeroSize({ width: 1920, height: 1080, durationSeconds: 16.1 }), { ok: true, warning: null });
+    assert.deepEqual(checkHeroSize({ width: 1920, height: 1080, durationSeconds: 600 }), { ok: true, warning: null });
   });
 
-  it('el formato se informa antes que el tamaño y que la duración', () => {
+  it('el formato se informa antes que el tamaño', () => {
     const result = checkHeroSize({ width: 700, height: 1000, durationSeconds: 60 });
     assert.equal(result.ok, false);
     assert.match((result as { error: string }).error, /^Formato vertical o cuadrado \(700×1000\)/);

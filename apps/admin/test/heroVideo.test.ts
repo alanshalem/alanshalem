@@ -21,6 +21,7 @@ const video = (overrides: Partial<VideoAsset> = {}): VideoAsset => ({
   width: 1920,
   height: 1080,
   durationSeconds: 10,
+  edit: { trimStart: 0, trimEnd: 10, fade: 'loop', fadeSeconds: 1 },
   poster: null,
   sources: [],
   warnings: [],

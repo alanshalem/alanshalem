@@ -6,6 +6,9 @@ interface Props {
   title: string;
   /** Estado corto junto al título (archivos sin guardar). */
   badge?: { text: string; tone?: 'error' } | undefined;
+  /** Resumen corto del ítem (el recorte y el fundido de un video). */
+  summary?: string | undefined;
+  /** Miniatura o, para un video sin subir, el editor de recorte (la tarjeta pasa a una columna). */
   thumbnail: ReactNode;
   /** Valores guardados; sin ellos la tarjeta es una foto nueva. */
   saved?: HeroImageInput | undefined;
@@ -28,6 +31,7 @@ interface Props {
 export function HeroImageCard({
   title,
   badge,
+  summary,
   thumbnail,
   saved,
   canSave = true,
@@ -116,6 +120,7 @@ export function HeroImageCard({
           </h3>
           {badge && <span className={badge.tone === 'error' ? 'chip chip-error' : 'chip'}>{badge.text}</span>}
         </div>
+        {summary && <p className="chip hero-card-summary">{summary}</p>}
         <div className="settings-grid">
           {renderField('alt', 'Texto alternativo', alt, setAlt, 'Qué se ve')}
           {renderField('credit', 'Crédito (opcional)', credit, setCredit, 'Foto: …')}
