@@ -8,6 +8,7 @@ using Blog.Application.HeroImages;
 using Blog.Application.Media;
 using Blog.Application.Posts;
 using Blog.Application.Settings;
+using Blog.Application.Videos;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Persistence;
@@ -35,7 +36,7 @@ if (args is ["hash-password"])
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Subidas de imágenes de hasta 8 MB (más un margen para el multipart).
+// Subidas de imágenes de hasta 8 MB (más un margen para el multipart). La subida de videos sube su propio límite.
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 12 * 1024 * 1024);
 
 // ---------- Configuración obligatoria: si falta algo, la app no arranca (mejor que fallar en producción) ----------
@@ -58,6 +59,8 @@ builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<MediaService>();
 builder.Services.AddScoped<SiteSettingsService>();
 builder.Services.AddScoped<HeroImageService>();
+builder.Services.AddScoped<VideoService>();
+builder.Services.AddScoped<VideoProcessor>();
 
 // ---------- HTTP ----------
 builder.Services.ConfigureHttpJsonOptions(options =>

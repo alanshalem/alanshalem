@@ -9,7 +9,7 @@ namespace Blog.Domain;
 public sealed partial class MediaAsset
 {
     /// <summary>SHA-256 en hexadecimal.</summary>
-    public const int HashLength = 64;
+    public const int HashLength = ContentHash.Length;
 
     public const int ColorLength = 7;
 
@@ -30,10 +30,13 @@ public sealed partial class MediaAsset
     public Guid Id { get; private set; }
     public string Hash { get; private set; }
 
-    /// <summary>Dimensiones del original ya rotado según su EXIF (como se ve, no como se guardó).</summary>
+    /// <summary>Dimensiones del original ya rotado según su EXIF (como se ve, no como se guardó). En un GIF animado, las de un cuadro.</summary>
     public int Width { get; private set; }
 
     public int Height { get; private set; }
+
+    /// <summary>GIF o WebP con varios cuadros: sus variantes conservan la animación (ver <see cref="MediaVariant.For"/>).</summary>
+    public bool IsAnimated { get; private set; }
 
     /// <summary>Color dominante, #rrggbb: fondo mientras carga la imagen.</summary>
     public string Color { get; private set; }
@@ -43,25 +46,18 @@ public sealed partial class MediaAsset
 
     public DateTime CreatedAtUtc { get; private set; }
 
-    public IReadOnlyList<MediaVariant> Variants => MediaVariant.For(Width);
+    public IReadOnlyList<MediaVariant> Variants => MediaVariant.For(Width, IsAnimated);
 
     public string Url => UrlOf(Variants.Last(variant => variant.Format == MediaFormat.Webp && variant.Width <= MaxDefaultWidth));
 
-    // Se generan en el servidor, nunca los escribe el usuario: un valor inválido es un error de programación.
-    [GeneratedRegex("^[0-9a-f]{64}$")]
-    private static partial Regex HashPattern();
-
+    // Se genera en el servidor, nunca lo escribe el usuario: un valor inválido es un error de programación.
     [GeneratedRegex("^#[0-9a-f]{6}$")]
     private static partial Regex ColorPattern();
 
-    public static MediaAsset Create(string hash, int width, int height, string color, string placeholder, DateTime nowUtc)
+    public static MediaAsset Create(
+        string hash, int width, int height, string color, string placeholder, DateTime nowUtc, bool animated = false)
     {
-        // El hash termina siendo una carpeta en disco: validarlo garantiza que no se escribe fuera de /media.
-        if (!HashPattern().IsMatch(hash))
-        {
-            throw new ArgumentException("El hash debe ser un SHA-256 en hexadecimal en minúsculas.", nameof(hash));
-        }
-
+        ContentHash.EnsureValid(hash);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
 
@@ -81,6 +77,7 @@ public sealed partial class MediaAsset
             Hash = hash,
             Width = width,
             Height = height,
+            IsAnimated = animated,
             Color = color,
             Placeholder = placeholder,
             CreatedAtUtc = nowUtc,

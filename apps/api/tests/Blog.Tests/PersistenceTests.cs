@@ -3,6 +3,7 @@ using Blog.Application.HeroImages;
 using Blog.Application.Media;
 using Blog.Application.Posts;
 using Blog.Application.Settings;
+using Blog.Application.Videos;
 using Blog.Domain;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Persistence;
@@ -12,6 +13,8 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace Blog.Tests;
 
@@ -23,24 +26,37 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
 {
     private readonly string _directory;
 
-    public SqliteTestDatabase()
+    /// <param name="configure">Reemplazos para la prueba (dobles, registradores de logs), aplicados después de AddInfrastructure.</param>
+    public SqliteTestDatabase(Action<IServiceCollection>? configure = null)
     {
         _directory = Path.Combine(Path.GetTempPath(), "blog-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
         FilePath = Path.Combine(_directory, "blog.db");
         MediaDirectory = Path.Combine(_directory, "media");
+        VideoWorkDirectory = Path.Combine(_directory, "video-work");
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Blog"] = $"Data Source={FilePath};Pooling=False",
                 ["Media:Directory"] = MediaDirectory,
+                ["Video:WorkDirectory"] = VideoWorkDirectory,
             })
             .Build();
 
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddInfrastructure(configuration);
+        services.AddSingleton<ILoggerProvider>(Logs);
+
+        // Los casos de uso que el proceso en segundo plano saca del contenedor (como en Program.cs), con el reloj y
+        // el builder de la prueba.
+        services.AddSingleton<IClock>(Clock);
+        services.AddSingleton<ISiteBuildTrigger>(Build);
+        services.AddScoped<MediaService>();
+        services.AddScoped<VideoService>();
+        services.AddScoped<VideoProcessor>();
+        configure?.Invoke(services);
         Services = services.BuildServiceProvider();
     }
 
@@ -49,9 +65,18 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
     /// <summary>Carpeta de media de esta prueba (dentro de la carpeta temporal que se borra al terminar).</summary>
     public string MediaDirectory { get; }
 
+    /// <summary>Originales de video en espera y salidas de ffmpeg de esta prueba.</summary>
+    public string VideoWorkDirectory { get; }
+
     public ServiceProvider Services { get; }
 
+    /// <summary>El proceso de videos en segundo plano, tal como lo registra AddInfrastructure (sin arrancar).</summary>
+    public IHostedService VideoWorker => Services.GetServices<IHostedService>().Single();
+
     public CountingBuildTrigger Build { get; } = new();
+
+    /// <summary>Todo lo que registran los servicios de esta prueba.</summary>
+    public CapturingLoggerProvider Logs { get; } = new();
 
     public FixedClock Clock { get; } = new();
 
@@ -82,8 +107,21 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
         InScopeAsync(provider => action(new HeroImageService(
             provider.GetRequiredService<IHeroImageRepository>(),
             provider.GetRequiredService<IMediaAssetRepository>(),
+            provider.GetRequiredService<IVideoAssetRepository>(),
             Clock,
             Build)));
+
+    public Task<T> WithVideosAsync<T>(Func<VideoService, Task<T>> action) =>
+        InScopeAsync(provider => action(provider.GetRequiredService<VideoService>()));
+
+    public Task<T> WithVideoProcessorAsync<T>(Func<VideoProcessor, Task<T>> action) =>
+        InScopeAsync(provider => action(provider.GetRequiredService<VideoProcessor>()));
+
+    /// <summary>Lo que hay en la carpeta de trabajo de video (originales en espera, salidas de ffmpeg).</summary>
+    public IReadOnlyList<string> VideoWorkFiles() =>
+        Directory.Exists(VideoWorkDirectory)
+            ? Directory.EnumerateFileSystemEntries(VideoWorkDirectory, "*", SearchOption.AllDirectories).ToList()
+            : [];
 
     /// <summary>Archivos bajo la carpeta de media, con ruta relativa y barras "/" (como en la URL).</summary>
     public IReadOnlyList<string> MediaFiles() =>
@@ -145,6 +183,9 @@ public class MigrationTests
         Assert.Contains("site_settings", tables);
         Assert.Contains("media_assets", tables);
         Assert.Contains("hero_images", tables);
+        Assert.Contains("video_assets", tables);
+        Assert.Contains("VideoAssetId", await database.ListAsync("SELECT name FROM pragma_table_info('hero_images')"));
+        Assert.Contains("IsAnimated", await database.ListAsync("SELECT name FROM pragma_table_info('media_assets')"));
 
         var postColumns = await database.ListAsync("SELECT name FROM pragma_table_info('posts')");
         Assert.Contains("CoverUrl", postColumns);
@@ -154,6 +195,7 @@ public class MigrationTests
         var applied = await database.ListAsync("SELECT MigrationId FROM __EFMigrationsHistory");
         Assert.Contains(applied, id => id.EndsWith("_InitialCreate", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddMediaAssetsAndHeroGallery", StringComparison.Ordinal));
+        Assert.Contains(applied, id => id.EndsWith("_AddHeroVideos", StringComparison.Ordinal));
 
         await database.InScopeAsync<bool>(async provider =>
         {
@@ -213,6 +255,43 @@ public class MigrationTests
             await database.WithSettingsAsync(settings => settings.GetAsync(default)));
         Assert.DoesNotContain(await SettingsColumnsAsync(database), column => column.StartsWith("HeroImage", StringComparison.Ordinal));
         Assert.Empty(await database.ListAsync("SELECT Id FROM hero_images"));
+    }
+
+    [Fact]
+    public async Task Upgrading_from_the_photo_gallery_keeps_its_assets_and_photos_as_non_animated_photos_without_video()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InScopeAsync(async provider =>
+        {
+            var db = provider.GetRequiredService<BlogDbContext>();
+            await db.GetService<IMigrator>().MigrateAsync("AddMediaAssetsAndHeroGallery");
+            return true;
+        });
+        Assert.DoesNotContain("video_assets", await database.TablesAsync());
+        var assetId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e01");
+        var heroId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e02");
+        var hash = new string('a', MediaAsset.HashLength);
+        await database.ExecuteAsync($"""
+            INSERT INTO media_assets (Id, Hash, Width, Height, Color, Placeholder, CreatedAtUtc)
+            VALUES ('{assetId.ToString().ToUpperInvariant()}', '{hash}', 1600, 900, '#102030', 'data:image/webp;base64,UklGRg==',
+                    '2026-11-25 10:00:00');
+            INSERT INTO hero_images (Id, MediaAssetId, Alt, Credit, CreatedAtUtc)
+            VALUES ('{heroId.ToString().ToUpperInvariant()}', '{assetId.ToString().ToUpperInvariant()}', 'Nebulosa', 'Foto: Ana',
+                    '2026-11-25 11:00:00');
+            """);
+
+        await database.InitializeAsync();
+
+        var hero = Assert.Single(await database.WithHeroImagesAsync(heroes => heroes.ListForSiteAsync(default)));
+        Assert.Equal((heroId, "Nebulosa", "Foto: Ana"), (hero.Id, hero.Alt, hero.Credit));
+        Assert.Equal(new DateTime(2026, 11, 25, 11, 0, 0, DateTimeKind.Utc), hero.CreatedAt);
+        Assert.Null(hero.Video);
+        Assert.Equal((assetId, 1600, 900, "#102030"), (hero.Media.Id, hero.Media.Width, hero.Media.Height, hero.Media.Color));
+        // Una foto existente no es animada: sigue teniendo sus variantes AVIF y WebP.
+        Assert.Equal(
+            MediaVariant.For(1600).Select(variant => variant.Format),
+            hero.Media.Variants.Select(variant => variant.Format));
+        Assert.Empty(await database.ListAsync("SELECT Id FROM video_assets"));
     }
 
     private static Task<IReadOnlyList<string>> SettingsColumnsAsync(SqliteTestDatabase database) =>

@@ -13,6 +13,8 @@ public sealed class BlogDbContext(DbContextOptions<BlogDbContext> options) : DbC
 
     public DbSet<HeroImage> HeroImages => Set<HeroImage>();
 
+    public DbSet<VideoAsset> VideoAssets => Set<VideoAsset>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BlogDbContext).Assembly);
 }

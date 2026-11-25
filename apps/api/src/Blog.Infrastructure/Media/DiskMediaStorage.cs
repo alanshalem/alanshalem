@@ -22,6 +22,8 @@ internal sealed class DiskMediaStorage(IOptions<MediaOptions> options) : IMediaS
         File.Move(temporaryPath, fullPath, overwrite: true);
     }
 
+    public bool Exists(string relativePath) => File.Exists(ResolveInsideRoot(relativePath));
+
     // Segunda barrera (la primera es que el dominio arma las rutas): nada se escribe fuera de la carpeta de media.
     private string ResolveInsideRoot(string relativePath)
     {

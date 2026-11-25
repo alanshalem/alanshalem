@@ -5,35 +5,49 @@ using Blog.Domain;
 namespace Blog.Application.Media;
 
 /// <summary>
-/// Subida de imágenes. Toda imagen (hero, portadas, imágenes de posts) pasa por el mismo pipeline: se valida, se
-/// optimiza en AVIF y WebP en varios anchos y se guarda una sola vez por contenido.
+/// Subida de imágenes. Toda imagen (hero, portadas, imágenes de posts, pósters de video) pasa por el mismo pipeline:
+/// se valida, se optimiza en AVIF y WebP en varios anchos y se guarda una sola vez por contenido.
 /// </summary>
 public sealed class MediaService(IImageProcessor images, IMediaStorage storage, IMediaAssetRepository assets, IClock clock)
 {
     public const int MaxBytes = 8 * 1024 * 1024;
 
-    /// <summary>100 megapíxeles: sobra para cualquier cámara y frena archivos chicos que descomprimidos ocupan gigas.</summary>
+    /// <summary>
+    /// 100 megapíxeles (contando todos los cuadros de una animación): sobra para cualquier cámara y frena archivos
+    /// chicos que descomprimidos ocupan gigas.
+    /// </summary>
     public const long MaxPixels = 100_000_000;
 
     private const string UnreadableMessage = "No se pudo leer la imagen: el archivo está dañado o incompleto.";
 
-    public async Task<MediaAssetDto> UploadImageAsync(Stream content, CancellationToken cancellationToken)
+    public async Task<MediaAssetDto> UploadImageAsync(Stream content, CancellationToken cancellationToken) =>
+        (await StoreImageAsync(content, cancellationToken)).ToDto();
+
+    /// <summary>Todas las imágenes subidas: el builder las usa para armar el srcset de cualquier /media/... del sitio.</summary>
+    public async Task<IReadOnlyList<MediaAssetDto>> ListAsync(CancellationToken cancellationToken) =>
+        (await assets.ListAsync(cancellationToken)).Select(asset => asset.ToDto()).ToList();
+
+    /// <summary>Lo mismo que <see cref="UploadImageAsync"/> pero devuelve la entidad: el póster de un video la referencia.</summary>
+    internal async Task<MediaAsset> StoreImageAsync(Stream content, CancellationToken cancellationToken)
     {
         var original = await ReadWithinLimitAsync(content, cancellationToken);
         EnsureSupportedFormat(original);
 
-        // Misma imagen = mismo hash = mismo asset: no se procesa ni se guarda dos veces.
+        // Misma imagen = mismo hash = mismo asset: no se procesa ni se guarda dos veces. Solo se regeneran sus archivos
+        // si faltan en disco (por ejemplo, una base restaurada sin su carpeta de media), así nunca se devuelven URLs muertas.
         var hash = Convert.ToHexStringLower(SHA256.HashData(original));
-        if (await assets.GetByHashAsync(hash, cancellationToken) is { } existing)
+        var existing = await assets.GetByHashAsync(hash, cancellationToken);
+        if (existing is not null && existing.Variants.All(variant => storage.Exists(existing.RelativePathOf(variant))))
         {
-            return existing.ToDto();
+            return existing;
         }
 
         var size = ReadSizeWithinLimit(original);
-        var processed = await images.ProcessAsync(original, MediaVariant.For(size.Width), cancellationToken)
+        var processed = await images.ProcessAsync(original, MediaVariant.For(size.Width, size.IsAnimated), cancellationToken)
             ?? throw new DomainException(UnreadableMessage);
 
-        var asset = MediaAsset.Create(hash, size.Width, size.Height, processed.Color, processed.Placeholder, clock.UtcNow);
+        var asset = existing
+            ?? MediaAsset.Create(hash, size.Width, size.Height, processed.Color, processed.Placeholder, clock.UtcNow, size.IsAnimated);
 
         // Primero los archivos y después la fila: un asset guardado nunca apunta a archivos que no existen.
         foreach (var file in processed.Files)
@@ -41,14 +55,14 @@ public sealed class MediaService(IImageProcessor images, IMediaStorage storage, 
             await storage.SaveAsync(asset.RelativePathOf(file.Variant), file.Content, cancellationToken);
         }
 
-        assets.Add(asset);
-        await assets.SaveChangesAsync(cancellationToken);
-        return asset.ToDto();
-    }
+        if (existing is null)
+        {
+            assets.Add(asset);
+            await assets.SaveChangesAsync(cancellationToken);
+        }
 
-    /// <summary>Todas las imágenes subidas: el builder las usa para armar el srcset de cualquier /media/... del sitio.</summary>
-    public async Task<IReadOnlyList<MediaAssetDto>> ListAsync(CancellationToken cancellationToken) =>
-        (await assets.ListAsync(cancellationToken)).Select(asset => asset.ToDto()).ToList();
+        return asset;
+    }
 
     private static async Task<byte[]> ReadWithinLimitAsync(Stream content, CancellationToken cancellationToken)
     {

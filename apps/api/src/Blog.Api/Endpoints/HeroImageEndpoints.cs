@@ -30,10 +30,13 @@ public static class HeroImageEndpoints
         return admin;
     }
 
-    /// <summary>Lo que lee el builder, ordenado por fecha de alta: la primera es la de &lt;noscript&gt; y og:image.</summary>
+    /// <summary>
+    /// Lo que lee el builder, ordenado por fecha de alta: la primera es la de &lt;noscript&gt; y og:image. Solo fotos
+    /// y videos listos.
+    /// </summary>
     public static IEndpointRouteBuilder MapInternalHeroImageEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/internal/hero-images", (HeroImageService service, CancellationToken ct) => service.ListAsync(ct))
+        app.MapGet("/api/internal/hero-images", (HeroImageService service, CancellationToken ct) => service.ListForSiteAsync(ct))
             .AddEndpointFilter<BuilderTokenFilter>();
 
         return app;

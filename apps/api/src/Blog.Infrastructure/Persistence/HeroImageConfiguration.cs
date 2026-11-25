@@ -17,6 +17,14 @@ internal sealed class HeroImageConfiguration : IEntityTypeConfiguration<HeroImag
             .HasForeignKey(image => image.MediaAssetId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Opcional (null = foto). Restrict por lo mismo: borrar el ítem no toca el video, y un video en uso no se borra.
+        builder.HasOne(image => image.Video)
+            .WithMany()
+            .HasForeignKey(image => image.VideoAssetId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Ignore(image => image.IsPublishable);
+
         builder.Property(image => image.Alt).IsRequired().HasMaxLength(HeroImageContent.MaxAltLength);
         builder.Property(image => image.Credit).HasMaxLength(HeroImageContent.MaxCreditLength);
         builder.Property(image => image.CreatedAtUtc).HasConversion(SqliteConventions.UtcConverter);

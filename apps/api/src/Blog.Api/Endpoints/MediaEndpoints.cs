@@ -1,7 +1,9 @@
 using Blog.Api.Security;
 using Blog.Application.Media;
+using Blog.Application.Videos;
 using Blog.Domain;
 using Blog.Infrastructure.Media;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 
@@ -9,16 +11,37 @@ namespace Blog.Api.Endpoints;
 
 public static class MediaEndpoints
 {
-    /// <summary>Subida de imágenes dentro del grupo /api/admin. Devuelve el asset optimizado (conserva "url").</summary>
+    // Margen para la envoltura multipart (cabeceras y separadores) por encima del máximo del archivo: así un video
+    // apenas más grande que el máximo recibe el mensaje en español del caso de uso, no un 413 genérico.
+    private const long MultipartMargin = 1024 * 1024;
+    private const long VideoRequestLimit = VideoService.MaxBytes + MultipartMargin;
+
+    /// <summary>Subida de imágenes y videos dentro del grupo /api/admin.</summary>
     public static RouteGroupBuilder MapAdminMediaEndpoints(this RouteGroupBuilder admin)
     {
         // La protección CSRF de ASP.NET (antiforgery) se reemplaza por la cabecera X-Requested-With que exige el middleware.
+        // Devuelve el asset optimizado (conserva "url").
         admin.MapPost("/media", async (IFormFile file, MediaService media, CancellationToken ct) =>
             {
                 await using var stream = file.OpenReadStream();
                 return await media.UploadImageAsync(stream, ct);
             })
             .DisableAntiforgery();
+
+        // 202: el video queda validado y en cola; el admin consulta GET .../videos/{id} hasta que esté listo. El límite
+        // de 200 MB se sube solo en esta ruta (el resto de la API sigue con el de Kestrel). ASP.NET guarda en disco
+        // todo archivo de más de 64 KB al leer el formulario, así que la subida nunca queda entera en memoria.
+        admin.MapPost("/media/videos", async (IFormFile file, VideoService videos, CancellationToken ct) =>
+            {
+                await using var stream = file.OpenReadStream();
+                var video = await videos.UploadAsync(stream, ct);
+                return Results.Accepted($"/api/admin/media/videos/{video.Id}", video);
+            })
+            .DisableAntiforgery()
+            .WithMetadata(new RequestSizeLimitAttribute(VideoRequestLimit))
+            .WithFormOptions(multipartBodyLengthLimit: VideoRequestLimit);
+
+        admin.MapGet("/media/videos/{id:guid}", (Guid id, VideoService videos, CancellationToken ct) => videos.GetAsync(id, ct));
 
         return admin;
     }

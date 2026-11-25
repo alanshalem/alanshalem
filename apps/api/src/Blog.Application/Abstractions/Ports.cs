@@ -50,6 +50,8 @@ public interface IMediaStorage
 {
     /// <summary>Guarda (o reemplaza) el archivo en esa ruta relativa a la carpeta de media, ej: {hash}/640.webp.</summary>
     Task SaveAsync(string relativePath, ReadOnlyMemory<byte> content, CancellationToken cancellationToken);
+
+    bool Exists(string relativePath);
 }
 
 /// <summary>Persistencia de las imágenes subidas. La implementa Infrastructure.</summary>
@@ -83,10 +85,13 @@ public interface IHeroImageRepository
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
-/// <summary>Dimensiones de una imagen tal como se ve (ya rotada según su EXIF).</summary>
-public sealed record ImageSize(int Width, int Height)
+/// <summary>Dimensiones de una imagen tal como se ve (ya rotada según su EXIF). En una animación, las de un cuadro.</summary>
+public sealed record ImageSize(int Width, int Height, int Pages)
 {
-    public long Pixels => (long)Width * Height;
+    public bool IsAnimated => Pages > 1;
+
+    /// <summary>Todos los cuadros: es lo que ocupa decodificada.</summary>
+    public long Pixels => (long)Width * Height * Pages;
 }
 
 public sealed record EncodedVariant(MediaVariant Variant, byte[] Content);
@@ -105,4 +110,77 @@ public interface IImageProcessor
     /// Null si los píxeles no se pueden decodificar (archivo dañado).
     /// </summary>
     Task<ProcessedImage?> ProcessAsync(byte[] image, IReadOnlyList<MediaVariant> variants, CancellationToken cancellationToken);
+}
+
+/// <summary>Persistencia de los videos del hero. Cada video se lee con su póster.</summary>
+public interface IVideoAssetRepository
+{
+    Task<VideoAsset?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    Task<VideoAsset?> GetByHashAsync(string hash, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<VideoAsset>> ListProcessingAsync(CancellationToken cancellationToken);
+
+    void Add(VideoAsset video);
+
+    /// <exception cref="ConflictException">Si el mismo video se terminó de subir al mismo tiempo desde otro lado.</exception>
+    Task SaveChangesAsync(CancellationToken cancellationToken);
+}
+
+/// <summary>Original de video ya copiado a la carpeta de trabajo (fuera de /media: trae audio y metadatos).</summary>
+/// <param name="Length">Bytes copiados. Si supera el máximo pedido, la copia se cortó ahí y el archivo no está completo.</param>
+/// <param name="Head">Los primeros bytes, para verificar el formato por magic bytes.</param>
+public sealed record StagedVideo(string Path, string Hash, long Length, byte[] Head)
+{
+    /// <summary>Los magic bytes de MP4/MOV (caja ftyp en el byte 4) y de WebM/MKV entran en los primeros 8.</summary>
+    public const int HeadLength = 8;
+}
+
+/// <summary>Carpeta de trabajo de los videos: originales en espera de su turno y salidas de ffmpeg.</summary>
+public interface IVideoStaging
+{
+    /// <summary>
+    /// Copia la subida a un archivo propio calculando el SHA-256 al pasar (sin cargarla en memoria). Copia como
+    /// máximo maxBytes + 1: alcanza para saber si se pasó.
+    /// </summary>
+    Task<StagedVideo> SaveAsync(Stream content, long maxBytes, CancellationToken cancellationToken);
+
+    void Delete(string path);
+
+    /// <summary>Borra lo que haya quedado de una ejecución anterior (originales y salidas a medias).</summary>
+    void Clear();
+}
+
+/// <summary>Un video que espera ser procesado y dónde está su original.</summary>
+public sealed record VideoJob(Guid VideoId, string SourcePath);
+
+/// <summary>Cola en memoria de videos por procesar. La consume un único proceso en segundo plano, de a uno.</summary>
+public interface IVideoQueue
+{
+    void Enqueue(VideoJob job);
+}
+
+/// <summary>Dimensiones como se ve (con la rotación aplicada) y duración de un video.</summary>
+public sealed record VideoProbe(int Width, int Height, double DurationSeconds);
+
+public sealed record EncodedVideo(VideoVariant Variant, byte[] Content);
+
+/// <summary>Lo que produce el transcodificador: cada versión pedida y el póster (JPEG del primer cuadro útil, sin optimizar).</summary>
+public sealed record TranscodedVideo(IReadOnlyList<EncodedVideo> Files, byte[] Poster);
+
+/// <summary>
+/// No se pudo convertir el video (ffmpeg falló o tardó demasiado). El mensaje es para el admin: se guarda como error
+/// del video. Los detalles técnicos los registra el adaptador.
+/// </summary>
+public sealed class VideoProcessingException(string message) : Exception(message);
+
+/// <summary>Lectura y conversión de videos. Lo implementa Infrastructure con ffprobe y ffmpeg.</summary>
+public interface IVideoTranscoder
+{
+    /// <summary>Null si el archivo no es un video legible (sin pista de video o sin duración).</summary>
+    Task<VideoProbe?> ProbeAsync(string sourcePath, CancellationToken cancellationToken);
+
+    /// <summary>Genera cada versión pedida (sin audio ni metadatos) y el póster, sin escribir nada en /media.</summary>
+    /// <exception cref="VideoProcessingException">Si ffmpeg falla o se pasa del tiempo máximo.</exception>
+    Task<TranscodedVideo> TranscodeAsync(string sourcePath, IReadOnlyList<VideoVariant> variants, CancellationToken cancellationToken);
 }

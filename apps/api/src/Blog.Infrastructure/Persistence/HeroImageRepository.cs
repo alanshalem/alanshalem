@@ -6,7 +6,8 @@ namespace Blog.Infrastructure.Persistence;
 
 internal sealed class HeroImageRepository(BlogDbContext db) : IHeroImageRepository
 {
-    private IQueryable<HeroImage> WithMedia => db.HeroImages.Include(image => image.Media);
+    private IQueryable<HeroImage> WithMedia =>
+        db.HeroImages.Include(image => image.Media).Include(image => image.Video).ThenInclude(video => video!.Poster);
 
     public Task<HeroImage?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         WithMedia.FirstOrDefaultAsync(image => image.Id == id, cancellationToken);

@@ -1,6 +1,9 @@
 namespace Blog.Domain;
 
-/// <summary>Una foto de la galería del hero de la home. El sitio elige una al azar en cada visita.</summary>
+/// <summary>
+/// Una foto o un video de la galería del hero de la home. El sitio elige uno al azar en cada visita. Un video lleva
+/// su póster como <see cref="Media"/>: es lo que se ve mientras carga, o en vez del video (movimiento reducido, ahorro de datos).
+/// </summary>
 public sealed class HeroImage
 {
     // Constructor para EF Core.
@@ -13,31 +16,54 @@ public sealed class HeroImage
     public Guid Id { get; private set; }
     public Guid MediaAssetId { get; private set; }
     public MediaAsset Media { get; private set; }
+    public Guid? VideoAssetId { get; private set; }
+    public VideoAsset? Video { get; private set; }
     public string Alt { get; private set; }
     public string? Credit { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
-    public static HeroImage Create(MediaAsset media, HeroImageContent content, DateTime nowUtc)
+    /// <summary>Lo que el sitio puede mostrar: una foto, o un video que ya tiene sus archivos.</summary>
+    public bool IsPublishable => Video is null || Video.Status == VideoStatus.Ready;
+
+    /// <exception cref="DomainException">Si la foto no cumple la regla de tamaño del hero (<see cref="HeroFrame"/>).</exception>
+    public static HeroImage CreatePhoto(MediaAsset media, HeroImageContent content, DateTime nowUtc)
     {
-        var image = new HeroImage
-        {
-            Id = Guid.CreateVersion7(),
-            MediaAssetId = media.Id,
-            Media = media,
-            CreatedAtUtc = nowUtc,
-        };
-        image.Update(content);
-        return image;
+        HeroFrame.Ensure(media.Width, media.Height);
+        return New(media, video: null, content, nowUtc);
     }
+
+    /// <summary>La regla de tamaño ya se aplicó al subir el video (<see cref="VideoAsset.Create"/>).</summary>
+    /// <exception cref="DomainException">Si el video todavía se está procesando o falló.</exception>
+    public static HeroImage CreateVideo(VideoAsset video, HeroImageContent content, DateTime nowUtc) => video switch
+    {
+        { Status: VideoStatus.Ready, Poster: { } poster } => New(poster, video, content, nowUtc),
+        { Status: VideoStatus.Processing } => throw new DomainException("El video todavía se está procesando: esperá a que esté listo."),
+        _ => throw new DomainException("El video no se pudo procesar. Subilo de nuevo."),
+    };
 
     public void Update(HeroImageContent content)
     {
         Alt = content.Alt;
         Credit = content.Credit;
     }
+
+    private static HeroImage New(MediaAsset media, VideoAsset? video, HeroImageContent content, DateTime nowUtc)
+    {
+        var image = new HeroImage
+        {
+            Id = Guid.CreateVersion7(),
+            MediaAssetId = media.Id,
+            Media = media,
+            VideoAssetId = video?.Id,
+            Video = video,
+            CreatedAtUtc = nowUtc,
+        };
+        image.Update(content);
+        return image;
+    }
 }
 
-/// <summary>Lo editable de una foto del hero, ya validado y normalizado. Si existe una instancia, es válida.</summary>
+/// <summary>Lo editable de un ítem del hero, ya validado y normalizado. Si existe una instancia, es válida.</summary>
 public sealed record HeroImageContent(string Alt, string? Credit)
 {
     public const int MaxAltLength = 300;

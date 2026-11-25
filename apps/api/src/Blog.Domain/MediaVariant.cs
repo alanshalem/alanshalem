@@ -18,6 +18,12 @@ public sealed record MediaVariant(MediaFormat Format, int Width)
     /// <summary>AVIF primero: pesa menos, y el navegador usa el primer &lt;source&gt; que entiende. WebP es el respaldo.</summary>
     public static IReadOnlyList<MediaFormat> Formats { get; } = [MediaFormat.Avif, MediaFormat.Webp];
 
+    /// <summary>
+    /// Una animación sale solo en WebP: libheif no escribe AVIF animado y, como AVIF, quedaría reducida a su primer
+    /// cuadro. WebP animado lo entienden todos los navegadores actuales.
+    /// </summary>
+    public static IReadOnlyList<MediaFormat> AnimatedFormats { get; } = [MediaFormat.Webp];
+
     public string Extension => Format switch
     {
         MediaFormat.Avif => "avif",
@@ -38,6 +44,7 @@ public sealed record MediaVariant(MediaFormat Format, int Width)
     }
 
     /// <summary>Todas las variantes de una imagen de ese ancho: cada formato en cada ancho.</summary>
-    public static IReadOnlyList<MediaVariant> For(int originalWidth) =>
-        [.. Formats.SelectMany(format => WidthsFor(originalWidth).Select(width => new MediaVariant(format, width)))];
+    public static IReadOnlyList<MediaVariant> For(int originalWidth, bool animated = false) =>
+        [.. (animated ? AnimatedFormats : Formats)
+            .SelectMany(format => WidthsFor(originalWidth).Select(width => new MediaVariant(format, width)))];
 }

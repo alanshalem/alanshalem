@@ -38,9 +38,14 @@ namespace Blog.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("MediaAssetId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("VideoAssetId")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("MediaAssetId");
+
+                    b.HasIndex("VideoAssetId");
 
                     b.ToTable("hero_images", (string)null);
                 });
@@ -65,6 +70,9 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Height")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsAnimated")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Placeholder")
@@ -188,6 +196,55 @@ namespace Blog.Infrastructure.Persistence.Migrations
                     b.ToTable("site_settings", (string)null);
                 });
 
+            modelBuilder.Entity("Blog.Domain.VideoAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("DurationSeconds")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("PosterId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Sources")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.HasIndex("PosterId");
+
+                    b.ToTable("video_assets", (string)null);
+                });
+
             modelBuilder.Entity("Blog.Domain.HeroImage", b =>
                 {
                     b.HasOne("Blog.Domain.MediaAsset", "Media")
@@ -196,7 +253,24 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Blog.Domain.VideoAsset", "Video")
+                        .WithMany()
+                        .HasForeignKey("VideoAssetId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Media");
+
+                    b.Navigation("Video");
+                });
+
+            modelBuilder.Entity("Blog.Domain.VideoAsset", b =>
+                {
+                    b.HasOne("Blog.Domain.MediaAsset", "Poster")
+                        .WithMany()
+                        .HasForeignKey("PosterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Poster");
                 });
 #pragma warning restore 612, 618
         }

@@ -183,7 +183,9 @@ public class SiteSettingsContentTests
         {
             "github" => Valid(githubUrl: value),
             "linkedin" => Valid(linkedinUrl: value),
-            _ => Valid(xUrl: value),
+            "x" => Valid(xUrl: value),
+            // Un error de tipeo en InlineData tiene que romper la prueba, no probar X sin querer.
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Campo de enlace desconocido."),
         });
         Assert.Equal(expectedMessage, error.Message);
     }

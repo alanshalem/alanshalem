@@ -32,6 +32,31 @@ internal static class TestImages
 
     public static byte[] Png(Image image) => image.PngsaveBuffer(keep: Enums.ForeignKeep.None);
 
+    /// <summary>GIF animado: un cuadro liso por color, de 100 ms cada uno.</summary>
+    public static byte[] AnimatedGif(int width, int height, params double[][] frameColors)
+    {
+        var frames = frameColors.Select(color => Solid(width, height, color)).ToArray();
+        try
+        {
+            // libvips representa una animación como una tira vertical de cuadros con "page-height".
+            using var strip = Image.Arrayjoin(frames, across: 1);
+            using var animated = strip.Mutate(image =>
+            {
+                image.Set(GValue.GIntType, "page-height", height);
+                image.Set(GValue.ArrayIntType, "delay", Enumerable.Repeat(100, frames.Length).ToArray());
+                image.Set(GValue.GIntType, "loop", 0);
+            });
+            return animated.GifsaveBuffer(keep: Enums.ForeignKeep.None);
+        }
+        finally
+        {
+            foreach (var frame in frames)
+            {
+                frame.Dispose();
+            }
+        }
+    }
+
     /// <summary>
     /// JPEG con un bloque EXIF armado a mano: orientación 6 (la cámara estaba girada 90°) y coordenadas GPS.
     /// Se arma byte a byte para que la prueba no dependa de cómo escribe EXIF la misma biblioteca que se prueba.

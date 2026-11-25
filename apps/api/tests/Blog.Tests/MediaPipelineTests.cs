@@ -112,6 +112,100 @@ public class MediaPipelineTests
     }
 
     [Fact]
+    public async Task Placeholder_stays_within_the_limit_even_when_every_preview_pixel_is_a_different_color()
+    {
+        await using var database = await CreateDatabaseAsync();
+        // 16 × 16 bloques de color al azar: al achicar a 16 px cada píxel queda distinto de sus vecinos (lo peor para WebP).
+        using var noise = Image.Gaussnoise(16, 16, sigma: 120, mean: 128);
+        using var bands = noise.Bandjoin(noise.Rot90(), noise.FlipVer());
+        using var blocks = bands.Cast(Enums.BandFormat.Uchar).Copy(interpretation: Enums.Interpretation.Srgb);
+        using var photo = blocks.Zoom(100, 100);
+
+        var asset = await UploadAsync(database, TestImages.Png(photo));
+
+        Assert.StartsWith(MediaAsset.PlaceholderPrefix, asset.Placeholder);
+        Assert.True(asset.Placeholder.Length <= MediaAsset.MaxPlaceholderLength, $"Mide {asset.Placeholder.Length} caracteres.");
+        using var placeholder = Image.NewFromBuffer(Convert.FromBase64String(asset.Placeholder[MediaAsset.PlaceholderPrefix.Length..]));
+        Assert.Equal("webpload_buffer", placeholder.Get("vips-loader"));
+        Assert.InRange(Math.Max(placeholder.Width, placeholder.Height), 8, 16);
+    }
+
+    [Theory]
+    [InlineData("jpg")]
+    [InlineData("png")]
+    public async Task Rejects_a_truncated_image_whose_header_is_intact_instead_of_publishing_it_degraded(string format)
+    {
+        await using var database = await CreateDatabaseAsync();
+        using var photo = TestImages.Gradient(1200, 800);
+        var complete = format == "jpg" ? TestImages.Jpeg(photo) : TestImages.Png(photo);
+        var truncated = complete[..(complete.Length * 6 / 10)];
+        using (var header = Image.NewFromBuffer(truncated))
+        {
+            // La prueba solo vale si la cabecera se sigue leyendo bien: lo cortado son los píxeles.
+            Assert.Equal((1200, 800), (header.Width, header.Height));
+        }
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => UploadAsync(database, truncated));
+
+        Assert.Equal(UnreadableMessage, error.Message);
+        await AssertNothingStoredAsync(database);
+    }
+
+    [Fact]
+    public async Task A_decoding_failure_is_logged_for_the_operator_while_the_user_gets_the_damaged_file_message()
+    {
+        await using var database = await CreateDatabaseAsync();
+        byte[] fakePng = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, .. "esto no es un PNG"u8];
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => UploadAsync(database, fakePng));
+
+        Assert.Equal(UnreadableMessage, error.Message);
+        var entry = Assert.Single(database.Logs.Entries, entry => entry.Category.EndsWith(".NetVipsImageProcessor", StringComparison.Ordinal));
+        Assert.Equal(Microsoft.Extensions.Logging.LogLevel.Warning, entry.Level);
+        Assert.IsType<VipsException>(entry.Exception);
+    }
+
+    [Fact]
+    public async Task An_animated_gif_keeps_its_animation_as_animated_webp_only()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var original = TestImages.AnimatedGif(800, 600, [220, 30, 30], [30, 30, 220]);
+        var hash = Convert.ToHexStringLower(SHA256.HashData(original));
+
+        var asset = await UploadAsync(database, original);
+
+        Assert.Equal((800, 600), (asset.Width, asset.Height));
+        Assert.Equal([new MediaVariantDto(MediaFormat.Webp, 640, $"/media/{hash}/640.webp")], asset.Variants);
+        Assert.Equal($"/media/{hash}/640.webp", asset.Url);
+        Assert.Equal([$"{hash}/640.webp"], database.MediaFiles());
+        using var file = Image.NewFromBuffer(File.ReadAllBytes(PathOf(database, asset.Url)), "n=-1");
+        Assert.Equal("webpload_buffer", file.Get("vips-loader"));
+        Assert.Equal(2, file.Get("n-pages"));
+        Assert.Equal((640, 480), (file.Width, file.PageHeight));
+        // Cada cuadro conserva su color: no se aplanó la animación en el primero.
+        Assert.True(file.Getpoint(320, 240)[0] > 150, "El primer cuadro debería ser rojo.");
+        Assert.True(file.Getpoint(320, 480 + 240)[2] > 150, "El segundo cuadro debería ser azul.");
+        Assert.Equal("#dc1e1e", asset.Color);
+    }
+
+    [Fact]
+    public async Task Uploading_again_regenerates_variant_files_that_went_missing_from_disk()
+    {
+        await using var database = await CreateDatabaseAsync();
+        using var image = TestImages.Gradient(900, 600);
+        var original = TestImages.Png(image);
+        var first = await UploadAsync(database, original);
+        var files = database.MediaFiles();
+        File.Delete(Path.Combine(database.MediaDirectory, files[0]));
+
+        var second = await UploadAsync(database, original);
+
+        Assert.Equivalent(first, second, strict: true);
+        Assert.Equal(files, database.MediaFiles());
+        Assert.Equivalent(first, Assert.Single(await database.WithMediaAsync(media => media.ListAsync(default))), strict: true);
+    }
+
+    [Fact]
     public async Task Color_is_the_dominant_color_as_lowercase_rrggbb()
     {
         await using var database = await CreateDatabaseAsync();

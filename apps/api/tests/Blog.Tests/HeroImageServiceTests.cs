@@ -2,6 +2,7 @@ using Blog.Application;
 using Blog.Application.Abstractions;
 using Blog.Application.HeroImages;
 using Blog.Application.Media;
+using Blog.Application.Videos;
 using Blog.Domain;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -72,6 +73,130 @@ public class HeroImageServiceTests
         Assert.Equal("La imagen elegida no existe. Subila de nuevo.", error.Message);
         Assert.Empty(await ListAsync(database));
         Assert.Equal(0, database.Build.Requests);
+    }
+
+    [Theory]
+    [InlineData(1080, 1920, "Mide 1080×1920 y el hero necesita una imagen horizontal: vertical o cuadrada no sirve. Ideal: 1920×1080 o más, horizontal 16:9.")]
+    [InlineData(1500, 1500, "Mide 1500×1500 y el hero necesita una imagen horizontal: vertical o cuadrada no sirve. Ideal: 1920×1080 o más, horizontal 16:9.")]
+    [InlineData(1439, 1200, "Mide 1439×1200 y el hero necesita una imagen horizontal: vertical o cuadrada no sirve. Ideal: 1920×1080 o más, horizontal 16:9.")]
+    [InlineData(1279, 720, "Mide 1279×720 y el mínimo es 1280×720. Ideal: 1920×1080 o más, horizontal 16:9.")]
+    [InlineData(1280, 719, "Mide 1280×719 y el mínimo es 1280×720. Ideal: 1920×1080 o más, horizontal 16:9.")]
+    public async Task A_photo_that_is_not_landscape_or_is_too_small_is_rejected_stores_nothing_and_does_not_rebuild(
+        int width, int height, string expectedMessage)
+    {
+        await using var database = await CreateDatabaseAsync();
+        var asset = await AddAssetAsync(database, '1', width, height);
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(asset.Id, "Alt", null), default)));
+
+        Assert.Equal(expectedMessage, error.Message);
+        Assert.Empty(await ListAsync(database));
+        Assert.Equal(0, database.Build.Requests);
+    }
+
+    [Theory]
+    [InlineData(1280, 720)]
+    [InlineData(1440, 1200)]
+    [InlineData(2560, 1000)]
+    public async Task A_photo_at_the_minimum_size_and_landscape_ratio_is_accepted(int width, int height)
+    {
+        await using var database = await CreateDatabaseAsync();
+        var asset = await AddAssetAsync(database, '1', width, height);
+
+        var created = await CreateAsync(database, asset, "Alt");
+
+        Assert.Equal((width, height), (created.Media.Width, created.Media.Height));
+        Assert.Equivalent(new[] { created }, await ListAsync(database), strict: true);
+    }
+
+    [Fact]
+    public async Task Create_with_a_ready_video_uses_its_poster_as_media_and_requests_a_rebuild()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var video = await AddVideoAsync(database, '5', VideoStatus.Ready);
+        var expectedVideo = await database.WithVideosAsync(videos => videos.GetAsync(video.Id, default));
+
+        var created = await database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(null, " Aurora ", "Video: Ana", video.Id), default));
+
+        Assert.Equal("Aurora", created.Alt);
+        Assert.Equal("Video: Ana", created.Credit);
+        Assert.Equivalent(expectedVideo, created.Video, strict: true);
+        Assert.Equivalent(expectedVideo.Poster, created.Media, strict: true);
+        Assert.Equal(VideoStatus.Ready, created.Video!.Status);
+        Assert.Equivalent(new[] { created }, await ListAsync(database), strict: true);
+        Assert.Equivalent(new[] { created }, await database.WithHeroImagesAsync(heroes => heroes.ListForSiteAsync(default)), strict: true);
+        Assert.Equal(1, database.Build.Requests);
+    }
+
+    [Fact]
+    public async Task A_photo_has_no_video()
+    {
+        await using var database = await CreateDatabaseAsync();
+
+        var created = await CreateAsync(database, await AddAssetAsync(database, '1'), "Alt");
+
+        Assert.Null(created.Video);
+    }
+
+    [Theory]
+    [InlineData(VideoStatus.Processing, "El video todavía se está procesando: esperá a que esté listo.")]
+    [InlineData(VideoStatus.Failed, "El video no se pudo procesar. Subilo de nuevo.")]
+    public async Task Create_with_a_video_that_is_not_ready_is_rejected_and_stores_nothing(VideoStatus status, string expectedMessage)
+    {
+        await using var database = await CreateDatabaseAsync();
+        var video = await AddVideoAsync(database, '5', status);
+
+        var error = await Assert.ThrowsAsync<DomainException>(() => database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(null, "Alt", null, video.Id), default)));
+
+        Assert.Equal(expectedMessage, error.Message);
+        Assert.Empty(await ListAsync(database));
+        Assert.Equal(0, database.Build.Requests);
+    }
+
+    [Fact]
+    public async Task Create_needs_exactly_one_of_photo_or_video_and_the_video_must_exist()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var asset = await AddAssetAsync(database, '1');
+        var video = await AddVideoAsync(database, '5', VideoStatus.Ready);
+
+        var neither = await Assert.ThrowsAsync<DomainException>(() => database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(null, "Alt", null), default)));
+        var both = await Assert.ThrowsAsync<DomainException>(() => database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(asset.Id, "Alt", null, video.Id), default)));
+        var unknown = await Assert.ThrowsAsync<DomainException>(() => database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(null, "Alt", null, Guid.NewGuid()), default)));
+
+        Assert.Equal("Elegí una foto o un video para el hero.", neither.Message);
+        Assert.Equal("Elegí una foto o un video para el hero.", both.Message);
+        Assert.Equal("El video elegido no existe. Subilo de nuevo.", unknown.Message);
+        Assert.Empty(await ListAsync(database));
+        Assert.Equal(0, database.Build.Requests);
+    }
+
+    [Fact]
+    public async Task The_site_list_leaves_out_items_whose_video_is_not_ready_and_the_admin_list_keeps_them()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var photo = await CreateAsync(database, await AddAssetAsync(database, '1'), "Foto");
+        var readyVideo = await AddVideoAsync(database, '5', VideoStatus.Ready);
+        var stuckVideo = await AddVideoAsync(database, '6', VideoStatus.Ready);
+        var ready = await database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(null, "Listo", null, readyVideo.Id), default));
+        var stuck = await database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(null, "Trabado", null, stuckVideo.Id), default));
+        // Hoy un video listo no vuelve atrás; si un día pasara (o la base se editara a mano), el sitio no debe
+        // publicar un ítem sin archivos de video.
+        await database.ExecuteAsync($"UPDATE video_assets SET Status = 'Processing' WHERE Id = '{stuckVideo.Id.ToString().ToUpperInvariant()}'");
+
+        var site = await database.WithHeroImagesAsync(heroes => heroes.ListForSiteAsync(default));
+        var admin = await ListAsync(database);
+
+        Assert.Equal([photo.Id, ready.Id], site.Select(image => image.Id));
+        Assert.Equal([photo.Id, ready.Id, stuck.Id], admin.Select(image => image.Id));
     }
 
     [Fact]
@@ -176,17 +301,43 @@ public class HeroImageServiceTests
         _ => value,
     };
 
-    private static Task<MediaAsset> AddAssetAsync(SqliteTestDatabase database, char hashCharacter) =>
+    /// <summary>Por defecto 1920×1080: el tamaño ideal del hero (la regla de tamaño se prueba aparte).</summary>
+    private static Task<MediaAsset> AddAssetAsync(SqliteTestDatabase database, char hashCharacter, int width = 1920, int height = 1080) =>
         database.InScopeAsync(async provider =>
         {
             var assets = provider.GetRequiredService<IMediaAssetRepository>();
             var asset = MediaAsset.Create(
-                new string(hashCharacter, MediaAsset.HashLength), 1200, 800, "#112233", MediaAsset.PlaceholderPrefix + "UklGRg==",
+                new string(hashCharacter, MediaAsset.HashLength), width, height, "#112233", MediaAsset.PlaceholderPrefix + "UklGRg==",
                 database.Clock.UtcNow);
             assets.Add(asset);
             await assets.SaveChangesAsync(default);
             return asset;
         });
+
+    /// <summary>Video de 1920×1080 en el estado pedido; si está listo, con póster y sus cuatro fuentes.</summary>
+    private static async Task<VideoAsset> AddVideoAsync(SqliteTestDatabase database, char hashCharacter, VideoStatus status)
+    {
+        var poster = await AddAssetAsync(database, (char)(hashCharacter + 1));
+        return await database.InScopeAsync(async provider =>
+        {
+            var videos = provider.GetRequiredService<IVideoAssetRepository>();
+            var trackedPoster = await provider.GetRequiredService<IMediaAssetRepository>().GetByIdAsync(poster.Id, default);
+            var video = VideoAsset.Create(new string(hashCharacter, MediaAsset.HashLength), 1920, 1080, 8, database.Clock.UtcNow);
+            switch (status)
+            {
+                case VideoStatus.Ready:
+                    video.MarkReady(trackedPoster!, [.. VideoVariant.For(1080).Select(variant => new VideoSource(variant.Codec, variant.Height, 1000))]);
+                    break;
+                case VideoStatus.Failed:
+                    video.MarkFailed("ffmpeg falló");
+                    break;
+            }
+
+            videos.Add(video);
+            await videos.SaveChangesAsync(default);
+            return video;
+        });
+    }
 
     private static Task<HeroImageDto> CreateAsync(SqliteTestDatabase database, MediaAsset asset, string alt) =>
         database.WithHeroImagesAsync(heroes => heroes.CreateAsync(new CreateHeroImageRequest(asset.Id, alt, null), default));
