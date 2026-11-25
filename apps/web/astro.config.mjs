@@ -1,6 +1,8 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 
+import { reliableDevWatch } from '../../tooling/dev-watch.ts';
+
 const siteUrl = (process.env.SITE_URL ?? 'http://localhost:4321').replace(/\/$/, '');
 
 export default defineConfig({
@@ -22,4 +24,6 @@ export default defineConfig({
   outDir: process.env.OUT_DIR ?? './dist',
 
   devToolbar: { enabled: false },
+
+  vite: { server: { watch: reliableDevWatch } },
 });

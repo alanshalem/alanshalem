@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
+import { reliableDevWatch } from '../../tooling/dev-watch.ts';
+
 /**
  * tokens.css pide las fuentes en /fonts/*.woff2 (fuera de /admin/). En producción las sirve Caddy desde el
  * sitio público; en desarrollo las servimos desde apps/web/public/fonts para que el admin se vea con
@@ -34,6 +36,10 @@ export default defineConfig({
   plugins: [react(), devFonts()],
   server: {
     port: 5173,
+    // Si el puerto está ocupado (por ejemplo un servidor anterior que no terminó de cerrarse), fallar con un error
+    // claro en vez de mudarse en silencio a otro puerto: el navegador y el proxy esperan el 5173.
+    strictPort: true,
+    watch: reliableDevWatch,
     // En desarrollo, Vite reenvía /api a la API .NET local.
     proxy: { '/api': 'http://localhost:5090', '/media': 'http://localhost:5090' },
   },
