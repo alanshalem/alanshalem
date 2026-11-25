@@ -1,0 +1,34 @@
+---
+import { site } from '../lib/site.ts';
+
+interface Props {
+  currentPath: string;
+}
+
+const { currentPath } = Astro.props;
+const isCurrent = (href: string): boolean => href !== '/rss.xml' && currentPath.startsWith(href);
+---
+
+<header class="site-header">
+  <a class="brand" href="/">{site.name}</a>
+
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menú">☰</button>
+  <nav id="site-nav" class="site-nav" aria-label="Principal">
+    {
+      site.nav.map((item) => (
+        <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+          {item.label}
+        </a>
+      ))
+    }
+  </nav>
+</header>
+
+<script>
+  // Único JavaScript de la cabecera: abrir/cerrar el menú en pantallas angostas.
+  const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
+  toggle?.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!open));
+  });
+</script>

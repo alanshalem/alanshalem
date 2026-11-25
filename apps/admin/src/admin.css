@@ -1,0 +1,99 @@
+/* Estilos del admin. Usa los tokens del design system; la vista previa reutiliza .paper/.prose del paquete tokens. */
+
+:root { --admin-max: 1280px; --field-bg: var(--bg-surface); }
+
+body { font-family: var(--font-ui); font-size: 15px; line-height: 1.5; }
+
+h1 { font-family: var(--font-display); font-weight: 400; font-size: 1.8rem; }
+
+button, input, textarea { font: inherit; color: inherit; }
+button {
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--text-tertiary); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 2px; }
+
+.primary { background: var(--link-accent); color: #0a0a0b; border-color: transparent; font-weight: 600; }
+.danger { color: #ff8f8f; }
+.link-button { background: none; border: 0; padding: 0; text-decoration: underline; }
+.button-link { display: inline-block; padding: 0.4rem 0.9rem; border-radius: 6px; text-decoration: none; }
+
+input, textarea {
+  width: 100%;
+  background: var(--field-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+}
+label { display: grid; gap: 0.3rem; font-size: 0.85rem; color: var(--text-secondary); }
+
+.error { color: #ff8f8f; }
+.notice { color: var(--link-accent); }
+.center-note { padding: 4rem 1rem; text-align: center; }
+
+/* ----- Estructura ----- */
+.shell-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem var(--gutter, 1rem);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.brand { font-family: var(--font-display); font-size: 1.2rem; text-decoration: none; }
+.shell-main { max-width: var(--admin-max); margin: 0 auto; padding: 1.5rem var(--gutter, 1rem) 4rem; }
+
+.page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+.login { max-width: 22rem; margin: 15vh auto 0; padding: 0 1rem; display: grid; gap: 1rem; }
+
+/* ----- Lista de posts ----- */
+.post-list { list-style: none; padding: 0; display: grid; }
+.post-list a {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: center;
+  padding: 0.9rem 0; border-bottom: 1px solid var(--border-subtle); text-decoration: none;
+}
+.post-title { font-family: var(--font-text); font-size: 1.1rem; }
+.badge { font-size: 0.75rem; padding: 0.1rem 0.55rem; border-radius: 999px; border: 1px solid var(--border-subtle); }
+.badge-published { color: var(--link-accent); border-color: var(--link-accent); }
+
+/* ----- Formulario del post ----- */
+.fields { display: grid; gap: 0.9rem; margin-bottom: 1.25rem; }
+@media (min-width: 900px) { .fields { grid-template-columns: 2fr 1fr; } .fields label:nth-child(n + 3) { grid-column: 1 / -1; } }
+.danger-zone { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-subtle); }
+
+/* ----- Editor Markdown ----- */
+.editor { border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; }
+.editor-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem;
+  padding: 0.4rem; background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle);
+}
+.toolbar-button { padding: 0.25rem 0.55rem; min-width: 2.1rem; font-size: 0.85rem; }
+.toolbar-separator { width: 1px; align-self: stretch; background: var(--border-subtle); margin: 0 0.25rem; }
+
+.editor-tabs { margin-left: auto; display: flex; gap: 0.25rem; }
+.editor-tabs button[aria-selected='true'] { background: var(--link-accent); color: #0a0a0b; }
+
+.editor-panes { display: grid; grid-template-columns: 1fr; min-height: 60vh; }
+.editor-input {
+  border: 0; border-radius: 0; resize: vertical; min-height: 60vh;
+  font-family: var(--font-mono, ui-monospace, 'SF Mono', Menlo, Consolas, monospace);
+  font-size: 14px; line-height: 1.6; tab-size: 2;
+}
+.editor-preview { overflow: auto; max-height: 80vh; padding: 2rem 1.5rem; }
+.editor-status { min-height: 1.5rem; padding: 0.2rem 0.75rem; font-size: 0.8rem; color: var(--text-secondary); }
+
+/* Pantallas angostas: se muestra una sola vista a la vez, según la pestaña. */
+.editor[data-tab='write'] .editor-preview { display: none; }
+.editor[data-tab='preview'] .editor-input { display: none; }
+
+/* Pantallas anchas: escribir y previsualizar lado a lado; las pestañas sobran. */
+@media (min-width: 1000px) {
+  .editor-panes { grid-template-columns: 1fr 1fr; }
+  .editor[data-tab] .editor-input, .editor[data-tab] .editor-preview { display: block; }
+  .editor-tabs { display: none; }
+  .editor-input { border-right: 1px solid var(--border-subtle); }
+}

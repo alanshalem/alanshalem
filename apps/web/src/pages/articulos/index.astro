@@ -1,0 +1,36 @@
+---
+import PostCard from '../../components/PostCard.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getPosts, type BlogPost } from '../../lib/posts.ts';
+
+const posts = await getPosts();
+
+// Agrupado por año (los posts ya vienen del más nuevo al más viejo).
+const byYear = new Map<number, BlogPost[]>();
+for (const post of posts) {
+  const year = post.publishedAt.getFullYear();
+  byYear.set(year, [...(byYear.get(year) ?? []), post]);
+}
+---
+
+<BaseLayout title="Artículos" description="Todos los artículos, por año." path="/articulos/">
+  <section class="hero hero-small">
+    <h1>Artículos</h1>
+  </section>
+
+  <section class="section">
+    {
+      posts.length === 0 && <p class="empty">Todavía no hay artículos publicados.</p>
+    }
+    {
+      [...byYear].map(([year, yearPosts]) => (
+        <div class="year-block">
+          <h2 class="year">{year}</h2>
+          <div class="card-grid">
+            {yearPosts.map((post) => <PostCard post={post} />)}
+          </div>
+        </div>
+      ))
+    }
+  </section>
+</BaseLayout>

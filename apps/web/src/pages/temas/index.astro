@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getTags, tagPath } from '../../lib/posts.ts';
+
+const tags = await getTags();
+---
+
+<BaseLayout title="Temas" description="Los artículos agrupados por tema." path="/temas/">
+  <section class="hero hero-small">
+    <h1>Temas</h1>
+  </section>
+
+  <section class="section">
+    {tags.length === 0 && <p class="empty">Todavía no hay temas.</p>}
+    <ul class="chip-cloud">
+      {
+        tags.map(({ tag, posts }) => (
+          <li>
+            <a href={tagPath(tag)}>
+              {tag.name} <span class="count">{posts.length}</span>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</BaseLayout>

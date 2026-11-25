@@ -1,0 +1,13 @@
+{
+  "name": "@blog/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Design tokens (CSS variables + JSON DTCG) y estilos de prosa compartidos por web y admin.",
+  "exports": {
+    "./tokens.css": "./src/tokens.css",
+    "./prose.css": "./src/prose.css",
+    "./tokens.json": "./src/tokens.json"
+  },
+  "files": ["src"]
+}

@@ -1,0 +1,188 @@
+/* ==========================================================================
+   Design tokens — extraídos de federicocarrone.com (medido el 2026-11-24)
+   Capas: 1) primitivas  2) semánticas  3) base tipográfica  4) layout
+   Tema oscuro global + tema 'papel' (hoja blanca) solo en páginas de lectura: ver bloque .paper al final.
+   Breakpoints (no se pueden poner en variables dentro de @media):
+     600px · 700px · 800px · 900px (nav → ☰) · 75em = 1200px (cards auto-fill)
+   ========================================================================== */
+
+/* --- Tipografías (self-host, woff2 latin). font-display: swap evita texto invisible --- */
+@font-face { font-family: "Gloock";          src: url("/fonts/gloock-latin.woff2") format("woff2");          font-weight: 400;     font-style: normal; font-display: swap; }
+@font-face { font-family: "Hanken Grotesk";  src: url("/fonts/hanken-grotesk-latin.woff2") format("woff2");  font-weight: 400 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Pagella";         src: url("/fonts/pagella-regular-latin.woff2") format("woff2"); font-weight: 400;     font-style: normal; font-display: swap; }
+@font-face { font-family: "Pagella";         src: url("/fonts/pagella-italic-latin.woff2") format("woff2");  font-weight: 400;     font-style: italic; font-display: swap; }
+@font-face { font-family: "Pagella";         src: url("/fonts/pagella-bold-latin.woff2") format("woff2");    font-weight: 700;     font-style: normal; font-display: swap; }
+
+:root {
+  color-scheme: dark;
+
+  /* ---------- 1. PRIMITIVAS ---------- */
+  /* Color */
+  --ink-950: #0a0a0b;
+  --ink-900: #131316;
+  --ink-850: #141416;
+  --ink-800: #1b1b1e;
+  --ink-700: #2a2a2d;
+  --stone-500: #8e8e88;
+  --stone-300: #c8c8c2;
+  --paper-100: #ededea;
+  --white: #fff;
+  --periwinkle-300: #9db2ff;
+  --periwinkle-200: #c4d0ff;
+  --dataviz-green: #a9c98a;
+  --dataviz-blue: #8fa7d9;
+  --dataviz-orange: #e08f6a;
+
+  /* Familias */
+  --font-display: Gloock, "Iowan Old Style", Georgia, serif;
+  --font-text: Pagella, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-ui: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+
+  /* Escala tipográfica (rem; 1rem = 16px). Entre paréntesis, px resultantes */
+  --text-2xs: 0.75rem;     /* 12   eyebrow, h2 de sección, créditos */
+  --text-xs: 0.8125rem;    /* 13   meta */
+  --text-sm: 0.9rem;       /* 14.4 footer */
+  --text-ui: 0.95rem;      /* 15.2 nav, links de entrada */
+  --text-base: 1rem;       /* 16   dek de card */
+  --text-lead: 1.15rem;    /* 18.4 dek de nota destacada */
+  --text-body: 1.1875rem;  /* 19   cuerpo */
+  --text-title-sm: 1.4rem; /* 22.4 lista numerada */
+  --text-title-md: 1.6rem; /* 25.6 card */
+  --text-title-lg: 1.8rem; /* 28.8 tile */
+  --text-brand: 1.75rem;   /* 28   marca footer */
+  --text-hero-h1: clamp(2.4rem, 5.6vw, 4.6rem);
+  --text-hero-dek: clamp(1.05rem, 1.35vw, 1.25rem);
+  --text-lead-title: clamp(2rem, 3.6vw, 3rem);
+
+  --leading-hero: 1.02;
+  --leading-tight: 1.05;
+  --leading-snug: 1.1;
+  --leading-title: 1.2;
+  --leading-dek: 1.5;
+  --leading-body: 1.55;
+  --tracking-label: 0.12em;
+
+  /* Espaciado */
+  --space-0-25: 0.25rem;
+  --space-0-5: 0.5rem;
+  --space-0-7: 0.7rem;
+  --space-0-9: 0.9rem;
+  --space-1: 1rem;
+  --space-1-1: 1.1rem;
+  --space-1-25: 1.25rem;
+  --space-1-5: 1.5rem;
+  --space-1-75: 1.75rem;
+  --space-2: 2rem;
+  --space-2-5: 2.5rem;
+  --space-2-75: 2.75rem;
+  --space-3: 3rem;
+  --space-3-5: 3.5rem;
+  --space-5: 5rem;
+  --space-7: 7rem;
+  --gutter: clamp(1rem, 3.75vw, 3rem);
+
+  /* Bordes, radios, movimiento */
+  --border-hairline: 1px;
+  --border-strong: 2px;
+  --radius-none: 0;
+  --duration-fast: 150ms;
+
+  /* ---------- 2. SEMÁNTICAS (usar siempre éstas en componentes) ---------- */
+  --bg-page: var(--ink-950);
+  --bg-surface: var(--ink-850);
+  --bg-surface-alt: var(--ink-800);
+  --bg-code: var(--ink-900);
+  --text-primary: var(--paper-100);
+  --text-secondary: var(--stone-300);
+  --text-tertiary: var(--stone-500);
+  --border-subtle: var(--ink-700);
+  --link-accent: var(--periwinkle-300);
+  --link-underline-hover: var(--periwinkle-200);
+  --overlay-hero: linear-gradient(
+    rgba(10, 10, 11, 0.55) 0%,
+    rgba(10, 10, 11, 0) 22%,
+    rgba(10, 10, 11, 0.1) 45%,
+    rgba(10, 10, 11, 0.94) 100%
+  );
+
+  /* ---------- 4. LAYOUT ---------- */
+  --prose-width: 35em;
+  --hero-body-max: 58rem;
+  --hero-dek-max: 36em;
+  --aspect-lead: 16 / 9;
+  --aspect-card: 16 / 10;
+  --aspect-tile: 6 / 5;
+  --aspect-poster: 2 / 3;
+}
+
+/* ==========================================================================
+   3. BASE
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+img, picture, video, canvas, svg { display: block; max-width: 100%; }
+
+html { background: var(--bg-page); }
+body {
+  font-family: var(--font-text);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Links: heredan color y se distinguen por subrayado fino (home). Hover: subrayado más grueso en acento claro */
+a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.22em; }
+a:hover, a:focus { text-decoration-color: var(--link-underline-hover); text-decoration-thickness: 3px; }
+a:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
+
+/* Etiqueta pequeña en mayúsculas: eyebrow, h2 de sección, h2 del footer */
+.eyebrow, .section-head h2, .footer h2 {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.meta { font-family: var(--font-ui); font-size: var(--text-xs); color: var(--text-tertiary); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+/* ==========================================================================
+   Tema "papel": hoja blanca de las páginas de lectura (artículos, episodios, About)
+   Medido a 1440px: cuerpo Pagella 17px/27.2px, columna 640px, TOC lateral 224px
+   ========================================================================== */
+.paper {
+  --paper-bg: #fff;
+  --paper-text: #2c2724;
+  --paper-muted: #656565;
+  --paper-rule: #ece9e4;
+  --paper-border-ui: #d9d9d6;
+  --paper-code-bg: #f9f9f9;
+  --code-block-bg: #24292e;
+  --code-block-fg: #e1e4e8;
+
+  background: var(--paper-bg);
+  color: var(--paper-text);
+  font-size: 17px;
+  line-height: 1.6;           /* 27.2px */
+  padding: 72px 0 80px;
+}
+.paper .prose { max-width: 640px; }
+.paper .prose h2 { font-size: 1.6rem; line-height: 1.1; font-weight: 400; }
+.paper .prose a { color: var(--paper-muted); }
+.paper .prose :not(pre) > code {
+  font: 14px/1.6 var(--font-mono); background: var(--paper-code-bg);
+  border: 1px solid var(--paper-rule); border-radius: 4px; padding: 1.75px 3.5px;
+}
+.paper .prose pre { font: 12.8px/1.5 var(--font-mono); background: var(--code-block-bg); color: var(--code-block-fg); border-radius: 2px; overflow-x: auto; }
+.paper .prose blockquote { border-left: 4px solid var(--paper-rule); padding: 3.2px 0 3.2px 25.6px; }
+.paper .end-matter { border-top: 1px solid var(--paper-rule); padding-top: 2rem; font-family: var(--font-ui); }
+.paper .tag-list a { border: 1px solid var(--paper-border-ui); padding: 5.6px 12px; font: 14px var(--font-ui); color: var(--paper-muted); }
+.paper .ideas-in-chip { border: 1px solid var(--paper-border-ui); border-radius: 999px; padding: 4.8px 12px; font: 13.6px var(--font-ui); }
+.paper .newsletter { border: 1px solid var(--paper-rule); padding: 28px; background: var(--paper-bg); }

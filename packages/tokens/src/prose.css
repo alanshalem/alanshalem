@@ -1,0 +1,59 @@
+/* ==========================================================================
+   Estilos de prosa: el HTML que genera @blog/markdown.
+   Los usa la web pública (Astro) Y la vista previa del admin, así que
+   "lo que ves en el editor" = "lo que se publica". Requiere tokens.css.
+   Se aplica dentro de un contenedor `.paper > .prose`.
+   ========================================================================== */
+
+.prose { font-family: var(--font-text); }
+
+.prose > * + * { margin-top: 1.1em; }
+.prose > h2 { margin-top: 2.2em; }
+.prose > h3, .prose > h4 { margin-top: 1.8em; }
+
+.prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 1.15;
+  scroll-margin-top: 1.5rem; /* al saltar a #ancla, que no quede pegado arriba */
+}
+.prose h3 { font-size: 1.3rem; }
+.prose h4, .prose h5, .prose h6 { font-size: 1.1rem; }
+
+.prose p, .prose li { overflow-wrap: break-word; }
+
+.prose ul, .prose ol { padding-left: 1.4em; }
+.prose li + li { margin-top: 0.35em; }
+.prose li > ul, .prose li > ol { margin-top: 0.35em; }
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--paper-rule, var(--border-subtle));
+  margin: 2.2em 0;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
+.prose blockquote > * + * { margin-top: 0.8em; }
+
+.prose pre {
+  padding: 1rem 1.25rem;
+  tab-size: 2;
+}
+.prose pre code { font: inherit; background: none; border: 0; padding: 0; }
+
+/* Tablas: el renderer las envuelve en .table-wrap para poder hacer scroll horizontal en mobile */
+.prose .table-wrap { overflow-x: auto; }
+.prose table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+.prose th, .prose td {
+  padding: 0.5em 0.75em;
+  border-bottom: 1px solid var(--paper-rule, var(--border-subtle));
+  text-align: left;
+}
+.prose th { font-family: var(--font-ui); font-size: 0.8em; letter-spacing: 0.04em; text-transform: uppercase; }
+.prose .align-center { text-align: center; }
+.prose .align-right { text-align: right; }

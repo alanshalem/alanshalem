@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Casos de uso. Depende solo del dominio; los detalles (base de datos, disco, HTTP) entran por interfaces. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Blog.Domain\Blog.Domain.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,20 @@
+---
+import { formatDate } from '../lib/site.ts';
+import { postPath, type BlogPost } from '../lib/posts.ts';
+
+interface Props {
+  post: BlogPost;
+}
+
+const { post } = Astro.props;
+const eyebrow = post.tags[0]?.name ?? 'Artículo';
+---
+
+<article class="card">
+  <p class="eyebrow">{eyebrow}</p>
+  <h3><a href={postPath(post)}>{post.title}</a></h3>
+  {post.description && <p class="dek">{post.description}</p>}
+  <p class="meta">
+    <time datetime={post.publishedAt.toISOString()}>{formatDate(post.publishedAt)}</time> · {post.readingMinutes} min
+  </p>
+</article>

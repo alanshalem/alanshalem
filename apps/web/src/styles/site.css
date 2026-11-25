@@ -1,0 +1,113 @@
+/* Estilos propios del sitio público. Los colores, tipografías y espaciados vienen de tokens.css. */
+
+.skip-link {
+  position: absolute; left: var(--gutter); top: -4rem; z-index: 10;
+  background: var(--paper-100); color: var(--ink-950); padding: 0.5rem 0.9rem;
+}
+.skip-link:focus { top: 0.5rem; }
+
+/* ---------- Header ---------- */
+.site-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  padding: var(--space-1-5) var(--gutter);
+}
+.brand { font-family: var(--font-display); font-size: var(--text-title-sm); text-decoration: none; }
+.site-nav { display: none; width: 100%; flex-direction: column; gap: var(--space-0-7); padding-top: var(--space-1); }
+.site-nav a { font-family: var(--font-ui); font-size: var(--text-ui); font-weight: 500; text-decoration: none; }
+.site-nav a[aria-current='page'] { text-decoration: underline; }
+.nav-toggle {
+  background: none; color: inherit; font-size: 1.1rem; cursor: pointer;
+  width: 2.5rem; height: 2.5rem; border: 1px solid rgba(237, 237, 234, 0.4);
+}
+.nav-toggle[aria-expanded='true'] + .site-nav { display: flex; }
+
+/* A partir de 900px los links quedan visibles y el botón ☰ sobra. */
+@media (min-width: 900px) {
+  .nav-toggle { display: none; }
+  .site-nav { display: flex; flex-direction: row; width: auto; padding-top: 0; gap: var(--space-1-75); }
+}
+
+/* ---------- Hero y secciones ---------- */
+.hero { padding: var(--space-7) var(--gutter) var(--space-3-5); }
+.hero-small { padding-top: var(--space-5); }
+.hero h1 {
+  font-family: var(--font-text); font-weight: 400; max-width: 20ch;
+  font-size: var(--text-hero-h1); line-height: var(--leading-hero);
+}
+.hero-small h1 { font-size: var(--text-lead-title); }
+.hero .dek { margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--text-hero-dek); }
+.hero .eyebrow { margin-bottom: var(--space-1); }
+
+.section { padding: var(--space-5) var(--gutter) 0; }
+.section-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-1);
+  border-bottom: var(--border-hairline) solid var(--border-subtle);
+  padding-bottom: var(--space-0-9); margin-bottom: var(--space-1-75);
+}
+.section-head h2 { font-family: var(--font-ui); }
+.section-head a { font-family: var(--font-ui); font-size: var(--text-sm); color: var(--text-secondary); }
+.empty { color: var(--text-secondary); }
+
+/* ---------- Cards ---------- */
+.card-grid { display: grid; gap: var(--space-2) var(--space-1-5); grid-template-columns: 1fr; }
+@media (min-width: 700px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 75em) { .card-grid { grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); } }
+
+.card { display: grid; gap: 0.7rem; align-content: start; }
+.card h3 { font-family: var(--font-display); font-weight: 400; font-size: var(--text-title-md); line-height: var(--leading-snug); }
+.card h3 a { text-decoration: none; } /* el sitio original desactiva el subrayado del título en hover */
+.card .dek { color: var(--text-tertiary); font-size: var(--text-base); line-height: var(--leading-dek);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+.year-block { display: grid; gap: var(--space-1-5); margin-bottom: var(--space-3); }
+.year { font-family: var(--font-display); font-weight: 400; font-size: var(--text-lead-title); color: var(--text-tertiary); }
+@media (min-width: 900px) { .year-block { grid-template-columns: 10rem 1fr; } }
+
+.chip-cloud { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-0-7); }
+.chip-cloud a {
+  display: inline-block; border: var(--border-hairline) solid var(--border-subtle);
+  padding: 0.35rem 0.8rem; font-family: var(--font-ui); font-size: var(--text-sm); text-decoration: none;
+}
+.chip-cloud .count { color: var(--text-tertiary); margin-left: 0.3rem; }
+
+/* ---------- Artículo ---------- */
+.article-hero { padding: var(--space-5) var(--gutter) var(--space-3); max-width: 70rem; }
+.article-hero h1 {
+  font-family: var(--font-text); font-weight: 400;
+  font-size: clamp(2.5rem, 6vw, 5rem); line-height: var(--leading-hero);
+}
+.article-hero .eyebrow, .article-hero .meta { margin-top: var(--space-1); }
+.article-hero .dek { margin-top: var(--space-1-25); max-width: var(--hero-dek-max); color: var(--text-secondary); font-size: var(--text-hero-dek); }
+
+/* La hoja blanca: ancho de columna 640px; con TOC lateral de 224px a partir de 1100px. */
+.reading { padding-inline: var(--gutter); }
+.reading-grid { max-width: 640px; margin-inline: auto; }
+.toc { font-size: 14px; margin-bottom: var(--space-2); }
+.toc ol { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+.toc .toc-level-3 { padding-left: 1rem; }
+.toc a { color: var(--paper-muted); text-decoration: none; }
+.toc a[aria-current='true'] { color: var(--paper-text); font-weight: 700; }
+
+@media (min-width: 1100px) {
+  .reading-grid { max-width: none; width: fit-content; display: grid; grid-template-columns: 224px 640px; column-gap: 3rem; }
+  .toc { position: sticky; top: 2rem; align-self: start; margin-bottom: 0; }
+  .reading-grid > .prose { grid-column: 2; grid-row: 1; }
+  .toc { grid-column: 1; grid-row: 1; }
+}
+
+.end-matter { margin-top: var(--space-3-5); }
+@media (min-width: 1100px) { .end-matter { grid-column: 2; } } /* alineado con la columna de texto, no con el índice */
+.tag-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.tag-list a { display: inline-block; text-decoration: none; }
+
+/* ---------- Footer ---------- */
+.site-footer {
+  display: grid; gap: var(--space-2); margin-top: var(--space-7);
+  border-top: var(--border-hairline) solid var(--border-subtle);
+  padding: var(--space-2-5) var(--gutter) var(--space-3);
+}
+.footer-brand { font-family: var(--font-display); font-size: var(--text-brand); }
+.footer-tagline, .footer-legal { color: var(--text-tertiary); font-size: var(--text-sm); }
+.site-footer ul { list-style: none; padding: 0; margin-top: var(--space-0-7); display: grid; gap: 0.4rem; font-family: var(--font-ui); font-size: var(--text-sm); }
+.site-footer h2 { font-family: var(--font-ui); font-size: var(--text-2xs); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-tertiary); }
+@media (min-width: 900px) { .site-footer { grid-template-columns: 2fr 1fr 1fr; } .footer-legal { align-self: end; } }

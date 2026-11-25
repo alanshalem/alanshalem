@@ -1,0 +1,25 @@
+---
+import { site } from '../lib/site.ts';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div>
+    <p class="footer-brand">{site.name}</p>
+    <p class="footer-tagline">{site.tagline}</p>
+  </div>
+  <nav aria-label="Secundaria">
+    <h2>Explorar</h2>
+    <ul>
+      {
+        site.nav.map((item) => (
+          <li>
+            <a href={item.href}>{item.label}</a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+  <p class="footer-legal">© {year} {site.author}</p>
+</footer>

@@ -1,0 +1,120 @@
+using Blog.Application.Abstractions;
+using Blog.Application.Media;
+using Blog.Domain;
+using Blog.Infrastructure.Security;
+
+namespace Blog.Tests;
+
+public class ImageSnifferTests
+{
+    [Fact]
+    public void Detects_png() =>
+        Assert.Equal("png", ImageSniffer.DetectExtension([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00]));
+
+    [Fact]
+    public void Detects_jpeg() =>
+        Assert.Equal("jpg", ImageSniffer.DetectExtension([0xFF, 0xD8, 0xFF, 0xE0, 0x00]));
+
+    [Fact]
+    public void Detects_gif() =>
+        Assert.Equal("gif", ImageSniffer.DetectExtension("GIF89a...."u8));
+
+    [Fact]
+    public void Detects_webp() =>
+        Assert.Equal("webp", ImageSniffer.DetectExtension("RIFF\0\0\0\0WEBPVP8 "u8));
+
+    [Fact]
+    public void Detects_avif() =>
+        Assert.Equal("avif", ImageSniffer.DetectExtension("\0\0\0\u001cftypavif\0\0\0\0"u8));
+
+    [Fact]
+    public void Rejects_svg_because_it_can_carry_scripts() =>
+        Assert.Null(ImageSniffer.DetectExtension("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"u8));
+
+    [Fact]
+    public void Rejects_html_and_empty_input()
+    {
+        Assert.Null(ImageSniffer.DetectExtension("<html><script>alert(1)</script>"u8));
+        Assert.Null(ImageSniffer.DetectExtension([]));
+    }
+}
+
+public class MediaServiceTests
+{
+    private sealed class RecordingStorage : IMediaStorage
+    {
+        public string? LastExtension { get; private set; }
+
+        public Task<string> SaveAsync(Stream content, string extension, CancellationToken cancellationToken)
+        {
+            LastExtension = extension;
+            return Task.FromResult($"/media/test.{extension}");
+        }
+    }
+
+    [Fact]
+    public async Task Stores_a_valid_image_with_the_extension_detected_from_its_bytes()
+    {
+        var storage = new RecordingStorage();
+        var service = new MediaService(storage);
+        using var png = new MemoryStream([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00]);
+
+        var url = await service.UploadImageAsync(png, default);
+
+        Assert.Equal("/media/test.png", url);
+        Assert.Equal("png", storage.LastExtension);
+    }
+
+    [Fact]
+    public async Task Rejects_a_file_that_is_not_an_image()
+    {
+        var service = new MediaService(new RecordingStorage());
+        using var text = new MemoryStream("not an image"u8.ToArray());
+
+        await Assert.ThrowsAsync<DomainException>(() => service.UploadImageAsync(text, default));
+    }
+
+    [Fact]
+    public async Task Rejects_a_file_over_the_size_limit()
+    {
+        var service = new MediaService(new RecordingStorage());
+        var big = new byte[MediaService.MaxBytes + 1];
+        big[0] = 0x89; // aunque empiece como PNG, el tamaño lo descarta primero
+        using var stream = new MemoryStream(big);
+
+        await Assert.ThrowsAsync<DomainException>(() => service.UploadImageAsync(stream, default));
+    }
+}
+
+public class Pbkdf2PasswordHasherTests
+{
+    // Pocas iteraciones: acá se prueba la lógica, no la fuerza (que son 600.000 en producción).
+    private const int FastIterations = 1_000;
+
+    [Fact]
+    public void Verify_accepts_the_right_password_and_rejects_a_wrong_one()
+    {
+        var stored = Pbkdf2PasswordHasher.Hash("correcta", FastIterations);
+
+        Assert.True(Pbkdf2PasswordHasher.Verify("correcta", stored));
+        Assert.False(Pbkdf2PasswordHasher.Verify("incorrecta", stored));
+        Assert.False(Pbkdf2PasswordHasher.Verify(string.Empty, stored));
+    }
+
+    [Fact]
+    public void Hash_uses_a_different_salt_every_time()
+    {
+        Assert.NotEqual(
+            Pbkdf2PasswordHasher.Hash("igual", FastIterations),
+            Pbkdf2PasswordHasher.Hash("igual", FastIterations));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("texto-plano")]
+    [InlineData("pbkdf2-sha256$abc$AAAA$AAAA")]
+    [InlineData("otro-algoritmo$1000$AAAA$AAAA")]
+    [InlineData("pbkdf2-sha256$1000$no-es-base64!$AAAA")]
+    public void Verify_returns_false_for_malformed_hashes_instead_of_throwing(string stored) =>
+        Assert.False(Pbkdf2PasswordHasher.Verify("lo-que-sea", stored));
+}

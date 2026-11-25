@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Detalles técnicos: SQLite (EF Core), disco, HTTP hacia el builder, hashing de contraseñas. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Blog.Application\Blog.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Trae Options, Logging, DI y IHttpClientFactory sin sumar paquetes sueltos. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+  </ItemGroup>
+</Project>

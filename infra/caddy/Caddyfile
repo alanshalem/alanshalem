@@ -1,0 +1,88 @@
+# Caddy: TLS automático (Let's Encrypt), HTTP/2 y HTTP/3, y sirve TODO lo público directo desde disco.
+# La API solo atiende /api (login, editor, subida de imágenes). Los visitantes nunca tocan .NET ni Node.
+#
+# SITE_ADDRESS = tu dominio (ej: blog.midominio.com). Para probar local: localhost
+
+{$SITE_ADDRESS:localhost} {
+	header {
+		# Sin includeSubDomains a propósito: este VPS va a alojar otras apps y no quiero forzar HTTPS en sus subdominios por accidente.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	# ---------- API ----------
+	# /api/internal lo lee el builder por la red interna de Docker: hacia afuera no existe.
+	@internal path /api/internal /api/internal/*
+	respond @internal 404
+
+	handle /api/* {
+		encode zstd gzip
+		reverse_proxy api:8080 {
+			# Si la API se cae, Caddy deja de mandarle tráfico y responde 503 en vez de colgarse.
+			health_uri /api/health
+			health_interval 30s
+		}
+	}
+
+	# ---------- Panel de administración (SPA de React ya compilada) ----------
+	handle_path /admin/* {
+		root * /srv/admin
+		encode zstd gzip
+		header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+		header Cache-Control "no-cache"
+		@hashed path /assets/*
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		# Una SPA: cualquier ruta que no sea un archivo devuelve index.html
+		try_files {path} /index.html
+		file_server
+	}
+
+	# ---------- Imágenes subidas ----------
+	# Los nombres son GUIDs aleatorios y nunca cambian: se pueden cachear para siempre.
+	handle_path /media/* {
+		root * /srv/media
+		header Cache-Control "public, max-age=31536000, immutable"
+		header Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
+		file_server
+	}
+
+	# ---------- Sitio público (HTML estático) ----------
+	handle {
+		# `current` es un symlink que el builder cambia de forma atómica en cada publicación.
+		root * /srv/site/current
+
+		@assets path /_astro/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@fonts path /fonts/*
+		header @fonts Cache-Control "public, max-age=2592000"
+		# El HTML se revalida siempre (ETag => 304 casi sin costo): una publicación nueva se ve al instante.
+		@pages not path /_astro/* /fonts/*
+		header @pages Cache-Control "no-cache"
+
+		# El builder dejó cada archivo de texto ya comprimido en .br y .gz: se sirven tal cual, sin gastar CPU.
+		file_server {
+			precompressed br gzip
+		}
+	}
+
+	# Página 404 del sitio (Astro la genera como /404.html). El código de estado sigue siendo 404.
+	handle_errors {
+		@notfound expression {err.status_code} == 404
+		handle @notfound {
+			root * /srv/site/current
+			rewrite * /404.html
+			file_server {
+				precompressed br gzip
+			}
+		}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

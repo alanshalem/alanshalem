@@ -1,0 +1,57 @@
+---
+import '@blog/tokens/tokens.css';
+import '@blog/tokens/prose.css';
+import '../styles/site.css';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import { absoluteUrl, site } from '../lib/site.ts';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Ruta del sitio con barra final, ej: "/articulos/mi-post/". Define la URL canónica. */
+  path: string;
+  type?: 'website' | 'article';
+  noindex?: boolean;
+  publishedTime?: Date;
+}
+
+const { title, description = site.tagline, path, type = 'website', noindex = false, publishedTime } = Astro.props;
+const fullTitle = path === '/' ? site.name : `${title} · ${site.name}`;
+const canonical = absoluteUrl(path);
+---
+
+<!doctype html>
+<html lang={site.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {noindex && <meta name="robots" content="noindex" />}
+
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={site.locale.replace('-', '_')} />
+    {publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="alternate" type="application/rss+xml" title={site.name} href="/rss.xml" />
+
+    <!-- Solo las dos fuentes que se ven sin hacer scroll; el resto carga cuando hace falta. -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/gloock-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/pagella-regular-latin.woff2" crossorigin />
+  </head>
+  <body>
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+    <Header currentPath={path} />
+    <main id="contenido">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

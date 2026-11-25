@@ -1,0 +1,21 @@
+node_modules/
+dist/
+.astro/
+*.tsbuildinfo
+
+# .NET
+bin/
+obj/
+*.user
+
+# Datos y secretos: nunca al repo
+.env
+.env.*
+!.env.example
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Capturas de referencia de un sitio de terceros: solo para consulta local, no se versionan
+docs/design/reference/

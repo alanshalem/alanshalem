@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\Blog.Application\Blog.Application.csproj" />
+    <ProjectReference Include="..\Blog.Infrastructure\Blog.Infrastructure.csproj" />
+  </ItemGroup>
+  <PropertyGroup>
+    <!-- Menos memoria residente: este proceso comparte VPS con otras apps. -->
+    <TieredPGO>false</TieredPGO>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <UserSecretsId>66891b4d-dd09-4d5b-8fcb-b3af1627a333</UserSecretsId>
+  </PropertyGroup>
+</Project>

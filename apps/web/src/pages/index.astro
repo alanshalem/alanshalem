@@ -1,0 +1,33 @@
+---
+import PostCard from '../components/PostCard.astro';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getPosts } from '../lib/posts.ts';
+import { site } from '../lib/site.ts';
+
+const posts = await getPosts();
+const latest = posts.slice(0, 6);
+---
+
+<BaseLayout title={site.name} path="/">
+  <section class="hero">
+    <p class="eyebrow">{site.author}</p>
+    <h1>{site.tagline}</h1>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Últimos artículos</h2>
+      <a href="/articulos/">Ver todos</a>
+    </div>
+
+    {
+      latest.length > 0 ? (
+        <div class="card-grid">
+          {latest.map((post) => <PostCard post={post} />)}
+        </div>
+      ) : (
+        <p class="empty">Todavía no hay artículos publicados.</p>
+      )
+    }
+  </section>
+</BaseLayout>

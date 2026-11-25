@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
+# Cambiá el dominio por el tuyo:
+Sitemap: https://example.com/sitemap.xml

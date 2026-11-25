@@ -1,0 +1,284 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import {
+  changeIndent,
+  continueMarkdownBlock,
+  insertCodeBlock,
+  insertHorizontalRule,
+  insertImage,
+  insertLink,
+  insertTable,
+  pasteUrlAsLink,
+  setHeading,
+  toggleBold,
+  toggleBulletList,
+  toggleCode,
+  toggleItalic,
+  toggleNumberedList,
+  toggleQuote,
+  toggleStrike,
+} from '../src/editor/commands.ts';
+import { commandForKey } from '../src/editor/shortcuts.ts';
+import { applyEditToState } from '../src/editor/text.ts';
+import type { Command, EditorState } from '../src/editor/types.ts';
+
+/*
+ * Notación de los tests: «texto» = selección, ¦ = cursor.
+ *   run(toggleBold, 'hola «mundo»')  ->  'hola **«mundo»**'
+ */
+function parse(text: string): EditorState {
+  const open = text.indexOf('«');
+  if (open !== -1) {
+    const close = text.indexOf('»');
+    const value = text.slice(0, open) + text.slice(open + 1, close) + text.slice(close + 1);
+    return { value, start: open, end: close - 1 };
+  }
+  const cursor = text.indexOf('¦');
+  assert.notEqual(cursor, -1, 'el texto de prueba necesita « » o ¦');
+  return { value: text.replace('¦', ''), start: cursor, end: cursor };
+}
+
+function show({ value, start, end }: EditorState): string {
+  if (start === end) return `${value.slice(0, start)}¦${value.slice(start)}`;
+  return `${value.slice(0, start)}«${value.slice(start, end)}»${value.slice(end)}`;
+}
+
+function run(command: Command, text: string): string {
+  const state = parse(text);
+  const edit = command(state);
+  return edit === null ? 'null' : show(applyEditToState(state, edit));
+}
+
+describe('formato en línea', () => {
+  it('envuelve la selección', () => {
+    assert.equal(run(toggleBold, 'hola «mundo»'), 'hola **«mundo»**');
+    assert.equal(run(toggleItalic, 'hola «mundo»'), 'hola *«mundo»*');
+    assert.equal(run(toggleCode, 'hola «mundo»'), 'hola `«mundo»`');
+    assert.equal(run(toggleStrike, 'hola «mundo»'), 'hola ~~«mundo»~~');
+  });
+
+  it('sin selección inserta el par y deja el cursor en el medio', () => {
+    assert.equal(run(toggleBold, 'a¦b'), 'a**¦**b');
+  });
+
+  it('desenvuelve cuando los marcadores están dentro de la selección', () => {
+    assert.equal(run(toggleBold, '«**a**»'), '«a»');
+  });
+
+  it('desenvuelve cuando los marcadores están justo afuera', () => {
+    assert.equal(run(toggleBold, '**«a»**'), '«a»');
+    assert.equal(run(toggleItalic, '*«a»*'), '«a»');
+  });
+
+  it('cursiva sobre negrita no la desarma: suma una capa', () => {
+    assert.equal(run(toggleItalic, '**«a»**'), '***«a»***');
+  });
+
+  it('negrita sobre negrita+cursiva solo saca la negrita', () => {
+    assert.equal(run(toggleBold, '***«a»***'), '*«a»*');
+  });
+
+  it('los espacios de los bordes de la selección quedan afuera de los marcadores', () => {
+    assert.equal(run(toggleBold, '«hola »mundo'), '**«hola»** mundo');
+  });
+});
+
+describe('encabezados', () => {
+  it('agrega el prefijo y mantiene la columna del cursor', () => {
+    assert.equal(run(setHeading(2), 'tit¦ulo'), '## tit¦ulo');
+  });
+
+  it('el mismo nivel lo quita', () => {
+    assert.equal(run(setHeading(2), '## ti¦tulo'), 'ti¦tulo');
+  });
+
+  it('cambia de nivel', () => {
+    assert.equal(run(setHeading(3), '# a¦'), '### a¦');
+  });
+
+  it('solo toca la línea del cursor', () => {
+    assert.equal(run(setHeading(2), 'uno\ndo¦s\ntres'), 'uno\n## do¦s\ntres');
+  });
+});
+
+describe('listas y citas', () => {
+  it('viñetas sobre varias líneas', () => {
+    assert.equal(run(toggleBulletList, '«uno\ndos»'), '«- uno\n- dos»');
+  });
+
+  it('segunda vez las quita', () => {
+    assert.equal(run(toggleBulletList, '«- uno\n- dos»'), '«uno\ndos»');
+  });
+
+  it('lista numerada incrementa y salta líneas en blanco', () => {
+    assert.equal(run(toggleNumberedList, '«a\n\nb»'), '«1. a\n\n2. b»');
+  });
+
+  it('cambiar de viñetas a números reemplaza el prefijo', () => {
+    assert.equal(run(toggleNumberedList, '«- a\n- b»'), '«1. a\n2. b»');
+  });
+
+  it('en una línea vacía agrega el prefijo y deja el cursor después', () => {
+    assert.equal(run(toggleBulletList, '¦'), '- ¦');
+  });
+
+  it('con cursor conserva la posición relativa', () => {
+    assert.equal(run(toggleBulletList, 'ho¦la'), '- ho¦la');
+  });
+
+  it('cita', () => {
+    assert.equal(run(toggleQuote, '«a\nb»'), '«> a\n> b»');
+    assert.equal(run(toggleQuote, '«> a\n> b»'), '«a\nb»');
+  });
+
+  it('una selección que termina justo tras un salto no incluye la línea siguiente', () => {
+    const state: EditorState = { value: 'a\nb', start: 0, end: 2 }; // "a\n"
+    const edit = toggleBulletList(state);
+    assert.equal(applyEditToState(state, edit!).value, '- a\nb');
+  });
+});
+
+describe('sangría', () => {
+  it('Tab anida un ítem de viñetas con 2 espacios', () => {
+    assert.equal(run(changeIndent(1), '- a\n- ¦b'), '- a\n  - ¦b');
+  });
+
+  it('Tab anida un ítem numerado bajo el ancho del marcador', () => {
+    assert.equal(run(changeIndent(1), '1. a\n2. ¦b'), '1. a\n   2. ¦b');
+  });
+
+  it('Shift+Tab des-anida', () => {
+    assert.equal(run(changeIndent(-1), '  - ¦b'), '- ¦b');
+  });
+
+  it('Shift+Tab sin sangría no hace nada', () => {
+    assert.equal(run(changeIndent(-1), '- ¦b'), 'null');
+  });
+
+  it('fuera de listas, con cursor, devuelve null (el Tab sigue moviendo el foco)', () => {
+    assert.equal(run(changeIndent(1), 'tex¦to'), 'null');
+  });
+
+  it('con varias líneas seleccionadas sangra todas', () => {
+    assert.equal(run(changeIndent(1), '«a\nb»'), '«  a\n  b»');
+  });
+});
+
+describe('Enter en listas y citas', () => {
+  it('continúa una viñeta', () => {
+    assert.equal(run(continueMarkdownBlock, '- a¦'), '- a\n- ¦');
+  });
+
+  it('continúa una lista numerada incrementando', () => {
+    assert.equal(run(continueMarkdownBlock, '1. a¦'), '1. a\n2. ¦');
+    assert.equal(run(continueMarkdownBlock, '9) a¦'), '9) a\n10) ¦');
+  });
+
+  it('conserva la sangría', () => {
+    assert.equal(run(continueMarkdownBlock, '  - a¦'), '  - a\n  - ¦');
+  });
+
+  it('parte la línea si el cursor está en el medio', () => {
+    assert.equal(run(continueMarkdownBlock, '- ab¦cd'), '- ab\n- ¦cd');
+  });
+
+  it('un ítem vacío termina la lista', () => {
+    assert.equal(run(continueMarkdownBlock, 'x\n- a\n- ¦'), 'x\n- a\n¦');
+  });
+
+  it('continúa citas y las termina si están vacías', () => {
+    assert.equal(run(continueMarkdownBlock, '> q¦'), '> q\n> ¦');
+    assert.equal(run(continueMarkdownBlock, '> ¦'), '¦');
+  });
+
+  it('fuera de listas, con selección o con el cursor dentro del marcador: Enter normal', () => {
+    assert.equal(run(continueMarkdownBlock, 'plano¦'), 'null');
+    assert.equal(run(continueMarkdownBlock, '- «a»'), 'null');
+    assert.equal(run(continueMarkdownBlock, '-¦ a'), 'null');
+  });
+
+  it('una línea que arranca con ** no se confunde con una viñeta', () => {
+    assert.equal(run(continueMarkdownBlock, '**negrita**¦'), 'null');
+  });
+});
+
+describe('links e imágenes', () => {
+  it('link sobre texto seleccionado deja la url seleccionada', () => {
+    assert.equal(run(insertLink, '«texto»'), '[texto](«url»)');
+  });
+
+  it('link sobre una URL seleccionada deja el texto seleccionado', () => {
+    assert.equal(run(insertLink, '«https://x.com»'), '[«texto»](https://x.com)');
+  });
+
+  it('link sin selección', () => {
+    assert.equal(run(insertLink, '¦'), '[«texto»](url)');
+  });
+
+  it('pegar una URL sobre texto seleccionado crea el link', () => {
+    assert.equal(run(pasteUrlAsLink('https://x.com'), '«hola»'), '[hola](https://x.com)¦');
+  });
+
+  it('pegar una URL sin selección, o texto común, es un pegado normal', () => {
+    assert.equal(run(pasteUrlAsLink('https://x.com'), 'a¦'), 'null');
+    assert.equal(run(pasteUrlAsLink('hola'), '«a»'), 'null');
+  });
+
+  it('imagen: alt vacío, con selección y con URL con espacios', () => {
+    assert.equal(run(insertImage('/img/a.png'), '¦'), '![](/img/a.png)¦');
+    assert.equal(run(insertImage('/img/a.png'), '«un gato»'), '![un gato](/img/a.png)¦');
+    assert.equal(run(insertImage('/mi foto.png', 'x'), '¦'), '![x](</mi foto.png>)¦');
+  });
+});
+
+describe('bloques', () => {
+  it('bloque de código vacío al inicio del documento', () => {
+    assert.equal(run(insertCodeBlock, '¦'), '```\n¦\n```');
+  });
+
+  it('bloque de código tras un párrafo se separa con una línea en blanco', () => {
+    assert.equal(run(insertCodeBlock, 'texto¦'), 'texto\n\n```\n¦\n```');
+  });
+
+  it('el bloque de código envuelve la selección y la deja seleccionada', () => {
+    assert.equal(run(insertCodeBlock, '«x = 1»'), '```\n«x = 1»\n```');
+  });
+
+  it('tabla y regla horizontal', () => {
+    assert.equal(run(insertTable, '¦'), '| «Columna» | Columna |\n| --- | --- |\n| Dato | Dato |');
+    assert.equal(run(insertHorizontalRule, 'a¦'), 'a\n\n---¦');
+  });
+
+  it('no suma saltos de más si ya hay líneas en blanco', () => {
+    assert.equal(run(insertHorizontalRule, 'a\n\n¦'), 'a\n\n---¦');
+  });
+});
+
+describe('atajos de teclado', () => {
+  const key = (k: string, extra: Partial<{ ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }> = {}) =>
+    commandForKey({ key: k, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...extra });
+
+  it('Ctrl/Cmd + B, I, E, K', () => {
+    assert.equal(key('b', { ctrlKey: true }), toggleBold);
+    assert.equal(key('B', { metaKey: true }), toggleBold);
+    assert.equal(key('i', { ctrlKey: true }), toggleItalic);
+    assert.equal(key('e', { ctrlKey: true }), toggleCode);
+    assert.equal(key('k', { ctrlKey: true }), insertLink);
+  });
+
+  it('Mod+Shift+X tachado; otras combinaciones con Shift no hacen nada', () => {
+    assert.equal(key('x', { ctrlKey: true, shiftKey: true }), toggleStrike);
+    assert.equal(key('b', { ctrlKey: true, shiftKey: true }), null);
+  });
+
+  it('Enter y Tab; Shift+Enter y Alt no se tocan', () => {
+    assert.equal(key('Enter'), continueMarkdownBlock);
+    assert.equal(key('Enter', { shiftKey: true }), null);
+    assert.equal(key('Tab') !== null, true);
+    assert.equal(key('b', { ctrlKey: true, altKey: true }), null);
+  });
+
+  it('una tecla común no dispara nada', () => {
+    assert.equal(key('a'), null);
+  });
+});

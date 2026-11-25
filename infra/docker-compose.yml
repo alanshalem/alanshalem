@@ -1,0 +1,94 @@
+# Todo el blog en un solo comando:   docker compose --env-file .env up -d --build
+# (ejecutar desde la carpeta infra/)
+#
+# Recursos pensados para un VPS compartido: cada servicio tiene tope de memoria, el build corre con baja
+# prioridad y los visitantes solo tocan Caddy (archivos estáticos). Los topes de abajo son límites, no consumo medido:
+# medí con `docker stats` después del primer deploy y ajustá.
+
+name: blog
+
+services:
+  # Los volúmenes nuevos nacen con dueño root; la API (uid 1654) y el builder (uid 1000) necesitan escribir.
+  # Este contenedor corre una vez, arregla los permisos y termina.
+  init-permisos:
+    image: busybox:stable
+    command: >
+      sh -c "mkdir -p /data /media /site &&
+             chown -R 1654:1654 /data /media &&
+             chown -R 1000:1000 /site"
+    volumes:
+      - api_data:/data
+      - media:/media
+      - site:/site
+    restart: "no"
+
+  caddy:
+    build:
+      context: ..
+      dockerfile: infra/caddy/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Definí SITE_ADDRESS en .env (tu dominio)}
+    volumes:
+      - caddy_data:/data # certificados TLS: persistirlos evita pedir uno nuevo en cada reinicio
+      - caddy_config:/config
+      - site:/srv/site:ro
+      - media:/srv/media:ro
+    depends_on:
+      - api
+    mem_limit: 128m
+
+  api:
+    build:
+      context: ../apps/api
+    restart: unless-stopped
+    # Sin `ports`: solo es alcanzable desde Caddy y el builder, por la red interna de Docker.
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:?Generá el hash con el comando hash-password (ver README)}
+      Builder__Url: http://builder:4000
+      Builder__Token: ${BUILDER_TOKEN:?Definí BUILDER_TOKEN en .env (openssl rand -hex 32)}
+      ConnectionStrings__Blog: Data Source=/data/blog.db
+      Media__Directory: /media
+      DataProtection__KeysDirectory: /data/keys
+    volumes:
+      - api_data:/data
+      - media:/media
+    depends_on:
+      init-permisos:
+        condition: service_completed_successfully
+    mem_limit: 256m
+
+  builder:
+    build:
+      context: ..
+      dockerfile: apps/builder/Dockerfile
+    restart: unless-stopped
+    environment:
+      BUILDER_TOKEN: ${BUILDER_TOKEN}
+      API_URL: http://api:8080
+      SITE_URL: "${SITE_URL:?Definí SITE_URL en .env, con https:// y sin barra final}"
+      SITE_NAME: ${SITE_NAME:-Mi blog}
+      SITE_TAGLINE: ${SITE_TAGLINE:-Notas sobre software, ideas y cosas que estoy aprendiendo.}
+      SITE_AUTHOR: ${SITE_AUTHOR:-El autor}
+    volumes:
+      - site:/site
+    depends_on:
+      init-permisos:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+    # Un build de Astro tiene picos de memoria y CPU: se acotan para que no afecten a las otras apps del VPS.
+    mem_limit: 1g
+    cpus: 1.0
+
+volumes:
+  api_data: # base SQLite + claves de la cookie de sesión
+  media: # imágenes subidas (la API escribe, Caddy sirve)
+  site: # releases/ + symlink current (el builder escribe, Caddy sirve)
+  caddy_data:
+  caddy_config:

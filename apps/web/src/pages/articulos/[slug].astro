@@ -1,0 +1,116 @@
+---
+import PostCard from '../../components/PostCard.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getPosts, postPath, tagPath, type BlogPost } from '../../lib/posts.ts';
+import { formatDate } from '../../lib/site.ts';
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: {
+      post,
+      // "Seguir leyendo": los 3 posts más nuevos que no sean este.
+      readNext: posts.filter((other) => other.slug !== post.slug).slice(0, 3),
+    },
+  }));
+}
+
+interface Props {
+  post: BlogPost;
+  readNext: BlogPost[];
+}
+
+const { post, readNext } = Astro.props;
+// El índice lateral lista solo h2 y h3: más profundidad ensucia más de lo que ayuda.
+const toc = post.headings.filter((heading) => heading.level <= 3);
+---
+
+<BaseLayout
+  title={post.title}
+  description={post.description}
+  path={postPath(post)}
+  type="article"
+  publishedTime={post.publishedAt}
+>
+  <header class="article-hero">
+    {post.tags.length > 0 && <p class="eyebrow">{post.tags.map((tag) => tag.name).join(' · ')}</p>}
+    <h1>{post.title}</h1>
+    {post.description && <p class="dek">{post.description}</p>}
+    <p class="meta">
+      <time datetime={post.publishedAt.toISOString()}>{formatDate(post.publishedAt)}</time> · {post.readingMinutes} min
+      de lectura
+    </p>
+  </header>
+
+  <div class="paper reading">
+    <div class="reading-grid">
+      {
+        toc.length > 1 && (
+          <nav class="toc" aria-label="Índice del artículo">
+            <ol>
+              {toc.map((heading) => (
+                <li class={`toc-level-${heading.level}`}>
+                  <a href={`#${heading.id}`}>{heading.text}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )
+      }
+      <article class="prose" set:html={post.html} />
+      {
+        post.tags.length > 0 && (
+          <footer class="end-matter">
+            <ul class="tag-list">
+              {post.tags.map((tag) => (
+                <li>
+                  <a href={tagPath(tag)}>{tag.name}</a>
+                </li>
+              ))}
+            </ul>
+          </footer>
+        )
+      }
+    </div>
+  </div>
+
+  {
+    readNext.length > 0 && (
+      <section class="section">
+        <div class="section-head">
+          <h2>Seguir leyendo</h2>
+        </div>
+        <div class="card-grid">
+          {readNext.map((other) => (
+            <PostCard post={other} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+</BaseLayout>
+
+<script>
+  // Mejora progresiva: resalta en el índice la sección que se está leyendo. Sin JS, el índice funciona igual.
+  const links = new Map<string, HTMLAnchorElement>();
+  document.querySelectorAll<HTMLAnchorElement>('.toc a').forEach((link) => links.set(link.hash.slice(1), link));
+
+  if (links.size > 0) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            links.forEach((link) => link.removeAttribute('aria-current'));
+            links.get(entry.target.id)?.setAttribute('aria-current', 'true');
+          }
+        }
+      },
+      { rootMargin: '0px 0px -70% 0px' },
+    );
+    links.forEach((_, id) => {
+      const heading = document.getElementById(id);
+      if (heading) observer.observe(heading);
+    });
+  }
+</script>

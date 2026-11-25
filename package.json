@@ -1,0 +1,16 @@
+{
+  "name": "blog",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "dev:admin": "pnpm --filter @blog/admin dev",
+    "build:web": "pnpm --filter @blog/web build",
+    "build:admin": "pnpm --filter @blog/admin build"
+  }
+}
