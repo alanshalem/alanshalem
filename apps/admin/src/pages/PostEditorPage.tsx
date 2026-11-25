@@ -2,7 +2,9 @@ import { slugify } from '@blog/markdown';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { Post, PostInput } from '../api/types.ts';
+import { ImageField } from '../components/ImageField.tsx';
 import { MarkdownEditor } from '../editor/MarkdownEditor.tsx';
+import { validateCover } from '../settings/validate.ts';
 import { href, navigate } from '../useRoute.ts'; // navigate: solo al eliminar
 
 interface Props {
@@ -17,9 +19,11 @@ interface Form {
   summary: string;
   tags: string; // separados por coma en la UI
   body: string;
+  coverUrl: string;
+  coverAlt: string;
 }
 
-const EMPTY_FORM: Form = { title: '', slug: '', summary: '', tags: '', body: '' };
+const EMPTY_FORM: Form = { title: '', slug: '', summary: '', tags: '', body: '', coverUrl: '', coverAlt: '' };
 
 const toForm = (post: Post): Form => ({
   title: post.title,
@@ -27,9 +31,12 @@ const toForm = (post: Post): Form => ({
   summary: post.summary,
   tags: post.tags.join(', '),
   body: post.body,
+  coverUrl: post.coverUrl ?? '',
+  coverAlt: post.coverAlt ?? '',
 });
 
-const toInput = (form: Form): PostInput => ({
+/** La portada ya validada y normalizada por `validateCover` (vacío = null). */
+const toInput = (form: Form, cover: Pick<PostInput, 'coverUrl' | 'coverAlt'>): PostInput => ({
   title: form.title.trim(),
   slug: form.slug.trim(),
   summary: form.summary.trim(),
@@ -38,6 +45,7 @@ const toInput = (form: Form): PostInput => ({
     .split(',')
     .map((tag) => tag.trim())
     .filter(Boolean),
+  ...cover,
 });
 
 export function PostEditorPage({ postId, onError }: Props) {
@@ -48,6 +56,7 @@ export function PostEditorPage({ postId, onError }: Props) {
   const [loading, setLoading] = useState(postId !== null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [coverError, setCoverError] = useState<string | null>(null);
 
   const dirty = JSON.stringify(form) !== saved;
 
@@ -88,10 +97,17 @@ export function PostEditorPage({ postId, onError }: Props) {
       setMessage({ kind: 'error', text: 'El título es obligatorio.' });
       return null;
     }
+    const cover = validateCover(form.coverUrl, form.coverAlt);
+    if (!cover.ok) {
+      setCoverError(cover.error);
+      setMessage({ kind: 'error', text: cover.error });
+      return null;
+    }
+    setCoverError(null);
     setBusy(true);
     setMessage(null);
     try {
-      const input = toInput(form);
+      const input = toInput(form, { coverUrl: cover.coverUrl, coverAlt: cover.coverAlt });
       const result = post ? await api.updatePost(post.id, input) : await api.createPost(input);
       const resultForm = toForm(result);
       setPost(result);
@@ -172,10 +188,18 @@ export function PostEditorPage({ postId, onError }: Props) {
 
   return (
     <section className="post-editor">
-      <div className="page-head">
-        <a href={href.posts}>← Posts</a>
+      <div className="page-head page-head-sticky">
+        <div>
+          <a className="back-link" href={href.posts}>
+            ← Posts
+          </a>
+          <h1 className="page-title">{post ? post.title || '(sin título)' : 'Nuevo post'}</h1>
+        </div>
         <div className="actions">
           <span className="meta">{dirty ? 'Cambios sin guardar' : post ? 'Todo guardado' : ''}</span>
+          {post && (
+            <span className={`chip chip-${post.status}`}>{isPublished ? 'Publicado' : 'Borrador'}</span>
+          )}
           <button type="button" disabled={busy || !dirty} onClick={() => void save()}>
             Guardar
           </button>
@@ -191,18 +215,18 @@ export function PostEditorPage({ postId, onError }: Props) {
       </div>
 
       {message && (
-        <p className={message.kind === 'error' ? 'error' : 'notice'} role={message.kind === 'error' ? 'alert' : 'status'}>
+        <p className={message.kind === 'error' ? 'banner banner-error' : 'banner banner-ok'} role={message.kind === 'error' ? 'alert' : 'status'}>
           {message.text}
         </p>
       )}
 
       <div className="fields">
-        <label>
-          Título
+        <label className="field">
+          <span className="label">Título</span>
           <input value={form.title} onChange={(event) => handleTitleChange(event.target.value)} maxLength={200} />
         </label>
-        <label>
-          Slug (URL)
+        <label className="field">
+          <span className="label">Slug (URL)</span>
           <input
             value={form.slug}
             onChange={(event) => {
@@ -213,15 +237,35 @@ export function PostEditorPage({ postId, onError }: Props) {
             placeholder="se genera del título"
           />
         </label>
-        <label>
-          Resumen (para listados y SEO)
+        <label className="field">
+          <span className="label">Resumen (para listados y SEO)</span>
           <textarea value={form.summary} onChange={(event) => update('summary', event.target.value)} rows={2} maxLength={400} />
         </label>
-        <label>
-          Etiquetas (separadas por coma)
+        <label className="field">
+          <span className="label">Etiquetas (separadas por coma)</span>
           <input value={form.tags} onChange={(event) => update('tags', event.target.value)} />
         </label>
       </div>
+
+      <ImageField
+        legend="Portada"
+        url={form.coverUrl}
+        alt={form.coverAlt}
+        onUrlChange={(coverUrl) => {
+          setCoverError(null);
+          update('coverUrl', coverUrl);
+        }}
+        onAltChange={(coverAlt) => update('coverAlt', coverAlt)}
+        onUpload={api.uploadImage}
+        error={coverError ?? undefined}
+        help={
+          <>
+            Opcional. Se muestra en la home, en los listados y arriba del artículo. Si no cargás una portada, el sitio
+            usa la primera imagen del texto; si el texto no tiene ninguna imagen, genera una portada abstracta (siempre la
+            misma para este post).
+          </>
+        }
+      />
 
       <MarkdownEditor value={form.body} onChange={(body) => update('body', body)} onUploadImage={api.uploadImage} />
 

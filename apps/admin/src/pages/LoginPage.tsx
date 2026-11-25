@@ -30,27 +30,42 @@ export function LoginPage({ onLoggedIn }: Props) {
   };
 
   return (
-    <form className="login" onSubmit={(event) => void handleSubmit(event)}>
-      <h1>Admin</h1>
-      <label>
-        Contraseña
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          required
-          autoFocus
-        />
-      </label>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      <button type="submit" className="primary" disabled={busy || password === ''}>
-        {busy ? 'Entrando…' : 'Entrar'}
-      </button>
-    </form>
+    <main className="login-screen">
+      <form className="login" onSubmit={(event) => void handleSubmit(event)} aria-labelledby="login-title">
+        <p className="eyebrow">Panel de escritura</p>
+        <h1 id="login-title" className="login-title">
+          Admin
+        </h1>
+        <p className="login-dek">Entrá para escribir, editar y publicar.</p>
+
+        <div className="field">
+          <label className="label" htmlFor="login-password">
+            Contraseña
+          </label>
+          <input
+            id="login-password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            autoFocus
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? 'login-error' : undefined}
+          />
+        </div>
+        {error && (
+          <p id="login-error" className="field-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="primary login-submit" disabled={busy || password === ''}>
+          {busy ? 'Entrando…' : 'Entrar'}
+        </button>
+        <a className="login-back" href="/">
+          ← Volver al sitio
+        </a>
+      </form>
+    </main>
   );
 }

@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Router mínimo basado en el hash (#/posts/abc). Con solo 3 pantallas no hace falta una librería,
+ * Router mínimo basado en el hash (#/posts/abc). Con 4 pantallas no hace falta una librería,
  * y el hash evita configurar rewrites en el servidor estático.
  */
 export type Route =
   | { name: 'posts' }
   | { name: 'new' }
-  | { name: 'edit'; id: string };
+  | { name: 'edit'; id: string }
+  | { name: 'settings' };
 
 function parse(hash: string): Route {
   const path = hash.replace(/^#\/?/, '');
   if (path === 'posts/new') return { name: 'new' };
+  if (path === 'ajustes') return { name: 'settings' };
   const edit = /^posts\/([\w-]+)$/.exec(path);
   if (edit?.[1]) return { name: 'edit', id: edit[1] };
   return { name: 'posts' };
@@ -31,6 +33,7 @@ export const href = {
   posts: '#/',
   newPost: '#/posts/new',
   post: (id: string): string => `#/posts/${id}`,
+  settings: '#/ajustes',
 };
 
 export function navigate(target: string): void {
