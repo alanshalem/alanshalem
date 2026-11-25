@@ -108,9 +108,8 @@ public class SiteSettingsContentTests
         string? githubUrl = null,
         string? linkedinUrl = null,
         string? xUrl = null,
-        string? heroImageUrl = null,
         string? bio = null) =>
-        SiteSettingsContent.Create(name, null, bio, email, githubUrl, linkedinUrl, xUrl, heroImageUrl, null, null);
+        SiteSettingsContent.Create(name, null, bio, email, githubUrl, linkedinUrl, xUrl);
 
     [Fact]
     public void Default_has_the_blog_name_and_tagline_and_nothing_else()
@@ -124,9 +123,6 @@ public class SiteSettingsContentTests
         Assert.Null(defaults.GithubUrl);
         Assert.Null(defaults.LinkedinUrl);
         Assert.Null(defaults.XUrl);
-        Assert.Null(defaults.HeroImageUrl);
-        Assert.Null(defaults.HeroImageAlt);
-        Assert.Null(defaults.HeroImageCredit);
     }
 
     [Fact]
@@ -134,7 +130,7 @@ public class SiteSettingsContentTests
     {
         var content = SiteSettingsContent.Create(
             "  Alan  ", " Frase ", "  **Hola**  ", " alan@example.com ", " https://github.com/alan ",
-            " https://www.linkedin.com/in/alan ", " https://x.com/alan ", " /media/hero.jpg ", " Foto ", "   ");
+            " https://www.linkedin.com/in/alan ", " https://x.com/alan ");
 
         Assert.Equal("Alan", content.Name);
         Assert.Equal("Frase", content.Tagline);
@@ -143,9 +139,6 @@ public class SiteSettingsContentTests
         Assert.Equal("https://github.com/alan", content.GithubUrl);
         Assert.Equal("https://www.linkedin.com/in/alan", content.LinkedinUrl);
         Assert.Equal("https://x.com/alan", content.XUrl);
-        Assert.Equal("/media/hero.jpg", content.HeroImageUrl);
-        Assert.Equal("Foto", content.HeroImageAlt);
-        Assert.Null(content.HeroImageCredit);
     }
 
     [Theory]
@@ -184,24 +177,15 @@ public class SiteSettingsContentTests
     [InlineData("github", "/media/x.png", "El enlace de GitHub debe ser una URL http(s).")]
     [InlineData("linkedin", "ftp://linkedin.com/in/alan", "El enlace de LinkedIn debe ser una URL http(s).")]
     [InlineData("x", "data:text/html,hola", "El enlace de X debe ser una URL http(s).")]
-    [InlineData("hero", "javascript:alert(1)", "La imagen del hero debe ser una ruta /media/... o una URL http(s).")]
-    [InlineData("hero", "//evil.com/x.png", "La imagen del hero debe ser una ruta /media/... o una URL http(s).")]
     public void Create_rejects_links_that_are_not_safe_urls(string field, string value, string expectedMessage)
     {
         var error = Assert.Throws<DomainException>(() => field switch
         {
             "github" => Valid(githubUrl: value),
             "linkedin" => Valid(linkedinUrl: value),
-            "x" => Valid(xUrl: value),
-            _ => Valid(heroImageUrl: value),
+            _ => Valid(xUrl: value),
         });
         Assert.Equal(expectedMessage, error.Message);
-    }
-
-    [Fact]
-    public void Create_accepts_an_absolute_hero_image()
-    {
-        Assert.Equal("https://images.example.com/hero.jpg", Valid(heroImageUrl: "https://images.example.com/hero.jpg").HeroImageUrl);
     }
 
     [Fact]

@@ -4,6 +4,7 @@ using System.Threading.RateLimiting;
 using Blog.Api.Endpoints;
 using Blog.Api.Http;
 using Blog.Api.Security;
+using Blog.Application.HeroImages;
 using Blog.Application.Media;
 using Blog.Application.Posts;
 using Blog.Application.Settings;
@@ -56,6 +57,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<MediaService>();
 builder.Services.AddScoped<SiteSettingsService>();
+builder.Services.AddScoped<HeroImageService>();
 
 // ---------- HTTP ----------
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -124,6 +126,11 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseDevelopmentMediaFiles();
+}
 
 // Defensa CSRF: toda petición que modifica datos debe traer una cabecera personalizada. Un formulario o una
 // etiqueta de otro sitio no puede agregarla, y para un fetch con cabecera propia el navegador exige permiso CORS

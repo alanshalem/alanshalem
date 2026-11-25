@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Detalles técnicos: SQLite (EF Core), disco, HTTP hacia el builder, hashing de contraseñas. -->
+  <!-- Detalles técnicos: SQLite (EF Core), disco, imágenes (libvips), HTTP hacia el builder, hashing de contraseñas. -->
   <ItemGroup>
     <ProjectReference Include="..\Blog.Application\Blog.Application.csproj" />
   </ItemGroup>
@@ -7,6 +7,11 @@
     <!-- Trae Options, Logging, DI y IHttpClientFactory sin sumar paquetes sueltos. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <!-- libvips: decodifica con shrink-on-load y codifica AVIF/WebP con poca memoria. Los paquetes Native traen la
+         biblioteca ya compilada (con libheif + aom para AVIF) para desarrollo en Windows y para el contenedor Linux. -->
+    <PackageReference Include="NetVips" />
+    <PackageReference Include="NetVips.Native.linux-x64" />
+    <PackageReference Include="NetVips.Native.win-x64" />
     <!-- Solo para dotnet-ef (generar migraciones). PrivateAssets: no viaja a la API publicada. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>

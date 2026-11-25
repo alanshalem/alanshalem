@@ -1,4 +1,6 @@
 using Blog.Application.Abstractions;
+using Blog.Application.HeroImages;
+using Blog.Application.Media;
 using Blog.Application.Posts;
 using Blog.Application.Settings;
 using Blog.Domain;
@@ -6,6 +8,8 @@ using Blog.Infrastructure;
 using Blog.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -24,11 +28,13 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
         _directory = Path.Combine(Path.GetTempPath(), "blog-tests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_directory);
         FilePath = Path.Combine(_directory, "blog.db");
+        MediaDirectory = Path.Combine(_directory, "media");
 
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Blog"] = $"Data Source={FilePath};Pooling=False",
+                ["Media:Directory"] = MediaDirectory,
             })
             .Build();
 
@@ -39,6 +45,9 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
     }
 
     public string FilePath { get; }
+
+    /// <summary>Carpeta de media de esta prueba (dentro de la carpeta temporal que se borra al terminar).</summary>
+    public string MediaDirectory { get; }
 
     public ServiceProvider Services { get; }
 
@@ -61,6 +70,30 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
     public Task<T> WithSettingsAsync<T>(Func<SiteSettingsService, Task<T>> action) =>
         InScopeAsync(provider => action(new SiteSettingsService(provider.GetRequiredService<ISiteSettingsRepository>(), Build)));
 
+    /// <summary>MediaService con el pipeline real (NetVips), el disco real y la base real.</summary>
+    public Task<T> WithMediaAsync<T>(Func<MediaService, Task<T>> action) =>
+        InScopeAsync(provider => action(new MediaService(
+            provider.GetRequiredService<IImageProcessor>(),
+            provider.GetRequiredService<IMediaStorage>(),
+            provider.GetRequiredService<IMediaAssetRepository>(),
+            Clock)));
+
+    public Task<T> WithHeroImagesAsync<T>(Func<HeroImageService, Task<T>> action) =>
+        InScopeAsync(provider => action(new HeroImageService(
+            provider.GetRequiredService<IHeroImageRepository>(),
+            provider.GetRequiredService<IMediaAssetRepository>(),
+            Clock,
+            Build)));
+
+    /// <summary>Archivos bajo la carpeta de media, con ruta relativa y barras "/" (como en la URL).</summary>
+    public IReadOnlyList<string> MediaFiles() =>
+        Directory.Exists(MediaDirectory)
+            ? Directory.EnumerateFiles(MediaDirectory, "*", SearchOption.AllDirectories)
+                .Select(path => Path.GetRelativePath(MediaDirectory, path).Replace('\\', '/'))
+                .Order(StringComparer.Ordinal)
+                .ToList()
+            : [];
+
     public async Task<IReadOnlyList<string>> ListAsync(string sql)
     {
         await using var connection = new SqliteConnection($"Data Source={FilePath};Pooling=False");
@@ -79,6 +112,15 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
 
     public Task<IReadOnlyList<string>> TablesAsync() =>
         ListAsync("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name");
+
+    public async Task ExecuteAsync(string sql)
+    {
+        await using var connection = new SqliteConnection($"Data Source={FilePath};Pooling=False");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync();
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -101,13 +143,17 @@ public class MigrationTests
         Assert.Contains("__EFMigrationsHistory", tables);
         Assert.Contains("posts", tables);
         Assert.Contains("site_settings", tables);
+        Assert.Contains("media_assets", tables);
+        Assert.Contains("hero_images", tables);
 
         var postColumns = await database.ListAsync("SELECT name FROM pragma_table_info('posts')");
         Assert.Contains("CoverUrl", postColumns);
         Assert.Contains("CoverAlt", postColumns);
+        Assert.DoesNotContain(await SettingsColumnsAsync(database), column => column.StartsWith("HeroImage", StringComparison.Ordinal));
 
         var applied = await database.ListAsync("SELECT MigrationId FROM __EFMigrationsHistory");
         Assert.Contains(applied, id => id.EndsWith("_InitialCreate", StringComparison.Ordinal));
+        Assert.Contains(applied, id => id.EndsWith("_AddMediaAssetsAndHeroGallery", StringComparison.Ordinal));
 
         await database.InScopeAsync<bool>(async provider =>
         {
@@ -127,8 +173,50 @@ public class MigrationTests
         await database.InitializeAsync();
         await database.InitializeAsync();
 
-        Assert.Single(await database.ListAsync("SELECT MigrationId FROM __EFMigrationsHistory"));
+        var applied = await database.ListAsync("SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId");
+        var known = await database.InScopeAsync(provider =>
+            Task.FromResult(provider.GetRequiredService<BlogDbContext>().Database.GetMigrations().ToList()));
+        Assert.Equal(known, applied);
     }
+
+    [Fact]
+    public async Task Upgrading_from_InitialCreate_keeps_posts_and_settings_and_drops_the_old_hero_columns()
+    {
+        await using var database = new SqliteTestDatabase();
+        // Base como la dejó la primera versión con migraciones, con datos reales adentro.
+        await database.InScopeAsync(async provider =>
+        {
+            var db = provider.GetRequiredService<BlogDbContext>();
+            await db.GetService<IMigrator>().MigrateAsync(db.Database.GetMigrations().First());
+            return true;
+        });
+        Assert.Contains("HeroImageUrl", await SettingsColumnsAsync(database));
+        var postId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e0f");
+        await database.ExecuteAsync($"""
+            INSERT INTO posts (Id, Slug, Title, Summary, Body, Tags, CoverUrl, CoverAlt, Lang, Status, CreatedAtUtc, UpdatedAtUtc, PublishedAtUtc)
+            VALUES ('{postId.ToString().ToUpperInvariant()}', 'hola', 'Hola', 'Resumen', 'Cuerpo', '["net"]', '/media/2026/11/a.png', 'Alt',
+                    'es', 'Published', '2026-11-20 10:00:00', '2026-11-21 10:00:00', '2026-11-21 10:00:00');
+            INSERT INTO site_settings (Id, Name, Tagline, Bio, Email, GithubUrl, LinkedinUrl, XUrl, HeroImageUrl, HeroImageAlt, HeroImageCredit)
+            VALUES (1, 'Alan', 'Frase', 'Bio', 'alan@example.com', 'https://github.com/alan', NULL, NULL, '/media/hero.jpg', 'Alt', 'Crédito');
+            """);
+
+        await database.InitializeAsync();
+
+        var post = Assert.Single(await database.WithPostsAsync(posts => posts.ListPublishedAsync(default)));
+        Assert.Equal(postId, post.Id);
+        Assert.Equal("Hola", post.Title);
+        Assert.Equal(["net"], post.Tags);
+        Assert.Equal("/media/2026/11/a.png", post.CoverUrl);
+        Assert.Equal(new DateTime(2026, 11, 21, 10, 0, 0, DateTimeKind.Utc), post.PublishedAt);
+        Assert.Equal(
+            new SiteSettingsDto("Alan", "Frase", "Bio", "alan@example.com", "https://github.com/alan", null, null),
+            await database.WithSettingsAsync(settings => settings.GetAsync(default)));
+        Assert.DoesNotContain(await SettingsColumnsAsync(database), column => column.StartsWith("HeroImage", StringComparison.Ordinal));
+        Assert.Empty(await database.ListAsync("SELECT Id FROM hero_images"));
+    }
+
+    private static Task<IReadOnlyList<string>> SettingsColumnsAsync(SqliteTestDatabase database) =>
+        database.ListAsync("SELECT name FROM pragma_table_info('site_settings')");
 
     [Fact]
     public async Task Initialize_refuses_a_legacy_database_created_without_migrations()

@@ -20,8 +20,13 @@ public static class DependencyInjection
 
         services.AddScoped<IPostRepository, PostRepository>();
         services.AddScoped<ISiteSettingsRepository, SiteSettingsRepository>();
+        services.AddScoped<IMediaAssetRepository, MediaAssetRepository>();
+        services.AddScoped<IHeroImageRepository, HeroImageRepository>();
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<IMediaStorage, DiskMediaStorage>();
+
+        // Singleton: su semáforo es el que garantiza que se procese una sola imagen a la vez en todo el proceso.
+        services.AddSingleton<IImageProcessor, NetVipsImageProcessor>();
 
         // Timeout corto: guardar un post no debe quedarse esperando a un builder que no responde.
         services.AddHttpClient<ISiteBuildTrigger, HttpSiteBuildTrigger>(client => client.Timeout = TimeSpan.FromSeconds(5));

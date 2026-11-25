@@ -3,7 +3,8 @@ using System.Text.RegularExpressions;
 namespace Blog.Domain;
 
 /// <summary>
-/// Datos del autor y del sitio que se editan desde el admin (nombre, bio, enlaces, foto del hero).
+/// Datos del autor y del sitio que se editan desde el admin (nombre, bio, enlaces). Las fotos del hero son
+/// una galería aparte (<see cref="HeroImage"/>).
 /// Hay una sola fila: siempre con <see cref="SingletonId"/>.
 /// </summary>
 public sealed class SiteSettings
@@ -27,9 +28,6 @@ public sealed class SiteSettings
     public string? GithubUrl { get; private set; }
     public string? LinkedinUrl { get; private set; }
     public string? XUrl { get; private set; }
-    public string? HeroImageUrl { get; private set; }
-    public string? HeroImageAlt { get; private set; }
-    public string? HeroImageCredit { get; private set; }
 
     public static SiteSettings Create(SiteSettingsContent content)
     {
@@ -49,9 +47,6 @@ public sealed class SiteSettings
         GithubUrl = content.GithubUrl;
         LinkedinUrl = content.LinkedinUrl;
         XUrl = content.XUrl;
-        HeroImageUrl = content.HeroImageUrl;
-        HeroImageAlt = content.HeroImageAlt;
-        HeroImageCredit = content.HeroImageCredit;
     }
 }
 
@@ -63,21 +58,16 @@ public sealed partial record SiteSettingsContent(
     string? Email,
     string? GithubUrl,
     string? LinkedinUrl,
-    string? XUrl,
-    string? HeroImageUrl,
-    string? HeroImageAlt,
-    string? HeroImageCredit)
+    string? XUrl)
 {
     public const int MaxNameLength = 100;
     public const int MaxTaglineLength = 200;
     public const int MaxBioLength = 2000;
     public const int MaxEmailLength = 254;
-    public const int MaxImageAltLength = 300;
-    public const int MaxImageCreditLength = 200;
 
     /// <summary>Lo que se usa mientras no se guardó nada desde el admin.</summary>
     public static SiteSettingsContent Default { get; } = new(
-        "Mi blog", "Notas sobre software, ideas y cosas que estoy aprendiendo.", null, null, null, null, null, null, null, null);
+        "Mi blog", "Notas sobre software, ideas y cosas que estoy aprendiendo.", null, null, null, null, null);
 
     // Forma mínima (algo@dominio.tld, sin espacios). La validación real de un email es mandarle un correo.
     [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
@@ -90,10 +80,7 @@ public sealed partial record SiteSettingsContent(
         string? email,
         string? githubUrl,
         string? linkedinUrl,
-        string? xUrl,
-        string? heroImageUrl,
-        string? heroImageAlt,
-        string? heroImageCredit)
+        string? xUrl)
     {
         var cleanName = (name ?? string.Empty).Trim();
         if (cleanName.Length == 0)
@@ -112,13 +99,6 @@ public sealed partial record SiteSettingsContent(
             throw new DomainException("El email no tiene un formato válido.");
         }
 
-        var cleanHeroImageUrl = OptionalText.Clean(
-            heroImageUrl, WebUrl.MaxLength, $"La URL de la imagen del hero no puede superar {WebUrl.MaxLength} caracteres.");
-        if (cleanHeroImageUrl is not null && !WebUrl.IsImageUrl(cleanHeroImageUrl))
-        {
-            throw new DomainException("La imagen del hero debe ser una ruta /media/... o una URL http(s).");
-        }
-
         return new SiteSettingsContent(
             cleanName,
             OptionalText.Clean(tagline, MaxTaglineLength, $"La frase no puede superar {MaxTaglineLength} caracteres."),
@@ -126,12 +106,7 @@ public sealed partial record SiteSettingsContent(
             cleanEmail,
             HttpLink(githubUrl, "GitHub"),
             HttpLink(linkedinUrl, "LinkedIn"),
-            HttpLink(xUrl, "X"),
-            cleanHeroImageUrl,
-            OptionalText.Clean(heroImageAlt, MaxImageAltLength,
-                $"El texto alternativo de la imagen del hero no puede superar {MaxImageAltLength} caracteres."),
-            OptionalText.Clean(heroImageCredit, MaxImageCreditLength,
-                $"El crédito de la imagen del hero no puede superar {MaxImageCreditLength} caracteres."));
+            HttpLink(xUrl, "X"));
     }
 
     private static string? HttpLink(string? value, string label)

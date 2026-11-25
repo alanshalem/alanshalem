@@ -9,6 +9,10 @@ public sealed class BlogDbContext(DbContextOptions<BlogDbContext> options) : DbC
 
     public DbSet<SiteSettings> SiteSettings => Set<SiteSettings>();
 
+    public DbSet<MediaAsset> MediaAssets => Set<MediaAsset>();
+
+    public DbSet<HeroImage> HeroImages => Set<HeroImage>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(BlogDbContext).Assembly);
 }

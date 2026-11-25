@@ -3,7 +3,7 @@ using Blog.Domain;
 
 namespace Blog.Application.Settings;
 
-/// <summary>Casos de uso de los ajustes del sitio (datos del autor, enlaces, foto del hero).</summary>
+/// <summary>Casos de uso de los ajustes del sitio (datos del autor y enlaces).</summary>
 public sealed class SiteSettingsService(ISiteSettingsRepository settings, ISiteBuildTrigger siteBuild)
 {
     /// <summary>Lo guardado o, si todavía no se guardó nada, los valores por defecto (sin crear la fila).</summary>
@@ -20,10 +20,7 @@ public sealed class SiteSettingsService(ISiteSettingsRepository settings, ISiteB
             request.Email,
             request.GithubUrl,
             request.LinkedinUrl,
-            request.XUrl,
-            request.HeroImageUrl,
-            request.HeroImageAlt,
-            request.HeroImageCredit);
+            request.XUrl);
 
         var current = await settings.GetAsync(cancellationToken);
         if (current is null)

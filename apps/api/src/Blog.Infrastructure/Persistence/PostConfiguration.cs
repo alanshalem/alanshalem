@@ -9,13 +9,6 @@ namespace Blog.Infrastructure.Persistence;
 
 internal sealed class PostConfiguration : IEntityTypeConfiguration<Post>
 {
-    // SQLite guarda DateTime como texto y al leerlo devuelve Kind=Unspecified; así lo marcamos siempre como UTC.
-    private static readonly ValueConverter<DateTime, DateTime> UtcConverter =
-        new(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
-
-    private static readonly ValueConverter<DateTime?, DateTime?> NullableUtcConverter =
-        new(value => value, value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
-
     // Las etiquetas se guardan como un arreglo JSON en una sola columna: no justifican una tabla aparte.
     private static readonly ValueConverter<IReadOnlyList<string>, string> TagsConverter = new(
         tags => JsonSerializer.Serialize(tags, (JsonSerializerOptions?)null),
@@ -50,8 +43,8 @@ internal sealed class PostConfiguration : IEntityTypeConfiguration<Post>
         builder.Property(post => post.Status).HasConversion<string>().HasMaxLength(20);
         builder.HasIndex(post => post.Status);
 
-        builder.Property(post => post.CreatedAtUtc).HasConversion(UtcConverter);
-        builder.Property(post => post.UpdatedAtUtc).HasConversion(UtcConverter);
-        builder.Property(post => post.PublishedAtUtc).HasConversion(NullableUtcConverter);
+        builder.Property(post => post.CreatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
+        builder.Property(post => post.UpdatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
+        builder.Property(post => post.PublishedAtUtc).HasConversion(SqliteConventions.NullableUtcConverter);
     }
 }

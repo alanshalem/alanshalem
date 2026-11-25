@@ -37,10 +37,7 @@ public class SiteSettingsServiceTests
         "alan@example.com",
         "https://github.com/alan",
         "https://www.linkedin.com/in/alan",
-        "https://x.com/alan",
-        "/media/2026/11/hero.jpg",
-        "Alan en la montaña",
-        "Foto: Ana");
+        "https://x.com/alan");
 
     [Fact]
     public async Task Get_returns_the_defaults_when_nothing_was_saved()
@@ -48,7 +45,7 @@ public class SiteSettingsServiceTests
         var settings = await _service.GetAsync(default);
 
         Assert.Equal(new SiteSettingsDto(
-            "Mi blog", "Notas sobre software, ideas y cosas que estoy aprendiendo.", null, null, null, null, null, null, null, null),
+            "Mi blog", "Notas sobre software, ideas y cosas que estoy aprendiendo.", null, null, null, null, null),
             settings);
         Assert.Null(_repository.Stored);
         Assert.Equal(0, _repository.Saves);
@@ -62,7 +59,7 @@ public class SiteSettingsServiceTests
 
         var expected = new SiteSettingsDto(
             "Alan Shalem", "Escribo sobre .NET", "Hola, soy **Alan**.", "alan@example.com", "https://github.com/alan",
-            "https://www.linkedin.com/in/alan", "https://x.com/alan", "/media/2026/11/hero.jpg", "Alan en la montaña", "Foto: Ana");
+            "https://www.linkedin.com/in/alan", "https://x.com/alan");
         Assert.Equal(expected, saved);
         Assert.Equal(expected, loaded);
         Assert.Equal(1, _build.Requests);

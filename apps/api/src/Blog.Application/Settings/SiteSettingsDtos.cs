@@ -10,10 +10,7 @@ public sealed record SaveSiteSettingsRequest(
     string? Email,
     string? GithubUrl,
     string? LinkedinUrl,
-    string? XUrl,
-    string? HeroImageUrl,
-    string? HeroImageAlt,
-    string? HeroImageCredit);
+    string? XUrl);
 
 public sealed record SiteSettingsDto(
     string Name,
@@ -22,10 +19,7 @@ public sealed record SiteSettingsDto(
     string? Email,
     string? GithubUrl,
     string? LinkedinUrl,
-    string? XUrl,
-    string? HeroImageUrl,
-    string? HeroImageAlt,
-    string? HeroImageCredit);
+    string? XUrl);
 
 public static class SiteSettingsMapping
 {
@@ -36,10 +30,7 @@ public static class SiteSettingsMapping
         settings.Email,
         settings.GithubUrl,
         settings.LinkedinUrl,
-        settings.XUrl,
-        settings.HeroImageUrl,
-        settings.HeroImageAlt,
-        settings.HeroImageCredit);
+        settings.XUrl);
 
     public static SiteSettingsDto ToDto(this SiteSettingsContent content) => new(
         content.Name,
@@ -48,8 +39,5 @@ public static class SiteSettingsMapping
         content.Email,
         content.GithubUrl,
         content.LinkedinUrl,
-        content.XUrl,
-        content.HeroImageUrl,
-        content.HeroImageAlt,
-        content.HeroImageCredit);
+        content.XUrl);
 }

@@ -21,8 +21,5 @@ internal sealed class SiteSettingsConfiguration : IEntityTypeConfiguration<SiteS
         builder.Property(settings => settings.GithubUrl).HasMaxLength(WebUrl.MaxLength);
         builder.Property(settings => settings.LinkedinUrl).HasMaxLength(WebUrl.MaxLength);
         builder.Property(settings => settings.XUrl).HasMaxLength(WebUrl.MaxLength);
-        builder.Property(settings => settings.HeroImageUrl).HasMaxLength(WebUrl.MaxLength);
-        builder.Property(settings => settings.HeroImageAlt).HasMaxLength(SiteSettingsContent.MaxImageAltLength);
-        builder.Property(settings => settings.HeroImageCredit).HasMaxLength(SiteSettingsContent.MaxImageCreditLength);
     }
 }

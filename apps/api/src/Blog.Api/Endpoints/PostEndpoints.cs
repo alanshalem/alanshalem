@@ -1,5 +1,4 @@
 using Blog.Api.Security;
-using Blog.Application.Media;
 using Blog.Application.Posts;
 
 namespace Blog.Api.Endpoints;
@@ -36,21 +35,16 @@ public static class PostEndpoints
             return Results.NoContent();
         });
 
-        // La protección CSRF de ASP.NET (antiforgery) se reemplaza por la cabecera X-Requested-With que exige el middleware.
-        admin.MapPost("/media", async (IFormFile file, MediaService media, CancellationToken ct) =>
-            {
-                await using var stream = file.OpenReadStream();
-                var url = await media.UploadImageAsync(stream, ct);
-                return Results.Ok(new { url });
-            })
-            .DisableAntiforgery();
-
+        admin.MapAdminMediaEndpoints();
         admin.MapAdminSettingsEndpoints();
+        admin.MapAdminHeroImageEndpoints();
 
         // ----- Interno: lo consume el builder de Astro, con token. Caddy no lo expone hacia afuera. -----
         app.MapGet("/api/internal/posts", (PostService service, CancellationToken ct) => service.ListPublishedAsync(ct))
             .AddEndpointFilter<BuilderTokenFilter>();
         app.MapInternalSettingsEndpoints();
+        app.MapInternalMediaEndpoints();
+        app.MapInternalHeroImageEndpoints();
 
         return app;
     }

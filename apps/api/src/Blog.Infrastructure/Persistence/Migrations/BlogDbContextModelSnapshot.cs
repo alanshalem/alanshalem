@@ -17,6 +17,72 @@ namespace Blog.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.15");
 
+            modelBuilder.Entity("Blog.Domain.HeroImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Alt")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Credit")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("MediaAssetId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MediaAssetId");
+
+                    b.ToTable("hero_images", (string)null);
+                });
+
+            modelBuilder.Entity("Blog.Domain.MediaAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Placeholder")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("media_assets", (string)null);
+                });
+
             modelBuilder.Entity("Blog.Domain.Post", b =>
                 {
                     b.Property<Guid>("Id")
@@ -100,18 +166,6 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2048)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("HeroImageAlt")
-                        .HasMaxLength(300)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("HeroImageCredit")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("HeroImageUrl")
-                        .HasMaxLength(2048)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("LinkedinUrl")
                         .HasMaxLength(2048)
                         .HasColumnType("TEXT");
@@ -132,6 +186,17 @@ namespace Blog.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("site_settings", (string)null);
+                });
+
+            modelBuilder.Entity("Blog.Domain.HeroImage", b =>
+                {
+                    b.HasOne("Blog.Domain.MediaAsset", "Media")
+                        .WithMany()
+                        .HasForeignKey("MediaAssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Media");
                 });
 #pragma warning restore 612, 618
         }

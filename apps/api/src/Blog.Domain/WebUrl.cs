@@ -9,7 +9,8 @@ public static class WebUrl
 {
     public const int MaxLength = 2048;
 
-    private const string MediaPrefix = "/media/";
+    /// <summary>Donde se publican las imágenes subidas (Caddy en producción, la API en Development).</summary>
+    public const string MediaPrefix = "/media/";
 
     /// <summary>Imagen: lo que devuelve la subida de media (/media/...) o una URL absoluta http(s).</summary>
     public static bool IsImageUrl(string value) => IsMediaPath(value) || IsHttpUrl(value);
