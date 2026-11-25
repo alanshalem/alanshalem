@@ -135,9 +135,36 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 /* Fotos de la galería sin crédito: el script deja la línea vacía. */
 .hero-credit:empty { display: none; }
+
+/* Botón Reproducir/Pausar del video (WCAG 2.2.2). Cuadrado como el ☰ (borde de 1px translúcido, sin radio), legible sobre
+   cualquier imagen porque el overlay del hero es casi negro abajo. Debajo del crédito, a la izquierda; abajo a la
+   derecha en desktop, con el crédito encima. 44 × 44 px como mínimo (WCAG 2.5.8). */
+.hero-media { display: contents; }
+.hero-toggle {
+  display: inline-grid; place-items: center; align-self: flex-start;
+  min-width: 2.75rem; min-height: 2.75rem; margin-top: var(--space-1-5); padding: 0 var(--space-1); cursor: pointer;
+  background: none; color: var(--text-primary);
+  font-family: var(--font-ui); font-size: var(--text-ui); font-weight: 500; line-height: 1;
+  border: 1px solid rgba(237, 237, 234, 0.4); border-radius: 0;
+  transition: border-color var(--duration-fast);
+}
+/* `display` de arriba le ganaría al atributo: sin JS y en las fotos el botón no existe. */
+.hero-toggle[hidden] { display: none; }
+.hero-toggle:hover { border-color: var(--text-primary); }
+.hero-toggle:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
+.hero-toggle > span { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 0.5em; }
+/* El script pone la clase de estado mientras el video corre: queda visible (y como nombre accesible) un solo texto.
+   Los dos ocupan la misma celda y el otro solo se vuelve invisible: el botón mide lo del más largo y no cambia de
+   ancho ni se corre bajo el puntero al alternar. */
+.hero-toggle.is-playing .hero-toggle-play { visibility: hidden; }
+.hero-toggle:not(.is-playing) .hero-toggle-pause { visibility: hidden; }
+
 @media (min-width: 75em) {
   .hero-credit { position: absolute; right: var(--gutter); bottom: var(--space-3-5); max-width: 16rem; margin: 0; text-align: right; }
-  .hero:has(.hero-credit:not(:empty)) .hero-body { max-width: min(var(--hero-body-max), calc(100% - 18rem)); }
+  .hero-toggle { position: absolute; right: var(--gutter); bottom: var(--space-3-5); margin: 0; }
+  .hero:has(.hero-toggle:not([hidden])) .hero-credit { bottom: calc(var(--space-3-5) + 2.75rem + var(--space-1)); }
+  .hero:has(.hero-credit:not(:empty)) .hero-body,
+  .hero:has(.hero-toggle:not([hidden])) .hero-body { max-width: min(var(--hero-body-max), calc(100% - 18rem)); }
 }
 
 /* ---------- Secciones ---------- */

@@ -3,8 +3,8 @@
  * nunca tiene que verse roto — ni ícono de imagen rota, ni texto alternativo suelto, ni placeholder borroso estirado.
  * Se oculta su contenedor y queda el fondo oscuro de la página.
  *
- * - Contenedor = el ancestro marcado con `data-media` (el fondo del hero: foto, póster y video juntos), si no el
- *   <picture>, si no el propio elemento. Ocultar el contenedor también se lleva el placeholder (es su fondo).
+ * - Contenedor = el ancestro marcado con `data-media` (en el hero: foto, póster, video y su botón Reproducir/Pausar
+ *   juntos, así no queda un control de un video roto), si no el <picture>, si no el propio elemento. Ocultar el contenedor también se lleva el placeholder (es su fondo).
  * - Un <video> solo falla cuando fallan TODAS sus <source>: el navegador prueba la siguiente (AV1 → H.264) y recién
  *   la última dispara el error definitivo. Las <source> de un <picture> no disparan errores (los dispara el <img>).
  * - Los errores de carga no burbujean: el listener va en fase de captura sobre la ventana, en el <head>, así ve

@@ -102,6 +102,9 @@ const es = {
   minutes: '{n} min',
   readingTime: '{n} min de lectura',
   heroLatest: 'Últimos artículos',
+  // Botón del video del hero (WCAG 2.2.2): el ícono va aparte (aria-hidden), acá solo el nombre accesible.
+  heroPlay: 'Reproducir',
+  heroPause: 'Pausar',
   latest: 'Últimos',
   allPosts: 'Todos los artículos',
   morePosts: 'Más artículos',
@@ -151,6 +154,8 @@ const en: Record<UiKey, string> = {
   minutes: '{n} min',
   readingTime: '{n} min read',
   heroLatest: 'Latest articles',
+  heroPlay: 'Play',
+  heroPause: 'Pause',
   latest: 'Latest',
   allPosts: 'All articles',
   morePosts: 'More articles',

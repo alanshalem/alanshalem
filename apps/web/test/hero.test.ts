@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runInNewContext } from 'node:vm';
 import { localizeHeroImage, orderHeroImages, resolveHero, toHeroSlide, type ApiHeroImage, type HeroSlide } from '../src/lib/hero.ts';
-import { HERO_ELEMENT_IDS, HERO_ROTATION_SCRIPT, HERO_STORAGE_KEY, PICK_HERO_INDEX_JS } from '../src/lib/hero-rotation.ts';
+import {
+  HERO_ELEMENT_IDS,
+  HERO_PLAYING_CLASS,
+  HERO_ROTATION_SCRIPT,
+  HERO_STORAGE_KEY,
+  PICK_HERO_INDEX_JS,
+} from '../src/lib/hero-rotation.ts';
 import { jsonForScript } from '../src/lib/html.ts';
 import { mediaAsset, videoAsset } from './fixtures.ts';
 
@@ -208,6 +214,61 @@ interface Viewer {
   reducedMotion?: boolean;
   /** `navigator.connection`: Chrome lo tiene; Safari y Firefox no. */
   connection?: { saveData: boolean };
+  /** El navegador no deja reproducir sin un gesto (iOS en modo de bajo consumo, políticas de autoplay). */
+  autoplayBlocked?: boolean;
+}
+
+/**
+ * <video> mínimo con la semántica de HTMLMediaElement que usa el script: `play()` pasa `paused` a false en el acto
+ * (o devuelve una promesa rechazada sin tocarlo si no está permitido) y avisa con `play`; `pause()` avisa con `pause`.
+ */
+class FakeVideo {
+  paused = true;
+  onplay: (() => void) | null = null;
+  onpause: (() => void) | null = null;
+  /** Público: el test lo apaga para simular el gesto del usuario, que sí habilita `play()`. */
+  blocked: boolean;
+  constructor(blocked: boolean) {
+    this.blocked = blocked;
+  }
+  play(): Promise<void> {
+    if (this.blocked) return Promise.reject(new Error('NotAllowedError'));
+    if (this.paused) {
+      this.paused = false;
+      this.onplay?.();
+    }
+    return Promise.resolve();
+  }
+  pause(): void {
+    if (this.paused) return;
+    this.paused = true;
+    this.onpause?.();
+  }
+}
+
+/** Botón Reproducir/Pausar: el script solo lo muestra, alterna la clase de estado y le pone el `onclick`. */
+interface FakeToggle {
+  hidden: boolean;
+  classes: Set<string>;
+  classList: { toggle(name: string, force: boolean): void };
+  onclick: (() => void) | null;
+}
+
+function fakeToggle(): FakeToggle {
+  const classes = new Set<string>();
+  let hidden = true;
+  return {
+    // Como en el DOM, `hidden` convierte a booleano lo que se le asigne.
+    get hidden() {
+      return hidden;
+    },
+    set hidden(value) {
+      hidden = Boolean(value);
+    },
+    classes,
+    classList: { toggle: (name, force) => void (force ? classes.add(name) : classes.delete(name)) },
+    onclick: null,
+  };
 }
 
 /** DOM, localStorage, matchMedia y navigator mínimos para ejecutar el script real en un contexto aislado. */
@@ -216,19 +277,27 @@ function runRotation(slides: HeroSlide[], storage: object, viewer: Viewer = {}) 
   const webp: FakeElement = { style: {} };
   const img: FakeElement = { style: {} };
   const inserted: string[] = [];
+  const videos: FakeVideo[] = [];
   const picture = {
     style: {} as Record<string, string>,
     children: [avif, webp, img],
+    nextSibling: null as { firstChild: FakeVideo } | null,
     insertAdjacentHTML(position: string, html: string) {
       assert.equal(position, 'afterend', 'el video va encima del <picture>, que queda de fondo');
       inserted.push(html);
+      // El marcado insertado es <div class="hero-video"><video>…: queda como hermano siguiente del <picture>.
+      const video = new FakeVideo(viewer.autoplayBlocked === true);
+      videos.push(video);
+      picture.nextSibling = { firstChild: video };
     },
   };
   const credit: FakeElement = { style: {}, textContent: 'inicial' };
+  const toggle = fakeToggle();
   const elements: Record<string, unknown> = {
     [HERO_ELEMENT_IDS.slides]: { text: jsonForScript(slides) },
     [HERO_ELEMENT_IDS.picture]: picture,
     [HERO_ELEMENT_IDS.credit]: credit,
+    [HERO_ELEMENT_IDS.toggle]: toggle,
   };
   runInNewContext(HERO_ROTATION_SCRIPT, {
     document: { getElementById: (id: string) => elements[id] ?? null },
@@ -236,8 +305,11 @@ function runRotation(slides: HeroSlide[], storage: object, viewer: Viewer = {}) 
     matchMedia: (query: string) => ({ matches: query === REDUCED_MOTION && viewer.reducedMotion === true }),
     navigator: { connection: viewer.connection },
   });
-  return { avif, webp, img, picture, credit, inserted };
+  return { avif, webp, img, picture, credit, inserted, videos, toggle };
 }
+
+/** Lo que muestra el botón: el CSS enseña "❚❚ Pausar" con la clase de estado y "▶ Reproducir" sin ella. */
+const toggleLabel = (toggle: FakeToggle): 'pause' | 'play' => (toggle.classes.has(HERO_PLAYING_CLASS) ? 'pause' : 'play');
 
 const slides = [1, 2, 3].map((n) => toHeroSlide(heroImage(n)));
 
@@ -351,5 +423,73 @@ describe('script de rotación con videos (S9, L13)', () => {
   it('con un solo video lo muestra siempre', () => {
     const storage: Record<string, unknown> = {};
     for (let visit = 0; visit < 5; visit++) assert.deepEqual(runRotation([video], storage).inserted, [video.video]);
+  });
+});
+
+describe('botón Reproducir/Pausar del video (S1, WCAG 2.2.2, L3)', () => {
+  const video = toHeroSlide(heroVideo(1));
+
+  it('sin reduced-motion ni Save-Data: el video arranca solo y el botón visible ofrece ❚❚ Pausar', () => {
+    const { toggle, videos, inserted } = runRotation([video], {});
+    assert.deepEqual(inserted, [video.video]);
+    assert.equal(toggle.hidden, false);
+    assert.equal(videos[0]?.paused, false);
+    assert.equal(toggleLabel(toggle), 'pause');
+  });
+
+  it('cada clic alterna pausa y reproducción, y el texto del botón sigue al estado real', () => {
+    const { toggle, videos, inserted } = runRotation([video], {});
+    toggle.onclick?.();
+    assert.equal(videos[0]?.paused, true);
+    assert.equal(toggleLabel(toggle), 'play');
+    toggle.onclick?.();
+    assert.equal(videos[0]?.paused, false);
+    assert.equal(toggleLabel(toggle), 'pause');
+    assert.equal(inserted.length, 1, 'alternar no vuelve a insertar el video');
+  });
+
+  for (const [why, viewer] of [
+    ['prefers-reduced-motion: reduce', { reducedMotion: true }],
+    ['Save-Data', { connection: { saveData: true } }],
+  ] as const) {
+    it(`con ${why}: póster y ▶ Reproducir; el clic inserta el video, lo arranca y pasa a ❚❚ Pausar`, () => {
+      const { toggle, videos, inserted, img } = runRotation([video], {}, viewer);
+      assert.deepEqual(inserted, []);
+      assert.equal(img.src, video.img.src, 'mientras tanto se ve el póster');
+      assert.equal(toggle.hidden, false);
+      assert.equal(toggleLabel(toggle), 'play');
+
+      toggle.onclick?.();
+      assert.deepEqual(inserted, [video.video]);
+      assert.equal(videos[0]?.paused, false);
+      assert.equal(toggleLabel(toggle), 'pause');
+
+      toggle.onclick?.();
+      assert.equal(videos[0]?.paused, true);
+      assert.equal(toggleLabel(toggle), 'play');
+      assert.equal(inserted.length, 1);
+    });
+  }
+
+  it('una foto no tiene botón', () => {
+    const { toggle } = runRotation([toHeroSlide(heroImage(1))], {});
+    assert.equal(toggle.hidden, true);
+    assert.equal(toggle.onclick, null);
+  });
+
+  it('si el navegador bloquea el autoplay, el botón no miente: ofrece ▶ Reproducir y el clic lo arranca (S2)', async () => {
+    const run = runRotation([video], {}, { autoplayBlocked: true });
+    await new Promise((resolve) => setImmediate(resolve)); // deja correr el rechazo de play()
+    const [video0] = run.videos;
+    assert.ok(video0, 'el video se insertó igual');
+    assert.equal(video0.paused, true);
+    assert.equal(run.toggle.hidden, false);
+    assert.equal(toggleLabel(run.toggle), 'play');
+
+    video0.blocked = false; // un clic es un gesto del usuario: ahora play() está permitido
+    run.toggle.onclick?.();
+    assert.equal(video0.paused, false);
+    assert.equal(toggleLabel(run.toggle), 'pause');
+    assert.equal(run.inserted.length, 1);
   });
 });

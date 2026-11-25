@@ -52,29 +52,6 @@ const more = posts.slice(4, 8);
 >
   <section class:list={['hero', { 'hero--photo': hero, 'hero--type': !hero }]} aria-labelledby="hero-title">
     {
-      hero?.kind === 'gallery' && (
-        <div class="hero-bg" data-media>
-          {/* Vacío a propósito: el script de abajo elige foto o video; completa estos tres hijos (en este orden) o pone el video encima. */}
-          <picture id={HERO_ELEMENT_IDS.picture} class="hero-picture">
-            <source type="image/avif" sizes={IMAGE_SIZES.hero} />
-            <source type="image/webp" sizes={IMAGE_SIZES.hero} />
-            <img alt="" decoding="async" fetchpriority="high" />
-          </picture>
-          {/* Sin JS, la primera de la galería como foto (si es un video, su póster: `media`). */}
-          <noscript>
-            <ResponsiveImage
-              src={hero.first.media.url}
-              alt={hero.first.alt}
-              context="hero"
-              priority
-              width={hero.first.media.width}
-              height={hero.first.media.height}
-            />
-          </noscript>
-        </div>
-      )
-    }
-    {
       hero?.kind === 'static' && (
         <div class="hero-bg" data-media>
           <ResponsiveImage src={hero.src} alt="" context="hero" priority width={1920} height={1080} />
@@ -91,6 +68,46 @@ const more = posts.slice(4, 8);
       </p>
     </div>
     {hero?.kind === 'gallery' && <p class="hero-credit" id={HERO_ELEMENT_IDS.credit}>{hero.slides[0]?.credit}</p>}
+    {
+      /*
+        Fondo y botón Reproducir/Pausar en un mismo contenedor de medios: si la foto o el video fallan, el guardián
+        (lib/media-guard.ts) oculta los dos juntos y no queda un control de un video roto. `.hero-media` no arma caja
+        (display: contents), así el fondo sigue cubriendo el hero y el botón se ubica como un hijo más. Va al final para
+        que, con el teclado, el botón llegue después de los enlaces del hero, donde se lo ve.
+      */
+      hero?.kind === 'gallery' && (
+        <div class="hero-media" data-media>
+          <div class="hero-bg">
+            {/* Vacío a propósito: el script de abajo elige foto o video; completa estos tres hijos (en este orden) o pone el video encima. */}
+            <picture id={HERO_ELEMENT_IDS.picture} class="hero-picture">
+              <source type="image/avif" sizes={IMAGE_SIZES.hero} />
+              <source type="image/webp" sizes={IMAGE_SIZES.hero} />
+              <img alt="" decoding="async" fetchpriority="high" />
+            </picture>
+            {/* Sin JS, la primera de la galería como foto (si es un video, su póster: `media`). */}
+            <noscript>
+              <ResponsiveImage
+                src={hero.first.media.url}
+                alt={hero.first.alt}
+                context="hero"
+                priority
+                width={hero.first.media.width}
+                height={hero.first.media.height}
+              />
+            </noscript>
+          </div>
+          {/*
+            WCAG 2.2.2. Oculto sin JS y en fotos; el script lo muestra para un video. Los dos textos vienen del
+            diccionario y el CSS deja visible uno según la clase de estado: el nombre accesible es siempre el visible
+            (los íconos van con aria-hidden; U+FE0E evita que ▶ se pinte como emoji).
+          */}
+          <button id={HERO_ELEMENT_IDS.toggle} class="hero-toggle" type="button" hidden>
+            <span class="hero-toggle-play"><span aria-hidden="true">{'\u25B6\uFE0E'}</span>{t.heroPlay}</span>
+            <span class="hero-toggle-pause"><span aria-hidden="true">{'\u275A\u275A'}</span>{t.heroPause}</span>
+          </button>
+        </div>
+      )
+    }
   </section>
   {
     hero?.kind === 'gallery' && (

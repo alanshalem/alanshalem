@@ -26,6 +26,13 @@ describe('idiomas fijos (L3)', () => {
   });
 });
 
+describe('botón del video del hero (S1, L3)', () => {
+  it('Reproducir/Pausar en español, Play/Pause en inglés', () => {
+    assert.deepEqual([ui('es').heroPlay, ui('es').heroPause], ['Reproducir', 'Pausar']);
+    assert.deepEqual([ui('en').heroPlay, ui('en').heroPause], ['Play', 'Pause']);
+  });
+});
+
 describe('diccionario de UI: mismas claves en es y en, ningún texto vacío (L3)', () => {
   it('las claves coinciden exactamente', () => {
     assert.deepEqual(Object.keys(ui('en')).sort(), Object.keys(ui('es')).sort());
