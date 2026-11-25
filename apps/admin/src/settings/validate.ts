@@ -65,6 +65,8 @@ export function isImageUrl(value: string): boolean {
     hasSafeCharacters(value) &&
     value.startsWith(MEDIA_PREFIX) &&
     value.length > MEDIA_PREFIX.length &&
+    // Igual que la API: sin '%', para que no pase un ".." codificado (%2e%2e).
+    !value.includes('%') &&
     !value.split('/').includes('..');
   return isMediaPath || isHttpUrl(value);
 }

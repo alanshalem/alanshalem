@@ -29,10 +29,13 @@ public static class WebUrl
             && uri.Host.Length > 0;
     }
 
+    // Sin '%': los nombres que genera la subida nunca lo usan, y así no se cuela un ".." codificado (%2e%2e)
+    // que el navegador normaliza como segmento de punto y resuelve fuera de /media/.
     private static bool IsMediaPath(string value) =>
         HasSafeCharacters(value)
         && value.StartsWith(MediaPrefix, StringComparison.Ordinal)
         && value.Length > MediaPrefix.Length
+        && !value.Contains('%')
         && !value.Split('/').Contains("..");
 
     // Sin espacios, caracteres de control, barras invertidas ni comillas/ángulos: nada que pueda cortar un atributo HTML.

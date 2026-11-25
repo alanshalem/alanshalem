@@ -29,6 +29,8 @@ describe('isImageUrl: ruta /media/... o URL http(s)', () => {
     '',
     '/media/',
     '/media/../secreto.png',
+    '/media/%2e%2e/secreto.png',
+    '/media/.%2E/secreto.png',
     '/otra/a.png',
     'media/a.png',
     '//otro-sitio.com/a.png',
