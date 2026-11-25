@@ -38,3 +38,13 @@ test('el admin permite vistas previas blob: y /media se cachea para siempre y pe
   assert.match(media, /media-src 'self'/);
   assert.doesNotMatch(media, /\bencode\b/, 'AVIF, WebP y MP4 ya vienen comprimidos y Range necesita bytes exactos');
 });
+
+test('la raíz redirige según el idioma del navegador: inglés → /en/, si no → /es/', () => {
+  const root = block('handle @root {');
+  assert.match(caddy, /@root path \/\s*$/m, 'el matcher @root tiene que ser exactamente la raíz');
+  assert.match(root, /header Vary Accept-Language/, 'las cachés tienen que separar la respuesta por idioma');
+  assert.match(root, /header_regexp Accept-Language/);
+  assert.match(root, /redir @english \/en\/ 302/);
+  // `redir /es/ 302` NO sirve: Caddy toma /es/ como filtro de ruta y no como destino. Hace falta el comodín.
+  assert.match(root, /redir \* \/es\/ 302/);
+});

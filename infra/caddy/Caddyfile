@@ -55,6 +55,17 @@
 		file_server
 	}
 
+	# ---------- Raíz: idioma preferido del navegador ----------
+	# El sitio vive en /es/ y /en/. Si la primera preferencia de Accept-Language es inglés va a /en/; si no, a /es/
+	# (español por defecto). 302 porque depende de quién pide; Vary para que ninguna caché mezcle las respuestas.
+	@root path /
+	handle @root {
+		header Vary Accept-Language
+		@english header_regexp Accept-Language (?i)^\s*en\b
+		redir @english /en/ 302
+		redir * /es/ 302
+	}
+
 	# ---------- Sitio público (HTML estático) ----------
 	handle {
 		# `current` es un symlink que el builder cambia de forma atómica en cada publicación.
