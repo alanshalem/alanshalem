@@ -10,6 +10,7 @@ namespace Blog.Tests;
 public class VideoServiceTests
 {
     private const string UnsupportedMessage = "Formato no soportado. Subí un video MP4, MOV, WebM o MKV.";
+    private const string FadeLengthMessage = "La duración del fundido tiene que ser 0,5, 1 o 2 s.";
 
     [Fact]
     public async Task Upload_stores_a_processing_video_and_queues_its_original()
@@ -96,8 +97,9 @@ public class VideoServiceTests
     [InlineData(null, null, "fast", null, "Fundido no válido: tiene que ser loop, black o none.")]
     [InlineData(null, null, "Loop", null, "Fundido no válido: tiene que ser loop, black o none.")]
     [InlineData(null, null, "0", null, "Fundido no válido: tiene que ser loop, black o none.")]
-    [InlineData(null, null, null, "1.5", "La duración del fundido tiene que ser 0,5, 1 o 2 s.")]
-    [InlineData(null, null, "none", "3", "La duración del fundido tiene que ser 0,5, 1 o 2 s.")]
+    [InlineData(null, null, " Loop ", null, "Fundido no válido: tiene que ser loop, black o none.")]
+    [InlineData(null, null, null, "1.5", FadeLengthMessage)]
+    [InlineData(null, null, "none", "3", FadeLengthMessage)]
     [InlineData("2,5", null, null, null, "El inicio del recorte no es un número válido: usá segundos con punto decimal (ej. 2.5).")]
     [InlineData(null, "NaN", null, null, "El fin del recorte no es un número válido: usá segundos con punto decimal (ej. 2.5).")]
     [InlineData(null, null, null, "Infinity", "La duración del fundido no es un número válido: usá segundos con punto decimal (ej. 2.5).")]
@@ -126,6 +128,42 @@ public class VideoServiceTests
         Assert.Equal(new VideoEditDto(0, 15, VideoFade.Loop, 1), blank.Edit);
         Assert.Equal(14, blank.DurationSeconds);
         Assert.Equal(blank.Id, omitted.Id);
+    }
+
+    [Fact]
+    public async Task Spaces_around_the_fade_name_are_ignored_like_around_the_numbers()
+    {
+        await using var context = await TestContext.CreateAsync();
+        context.Transcoder.Probe = new VideoProbe(1920, 1080, 20);
+
+        var video = await context.UploadAsync(TestVideos.Fake("con espacios"), new VideoEditInput(" 2 ", null, " black ", " 0.5 "));
+
+        // Solo el inicio: el tramo sigue hasta 15 s después de él.
+        Assert.Equal(new VideoEditDto(2, 17, VideoFade.Black, 0.5), video.Edit);
+    }
+
+    [Fact]
+    public async Task A_video_that_failed_before_edits_existed_can_be_uploaded_again_as_a_new_asset()
+    {
+        await using var context = await TestContext.CreateAsync();
+        context.Transcoder.Probe = new VideoProbe(1920, 1080, 12.5);
+        var original = TestVideos.Fake("anterior a la edición");
+        var legacyId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e21").ToString().ToUpperInvariant();
+        // Como lo dejó AddVideoEdit: el hash del original sin edición, el video entero y sin fundido.
+        await context.Database.ExecuteAsync($"""
+            INSERT INTO video_assets (Id, Hash, Width, Height, TrimStart, TrimEnd, Fade, FadeSeconds, Status, Error, PosterId, Sources, CreatedAtUtc)
+            VALUES ('{legacyId}', '{Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(original))}', 1920, 1080,
+                    0, 12.5, 'None', 1, 'Failed', 'ffmpeg falló', NULL, '[]', '2026-11-25 10:00:00');
+            """);
+
+        var uploaded = await context.UploadAsync(original);
+
+        Assert.NotEqual(legacyId, uploaded.Id.ToString().ToUpperInvariant());
+        Assert.Equal(VideoStatus.Processing, uploaded.Status);
+        Assert.Equal(uploaded.Id, Assert.Single(context.Queue.Jobs).VideoId);
+        Assert.Equal(
+            ["Failed"],
+            await context.Database.ListAsync($"SELECT Status FROM video_assets WHERE Id = '{legacyId}'"));
     }
 
     [Fact]

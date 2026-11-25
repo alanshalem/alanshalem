@@ -191,6 +191,22 @@ public class FfmpegVideoTranscoderTests
     }
 
     [Fact]
+    public async Task The_poster_never_comes_from_footage_after_the_trim_end()
+    {
+        var queue = new RecordingVideoQueue();
+        await using var database = await CreateDatabaseAsync(queue);
+        // A 10 fps los cuadros candidatos al póster cubren 1,5 s: desde el primer cuadro visible (1,5 s, tras el fundido
+        // de 0,5 s) llegarían al blanco que empieza justo donde termina el recorte (2 s), y serían mayoría.
+        var clip = await TestVideos.GenerateHardCutAsync(ScratchPath(database, "corte.mp4"), 1280, 720, cutAtSeconds: 2, seconds: 4, fps: 10);
+
+        var video = await UploadAndProcessAsync(database, queue, clip, new VideoEditInput("1", "2", "loop", "0.5"));
+
+        var poster = Path.Combine(database.MediaDirectory, video.Poster!.Url[WebUrl.MediaPrefix.Length..]);
+        var luma = await TestVideos.MeanLumaAsync(poster, 0);
+        Assert.True(luma < 100, $"El póster salió del blanco posterior al recorte (luminancia {luma}).");
+    }
+
+    [Fact]
     public async Task The_bitrate_cap_keeps_a_very_noisy_clip_small()
     {
         var queue = new RecordingVideoQueue();

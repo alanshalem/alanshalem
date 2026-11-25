@@ -62,6 +62,23 @@ internal static class TestVideos
         return path;
     }
 
+    /// <summary>
+    /// Gris oscuro liso hasta <paramref name="cutAtSeconds"/> y blanco después: un cambio de escena brusco en un segundo
+    /// conocido, para saber de qué lado salió un cuadro con solo medir su luminancia.
+    /// </summary>
+    public static async Task<string> GenerateHardCutAsync(string path, int width, int height, double cutAtSeconds, double seconds, int fps)
+    {
+        await RunAsync("ffmpeg",
+        [
+            "-hide_banner", "-loglevel", "error", "-y",
+            "-f", "lavfi", "-i", $"color=c=0x202020:size={width}x{height}:rate={fps}:duration={Invariant(cutAtSeconds)}",
+            "-f", "lavfi", "-i", $"color=c=white:size={width}x{height}:rate={fps}:duration={Invariant(seconds - cutAtSeconds)}",
+            "-filter_complex", "[0][1]concat=n=2:v=1:a=0,format=yuv420p",
+            "-c:v", "libx264", "-preset", "ultrafast", path,
+        ]);
+        return path;
+    }
+
     /// <summary>Patrón de prueba con ruido fuerte que cambia en cada cuadro: el peor caso para el peso (sin el techo, explota).</summary>
     public static async Task<string> GenerateNoisyAsync(string path, int width, int height, double seconds)
     {

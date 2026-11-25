@@ -10,6 +10,14 @@ namespace Blog.Application.Videos;
 /// </summary>
 public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? Fade, string? FadeSeconds)
 {
+    // Los nombres del contrato, tal cual: Enum.TryParse aceptaría también números ("0") y mayúsculas.
+    private static readonly Dictionary<string, VideoFade> FadeNames = new(StringComparer.Ordinal)
+    {
+        ["loop"] = VideoFade.Loop,
+        ["black"] = VideoFade.Black,
+        ["none"] = VideoFade.None,
+    };
+
     /// <summary>Sin campos: la edición por defecto.</summary>
     public static VideoEditInput Empty { get; } = new(null, null, null, null);
 
@@ -35,7 +43,7 @@ public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? 
             : throw new DomainException($"{field} no es un número válido: usá segundos con punto decimal (ej. 2.5).");
     }
 
-    // Solo los nombres exactos del contrato: Enum.TryParse aceptaría también números ("0") y mayúsculas.
+    // Los espacios alrededor se ignoran, igual que en los números (double.TryParse los acepta).
     private static VideoFade? ParseFade(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -43,7 +51,8 @@ public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? 
             return null;
         }
 
-        return Enum.GetValues<VideoFade>().Cast<VideoFade?>().FirstOrDefault(fade => fade.ToString()!.ToLowerInvariant() == text)
-            ?? throw new DomainException("Fundido no válido: tiene que ser loop, black o none.");
+        return FadeNames.TryGetValue(text.Trim(), out var fade)
+            ? fade
+            : throw new DomainException("Fundido no válido: tiene que ser loop, black o none.");
     }
 }

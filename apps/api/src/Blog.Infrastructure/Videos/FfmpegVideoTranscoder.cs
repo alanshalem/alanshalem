@@ -168,10 +168,12 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
     }
 
     // El póster sale del primer cuadro visible de la edición (después del fundido de entrada en black; donde arranca
-    // el video final en loop), así coincide con lo que se ve cuando empieza a reproducirse.
+    // el video final en loop), así coincide con lo que se ve cuando empieza a reproducirse. La lectura termina en el fin
+    // del recorte: si no, con un tramo corto (o pocos fps) los candidatos de thumbnail llegarían a lo que se cortó. Si
+    // quedan menos de PosterCandidateFrames, thumbnail elige entre los que hay al terminar la entrada.
     private static List<string> PosterArguments(string source, StreamInfo stream, int height, VideoEdit edit, string output)
     {
-        var arguments = InputArguments(source, edit.FirstVisibleSecond, duration: null);
+        var arguments = InputArguments(source, edit.FirstVisibleSecond, edit.TrimEnd - edit.FirstVisibleSecond);
         arguments.AddRange(["-vf", $"{Enhancement(OutputFrameRate(stream), height)},thumbnail={PosterCandidateFrames}",
             "-frames:v", "1", "-q:v", Invariant(PosterJpegQuality), "-update", "1", "-f", "image2", output]);
         return arguments;
@@ -181,10 +183,10 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
     // teléfono) ni capítulos. ffmpeg aplica solo la rotación que guardan los teléfonos antes de los filtros.
     // -ss antes de -i busca rápido hasta el cuadro clave previo y decodifica desde ahí descartando hasta el segundo
     // exacto (el recorte es preciso al cuadro); -t corta la lectura al largo del tramo.
-    private static List<string> InputArguments(string source, double start, double? duration) =>
+    private static List<string> InputArguments(string source, double start, double duration) =>
     [
         "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
-        "-threads", Invariant(Threads), "-ss", Seconds(start), .. duration is { } length ? ["-t", Seconds(length)] : (string[])[],
+        "-threads", Invariant(Threads), "-ss", Seconds(start), "-t", Seconds(duration),
         "-i", source,
         "-map", "0:v:0", "-an", "-sn", "-dn", "-map_metadata", "-1", "-map_chapters", "-1",
         "-filter_threads", Invariant(Threads),

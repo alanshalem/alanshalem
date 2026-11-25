@@ -93,6 +93,18 @@ public class VideoEditTests
         Assert.Equal(edit, VideoEdit.Create(20, null, null, null, null));
     }
 
+    [Theory]
+    [InlineData(20, 10, 20)]
+    [InlineData(20, 2, 17)]
+    [InlineData(20, 16, 20)]
+    [InlineData(40, 20, 35)]
+    public void With_only_the_start_the_trim_lasts_up_to_15_seconds_from_there(double source, double start, double expectedEnd)
+    {
+        var edit = VideoEdit.Create(source, start, null, null, null);
+
+        Assert.Equal((start, expectedEnd), (edit.TrimStart, edit.TrimEnd));
+    }
+
     [Fact]
     public void Without_fields_a_short_video_is_kept_whole()
     {
@@ -168,6 +180,14 @@ public class VideoEditTests
         Assert.Equal(1, VideoEdit.Create(20, 0, 1, VideoFade.None, 2).OutputSeconds);
     }
 
+    public static TheoryData<double> FadeDurations => [.. VideoEdit.FadeDurations];
+
+    [Theory]
+    [MemberData(nameof(FadeDurations))]
+    public void Every_listed_fade_length_is_accepted(double fadeSeconds) =>
+        Assert.Equal(fadeSeconds, VideoEdit.Create(20, 0, 10, VideoFade.Black, fadeSeconds).FadeSeconds);
+
+    // El mensaje es lo que lee el admin: se fija entero una vez, y así también los tres valores de corto, medio y largo.
     [Theory]
     [InlineData(VideoFade.Loop, 1.5)]
     [InlineData(VideoFade.Black, 0)]
@@ -193,9 +213,21 @@ public class VideoEditTests
         Assert.NotEqual(edit.Key, VideoEdit.Create(20, 2, 15, VideoFade.Black, 1).Key);
     }
 
-    [Fact]
-    public void Non_finite_numbers_are_a_programming_error() =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => VideoEdit.Create(20, double.NaN, 10, VideoFade.None, null));
+    [Theory]
+    [InlineData("sourceSeconds", double.NaN)]
+    [InlineData("sourceSeconds", double.PositiveInfinity)]
+    [InlineData("trimStart", double.NaN)]
+    [InlineData("trimEnd", double.PositiveInfinity)]
+    [InlineData("fadeSeconds", double.NegativeInfinity)]
+    public void Non_finite_numbers_are_a_programming_error_that_names_the_parameter(string parameter, double value)
+    {
+        double? Pick(string name, double? otherwise) => parameter == name ? value : otherwise;
+
+        var error = Assert.Throws<ArgumentOutOfRangeException>(() => VideoEdit.Create(
+            Pick("sourceSeconds", 20)!.Value, Pick("trimStart", 0), Pick("trimEnd", 10), VideoFade.None, Pick("fadeSeconds", null)));
+
+        Assert.Equal(parameter, error.ParamName);
+    }
 }
 
 public class VideoAssetTests

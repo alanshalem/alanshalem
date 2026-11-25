@@ -22,7 +22,10 @@ public enum VideoFade
 /// </summary>
 public sealed record VideoEdit
 {
-    /// <summary>Lo que puede durar el tramo elegido (S12).</summary>
+    /// <summary>
+    /// Lo que puede durar el tramo elegido. Es el fondo del hero y se repite en loop: hasta 15 s alcanza para que la
+    /// repetición no se note y deja acotado lo que baja cada visita; menos de 1 s sería un parpadeo.
+    /// </summary>
     public const double MinSeconds = 1;
 
     public const double MaxSeconds = 15;
@@ -44,7 +47,10 @@ public sealed record VideoEdit
     {
     }
 
-    /// <summary>Corto, medio y largo (S15).</summary>
+    /// <summary>
+    /// Las duraciones de fundido que se pueden elegir: corta, media y larga. Pocas a propósito, así el admin compara
+    /// cada una en la vista previa en vez de afinar décimas. Es la única lista: el mensaje de error sale de acá.
+    /// </summary>
     public static IReadOnlyList<double> FadeDurations { get; } = [0.5, 1, 2];
 
     public double TrimStart { get; private set; }
@@ -75,16 +81,19 @@ public sealed record VideoEdit
     /// <summary>Lo que pasa sin campos de edición: los primeros min(duración, 15) s con loop de 1 s.</summary>
     public static VideoEdit DefaultFor(double sourceSeconds) => Create(sourceSeconds, null, null, null, null);
 
-    /// <summary>Valida y normaliza la edición pedida. Lo que no se pide toma su valor por defecto.</summary>
+    /// <summary>
+    /// Valida y normaliza la edición pedida. Lo que no se pide toma su valor por defecto; sin fin, el tramo sigue hasta
+    /// 15 s después del inicio (o hasta el final del video, si termina antes).
+    /// </summary>
     /// <param name="sourceSeconds">Duración del original (la que mide ffprobe).</param>
     /// <exception cref="DomainException">Si el tramo no queda entre 1 y 15 s, se sale del video o no le entra el fundido.</exception>
     public static VideoEdit Create(double sourceSeconds, double? trimStart, double? trimEnd, VideoFade? fade, double? fadeSeconds)
     {
         // Rechazar texto que no es un número es trabajo de quien lee el pedido; un NaN acá pasaría todas las comparaciones.
-        if (!double.IsFinite(sourceSeconds) || new[] { trimStart, trimEnd, fadeSeconds }.Any(value => value is { } number && !double.IsFinite(number)))
-        {
-            throw new ArgumentOutOfRangeException(nameof(sourceSeconds), "Los tiempos de una edición tienen que ser números finitos.");
-        }
+        EnsureFinite(sourceSeconds, nameof(sourceSeconds));
+        EnsureFinite(trimStart, nameof(trimStart));
+        EnsureFinite(trimEnd, nameof(trimEnd));
+        EnsureFinite(fadeSeconds, nameof(fadeSeconds));
 
         var start = Round(trimStart ?? 0);
         if (start < 0)
@@ -92,7 +101,8 @@ public sealed record VideoEdit
             throw new DomainException("El inicio del recorte no puede ser negativo.");
         }
 
-        var end = Round(trimEnd ?? Math.Min(sourceSeconds, MaxSeconds));
+        // El fin por defecto se cuenta desde el inicio elegido: pedir solo el inicio da el tramo más largo posible desde ahí.
+        var end = Round(trimEnd ?? Math.Min(sourceSeconds, start + MaxSeconds));
         if (end <= start)
         {
             throw new DomainException("El fin del recorte tiene que ser posterior al inicio.");
@@ -119,7 +129,8 @@ public sealed record VideoEdit
         var chosenFadeSeconds = fadeSeconds ?? DefaultFadeSeconds;
         if (!FadeDurations.Contains(chosenFadeSeconds))
         {
-            throw new DomainException("La duración del fundido tiene que ser 0,5, 1 o 2 s.");
+            throw new DomainException(
+                $"La duración del fundido tiene que ser {string.Join(", ", FadeDurations.SkipLast(1).Select(Spanish))} o {Spanish(FadeDurations[^1])} s.");
         }
 
         var chosenFade = fade ?? DefaultFade;
@@ -137,6 +148,14 @@ public sealed record VideoEdit
             Fade = chosenFade,
             FadeSeconds = chosenFade == VideoFade.None ? DefaultFadeSeconds : chosenFadeSeconds,
         };
+    }
+
+    private static void EnsureFinite(double? seconds, string parameter)
+    {
+        if (seconds is { } value && !double.IsFinite(value))
+        {
+            throw new ArgumentOutOfRangeException(parameter, value, "Los tiempos de una edición tienen que ser números finitos.");
+        }
     }
 
     private static double Round(double seconds) => Math.Round(seconds, Decimals, MidpointRounding.AwayFromZero);
