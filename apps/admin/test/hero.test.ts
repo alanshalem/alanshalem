@@ -20,7 +20,7 @@ const media = (overrides: Partial<MediaAsset> = {}): MediaAsset => ({
   ...overrides,
 });
 
-const heroImage = (id: string, createdAt: string): HeroImage => ({ id, media: media(), alt: id, credit: null, createdAt });
+const heroImage = (id: string, createdAt: string): HeroImage => ({ id, media: media(), video: null, alt: id, credit: null, createdAt });
 
 describe('validateHeroImage', () => {
   it('recorta; el crédito vacío viaja como null', () => {

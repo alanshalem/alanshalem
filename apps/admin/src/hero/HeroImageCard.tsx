@@ -11,19 +11,32 @@ interface Props {
   saved?: HeroImageInput | undefined;
   /** false mientras el archivo sigue en la fila o subiendo (todavía no hay asset al que asociar el texto). */
   canSave?: boolean | undefined;
-  /** Error que viene de afuera de la tarjeta (la subida del archivo). */
+  /** Error que viene de afuera de la tarjeta (el chequeo de tamaño, la subida o el proceso del video). */
   error?: string | null | undefined;
+  /** Avisos que no impiden guardar (tamaño menor que el ideal, los `warnings` de la API). */
+  warnings?: readonly string[] | undefined;
   saveLabel: string;
   onSave: (input: HeroImageInput) => Promise<void>;
   remove: { label: string; tone: 'ghost' | 'danger'; onClick: () => Promise<void> | void };
 }
 
 /**
- * Una foto del hero: miniatura, texto alternativo y crédito. La misma tarjeta sirve para un archivo recién
- * subido (POST) y para una foto guardada (PUT), así el formulario no se duplica. Cada tarjeta es su propio
- * <form>: Enter guarda esa foto y nada más.
+ * Un ítem del hero (foto o video): miniatura, texto alternativo y crédito. La misma tarjeta sirve para un archivo
+ * recién subido (POST) y para un ítem guardado (PUT), así el formulario no se duplica. Cada tarjeta es su propio
+ * <form>: Enter guarda ese ítem y nada más.
  */
-export function HeroImageCard({ title, badge, thumbnail, saved, canSave = true, error, saveLabel, onSave, remove }: Props) {
+export function HeroImageCard({
+  title,
+  badge,
+  thumbnail,
+  saved,
+  canSave = true,
+  error,
+  warnings = [],
+  saveLabel,
+  onSave,
+  remove,
+}: Props) {
   const id = useId();
   const [alt, setAlt] = useState(saved?.alt ?? '');
   const [credit, setCredit] = useState(saved?.credit ?? '');
@@ -104,9 +117,14 @@ export function HeroImageCard({ title, badge, thumbnail, saved, canSave = true, 
           {badge && <span className={badge.tone === 'error' ? 'chip chip-error' : 'chip'}>{badge.text}</span>}
         </div>
         <div className="settings-grid">
-          {renderField('alt', 'Texto alternativo', alt, setAlt, 'Qué se ve en la foto')}
+          {renderField('alt', 'Texto alternativo', alt, setAlt, 'Qué se ve')}
           {renderField('credit', 'Crédito (opcional)', credit, setCredit, 'Foto: …')}
         </div>
+        {warnings.map((warning) => (
+          <p key={warning} className="field-warning">
+            Aviso: {warning}
+          </p>
+        ))}
         {problem && (
           <p className="field-error" role="alert">
             {problem}

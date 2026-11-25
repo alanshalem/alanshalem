@@ -1,0 +1,91 @@
+import assert from 'node:assert/strict';
+import { afterEach, beforeEach, describe, it } from 'node:test';
+import { api, ApiError } from '../src/api/client.ts';
+
+/* Contrato HTTP de los videos del hero (L13), con un fetch falso: ruta, método, cuerpo y respuesta. */
+
+interface Call {
+  url: string;
+  init: RequestInit;
+}
+
+let calls: Call[] = [];
+let respond: () => Response;
+const realFetch = globalThis.fetch;
+
+beforeEach(() => {
+  calls = [];
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    calls.push({ url, init });
+    return respond();
+  }) as typeof fetch;
+});
+
+afterEach(() => {
+  globalThis.fetch = realFetch;
+});
+
+const json = (status: number, body: unknown): Response =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+const processing = { id: 'v1', status: 'processing', error: null, width: 1920, height: 1080, durationSeconds: 8, poster: null, sources: [], warnings: [], createdAt: '' };
+
+describe('api.uploadVideo', () => {
+  it('POST multipart a /api/admin/media/videos y devuelve el VideoAsset del 202', async () => {
+    respond = () => json(202, processing);
+    const file = new File(['x'], 'mar.mp4', { type: 'video/mp4' });
+
+    assert.deepEqual(await api.uploadVideo(file), processing);
+
+    const [call] = calls;
+    assert.equal(call?.url, '/api/admin/media/videos');
+    assert.equal(call?.init.method, 'POST');
+    assert.ok(call?.init.body instanceof FormData);
+    assert.equal(((call.init.body as FormData).get('file') as File).name, 'mar.mp4');
+  });
+
+  it('un 400 llega como ApiError con el detail del ProblemDetails', async () => {
+    respond = () => json(400, { title: 'Datos inválidos', detail: 'Dura 20 s: el máximo es 15 s.' });
+    await assert.rejects(api.uploadVideo(new File(['x'], 'a.mp4')), (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 400);
+      assert.equal(error.message, 'Dura 20 s: el máximo es 15 s.');
+      return true;
+    });
+  });
+});
+
+describe('api.uploadMedia (comparte el armado del multipart con los videos)', () => {
+  it('sigue haciendo POST del archivo a /api/admin/media', async () => {
+    respond = () => json(201, { id: 'm1', url: '/media/h/1600.webp' });
+    assert.equal(await api.uploadImage(new File(['x'], 'luna.jpg', { type: 'image/jpeg' })), '/media/h/1600.webp');
+    assert.equal(calls[0]?.url, '/api/admin/media');
+    assert.equal(calls[0]?.init.method, 'POST');
+    assert.equal(((calls[0]?.init.body as FormData).get('file') as File).name, 'luna.jpg');
+  });
+});
+
+describe('api.getVideo', () => {
+  it('GET /api/admin/media/videos/{id} con el id escapado', async () => {
+    respond = () => json(200, { ...processing, status: 'ready' });
+    assert.equal((await api.getVideo('a/b')).status, 'ready');
+    assert.equal(calls[0]?.url, '/api/admin/media/videos/a%2Fb');
+    assert.equal(calls[0]?.init.method, 'GET');
+  });
+});
+
+describe('api.createHeroImage', () => {
+  it('video listo: envía { videoId, alt, credit }', async () => {
+    respond = () => json(201, {});
+    await api.createHeroImage({ videoId: 'v1' }, { alt: 'Olas', credit: null });
+    assert.equal(calls[0]?.url, '/api/admin/hero-images');
+    assert.equal(calls[0]?.init.method, 'POST');
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { videoId: 'v1', alt: 'Olas', credit: null });
+  });
+
+  it('foto: sigue enviando { mediaId, alt, credit }', async () => {
+    respond = () => json(201, {});
+    await api.createHeroImage({ mediaId: 'm1' }, { alt: 'Luna', credit: 'Foto: Alan' });
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { mediaId: 'm1', alt: 'Luna', credit: 'Foto: Alan' });
+  });
+});

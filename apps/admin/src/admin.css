@@ -36,6 +36,7 @@ h1, h2, h3 { font-weight: 400; }
 }
 .help { font-size: var(--text-xs); color: var(--text-tertiary); max-width: 60ch; }
 .field-error { font-size: var(--text-xs); color: var(--danger); }
+.field-warning { font-size: var(--text-xs); color: var(--text-secondary); }
 .field-status { font-size: var(--text-xs); color: var(--text-secondary); min-height: 1.2em; }
 .center-note { padding: var(--space-5) var(--gutter); text-align: center; color: var(--text-tertiary); }
 
@@ -312,7 +313,7 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
   background-size: cover;
   background-position: center;
 }
-.image-field-preview img { width: 100%; height: 100%; object-fit: cover; }
+.image-field-preview img, .image-field-preview video { width: 100%; height: 100%; object-fit: cover; }
 .image-field-empty { padding: var(--space-1); font-size: var(--text-xs); color: var(--text-tertiary); text-align: center; }
 .image-field-controls { display: grid; gap: var(--space-0-9); align-content: start; min-width: 0; }
 .image-field > .help { margin-top: var(--space-1); padding-top: var(--space-0-9); border-top: var(--rule); }
@@ -394,7 +395,16 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
 .bio-preview .prose { max-width: none; }
 .bio-preview-empty { font-family: var(--font-ui); font-size: var(--text-xs); color: var(--paper-muted); }
 
-/* Fotos del hero: subir arriba, una fila por foto (miniatura + campos) con reglas de 1px como la lista de posts. */
+/* Fotos y videos del hero: la guía de tamaño, subir arriba y una fila por ítem (miniatura + campos) con reglas de 1px. */
+.hero-guidance {
+  margin-bottom: var(--space-1);
+  padding: var(--space-0-7) var(--space-1);
+  border: var(--rule);
+  border-left: 2px solid var(--link-accent);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  max-width: 72ch;
+}
 .hero-upload { display: flex; align-items: center; gap: var(--space-0-9) var(--space-1-25); flex-wrap: wrap; }
 .hero-list { list-style: none; padding: 0; margin-top: var(--space-0-9); border-top: var(--rule); }
 .hero-list + .hero-list { margin-top: var(--space-1-75); }

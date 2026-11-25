@@ -9,17 +9,19 @@ interface Props {
   color?: string | undefined;
   /** Miniatura borrosa en data URI (la genera la API al subir): fondo mientras baja la imagen. */
   placeholder?: string | undefined;
+  /** Video corto que se reproduce mudo y en bucle sobre `src` (que pasa a ser su póster). */
+  video?: string | null | undefined;
 }
 
 // Solo data URIs de imagen en base64: el valor va dentro de url("…") y no debe poder cortar la declaración CSS.
 const SAFE_PLACEHOLDER = /^data:image\/[a-z]+;base64,[a-z0-9+/=]+$/i;
 
-/** Miniatura con fondo de espera y aviso si la imagen no carga (portada, foto del hero, galería). */
-export function ImagePreview({ src, alt, emptyText, color, placeholder }: Props) {
+/** Miniatura con fondo de espera y aviso si la imagen o el video no cargan (portada, ítems del hero). */
+export function ImagePreview({ src, alt, emptyText, color, placeholder, video }: Props) {
   const [broken, setBroken] = useState(false);
 
   // Una imagen nueva merece otro intento de vista previa.
-  useEffect(() => setBroken(false), [src]);
+  useEffect(() => setBroken(false), [src, video]);
 
   const background: CSSProperties = {
     backgroundColor: color,
@@ -28,7 +30,10 @@ export function ImagePreview({ src, alt, emptyText, color, placeholder }: Props)
 
   return (
     <div className="image-field-preview" style={background}>
-      {src && !broken ? (
+      {video && !broken ? (
+        // Mudo y en línea: es lo que permite el autoplay, igual que en la home.
+        <video src={video} poster={src ?? undefined} aria-label={alt} muted loop autoPlay playsInline onError={() => setBroken(true)} />
+      ) : src && !broken ? (
         <img src={src} alt={alt} decoding="async" onError={() => setBroken(true)} />
       ) : (
         <span className="image-field-empty">{broken ? 'No se pudo cargar la vista previa' : emptyText}</span>

@@ -73,16 +73,50 @@ export interface MediaAsset {
   createdAt: string;
 }
 
-/** `HeroImageDto`: una foto de la galería del hero (la home muestra una al azar en cada visita). */
+export type VideoStatus = 'processing' | 'ready' | 'failed';
+
+/** Una versión del video ya procesada (L13: AV1 y H.264, 720p y 1080p, sin audio). */
+export interface VideoSource {
+  codec: 'av1' | 'h264';
+  height: 720 | 1080;
+  url: string;
+  bytes: number;
+}
+
+/**
+ * `VideoAssetDto`: lo que devuelven `POST /api/admin/media/videos` (202, en `processing`) y
+ * `GET /api/admin/media/videos/{id}`. El proceso corre en segundo plano: hay que consultar hasta `ready` o `failed`.
+ */
+export interface VideoAsset {
+  id: string;
+  status: VideoStatus;
+  error: string | null;
+  width: number;
+  height: number;
+  durationSeconds: number;
+  /** Primer cuadro útil, optimizado como cualquier foto; `null` mientras procesa. */
+  poster: MediaAsset | null;
+  sources: VideoSource[];
+  /** Avisos que no impiden usarlo (por ejemplo, más chico que lo ideal). */
+  warnings: string[];
+  createdAt: string;
+}
+
+/** `HeroImageDto`: una foto o un video de la galería del hero (la home muestra uno al azar en cada visita). */
 export interface HeroImage {
   id: string;
+  /** La foto; si es un video, su póster. */
   media: MediaAsset;
+  video: VideoAsset | null;
   alt: string;
   credit: string | null;
   createdAt: string;
 }
 
-/** Lo que se edita de una foto del hero (cuerpo del PUT; el POST agrega `mediaId`). */
+/** A qué asset se asocia un ítem nuevo del hero: una foto subida o un video ya procesado (`ready`). */
+export type HeroMediaRef = { mediaId: string } | { videoId: string };
+
+/** Lo que se edita de un ítem del hero (cuerpo del PUT; el POST agrega el `HeroMediaRef`). */
 export interface HeroImageInput {
   alt: string;
   credit: string | null;
