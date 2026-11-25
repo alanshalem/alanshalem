@@ -162,6 +162,46 @@ public class VideoServiceTests
         Assert.Equal([context.Queue.Jobs[1].SourcePath], context.Database.VideoWorkFiles());
     }
 
+    [Fact]
+    public async Task Uploading_again_a_ready_video_with_all_its_files_returns_it_without_queueing_it()
+    {
+        await using var context = await TestContext.CreateAsync();
+        var ready = await context.UploadAndProcessAsync(TestVideos.Fake("listo"));
+
+        var again = await context.UploadAsync(TestVideos.Fake("listo"));
+
+        Assert.Equal(VideoStatus.Ready, ready.Status);
+        Assert.Equivalent(ready, again, strict: true);
+        Assert.Single(context.Queue.Jobs);
+        Assert.Empty(context.Database.VideoWorkFiles());
+    }
+
+    [Theory]
+    [InlineData("source")]
+    [InlineData("poster")]
+    public async Task Uploading_again_a_ready_video_whose_files_are_missing_processes_it_again(string missing)
+    {
+        await using var context = await TestContext.CreateAsync();
+        var ready = await context.UploadAndProcessAsync(TestVideos.Fake("sin archivos"));
+        var missingFile = context.MediaPathOf(missing == "source" ? ready.Sources[0].Url : ready.Poster!.Variants[0].Url);
+        // Como una base restaurada sin su carpeta de media: la fila dice "ready" pero un archivo ya no está.
+        File.Delete(missingFile);
+
+        var again = await context.UploadAsync(TestVideos.Fake("sin archivos"));
+
+        Assert.Equal(ready.Id, again.Id);
+        Assert.Equal((VideoStatus.Processing, (string?)null), (again.Status, again.Error));
+        Assert.Null(again.Poster);
+        Assert.Empty(again.Sources);
+        Assert.Equal(2, context.Queue.Jobs.Count);
+        Assert.Equal([context.Queue.Jobs[1].SourcePath], context.Database.VideoWorkFiles());
+
+        await context.ProcessAsync(context.Queue.Jobs[1]);
+        var reprocessed = await context.Database.WithVideosAsync(videos => videos.GetAsync(ready.Id, default));
+        Assert.Equal(VideoStatus.Ready, reprocessed.Status);
+        Assert.True(File.Exists(missingFile));
+    }
+
     [Theory]
     [InlineData(1080, 1920, 10, "Mide 1080×1920 y el hero necesita una imagen horizontal: vertical o cuadrada no sirve. Ideal: 1920×1080 o más, horizontal 16:9.")]
     [InlineData(1080, 1080, 10, "Mide 1080×1080 y el hero necesita una imagen horizontal: vertical o cuadrada no sirve. Ideal: 1920×1080 o más, horizontal 16:9.")]
@@ -268,6 +308,24 @@ public class VideoServiceTests
                 await using var stream = new MemoryStream(content);
                 return await videos.UploadAsync(stream, edit ?? VideoEditInput.Empty, default);
             });
+
+        public Task ProcessAsync(VideoJob job) =>
+            Database.WithVideoProcessorAsync(async processor =>
+            {
+                await processor.ProcessAsync(job, default);
+                return true;
+            });
+
+        /// <summary>Sube y procesa (con el ffmpeg simulado y el pipeline de imágenes real): queda listo, con sus archivos.</summary>
+        public async Task<VideoAssetDto> UploadAndProcessAsync(byte[] content)
+        {
+            var uploaded = await UploadAsync(content);
+            await ProcessAsync(Queue.Jobs.Single(job => job.VideoId == uploaded.Id));
+            return await Database.WithVideosAsync(videos => videos.GetAsync(uploaded.Id, default));
+        }
+
+        /// <summary>Dónde está en disco el archivo de una URL /media/...</summary>
+        public string MediaPathOf(string url) => Path.Combine(Database.MediaDirectory, url[WebUrl.MediaPrefix.Length..]);
 
         public async Task AssertNothingStoredAsync()
         {

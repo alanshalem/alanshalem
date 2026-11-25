@@ -22,8 +22,16 @@ public sealed class HeroImage
     public string? Credit { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
-    /// <summary>Lo que el sitio puede mostrar: una foto, o un video que ya tiene sus archivos.</summary>
-    public bool IsPublishable => Video is null || Video.Status == VideoStatus.Ready;
+    /// <summary>
+    /// Lo que el sitio puede mostrar: una foto, o un video que ya tiene sus archivos. Si es foto o video lo dice
+    /// <see cref="VideoAssetId"/> (lo guardado), no <see cref="Video"/>: una relación sin cargar también es null y
+    /// haría pasar un video sin archivos por una foto.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Si es un video y se leyó sin cargar <see cref="Video"/> (error de programación).</exception>
+    public bool IsPublishable => VideoAssetId is null || LoadedVideo.Status == VideoStatus.Ready;
+
+    private VideoAsset LoadedVideo => Video
+        ?? throw new InvalidOperationException("El ítem del hero es un video y se leyó sin cargar el video: incluí la relación Video en la consulta.");
 
     /// <exception cref="DomainException">Si la foto no cumple la regla de tamaño del hero (<see cref="HeroFrame"/>).</exception>
     public static HeroImage CreatePhoto(MediaAsset media, HeroImageContent content, DateTime nowUtc)

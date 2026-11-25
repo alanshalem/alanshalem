@@ -15,6 +15,14 @@ internal sealed class VideoAssetRepository(BlogDbContext db) : IVideoAssetReposi
     public Task<VideoAsset?> GetByHashAsync(string hash, CancellationToken cancellationToken) =>
         WithPoster.FirstOrDefaultAsync(video => video.Hash == hash, cancellationToken);
 
+    // Se limpia todo el change tracker, no solo el video: lo que quedó a medias (el póster, las fuentes) tampoco debe
+    // guardarse. Lo usa el proceso de videos, que abre un scope (y un DbContext) por video.
+    public Task<VideoAsset?> ReloadAsync(Guid id, CancellationToken cancellationToken)
+    {
+        db.ChangeTracker.Clear();
+        return GetByIdAsync(id, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<VideoAsset>> ListProcessingAsync(CancellationToken cancellationToken) =>
         await db.VideoAssets.Where(video => video.Status == VideoStatus.Processing).ToListAsync(cancellationToken);
 

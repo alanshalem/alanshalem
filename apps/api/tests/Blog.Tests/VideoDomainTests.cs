@@ -281,6 +281,22 @@ public class VideoAssetTests
         video.MarkReady(poster, [new(VideoCodec.Av1, 1080, 100)]);
 
         Assert.Throws<InvalidOperationException>(() => video.MarkFailed("x"));
+        Assert.Throws<InvalidOperationException>(() => video.MarkReady(poster, [new(VideoCodec.Av1, 1080, 100)]));
+    }
+
+    [Fact]
+    public void Retry_of_a_ready_video_drops_its_poster_and_sources_and_a_processing_video_cannot_retry()
+    {
+        var poster = MediaAsset.Create(new string('c', MediaAsset.HashLength), 1920, 1080, "#000000", MediaAsset.PlaceholderPrefix + "UklGRg==", Now);
+        var video = VideoAsset.Create(Hash, 1920, 1080, Edit, Now);
         Assert.Throws<InvalidOperationException>(() => video.Retry());
+        video.MarkReady(poster, [new(VideoCodec.Av1, 1080, 100)]);
+
+        video.Retry();
+
+        Assert.Equal(VideoStatus.Processing, video.Status);
+        Assert.Null(video.Poster);
+        Assert.Null(video.PosterId);
+        Assert.Empty(video.Sources);
     }
 }

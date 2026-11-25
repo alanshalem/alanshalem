@@ -12,8 +12,8 @@ public static class HeroFrame
     public const int IdealWidth = 1920;
     public const int IdealHeight = 1080;
 
-    /// <summary>La guía que ve el admin, igual en cada mensaje.</summary>
-    public const string Guide = "Ideal: 1920×1080 o más, horizontal 16:9.";
+    /// <summary>La guía que ve el admin, igual en cada mensaje. Sale de las constantes: cambiar el ideal cambia el texto.</summary>
+    public static readonly string Guide = $"Ideal: {IdealWidth}×{IdealHeight} o más, horizontal 16:9.";
 
     // El ancho tiene que ser al menos 1,2 veces el alto (6/5, en enteros para no comparar con decimales):
     // deja afuera verticales, cuadradas y casi cuadradas, que el recorte del hero dejaría irreconocibles.

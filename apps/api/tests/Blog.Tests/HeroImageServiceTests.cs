@@ -4,6 +4,8 @@ using Blog.Application.HeroImages;
 using Blog.Application.Media;
 using Blog.Application.Videos;
 using Blog.Domain;
+using Blog.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Blog.Tests;
@@ -188,8 +190,8 @@ public class HeroImageServiceTests
             heroes.CreateAsync(new CreateHeroImageRequest(null, "Listo", null, readyVideo.Id), default));
         var stuck = await database.WithHeroImagesAsync(heroes =>
             heroes.CreateAsync(new CreateHeroImageRequest(null, "Trabado", null, stuckVideo.Id), default));
-        // Hoy un video listo no vuelve atrás; si un día pasara (o la base se editara a mano), el sitio no debe
-        // publicar un ítem sin archivos de video.
+        // Un video listo vuelve a "processing" si se sube de nuevo y le faltan archivos en disco: mientras tanto el
+        // sitio no debe publicar un ítem sin archivos de video.
         await database.ExecuteAsync($"UPDATE video_assets SET Status = 'Processing' WHERE Id = '{stuckVideo.Id.ToString().ToUpperInvariant()}'");
 
         var site = await database.WithHeroImagesAsync(heroes => heroes.ListForSiteAsync(default));
@@ -197,6 +199,26 @@ public class HeroImageServiceTests
 
         Assert.Equal([photo.Id, ready.Id], site.Select(image => image.Id));
         Assert.Equal([photo.Id, ready.Id, stuck.Id], admin.Select(image => image.Id));
+    }
+
+    [Fact]
+    public async Task IsPublishable_decides_by_the_stored_video_id_and_refuses_a_video_item_read_without_its_video()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var photo = await CreateAsync(database, await AddAssetAsync(database, '1'), "Foto");
+        var video = await AddVideoAsync(database, '5', VideoStatus.Ready);
+        var videoItem = await database.WithHeroImagesAsync(heroes =>
+            heroes.CreateAsync(new CreateHeroImageRequest(null, "Video", null, video.Id), default));
+
+        // Como lo leería una consulta que se olvidó de incluir el video: la navegación queda en null.
+        var withoutVideo = await database.InScopeAsync(provider => provider.GetRequiredService<BlogDbContext>().HeroImages
+            .Include(image => image.Media)
+            .AsNoTracking()
+            .ToDictionaryAsync(image => image.Id));
+
+        Assert.True(withoutVideo[photo.Id].IsPublishable);
+        var error = Assert.Throws<InvalidOperationException>(() => withoutVideo[videoItem.Id].IsPublishable);
+        Assert.Equal("El ítem del hero es un video y se leyó sin cargar el video: incluí la relación Video en la consulta.", error.Message);
     }
 
     [Fact]

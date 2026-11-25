@@ -37,7 +37,7 @@ public sealed class MediaService(IImageProcessor images, IMediaStorage storage, 
         // si faltan en disco (por ejemplo, una base restaurada sin su carpeta de media), así nunca se devuelven URLs muertas.
         var hash = Convert.ToHexStringLower(SHA256.HashData(original));
         var existing = await assets.GetByHashAsync(hash, cancellationToken);
-        if (existing is not null && existing.Variants.All(variant => storage.Exists(existing.RelativePathOf(variant))))
+        if (existing is not null && storage.HasAllFiles(existing))
         {
             return existing;
         }

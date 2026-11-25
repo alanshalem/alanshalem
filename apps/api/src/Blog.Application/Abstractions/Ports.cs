@@ -119,6 +119,12 @@ public interface IVideoAssetRepository
 
     Task<VideoAsset?> GetByHashAsync(string hash, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Descarta los cambios sin guardar de este scope y vuelve a leer el video tal como está en la base. Sirve para
+    /// registrar un fallo partiendo de lo guardado y no de un estado a medias que quedó en memoria.
+    /// </summary>
+    Task<VideoAsset?> ReloadAsync(Guid id, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<VideoAsset>> ListProcessingAsync(CancellationToken cancellationToken);
 
     void Add(VideoAsset video);

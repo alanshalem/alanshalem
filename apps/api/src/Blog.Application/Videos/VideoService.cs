@@ -1,4 +1,5 @@
 using Blog.Application.Abstractions;
+using Blog.Application.Media;
 using Blog.Domain;
 
 namespace Blog.Application.Videos;
@@ -13,6 +14,7 @@ public sealed class VideoService(
     IVideoTranscoder transcoder,
     IVideoQueue queue,
     IVideoAssetRepository videos,
+    IMediaStorage storage,
     IClock clock)
 {
     public const long MaxBytes = 200L * 1024 * 1024;
@@ -38,10 +40,10 @@ public sealed class VideoService(
                 ?? throw new DomainException("No se pudo leer el video: el archivo está dañado o no tiene imagen.");
             var validEdit = edit.ToEdit(probe.DurationSeconds);
 
-            // Mismo video con la misma edición = mismo hash = mismo asset. Si ya está (o se está procesando) se devuelve
-            // tal cual; solo uno que falló se vuelve a procesar, así el admin siempre tiene una salida: subirlo de nuevo.
+            // Mismo video con la misma edición = mismo hash = mismo asset: si ya está (o se está procesando) se devuelve
+            // tal cual, salvo que haya que procesarlo de nuevo (ver NeedsProcessingAgain).
             var existing = await videos.GetByHashAsync(VideoAsset.HashOf(staged.Hash, validEdit), cancellationToken);
-            if (existing is { Status: not VideoStatus.Failed })
+            if (existing is not null && !NeedsProcessingAgain(existing))
             {
                 return existing.ToDto();
             }
@@ -73,4 +75,14 @@ public sealed class VideoService(
 
     public async Task<VideoAssetDto> GetAsync(Guid id, CancellationToken cancellationToken) =>
         (await videos.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("El video no existe.")).ToDto();
+
+    // Uno que falló, así el admin siempre tiene una salida: subirlo de nuevo. Y uno listo al que le falta algún archivo
+    // (fuente o póster), igual que con las imágenes: si no, el sitio apuntaría a archivos que no existen. El original
+    // recién subido es el que se encola: es el mismo contenido.
+    private bool NeedsProcessingAgain(VideoAsset video) => video.Status switch
+    {
+        VideoStatus.Failed => true,
+        VideoStatus.Ready => !storage.HasAllFiles(video),
+        _ => false,
+    };
 }

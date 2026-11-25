@@ -114,11 +114,21 @@ public sealed class VideoAsset
         Status = VideoStatus.Failed;
     }
 
-    /// <summary>Volver a subir un video que falló lo procesa de nuevo (el mismo contenido es el mismo asset).</summary>
+    /// <summary>
+    /// Volver a subir un video lo procesa de nuevo (el mismo contenido es el mismo asset) si falló, o si estaba listo
+    /// pero le faltan archivos en disco. Mientras tanto queda como uno recién subido: sin error, sin póster y sin fuentes.
+    /// </summary>
     public void Retry()
     {
-        EnsureStatus(VideoStatus.Failed);
+        if (Status == VideoStatus.Processing)
+        {
+            throw new InvalidOperationException("El video ya se está procesando.");
+        }
+
         Error = null;
+        Poster = null;
+        PosterId = null;
+        Sources = [];
         Status = VideoStatus.Processing;
     }
 
@@ -127,7 +137,7 @@ public sealed class VideoAsset
 
     public string UrlOf(VideoVariant variant) => WebUrl.MediaPrefix + RelativePathOf(variant);
 
-    // Las transiciones válidas son processing → ready | failed y failed → processing; otra es un error de programación.
+    // Las transiciones válidas son processing → ready | failed y ready | failed → processing; otra es un error de programación.
     private void EnsureStatus(VideoStatus expected)
     {
         if (Status != expected)

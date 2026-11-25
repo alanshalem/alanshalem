@@ -6,8 +6,7 @@ namespace Blog.Application.Videos;
 
 /// <summary>
 /// Convierte un video ya validado: versiones AV1 y H.264 sin audio con su recorte y fundido, y el póster por el
-/// pipeline de imágenes. Lo
-/// llama el proceso en segundo plano, de a un video por vez.
+/// pipeline de imágenes. Lo llama el proceso en segundo plano, de a un video por vez.
 /// </summary>
 public sealed class VideoProcessor(
     IVideoTranscoder transcoder,
@@ -20,33 +19,27 @@ public sealed class VideoProcessor(
     private const string UnexpectedMessage = "No se pudo procesar el video por un error del servidor. Volvé a subirlo más tarde.";
 
     /// <remarks>
-    /// Un error previsto (ffmpeg falló, el póster no se pudo leer) queda como error del video. Uno inesperado también,
-    /// con un mensaje genérico, y además se relanza para que el proceso en segundo plano lo registre con sus detalles.
+    /// Un error previsto (<see cref="IsExpected"/>) queda como error del video. Uno inesperado también, con un mensaje
+    /// genérico, y además se relanza para que el proceso en segundo plano lo registre con sus detalles. Un apagado del
+    /// servidor no se registra como fallo: el video queda en "processing" y lo resuelve el próximo arranque.
     /// </remarks>
+    /// <exception cref="AggregateException">Si tampoco se pudo guardar el fallo: trae el error original y el del guardado.</exception>
     public async Task ProcessAsync(VideoJob job, CancellationToken cancellationToken)
     {
         try
         {
             var video = await videos.GetByIdAsync(job.VideoId, cancellationToken);
-            if (video is not { Status: VideoStatus.Processing })
-            {
-                return;
-            }
-
-            try
+            if (video is { Status: VideoStatus.Processing })
             {
                 await ConvertAsync(video, job.SourcePath, cancellationToken);
             }
-            catch (Exception exception) when (exception is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        }
+        catch (Exception error) when (!IsShutdown(error, cancellationToken))
+        {
+            await RecordFailureAsync(job.VideoId, error);
+            if (!IsExpected(error))
             {
-                // Si se apaga el servidor (cancelación), el video queda en "processing" y lo resuelve el próximo arranque.
-                var isExpected = exception is VideoProcessingException or DomainException;
-                video.MarkFailed(isExpected ? exception.Message : UnexpectedMessage);
-                await videos.SaveChangesAsync(CancellationToken.None);
-                if (!isExpected)
-                {
-                    throw;
-                }
+                throw;
             }
         }
         finally
@@ -87,5 +80,37 @@ public sealed class VideoProcessor(
 
         video.MarkReady(poster, [.. transcoded.Files.Select(file => new VideoSource(file.Variant.Codec, file.Variant.Height, file.Content.Length))]);
         await videos.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Errores con un mensaje ya escrito para el admin (ffmpeg falló, el póster no se pudo leer); otro es un defecto o una falla del servidor.</summary>
+    private static bool IsExpected(Exception error) => error is VideoProcessingException or DomainException;
+
+    private static bool IsShutdown(Exception error, CancellationToken cancellationToken) =>
+        error is OperationCanceledException && cancellationToken.IsCancellationRequested;
+
+    /// <summary>
+    /// Guarda el fallo partiendo de lo que está en la base, no del video en memoria: si el error saltó al guardar después
+    /// de MarkReady, en memoria ya figura listo y marcarlo fallido lanzaría otra excepción que taparía la original.
+    /// </summary>
+    /// <exception cref="AggregateException">
+    /// Si no se puede guardar: con los dos errores, para que se registre el original y no solo el del guardado. El video
+    /// queda en "processing" y lo resuelve el próximo arranque (<see cref="FailInterruptedAsync"/>).
+    /// </exception>
+    private async Task RecordFailureAsync(Guid videoId, Exception error)
+    {
+        try
+        {
+            // Sin cancelación: el fallo se guarda aunque justo empiece el apagado.
+            var video = await videos.ReloadAsync(videoId, CancellationToken.None);
+            if (video is { Status: VideoStatus.Processing })
+            {
+                video.MarkFailed(IsExpected(error) ? error.Message : UnexpectedMessage);
+                await videos.SaveChangesAsync(CancellationToken.None);
+            }
+        }
+        catch (Exception saveError)
+        {
+            throw new AggregateException($"No se pudo guardar el fallo del video {videoId}.", error, saveError);
+        }
     }
 }
