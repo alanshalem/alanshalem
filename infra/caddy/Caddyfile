@@ -15,11 +15,13 @@
 	}
 
 	# ---------- API ----------
-	# /api/internal lo lee el builder por la red interna de Docker: hacia afuera no existe.
-	@internal path /api/internal /api/internal/*
-	respond @internal 404
-
+	# Sin request_body max_size a propósito: Caddy no limita ni bufferiza el cuerpo (lo pasa en streaming) y el único
+	# tope es el de Kestrel en la API (12 MB en general, 200 MB en /api/admin/media/videos), así no hay dos que mantener.
 	handle /api/* {
+		# /api/internal lo lee el builder por la red interna de Docker: hacia afuera no existe. Va dentro del handle: ahí
+		# respond corre antes que reverse_proxy (afuera, Caddy evalúa handle primero y la regla nunca se aplicaba).
+		@internal path /api/internal /api/internal/*
+		respond @internal 404
 		encode zstd gzip
 		reverse_proxy api:8080 {
 			# Si la API se cae, Caddy deja de mandarle tráfico y responde 503 en vez de colgarse.
