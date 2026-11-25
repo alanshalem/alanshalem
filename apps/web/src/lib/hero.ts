@@ -1,5 +1,6 @@
 import { getInternal, oncePerBuild } from './api.ts';
 import { htmlAttributes } from './html.ts';
+import type { Lang } from './i18n.ts';
 import { safeColor, safePlaceholder, srcset, type MediaAsset } from './media.ts';
 import { videoSourcesHtml, type VideoAsset } from './video.ts';
 
@@ -10,6 +11,9 @@ export interface ApiHeroImage {
   media: MediaAsset;
   alt: string;
   credit: string | null;
+  /** Textos en inglés (L4); ausentes o nulos → se usan los de español. */
+  altEn?: string | null;
+  creditEn?: string | null;
   createdAt: string;
   video: VideoAsset | null;
 }
@@ -64,6 +68,15 @@ function backgroundVideoHtml(video: VideoAsset, alt: string, poster: string): st
     poster,
   });
   return `<div${wrapper}><video${player}>${videoSourcesHtml(video)}</video></div>`;
+}
+
+/**
+ * La foto con alt y crédito del idioma de la página (L3). Se localiza antes de armar el hero, así diapositivas,
+ * <noscript> y og:image:alt salen de los mismos textos.
+ */
+export function localizeHeroImage(image: ApiHeroImage, lang: Lang): ApiHeroImage {
+  if (lang !== 'en') return image;
+  return { ...image, alt: image.altEn?.trim() || image.alt, credit: image.creditEn?.trim() || image.credit };
 }
 
 export function toHeroSlide({ media, alt, credit, video }: ApiHeroImage): HeroSlide {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runInNewContext } from 'node:vm';
-import { orderHeroImages, resolveHero, toHeroSlide, type ApiHeroImage, type HeroSlide } from '../src/lib/hero.ts';
+import { localizeHeroImage, orderHeroImages, resolveHero, toHeroSlide, type ApiHeroImage, type HeroSlide } from '../src/lib/hero.ts';
 import { HERO_ELEMENT_IDS, HERO_ROTATION_SCRIPT, HERO_STORAGE_KEY, PICK_HERO_INDEX_JS } from '../src/lib/hero-rotation.ts';
 import { jsonForScript } from '../src/lib/html.ts';
 import { mediaAsset, videoAsset } from './fixtures.ts';
@@ -43,6 +43,26 @@ describe('resolveHero (S1): galería → public/hero.jpg → hero tipográfico',
   });
   it('sin galería ni hero.jpg => null (hero tipográfico)', () => {
     assert.equal(resolveHero([], false), null);
+  });
+});
+
+describe('localizeHeroImage: altEn / creditEn en /en/, con respaldo en español (L4)', () => {
+  it('en usa los textos en inglés', () => {
+    const image = localizeHeroImage(heroImage(1, { altEn: 'Photo 1', creditEn: 'Credit 1' }), 'en');
+    assert.equal(image.alt, 'Photo 1');
+    assert.equal(image.credit, 'Credit 1');
+    assert.equal(toHeroSlide(image).img.alt, 'Photo 1');
+  });
+  it('en sin textos en inglés (ausentes, nulos o en blanco) usa los de español', () => {
+    assert.equal(localizeHeroImage(heroImage(1), 'en').alt, 'Foto 1');
+    const blank = localizeHeroImage(heroImage(1, { altEn: ' ', creditEn: null }), 'en');
+    assert.equal(blank.alt, 'Foto 1');
+    assert.equal(blank.credit, 'Crédito 1');
+  });
+  it('es ignora los textos en inglés', () => {
+    const image = localizeHeroImage(heroImage(1, { altEn: 'Photo 1', creditEn: 'Credit 1' }), 'es');
+    assert.equal(image.alt, 'Foto 1');
+    assert.equal(image.credit, 'Crédito 1');
   });
 });
 

@@ -1,0 +1,201 @@
+---
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { renderMarkdown } from '@blog/markdown';
+import CoverMedia from '../../components/CoverMedia.astro';
+import PostCard from '../../components/PostCard.astro';
+import ResponsiveImage from '../../components/ResponsiveImage.astro';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { absoluteImageUrl } from '../../lib/cover.ts';
+import { generativeCover } from '../../lib/generative.ts';
+import { getHeroImages, localizeHeroImage, resolveHero } from '../../lib/hero.ts';
+import { HERO_ELEMENT_IDS, HERO_ROTATION_SCRIPT } from '../../lib/hero-rotation.ts';
+import { jsonForScript } from '../../lib/html.ts';
+import { LANGS, alternatesFor, articleCount, formatDate, interpolate, paths, ui, type Lang } from '../../lib/i18n.ts';
+import { getPosts, postPath, postsIn, tagsOf } from '../../lib/posts.ts';
+import { IMAGE_SIZES } from '../../lib/responsive-image.ts';
+import { getSettings } from '../../lib/settings.ts';
+import { absoluteUrl } from '../../lib/site.ts';
+
+export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang }, props: { lang } }));
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = ui(lang);
+const settings = await getSettings(lang);
+const posts = postsIn(await getPosts(), lang);
+const tags = tagsOf(posts).slice(0, 8);
+
+// Hero (S1): galería del admin (rota en cada visita), o public/hero.jpg si alguien la dejó ahí; si no, tipográfico.
+// Mismo script en los dos idiomas: solo cambian los textos (alt, crédito) de las diapositivas.
+const heroJpgExists = existsSync(join(process.cwd(), 'public', 'hero.jpg'));
+const hero = resolveHero((await getHeroImages()).map((image) => localizeHeroImage(image, lang)), heroJpgExists);
+const heroSrc = hero?.kind === 'gallery' ? hero.first.media.url : hero?.src;
+const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }).html : null;
+
+const [featured, ...rest] = posts;
+const latest = rest.slice(0, 3);
+const more = posts.slice(4, 8);
+---
+
+<BaseLayout
+  lang={lang}
+  title={settings.name}
+  path={paths.home(lang)}
+  alternates={alternatesFor(paths.home)}
+  overlayHeader
+  image={heroSrc && absoluteImageUrl(heroSrc, absoluteUrl(paths.home(lang)))}
+  imageAlt={hero?.kind === 'gallery' ? hero.first.alt : undefined}
+>
+  <section class:list={['hero', { 'hero--photo': hero, 'hero--type': !hero }]} aria-labelledby="hero-title">
+    {
+      hero?.kind === 'gallery' && (
+        <div class="hero-bg">
+          {/* Vacío a propósito: el script de abajo elige foto o video; completa estos tres hijos (en este orden) o pone el video encima. */}
+          <picture id={HERO_ELEMENT_IDS.picture} class="hero-picture">
+            <source type="image/avif" sizes={IMAGE_SIZES.hero} />
+            <source type="image/webp" sizes={IMAGE_SIZES.hero} />
+            <img alt="" decoding="async" fetchpriority="high" />
+          </picture>
+          {/* Sin JS, la primera de la galería como foto (si es un video, su póster: `media`). */}
+          <noscript>
+            <ResponsiveImage
+              src={hero.first.media.url}
+              alt={hero.first.alt}
+              context="hero"
+              priority
+              width={hero.first.media.width}
+              height={hero.first.media.height}
+            />
+          </noscript>
+        </div>
+      )
+    }
+    {
+      hero?.kind === 'static' && (
+        <div class="hero-bg">
+          <ResponsiveImage src={hero.src} alt="" context="hero" priority width={1920} height={1080} />
+        </div>
+      )
+    }
+    <div class="hero-body">
+      <h1 id="hero-title">{settings.name}</h1>
+      {bioHtml ? <div class="hero-dek" set:html={bioHtml} /> : <p class="hero-dek">{settings.tagline}</p>}
+      <p class="entry-links">
+        <a href={posts.length > 0 ? '#ultimos' : paths.posts(lang)}>{t.heroLatest}</a>
+        <a href={paths.tags(lang)}>{t.topics}</a>
+        <a href={paths.rss(lang)}>{t.rss}</a>
+      </p>
+    </div>
+    {hero?.kind === 'gallery' && <p class="hero-credit" id={HERO_ELEMENT_IDS.credit}>{hero.slides[0]?.credit}</p>}
+  </section>
+  {
+    hero?.kind === 'gallery' && (
+      <>
+        <script is:inline type="application/json" id={HERO_ELEMENT_IDS.slides} set:html={jsonForScript(hero.slides)} />
+        <script is:inline set:html={HERO_ROTATION_SCRIPT} />
+      </>
+    )
+  }
+
+  {
+    !featured && (
+      <section class="section">
+        <div class="section-head">
+          <h2>{t.latest}</h2>
+        </div>
+        <p class="empty">{t.noPosts}</p>
+      </section>
+    )
+  }
+
+  {
+    featured && (
+      <section class="section" id="ultimos" aria-labelledby="ultimos-title">
+        <div class="section-head">
+          <h2 id="ultimos-title">{t.latest}</h2>
+          <a href={paths.posts(lang)}>{t.allPosts}</a>
+        </div>
+
+        <article class="lead">
+          <CoverMedia cover={featured.cover} ratio="lead" eager={!hero} decorative />
+          <div class="lead-body">
+            <p class="eyebrow">{featured.tags.length > 0 ? featured.tags.map((tag) => tag.name).join(' · ') : t.article}</p>
+            <h3 class="lead-title">
+              <a href={postPath(featured)}>{featured.title}</a>
+            </h3>
+            {featured.description && <p class="lead-dek">{featured.description}</p>}
+            <p class="meta">
+              <time datetime={featured.publishedAt.toISOString()}>{formatDate(lang, featured.publishedAt)}</time> ·{' '}
+              {interpolate(t.readingTime, { n: featured.readingMinutes })}
+            </p>
+            {featured.cover.kind === 'image' && featured.cover.alt && <p class="lead-credit">{featured.cover.alt}</p>}
+          </div>
+        </article>
+
+        {
+          latest.length > 0 && (
+            <div class="card-grid card-grid--row">
+              {latest.map((post) => (
+                <PostCard post={post} />
+              ))}
+            </div>
+          )
+        }
+      </section>
+    )
+  }
+
+  {
+    more.length > 0 && (
+      <section class="section" aria-labelledby="mas-title">
+        <div class="section-head">
+          <h2 id="mas-title">{t.morePosts}</h2>
+          <a href={paths.posts(lang)}>{t.fullArchive}</a>
+        </div>
+        <ol class="numbered">
+          {more.map((post, i) => (
+            <li>
+              <span class="numbered-n" aria-hidden="true">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div>
+                <h3>
+                  <a href={postPath(post)}>{post.title}</a>
+                </h3>
+                {post.description && <p>{post.description}</p>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
+
+  {
+    tags.length > 0 && (
+      <section class="section" aria-labelledby="temas-title">
+        <div class="section-head">
+          <h2 id="temas-title">{t.topics}</h2>
+          <a href={paths.tags(lang)}>{t.allTopics}</a>
+        </div>
+        <ul class="tiles">
+          {tags.map(({ tag, posts: tagPosts }) => (
+            <li class="tile">
+              <CoverMedia cover={{ kind: 'generative', svg: generativeCover(`tema:${tag.slug}`, tag.slug) }} ratio="tile" />
+              <div class="tile-body">
+                <h3 class="tile-title">
+                  <a href={paths.tag(lang, tag.slug)}>{tag.name}</a>
+                </h3>
+                <p class="meta">{articleCount(lang, tagPosts.length)}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+</BaseLayout>

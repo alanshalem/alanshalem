@@ -1,23 +1,30 @@
 ---
+import { navLinks, paths, ui, type Lang } from '../lib/i18n.ts';
 import { contactLinks, getSettings } from '../lib/settings.ts';
-import { site } from '../lib/site.ts';
 
-const settings = await getSettings();
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const settings = await getSettings(lang);
+const t = ui(lang);
 const contact = contactLinks(settings);
-const explore = site.nav.filter((item) => item.href !== '/rss.xml');
+// RSS tiene su propia columna ("Suscribirse").
+const explore = navLinks(lang).filter((item) => item.href !== paths.rss(lang));
 const year = new Date().getFullYear();
 ---
 
 <footer class="site-footer">
   <div class="footer-brand-col">
-    <p class="footer-brand"><a href="/">{settings.name}</a></p>
+    <p class="footer-brand"><a href={paths.home(lang)}>{settings.name}</a></p>
     <p class="footer-tagline">{settings.tagline}</p>
     <p class="footer-legal">© {year} {settings.author}</p>
   </div>
   {
     contact.length > 0 && (
       <nav class="footer-col" aria-labelledby="footer-contacto">
-        <h2 id="footer-contacto">Contacto</h2>
+        <h2 id="footer-contacto">{t.contact}</h2>
         <ul>
           {contact.map((link) => (
             <li>
@@ -31,9 +38,9 @@ const year = new Date().getFullYear();
     )
   }
   <nav class="footer-col" aria-labelledby="footer-explorar">
-    <h2 id="footer-explorar">Explorar</h2>
+    <h2 id="footer-explorar">{t.explore}</h2>
     <ul>
-      <li><a href="/">Inicio</a></li>
+      <li><a href={paths.home(lang)}>{t.home}</a></li>
       {
         explore.map((item) => (
           <li>
@@ -44,9 +51,9 @@ const year = new Date().getFullYear();
     </ul>
   </nav>
   <nav class="footer-col" aria-labelledby="footer-suscribirse">
-    <h2 id="footer-suscribirse">Suscribirse</h2>
+    <h2 id="footer-suscribirse">{t.subscribe}</h2>
     <ul>
-      <li><a href="/rss.xml">RSS</a></li>
+      <li><a href={paths.rss(lang)}>{t.rss}</a></li>
     </ul>
   </nav>
 </footer>

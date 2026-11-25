@@ -1,6 +1,6 @@
 ---
 import CoverMedia from './CoverMedia.astro';
-import { formatDate } from '../lib/site.ts';
+import { formatDate, interpolate, ui } from '../lib/i18n.ts';
 import { postPath, type BlogPost } from '../lib/posts.ts';
 
 interface Props {
@@ -10,7 +10,9 @@ interface Props {
 }
 
 const { post, headingLevel = 3 } = Astro.props;
-const eyebrow = post.tags[0]?.name ?? 'Artículo';
+// La tarjeta habla el idioma de su post (los listados solo muestran posts del idioma de la página).
+const t = ui(post.lang);
+const eyebrow = post.tags[0]?.name ?? t.article;
 const Heading = `h${headingLevel}` as 'h2' | 'h3';
 ---
 
@@ -20,6 +22,7 @@ const Heading = `h${headingLevel}` as 'h2' | 'h3';
   <Heading class="card-title"><a href={postPath(post)}>{post.title}</a></Heading>
   {post.description && <p class="card-dek">{post.description}</p>}
   <p class="meta">
-    <time datetime={post.publishedAt.toISOString()}>{formatDate(post.publishedAt)}</time> · {post.readingMinutes} min
+    <time datetime={post.publishedAt.toISOString()}>{formatDate(post.lang, post.publishedAt)}</time> ·{' '}
+    {interpolate(t.minutes, { n: post.readingMinutes })}
   </p>
 </article>

@@ -1,0 +1,42 @@
+---
+import PostCard from '../../../components/PostCard.astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { LANGS, articleCount, interpolate, paths, segments, ui, type Lang } from '../../../lib/i18n.ts';
+import { getPosts, postsIn, tagsOf, type BlogPost, type Tag } from '../../../lib/posts.ts';
+
+export async function getStaticPaths() {
+  const posts = await getPosts();
+  return LANGS.flatMap((lang) =>
+    tagsOf(postsIn(posts, lang)).map(({ tag, posts: tagPosts }) => ({
+      params: { lang, topics: segments(lang).topics, tag: tag.slug },
+      props: { lang, tag, posts: tagPosts },
+    })),
+  );
+}
+
+interface Props {
+  lang: Lang;
+  tag: Tag;
+  posts: BlogPost[];
+}
+
+const { lang, tag, posts } = Astro.props;
+const t = ui(lang);
+const about = interpolate(t.postsAbout, { tag: tag.name });
+const path = paths.tag(lang, tag.slug);
+// Los temas se escriben por versión y no se traducen uno a uno: el selector lleva al índice de temas del otro idioma.
+---
+
+<BaseLayout lang={lang} title={tag.name} description={`${about}.`} path={path} alternates={{ [lang]: path }} switchFallback={paths.tags}>
+  <header class="page-head">
+    <p class="eyebrow"><a href={paths.tags(lang)}>{t.topics}</a></p>
+    <h1>{tag.name}</h1>
+    <p class="page-dek">{articleCount(lang, posts.length)}</p>
+  </header>
+
+  <section class="section section--flush" aria-label={about}>
+    <div class="card-grid">
+      {posts.map((post) => <PostCard post={post} headingLevel={2} />)}
+    </div>
+  </section>
+</BaseLayout>

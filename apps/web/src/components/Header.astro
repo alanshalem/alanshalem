@@ -1,31 +1,54 @@
 ---
+import { LANGUAGE_NAMES, navLinks, paths, switcherLinks, ui, type Alternates, type Lang } from '../lib/i18n.ts';
 import { getSettings } from '../lib/settings.ts';
-import { site } from '../lib/site.ts';
 
 interface Props {
+  lang: Lang;
   currentPath: string;
+  alternates: Alternates;
+  switchFallback?: ((lang: Lang) => string) | undefined;
   /** Transparente y superpuesta al hero (home y artículo). */
   overlay?: boolean;
 }
 
-const { currentPath, overlay = false } = Astro.props;
-const settings = await getSettings();
-const isCurrent = (href: string): boolean => href !== '/rss.xml' && currentPath.startsWith(href);
+const { lang, currentPath, alternates, switchFallback, overlay = false } = Astro.props;
+const settings = await getSettings(lang);
+const t = ui(lang);
+const nav = navLinks(lang);
+const languages = switcherLinks(lang, alternates, switchFallback);
+const isCurrent = (href: string): boolean => href !== paths.rss(lang) && currentPath.startsWith(href);
 ---
 
 <header class:list={['site-header', { 'site-header--overlay': overlay }]}>
-  <a class="brand" href="/">{settings.name}</a>
+  <a class="brand" href={paths.home(lang)}>{settings.name}</a>
 
-  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menú">☰</button>
-  <nav id="site-nav" class="site-nav" aria-label="Principal">
-    {
-      site.nav.map((item) => (
-        <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-          {item.label}
-        </a>
-      ))
-    }
-  </nav>
+  <div class="header-tools">
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label={t.menu}>☰</button>
+    <nav id="site-nav" class="site-nav" aria-label={t.mainNav}>
+      {
+        nav.map((item) => (
+          <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+    <nav class="lang-switch" aria-label={t.languageNav}>
+      {
+        languages.map((link) => (
+          <a
+            href={link.href}
+            hreflang={link.lang}
+            lang={link.lang}
+            title={LANGUAGE_NAMES[link.lang]}
+            aria-current={link.current ? 'true' : undefined}
+          >
+            {link.lang.toUpperCase()}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
 </header>
 
 <script>

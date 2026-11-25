@@ -54,8 +54,19 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 .nav-toggle[aria-expanded='true'] + .site-nav { display: flex; }
 
+/* Menú y selector de idioma a la derecha. En pantallas angostas el selector queda a la vista, a la izquierda del ☰. */
+.header-tools { display: flex; align-items: center; gap: var(--space-1-5); }
+.lang-switch { order: -1; display: flex; align-items: center; }
+.lang-switch a {
+  font-family: var(--font-ui); font-size: var(--text-2xs); font-weight: 600; letter-spacing: var(--tracking-label);
+  line-height: 1; padding: 0.35rem 0.6rem; text-decoration: none; color: var(--text-tertiary);
+}
+.lang-switch a + a { border-left: 1px solid currentColor; }
+.lang-switch a:hover, .lang-switch a:focus-visible, .lang-switch a[aria-current='true'] { color: var(--text-primary); }
+
 @media (min-width: 900px) {
   .nav-toggle { display: none; }
+  .lang-switch { order: 0; }
   .site-nav {
     display: flex; position: static; flex-direction: row; gap: var(--space-1-75);
     min-width: 0; padding: 0; background: none; border: 0;

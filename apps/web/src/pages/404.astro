@@ -1,16 +1,25 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { DEFAULT_LANG, LANGS, paths, ui } from '../lib/i18n.ts';
+
+// Caddy sirve un único /404.html para cualquier ruta inexistente y un HTML estático no sabe desde qué URL se pidió:
+// el aviso va en los dos idiomas (sin JS ni reglas de servidor extra). Cabecera y pie, en el idioma principal.
+const t = ui(DEFAULT_LANG);
 ---
 
-<BaseLayout title="Página no encontrada" path="/404/" noindex>
-  <header class="page-head page-head--404">
-    <p class="eyebrow">Error 404</p>
-    <h1>Esta página no existe.</h1>
-    <p class="page-dek">Puede que la dirección esté mal escrita o que el artículo haya cambiado de lugar.</p>
-    <p class="entry-links">
-      <a href="/">Volver al inicio</a>
-      <a href="/articulos/">Artículos</a>
-      <a href="/temas/">Temas</a>
-    </p>
-  </header>
+<BaseLayout lang={DEFAULT_LANG} title={t.notFoundTitle} path="/404/" noindex>
+  {
+    LANGS.map((lang) => (
+      <header class="page-head page-head--404" lang={lang}>
+        <p class="eyebrow">{ui(lang).notFoundEyebrow}</p>
+        <h1>{ui(lang).notFoundHeading}</h1>
+        <p class="page-dek">{ui(lang).notFoundDek}</p>
+        <p class="entry-links">
+          <a href={paths.home(lang)}>{ui(lang).backHome}</a>
+          <a href={paths.posts(lang)}>{ui(lang).posts}</a>
+          <a href={paths.tags(lang)}>{ui(lang).topics}</a>
+        </p>
+      </header>
+    ))
+  }
 </BaseLayout>

@@ -4,14 +4,20 @@ import '@blog/tokens/prose.css';
 import '../styles/site.css';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
+import { hreflangLinks, ogLocale, paths, ui, type Alternates, type Lang } from '../lib/i18n.ts';
 import { getSettings } from '../lib/settings.ts';
-import { absoluteUrl, site } from '../lib/site.ts';
+import { absoluteUrl } from '../lib/site.ts';
 
 interface Props {
+  lang: Lang;
   title: string;
   description?: string;
-  /** Ruta del sitio con barra final, ej: "/articulos/mi-post/". Define la URL canónica. */
+  /** Ruta del sitio con barra final, ej: "/es/articulos/mi-post/". Define la URL canónica. */
   path: string;
+  /** La misma página en otros idiomas (hreflang y selector ES | EN). Sin ella, el selector va a las homes. */
+  alternates?: Alternates;
+  /** Destino del selector para los idiomas sin versión equivalente (por defecto, su home). */
+  switchFallback?: (lang: Lang) => string;
   type?: 'website' | 'article';
   noindex?: boolean;
   publishedTime?: Date;
@@ -22,11 +28,12 @@ interface Props {
   overlayHeader?: boolean;
 }
 
-const settings = await getSettings();
 const {
+  lang,
   title,
-  description = settings.tagline,
   path,
+  alternates = {},
+  switchFallback,
   type = 'website',
   noindex = false,
   publishedTime,
@@ -34,12 +41,15 @@ const {
   imageAlt,
   overlayHeader = false,
 } = Astro.props;
-const fullTitle = path === '/' ? settings.name : `${title} · ${settings.name}`;
+const settings = await getSettings(lang);
+const description = Astro.props.description ?? settings.tagline;
+const fullTitle = path === paths.home(lang) ? settings.name : `${title} · ${settings.name}`;
 const canonical = absoluteUrl(path);
+const t = ui(lang);
 ---
 
 <!doctype html>
-<html lang={site.lang}>
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -48,19 +58,20 @@ const canonical = absoluteUrl(path);
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     {noindex && <meta name="robots" content="noindex" />}
+    {hreflangLinks(alternates).map(({ hreflang, href }) => <link rel="alternate" hreflang={hreflang} href={absoluteUrl(href)} />)}
 
     <meta property="og:site_name" content={settings.name} />
     <meta property="og:type" content={type} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:locale" content={site.locale.replace('-', '_')} />
+    <meta property="og:locale" content={ogLocale(lang)} />
     {image && <meta property="og:image" content={image} />}
     {image && imageAlt && <meta property="og:image:alt" content={imageAlt} />}
     {publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
     <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
 
-    <link rel="alternate" type="application/rss+xml" title={settings.name} href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title={settings.name} href={paths.rss(lang)} />
 
     <!-- Solo las fuentes que se ven sin hacer scroll; el resto carga cuando hace falta. -->
     <link rel="preload" as="font" type="font/woff2" href="/fonts/pagella-regular-latin.woff2" crossorigin />
@@ -68,11 +79,11 @@ const canonical = absoluteUrl(path);
     <link rel="preload" as="font" type="font/woff2" href="/fonts/gloock-latin.woff2" crossorigin />
   </head>
   <body>
-    <a class="skip-link" href="#contenido">Saltar al contenido</a>
-    <Header currentPath={path} overlay={overlayHeader} />
+    <a class="skip-link" href="#contenido">{t.skipToContent}</a>
+    <Header lang={lang} currentPath={path} alternates={alternates} switchFallback={switchFallback} overlay={overlayHeader} />
     <main id="contenido">
       <slot />
     </main>
-    <Footer />
+    <Footer lang={lang} />
   </body>
 </html>

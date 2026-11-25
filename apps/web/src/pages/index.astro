@@ -1,190 +1,31 @@
 ---
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { renderMarkdown } from '@blog/markdown';
-import CoverMedia from '../components/CoverMedia.astro';
-import PostCard from '../components/PostCard.astro';
-import ResponsiveImage from '../components/ResponsiveImage.astro';
-import BaseLayout from '../layouts/BaseLayout.astro';
-import { absoluteImageUrl } from '../lib/cover.ts';
-import { generativeCover } from '../lib/generative.ts';
-import { getHeroImages, resolveHero } from '../lib/hero.ts';
-import { HERO_ELEMENT_IDS, HERO_ROTATION_SCRIPT } from '../lib/hero-rotation.ts';
-import { jsonForScript } from '../lib/html.ts';
-import { getPosts, getTags, postPath, tagPath } from '../lib/posts.ts';
-import { IMAGE_SIZES } from '../lib/responsive-image.ts';
-import { getSettings } from '../lib/settings.ts';
-import { absoluteUrl, formatDate } from '../lib/site.ts';
+import { DEFAULT_LANG, LANGS, LANGUAGE_NAMES, paths } from '../lib/i18n.ts';
+import { absoluteUrl } from '../lib/site.ts';
 
-const settings = await getSettings();
-const posts = await getPosts();
-const tags = (await getTags()).slice(0, 8);
-
-// Hero (S1): galería del admin (rota en cada visita), o public/hero.jpg si alguien la dejó ahí; si no, tipográfico.
-const heroJpgExists = existsSync(join(process.cwd(), 'public', 'hero.jpg'));
-const hero = resolveHero(await getHeroImages(), heroJpgExists);
-const heroSrc = hero?.kind === 'gallery' ? hero.first.media.url : hero?.src;
-const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }).html : null;
-
-const [featured, ...rest] = posts;
-const latest = rest.slice(0, 3);
-const more = posts.slice(4, 8);
-const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+// En producción Caddy redirige `/` según Accept-Language antes de llegar acá (L3). Este archivo cubre los servidores
+// sin esa regla (astro dev, astro preview): va directo al idioma principal, sin JS. Sin layout ni API a propósito.
+const target = paths.home(DEFAULT_LANG);
 ---
 
-<BaseLayout
-  title={settings.name}
-  path="/"
-  overlayHeader
-  image={heroSrc && absoluteImageUrl(heroSrc, absoluteUrl('/'))}
-  imageAlt={hero?.kind === 'gallery' ? hero.first.alt : undefined}
->
-  <section class:list={['hero', { 'hero--photo': hero, 'hero--type': !hero }]} aria-labelledby="hero-title">
-    {
-      hero?.kind === 'gallery' && (
-        <div class="hero-bg">
-          {/* Vacío a propósito: el script de abajo elige foto o video; completa estos tres hijos (en este orden) o pone el video encima. */}
-          <picture id={HERO_ELEMENT_IDS.picture} class="hero-picture">
-            <source type="image/avif" sizes={IMAGE_SIZES.hero} />
-            <source type="image/webp" sizes={IMAGE_SIZES.hero} />
-            <img alt="" decoding="async" fetchpriority="high" />
-          </picture>
-          {/* Sin JS, la primera de la galería como foto (si es un video, su póster: `media`). */}
-          <noscript>
-            <ResponsiveImage
-              src={hero.first.media.url}
-              alt={hero.first.alt}
-              context="hero"
-              priority
-              width={hero.first.media.width}
-              height={hero.first.media.height}
-            />
-          </noscript>
-        </div>
-      )
-    }
-    {
-      hero?.kind === 'static' && (
-        <div class="hero-bg">
-          <ResponsiveImage src={hero.src} alt="" context="hero" priority width={1920} height={1080} />
-        </div>
-      )
-    }
-    <div class="hero-body">
-      <h1 id="hero-title">{settings.name}</h1>
-      {bioHtml ? <div class="hero-dek" set:html={bioHtml} /> : <p class="hero-dek">{settings.tagline}</p>}
-      <p class="entry-links">
-        <a href={posts.length > 0 ? '#ultimos' : '/articulos/'}>Últimos artículos</a>
-        <a href="/temas/">Temas</a>
-        <a href="/rss.xml">RSS</a>
-      </p>
-    </div>
-    {hero?.kind === 'gallery' && <p class="hero-credit" id={HERO_ELEMENT_IDS.credit}>{hero.slides[0]?.credit}</p>}
-  </section>
-  {
-    hero?.kind === 'gallery' && (
-      <>
-        <script is:inline type="application/json" id={HERO_ELEMENT_IDS.slides} set:html={jsonForScript(hero.slides)} />
-        <script is:inline set:html={HERO_ROTATION_SCRIPT} />
-      </>
-    )
-  }
-
-  {
-    !featured && (
-      <section class="section">
-        <div class="section-head">
-          <h2>Últimos</h2>
-        </div>
-        <p class="empty">Todavía no hay artículos publicados.</p>
-      </section>
-    )
-  }
-
-  {
-    featured && (
-      <section class="section" id="ultimos" aria-labelledby="ultimos-title">
-        <div class="section-head">
-          <h2 id="ultimos-title">Últimos</h2>
-          <a href="/articulos/">Todos los artículos</a>
-        </div>
-
-        <article class="lead">
-          <CoverMedia cover={featured.cover} ratio="lead" eager={!hero} decorative />
-          <div class="lead-body">
-            <p class="eyebrow">{featured.tags.length > 0 ? featured.tags.map((t) => t.name).join(' · ') : 'Artículo'}</p>
-            <h3 class="lead-title">
-              <a href={postPath(featured)}>{featured.title}</a>
-            </h3>
-            {featured.description && <p class="lead-dek">{featured.description}</p>}
-            <p class="meta">
-              <time datetime={featured.publishedAt.toISOString()}>{formatDate(featured.publishedAt)}</time> ·{' '}
-              {featured.readingMinutes} min de lectura
-            </p>
-            {featured.cover.kind === 'image' && featured.cover.alt && <p class="lead-credit">{featured.cover.alt}</p>}
-          </div>
-        </article>
-
-        {
-          latest.length > 0 && (
-            <div class="card-grid card-grid--row">
-              {latest.map((post) => (
-                <PostCard post={post} />
-              ))}
-            </div>
-          )
-        }
-      </section>
-    )
-  }
-
-  {
-    more.length > 0 && (
-      <section class="section" aria-labelledby="mas-title">
-        <div class="section-head">
-          <h2 id="mas-title">Más artículos</h2>
-          <a href="/articulos/">Archivo completo</a>
-        </div>
-        <ol class="numbered">
-          {more.map((post, i) => (
-            <li>
-              <span class="numbered-n" aria-hidden="true">
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <div>
-                <h3>
-                  <a href={postPath(post)}>{post.title}</a>
-                </h3>
-                {post.description && <p>{post.description}</p>}
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-    )
-  }
-
-  {
-    tags.length > 0 && (
-      <section class="section" aria-labelledby="temas-title">
-        <div class="section-head">
-          <h2 id="temas-title">Temas</h2>
-          <a href="/temas/">Todos los temas</a>
-        </div>
-        <ul class="tiles">
-          {tags.map(({ tag, posts: tagPosts }) => (
-            <li class="tile">
-              <CoverMedia cover={{ kind: 'generative', svg: generativeCover(`tema:${tag.slug}`, tag.slug) }} ratio="tile" />
-              <div class="tile-body">
-                <h3 class="tile-title">
-                  <a href={tagPath(tag)}>{tag.name}</a>
-                </h3>
-                <p class="meta">{plural(tagPosts.length, 'artículo', 'artículos')}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-    )
-  }
-</BaseLayout>
+<!doctype html>
+<html lang={DEFAULT_LANG}>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content={`0; url=${target}`} />
+    <meta name="robots" content="noindex" />
+    <link rel="canonical" href={absoluteUrl(target)} />
+    <title>{LANGS.map((lang) => LANGUAGE_NAMES[lang]).join(' · ')}</title>
+  </head>
+  <body>
+    <p>
+      {
+        LANGS.map((lang, i) => (
+          <>
+            {i > 0 && ' · '}
+            <a href={paths.home(lang)} hreflang={lang} lang={lang}>{LANGUAGE_NAMES[lang]}</a>
+          </>
+        ))
+      }
+    </p>
+  </body>
+</html>

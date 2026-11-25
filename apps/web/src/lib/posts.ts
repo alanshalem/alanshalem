@@ -1,9 +1,10 @@
 import { excerpt, readingTimeMinutes, renderMarkdown, slugify, type Heading } from '@blog/markdown';
 import { getInternal, oncePerBuild } from './api.ts';
 import { resolveCover, type Cover } from './cover.ts';
+import { isLang, paths, type Alternates, type Lang } from './i18n.ts';
 
-/** Forma en que la API entrega un post publicado (GET /api/internal/posts). */
-interface ApiPost {
+/** Forma en que la API entrega un post publicado (GET /api/internal/posts, L4). */
+export interface ApiPost {
   id: string;
   slug: string;
   title: string;
@@ -11,6 +12,8 @@ interface ApiPost {
   body: string;
   tags: string[];
   lang: string;
+  /** Une las versiones en otros idiomas del mismo post (L4). Opcional solo mientras la API no lo mande (T1). */
+  translationGroupId?: string;
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
@@ -26,6 +29,8 @@ export interface Tag {
 
 export interface BlogPost {
   slug: string;
+  lang: Lang;
+  translationGroupId: string;
   title: string;
   /** Texto corto para listados y <meta description>. */
   description: string;
@@ -40,9 +45,8 @@ export interface BlogPost {
   cover: Cover;
 }
 
-/** Ruta pública de un post. Única fuente de verdad para no repetir el prefijo en cada página. */
-export const postPath = (post: Pick<BlogPost, 'slug'>): string => `/articulos/${post.slug}/`;
-export const tagPath = (tag: Pick<Tag, 'slug'>): string => `/temas/${tag.slug}/`;
+/** Ruta pública de un post: su idioma define el prefijo y el segmento (/es/articulos/, /en/articles/). */
+export const postPath = (post: Pick<BlogPost, 'lang' | 'slug'>): string => paths.post(post.lang, post.slug);
 
 /** Las imágenes relativas del Markdown ("img/a.png") se resuelven contra la página del post. */
 function rootRelative(cover: Cover, pagePath: string): Cover {
@@ -51,7 +55,10 @@ function rootRelative(cover: Cover, pagePath: string): Cover {
   return { ...cover, src: `${url.pathname}${url.search}${url.hash}` };
 }
 
-function toBlogPost(apiPost: ApiPost): BlogPost {
+export function toBlogPost(apiPost: ApiPost): BlogPost {
+  const { lang } = apiPost;
+  // Publicarlo bajo otro idioma lo mostraría con la interfaz equivocada: mejor que el build falle y quede el sitio anterior.
+  if (!isLang(lang)) throw new Error(`El post "${apiPost.slug}" tiene un idioma "${lang}" que el sitio no publica.`);
   // En el sitio, el título del post es el <h1>: el "#" del cuerpo pasa a <h2> (headingOffset: 1).
   const { html, headings } = renderMarkdown(apiPost.body, { headingOffset: 1 });
   const tags = apiPost.tags.map((name) => ({ name, slug: slugify(name) }));
@@ -64,6 +71,9 @@ function toBlogPost(apiPost: ApiPost): BlogPost {
   });
   return {
     slug: apiPost.slug,
+    lang,
+    // Sin grupo (API anterior a T1) cada post es su propio grupo: no tiene traducciones.
+    translationGroupId: apiPost.translationGroupId ?? apiPost.id,
     title: apiPost.title,
     description: apiPost.summary || excerpt(apiPost.body, 160),
     tags,
@@ -72,7 +82,7 @@ function toBlogPost(apiPost: ApiPost): BlogPost {
     readingMinutes: readingTimeMinutes(apiPost.body),
     html,
     headings,
-    cover: rootRelative(cover, postPath(apiPost)),
+    cover: rootRelative(cover, paths.post(lang, apiPost.slug)),
   };
 }
 
@@ -83,13 +93,24 @@ async function loadPosts(): Promise<BlogPost[]> {
     .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
 }
 
-/** Todos los posts publicados, más nuevos primero. */
+/** Todos los posts publicados de todos los idiomas, más nuevos primero. */
 export const getPosts: () => Promise<BlogPost[]> = oncePerBuild(loadPosts);
 
-/** Etiquetas con sus posts, ordenadas por cantidad de posts. */
-export async function getTags(): Promise<Array<{ tag: Tag; posts: BlogPost[] }>> {
-  const byTag = new Map<string, { tag: Tag; posts: BlogPost[] }>();
-  for (const post of await getPosts()) {
+/** Los posts de un idioma, en el mismo orden. */
+export const postsIn = (posts: readonly BlogPost[], lang: Lang): BlogPost[] => posts.filter((post) => post.lang === lang);
+
+export interface TagEntry {
+  tag: Tag;
+  posts: BlogPost[];
+}
+
+/**
+ * Temas de esos posts con sus posts, por cantidad y después por nombre. Se llama con los posts de un idioma:
+ * cada idioma tiene sus propios temas (los tags se escriben por versión y no se traducen uno a uno).
+ */
+export function tagsOf(posts: readonly BlogPost[]): TagEntry[] {
+  const byTag = new Map<string, TagEntry>();
+  for (const post of posts) {
     for (const tag of post.tags) {
       const entry = byTag.get(tag.slug) ?? { tag, posts: [] };
       entry.posts.push(post);
@@ -97,4 +118,16 @@ export async function getTags(): Promise<Array<{ tag: Tag; posts: BlogPost[] }>>
     }
   }
   return [...byTag.values()].sort((a, b) => b.posts.length - a.posts.length || a.tag.name.localeCompare(b.tag.name));
+}
+
+/**
+ * translationGroupId → ruta de la versión publicada en cada idioma (L3). `posts` son solo los publicados, así que
+ * un borrador nunca aparece como alternativa.
+ */
+export function alternatesByGroup(posts: readonly BlogPost[]): Map<string, Alternates> {
+  const groups = new Map<string, Alternates>();
+  for (const post of posts) {
+    groups.set(post.translationGroupId, { ...groups.get(post.translationGroupId), [post.lang]: postPath(post) });
+  }
+  return groups;
 }

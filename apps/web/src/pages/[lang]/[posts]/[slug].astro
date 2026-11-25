@@ -1,31 +1,40 @@
 ---
-import CoverMedia from '../../components/CoverMedia.astro';
-import PostCard from '../../components/PostCard.astro';
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { absoluteImageUrl } from '../../lib/cover.ts';
-import { getMediaIndex } from '../../lib/media.ts';
-import { getPosts, postPath, tagPath, type BlogPost } from '../../lib/posts.ts';
-import { responsiveProseHtml } from '../../lib/responsive-image.ts';
-import { absoluteUrl, formatDate } from '../../lib/site.ts';
+import CoverMedia from '../../../components/CoverMedia.astro';
+import PostCard from '../../../components/PostCard.astro';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { absoluteImageUrl } from '../../../lib/cover.ts';
+import { formatDate, interpolate, paths, segments, ui, type Alternates } from '../../../lib/i18n.ts';
+import { getMediaIndex } from '../../../lib/media.ts';
+import { alternatesByGroup, getPosts, postPath, postsIn, type BlogPost } from '../../../lib/posts.ts';
+import { responsiveProseHtml } from '../../../lib/responsive-image.ts';
+import { absoluteUrl } from '../../../lib/site.ts';
 
 export async function getStaticPaths() {
   const posts = await getPosts();
+  const alternates = alternatesByGroup(posts);
   return posts.map((post) => ({
-    params: { slug: post.slug },
+    params: { lang: post.lang, posts: segments(post.lang).posts, slug: post.slug },
     props: {
       post,
-      // "Seguir leyendo": los 3 posts más nuevos que no sean este.
-      readNext: posts.filter((other) => other.slug !== post.slug).slice(0, 3),
+      // Sus otras versiones publicadas (hreflang y selector ES | EN).
+      alternates: alternates.get(post.translationGroupId) ?? {},
+      // "Seguir leyendo": los 3 posts más nuevos de su idioma que no sean este.
+      readNext: postsIn(posts, post.lang)
+        .filter((other) => other.slug !== post.slug)
+        .slice(0, 3),
     },
   }));
 }
 
 interface Props {
   post: BlogPost;
+  alternates: Alternates;
   readNext: BlogPost[];
 }
 
-const { post, readNext } = Astro.props;
+const { post, alternates, readNext } = Astro.props;
+const { lang } = post;
+const t = ui(lang);
 // El índice lateral lista solo h2 y h3: más profundidad ensucia más de lo que ayuda.
 const toc = post.headings.filter((heading) => heading.level <= 3);
 const image = post.cover.kind === 'image' ? post.cover : null;
@@ -34,9 +43,11 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
 ---
 
 <BaseLayout
+  lang={lang}
   title={post.title}
   description={post.description}
   path={postPath(post)}
+  alternates={alternates}
   type="article"
   publishedTime={post.publishedAt}
   image={image ? absoluteImageUrl(image.src, absoluteUrl(postPath(post))) : undefined}
@@ -52,7 +63,7 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
             {post.tags.map((tag, i) => (
               <>
                 {i > 0 && ' · '}
-                <a href={tagPath(tag)}>{tag.name}</a>
+                <a href={paths.tag(lang, tag.slug)}>{tag.name}</a>
               </>
             ))}
           </p>
@@ -61,16 +72,16 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
       <h1>{post.title}</h1>
       {post.description && <p class="article-dek">{post.description}</p>}
       <p class="meta">
-        <time datetime={post.publishedAt.toISOString()}>{formatDate(post.publishedAt)}</time> · {post.readingMinutes} min
-        de lectura
+        <time datetime={post.publishedAt.toISOString()}>{formatDate(lang, post.publishedAt)}</time> ·{' '}
+        {interpolate(t.readingTime, { n: post.readingMinutes })}
       </p>
     </div>
   </header>
 
   {
     image?.alt && (
-      <aside class="image-strip" aria-label="Sobre la imagen">
-        <span class="eyebrow">Sobre la imagen</span>
+      <aside class="image-strip" aria-label={t.aboutImage}>
+        <span class="eyebrow">{t.aboutImage}</span>
         <span>{image.alt}</span>
       </aside>
     )
@@ -80,8 +91,8 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
     <div class="reading-grid">
       {
         toc.length > 1 && (
-          <nav class="toc" aria-label="Índice del artículo">
-            <p class="toc-label">En esta página</p>
+          <nav class="toc" aria-label={t.tocNav}>
+            <p class="toc-label">{t.tocLabel}</p>
             <ol>
               {toc.map((heading) => (
                 <li class={`toc-level-${heading.level}`}>
@@ -96,11 +107,11 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
       {
         post.tags.length > 0 && (
           <footer class="end-matter">
-            <p class="end-label">Temas</p>
+            <p class="end-label">{t.topics}</p>
             <ul class="tag-list">
               {post.tags.map((tag) => (
                 <li>
-                  <a href={tagPath(tag)}>{tag.name}</a>
+                  <a href={paths.tag(lang, tag.slug)}>{tag.name}</a>
                 </li>
               ))}
             </ul>
@@ -114,8 +125,8 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
     readNext.length > 0 && (
       <section class="section" aria-labelledby="seguir-title">
         <div class="section-head">
-          <h2 id="seguir-title">Seguir leyendo</h2>
-          <a href="/articulos/">Todos los artículos</a>
+          <h2 id="seguir-title">{t.readNext}</h2>
+          <a href={paths.posts(lang)}>{t.allPosts}</a>
         </div>
         <div class="card-grid card-grid--row">
           {readNext.map((other) => (
