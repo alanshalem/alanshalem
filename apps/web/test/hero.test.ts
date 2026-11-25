@@ -4,7 +4,7 @@ import { runInNewContext } from 'node:vm';
 import { orderHeroImages, resolveHero, toHeroSlide, type ApiHeroImage, type HeroSlide } from '../src/lib/hero.ts';
 import { HERO_ELEMENT_IDS, HERO_ROTATION_SCRIPT, HERO_STORAGE_KEY, PICK_HERO_INDEX_JS } from '../src/lib/hero-rotation.ts';
 import { jsonForScript } from '../src/lib/html.ts';
-import { mediaAsset } from './fixtures.ts';
+import { mediaAsset, videoAsset } from './fixtures.ts';
 
 const heroImage = (n: number, overrides: Partial<ApiHeroImage> = {}): ApiHeroImage => ({
   id: `h${n}`,
@@ -12,8 +12,15 @@ const heroImage = (n: number, overrides: Partial<ApiHeroImage> = {}): ApiHeroIma
   alt: `Foto ${n}`,
   credit: `Crédito ${n}`,
   createdAt: `2026-11-0${n}T10:00:00Z`,
+  video: null,
   ...overrides,
 });
+
+/** Ítem de video de la galería (L13): `media` es su póster. */
+const heroVideo = (n: number, overrides: Partial<ApiHeroImage> = {}): ApiHeroImage => {
+  const video = videoAsset(`v${n}`);
+  return heroImage(n, { alt: `Video ${n}`, media: video.poster ?? mediaAsset(`poster-v${n}`), video, ...overrides });
+};
 
 describe('orderHeroImages: la galería va por createdAt ascendente (L10)', () => {
   it('la más vieja primero, sin mutar la entrada', () => {
@@ -50,6 +57,7 @@ describe('toHeroSlide: lo mínimo que necesita el script', () => {
         backgroundImage: 'url(data:image/webp;base64,UklGRhIAAABXRUJQ)',
       },
       credit: 'Crédito 1',
+      video: null,
     } satisfies HeroSlide);
   });
 
@@ -63,6 +71,51 @@ describe('toHeroSlide: lo mínimo que necesita el script', () => {
     );
     assert.deepEqual(slide.background, { backgroundColor: '', backgroundImage: '' });
     assert.equal(slide.credit, null);
+  });
+});
+
+const AV1_1080 = 'video/mp4; codecs=&quot;av01.0.08M.08&quot;';
+const AV1_720 = 'video/mp4; codecs=&quot;av01.0.05M.08&quot;';
+const H264_1080 = 'video/mp4; codecs=&quot;avc1.640028&quot;';
+const H264_720 = 'video/mp4; codecs=&quot;avc1.64001f&quot;';
+
+describe('toHeroSlide con video (S9, S10, L13)', () => {
+  it('el póster ocupa el lugar de la foto: mismas fuentes AVIF/WebP, <img>, fondo y crédito', () => {
+    const slide = toHeroSlide(heroVideo(1));
+    const photo = toHeroSlide(heroImage(1, { alt: 'Video 1', media: mediaAsset('poster-v1') }));
+    assert.deepEqual({ ...slide, video: null }, photo);
+    assert.equal(slide.img.src, '/media/poster-v1/1600.webp');
+  });
+
+  it('<video> de fondo: AV1 antes que H.264, 1080p solo en pantallas anchas, tipos exactos del encoder', () => {
+    assert.equal(
+      toHeroSlide(heroVideo(1)).video,
+      '<div class="hero-video" role="img" aria-label="Video 1">' +
+        '<video autoplay muted loop playsinline preload="metadata" poster="/media/poster-v1/1600.webp">' +
+        `<source src="/media/videos/v1/1080.av1.mp4" type="${AV1_1080}" media="(min-width: 1024px)">` +
+        `<source src="/media/videos/v1/720.av1.mp4" type="${AV1_720}">` +
+        `<source src="/media/videos/v1/1080.h264.mp4" type="${H264_1080}" media="(min-width: 1024px)">` +
+        `<source src="/media/videos/v1/720.h264.mp4" type="${H264_720}">` +
+        '</video></div>',
+    );
+  });
+
+  it('un video de 720p (nunca se agranda) no lleva `media`: sirve en todas las pantallas', () => {
+    const video = videoAsset('small', { width: 1280, height: 720 });
+    video.sources = video.sources.filter((source) => source.height === 720);
+    const html = toHeroSlide(heroVideo(1, { video })).video ?? '';
+    assert.doesNotMatch(html, /media=/);
+    assert.ok(
+      html.includes(
+        `<source src="/media/videos/small/720.av1.mp4" type="${AV1_720}">` +
+          `<source src="/media/videos/small/720.h264.mp4" type="${H264_720}">`,
+      ),
+    );
+  });
+
+  it('el alt va escapado en aria-label', () => {
+    const html = toHeroSlide(heroVideo(1, { alt: 'Luna "llena" <b>&</b>' })).video ?? '';
+    assert.match(html, /aria-label="Luna &quot;llena&quot; &lt;b&gt;&amp;&lt;\/b&gt;"/);
   });
 });
 
@@ -128,12 +181,29 @@ interface FakeElement {
   [key: string]: unknown;
 }
 
-/** DOM y localStorage mínimos para ejecutar el script real en un contexto aislado. */
-function runRotation(slides: HeroSlide[], storage: object) {
+const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
+
+interface Viewer {
+  /** El usuario pidió menos movimiento en el sistema. */
+  reducedMotion?: boolean;
+  /** `navigator.connection`: Chrome lo tiene; Safari y Firefox no. */
+  connection?: { saveData: boolean };
+}
+
+/** DOM, localStorage, matchMedia y navigator mínimos para ejecutar el script real en un contexto aislado. */
+function runRotation(slides: HeroSlide[], storage: object, viewer: Viewer = {}) {
   const avif: FakeElement = { style: {} };
   const webp: FakeElement = { style: {} };
   const img: FakeElement = { style: {} };
-  const picture = { style: {} as Record<string, string>, children: [avif, webp, img] };
+  const inserted: string[] = [];
+  const picture = {
+    style: {} as Record<string, string>,
+    children: [avif, webp, img],
+    insertAdjacentHTML(position: string, html: string) {
+      assert.equal(position, 'afterend', 'el video va encima del <picture>, que queda de fondo');
+      inserted.push(html);
+    },
+  };
   const credit: FakeElement = { style: {}, textContent: 'inicial' };
   const elements: Record<string, unknown> = {
     [HERO_ELEMENT_IDS.slides]: { text: jsonForScript(slides) },
@@ -143,16 +213,18 @@ function runRotation(slides: HeroSlide[], storage: object) {
   runInNewContext(HERO_ROTATION_SCRIPT, {
     document: { getElementById: (id: string) => elements[id] ?? null },
     localStorage: storage,
+    matchMedia: (query: string) => ({ matches: query === REDUCED_MOTION && viewer.reducedMotion === true }),
+    navigator: { connection: viewer.connection },
   });
-  return { avif, webp, img, picture, credit };
+  return { avif, webp, img, picture, credit, inserted };
 }
 
 const slides = [1, 2, 3].map((n) => toHeroSlide(heroImage(n)));
 
 describe('script de rotación en línea (S1)', () => {
-  it('pesa ≤ 400 bytes', () => {
+  it('pesa ≤ 800 bytes (L13)', () => {
     const bytes = Buffer.byteLength(HERO_ROTATION_SCRIPT);
-    assert.ok(bytes <= 400, `pesa ${bytes} bytes`);
+    assert.ok(bytes <= 800, `pesa ${bytes} bytes`);
   });
 
   it('completa <picture>, <img>, fondo y crédito con la foto elegida', () => {
@@ -199,5 +271,65 @@ describe('script de rotación en línea (S1)', () => {
   it('una foto sin crédito vacía la línea de crédito', () => {
     const { credit } = runRotation([toHeroSlide(heroImage(1, { credit: null }))], {});
     assert.ok(!credit.textContent);
+  });
+});
+
+describe('script de rotación con videos (S9, L13)', () => {
+  const video = toHeroSlide(heroVideo(1));
+
+  it('sin reduced-motion ni Save-Data inserta el <video> sobre el <picture>, que solo queda de fondo', () => {
+    for (const connection of [undefined, { saveData: false }]) {
+      const { avif, webp, img, picture, credit, inserted } = runRotation([video], {}, { connection });
+      assert.deepEqual(inserted, [video.video]);
+      assert.deepEqual(picture.style, video.background);
+      assert.equal(credit.textContent, video.credit);
+      // El póster lo baja el <video>: el <picture> no pide nada (sin descarga doble).
+      assert.equal(avif.srcset, undefined);
+      assert.equal(webp.srcset, undefined);
+      assert.equal(img.src, undefined);
+    }
+  });
+
+  for (const [why, viewer] of [
+    ['prefers-reduced-motion: reduce', { reducedMotion: true }],
+    ['Save-Data', { connection: { saveData: true } }],
+  ] as const) {
+    it(`con ${why} muestra solo el póster, igual que una foto`, () => {
+      const { avif, webp, img, picture, inserted } = runRotation([video], {}, viewer);
+      assert.deepEqual(inserted, []);
+      assert.equal(avif.srcset, video.avif);
+      assert.equal(webp.srcset, video.webp);
+      assert.equal(img.src, video.img.src);
+      assert.equal(img.alt, video.img.alt);
+      assert.deepEqual(picture.style, video.background);
+    });
+  }
+
+  const mixed = [toHeroSlide(heroImage(1)), video, toHeroSlide(heroImage(3))];
+  const shownOn = (run: ReturnType<typeof runRotation>): string => run.inserted[0] ?? String(run.img.src);
+
+  it('fotos y videos comparten la regla: nunca repite el último visto y los recorre todos', () => {
+    const storage: Record<string, unknown> = {};
+    const shown: string[] = [];
+    for (let visit = 0; visit < 60; visit++) shown.push(shownOn(runRotation(mixed, storage)));
+    for (let i = 1; i < shown.length; i++) assert.notEqual(shown[i], shown[i - 1], `visita ${i}`);
+    assert.equal(new Set(shown).size, mixed.length);
+  });
+
+  it('si localStorage tira igual muestra el video', () => {
+    const throwing = Object.defineProperty({}, HERO_STORAGE_KEY, {
+      get() {
+        throw new Error('SecurityError');
+      },
+      set() {
+        throw new Error('QuotaExceededError');
+      },
+    });
+    assert.deepEqual(runRotation([video], throwing).inserted, [video.video]);
+  });
+
+  it('con un solo video lo muestra siempre', () => {
+    const storage: Record<string, unknown> = {};
+    for (let visit = 0; visit < 5; visit++) assert.deepEqual(runRotation([video], storage).inserted, [video.video]);
   });
 });

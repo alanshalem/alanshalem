@@ -1,5 +1,4 @@
-import { escapeHtml } from '@blog/markdown';
-import { readAttribute } from './html.ts';
+import { htmlAttributes, readAttribute } from './html.ts';
 import { safeColor, srcset, type ImageFormat, type MediaAsset, type MediaIndex } from './media.ts';
 
 /**
@@ -38,14 +37,8 @@ export interface PlainImageOptions extends ImageOptions {
 /** El AVIF primero: el navegador usa la primera <source> que soporta. */
 const SOURCE_FORMATS: readonly ImageFormat[] = ['avif', 'webp'];
 
-const attributes = (values: Record<string, string | number | undefined>): string =>
-  Object.entries(values)
-    .filter((entry): entry is [string, string | number] => entry[1] !== undefined)
-    .map(([name, value]) => ` ${name}="${escapeHtml(String(value))}"`)
-    .join('');
-
 function imgTag(src: string, width: number, height: number, options: ImageOptions, style?: string): string {
-  return `<img${attributes({
+  return `<img${htmlAttributes({
     src,
     alt: options.alt,
     title: options.title,
@@ -62,7 +55,7 @@ function pictureHtml(asset: MediaAsset, options: ImageOptions): string {
   const sizes = IMAGE_SIZES[options.context];
   const sources = SOURCE_FORMATS.map((format) => ({ format, srcset: srcset(asset, format) }))
     .filter((source) => source.srcset !== '')
-    .map((source) => `<source${attributes({ type: `image/${source.format}`, srcset: source.srcset, sizes })}>`)
+    .map((source) => `<source${htmlAttributes({ type: `image/${source.format}`, srcset: source.srcset, sizes })}>`)
     .join('');
   const color = safeColor(asset.color);
   // El color dominante pinta la caja mientras llega la imagen.

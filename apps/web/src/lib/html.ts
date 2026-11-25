@@ -1,3 +1,5 @@
+import { escapeHtml } from '@blog/markdown';
+
 /** Utilidades puras para leer y escribir el HTML que produce @blog/markdown. */
 
 const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
@@ -11,6 +13,16 @@ export function readAttribute(tag: string, name: string): string | null {
   const value = new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1];
   return value === undefined ? null : decodeEntities(value);
 }
+
+/**
+ * Atributos ya escapados, cada uno con su espacio inicial: `undefined` se omite y `true` queda como atributo
+ * booleano sin valor (`autoplay`).
+ */
+export const htmlAttributes = (values: Record<string, string | number | true | undefined>): string =>
+  Object.entries(values)
+    .filter((entry): entry is [string, string | number | true] => entry[1] !== undefined)
+    .map(([name, value]) => (value === true ? ` ${name}` : ` ${name}="${escapeHtml(String(value))}"`))
+    .join('');
 
 // Dentro de <script> el HTML manda: `</script>` o `<!--` cortarían el bloque. U+2028/2029 rompen JS viejo.
 const SCRIPT_UNSAFE: Record<string, string> = {

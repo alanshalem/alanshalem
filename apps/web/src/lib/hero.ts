@@ -1,17 +1,21 @@
 import { getInternal } from './api.ts';
+import { htmlAttributes } from './html.ts';
 import { safeColor, safePlaceholder, srcset, type MediaAsset } from './media.ts';
+import { videoSourcesHtml, type VideoAsset } from './video.ts';
 
-/** HeroImageDto (GET /api/internal/hero-images, L10). */
+/** HeroImageDto (GET /api/internal/hero-images, L10 + L13). */
 export interface ApiHeroImage {
   id: string;
+  /** La foto o, si es un video, su póster. */
   media: MediaAsset;
   alt: string;
   credit: string | null;
   createdAt: string;
+  video: VideoAsset | null;
 }
 
 /**
- * Lo mínimo que el script de rotación necesita de cada foto (va embebido en el HTML de la home).
+ * Lo mínimo que el script de rotación necesita de cada foto o video (va embebido en el HTML de la home).
  * `img` y `background` tienen los nombres de las propiedades del DOM: el script los asigna tal cual.
  */
 export interface HeroSlide {
@@ -20,6 +24,11 @@ export interface HeroSlide {
   img: { alt: string; width: number; height: number; src: string };
   background: { backgroundColor: string; backgroundImage: string };
   credit: string | null;
+  /**
+   * Marcado del <video> de fondo, ya escapado, o null si es una foto. El script lo inserta tal cual; si el
+   * visitante pidió menos movimiento o ahorro de datos usa los campos de arriba, que en un video son el póster.
+   */
+  video: string | null;
 }
 
 export type Hero =
@@ -35,7 +44,29 @@ const STATIC_HERO_SRC = '/hero.jpg';
 export const orderHeroImages = (images: readonly ApiHeroImage[]): ApiHeroImage[] =>
   [...images].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
 
-export function toHeroSlide({ media, alt, credit }: ApiHeroImage): HeroSlide {
+/**
+ * Video de fondo: autoplay sin sonido en bucle, como una foto que se mueve. `muted` y `playsinline` son las
+ * condiciones de los navegadores (iOS incluido) para el autoplay; `preload="metadata"` no adelanta bytes si el
+ * autoplay está bloqueado. `poster` no admite srcset: va el WebP de respaldo (`media.url`).
+ * Accesibilidad: el envoltorio `role="img"` con el alt lo expone como lo que es —una imagen con su texto
+ * alternativo, igual que las fotos— y, como los hijos de un `img` son presentacionales, el <video> sin controles
+ * no se anuncia aparte. `role="img"` no está permitido en el propio <video>, y un `aria-label` suelto en él
+ * no tiene un rol que lo nombre de forma fiable en todos los lectores.
+ */
+function backgroundVideoHtml(video: VideoAsset, alt: string, poster: string): string {
+  const wrapper = htmlAttributes({ class: 'hero-video', role: 'img', 'aria-label': alt });
+  const player = htmlAttributes({
+    autoplay: true,
+    muted: true,
+    loop: true,
+    playsinline: true,
+    preload: 'metadata',
+    poster,
+  });
+  return `<div${wrapper}><video${player}>${videoSourcesHtml(video)}</video></div>`;
+}
+
+export function toHeroSlide({ media, alt, credit, video }: ApiHeroImage): HeroSlide {
   const placeholder = safePlaceholder(media.placeholder);
   return {
     avif: srcset(media, 'avif'),
@@ -47,6 +78,7 @@ export function toHeroSlide({ media, alt, credit }: ApiHeroImage): HeroSlide {
       backgroundImage: placeholder ? `url(${placeholder})` : '',
     },
     credit: credit?.trim() || null,
+    video: video && backgroundVideoHtml(video, alt, media.url),
   };
 }
 

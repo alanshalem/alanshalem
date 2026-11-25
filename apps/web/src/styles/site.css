@@ -90,8 +90,9 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   padding: var(--space-7) var(--gutter) var(--space-3-5);
 }
 .hero-bg { position: absolute; inset: 0; z-index: -1; }
-.hero-bg picture { position: absolute; inset: 0; }
-.hero-bg img { width: 100%; height: 100%; object-fit: cover; }
+.hero-bg picture, .hero-video { position: absolute; inset: 0; }
+/* `object-fit` también encuadra el póster del video. */
+.hero-bg img, .hero-bg video { width: 100%; height: 100%; object-fit: cover; }
 /* El script de rotación pinta acá el color dominante y el placeholder mientras baja la foto elegida. */
 .hero-picture { background-position: center; background-size: cover; }
 .hero--type { border-bottom: 1px solid var(--border-subtle); }

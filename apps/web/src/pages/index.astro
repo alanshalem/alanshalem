@@ -43,12 +43,13 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
     {
       hero?.kind === 'gallery' && (
         <div class="hero-bg">
-          {/* Vacío a propósito: el script de abajo elige la foto y completa estos tres hijos (en este orden). */}
+          {/* Vacío a propósito: el script de abajo elige foto o video; completa estos tres hijos (en este orden) o pone el video encima. */}
           <picture id={HERO_ELEMENT_IDS.picture} class="hero-picture">
             <source type="image/avif" sizes={IMAGE_SIZES.hero} />
             <source type="image/webp" sizes={IMAGE_SIZES.hero} />
             <img alt="" decoding="async" fetchpriority="high" />
           </picture>
+          {/* Sin JS, la primera de la galería como foto (si es un video, su póster: `media`). */}
           <noscript>
             <ResponsiveImage
               src={hero.first.media.url}
