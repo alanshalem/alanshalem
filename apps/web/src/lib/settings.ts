@@ -1,5 +1,5 @@
 import { sanitizeUrl } from '@blog/markdown';
-import { getInternal } from './api.ts';
+import { getInternal, oncePerBuild } from './api.ts';
 
 /** Forma en que la API entrega los ajustes del sitio (GET /api/internal/settings, L4). */
 export interface ApiSettings {
@@ -76,11 +76,8 @@ export function contactLinks(settings: SiteSettings): Array<{ label: string; hre
   return links.filter((link): link is { label: string; href: string } => Boolean(link.href));
 }
 
-// Una sola petición por build (Astro renderiza todas las páginas en el mismo proceso).
-let cache: Promise<SiteSettings> | undefined;
-
-export function getSettings(): Promise<SiteSettings> {
-  return (cache ??= getInternal<Partial<ApiSettings>>('/api/internal/settings', 'los ajustes del sitio').then(
-    (api) => toSiteSettings(api, process.env),
-  ));
-}
+export const getSettings: () => Promise<SiteSettings> = oncePerBuild(() =>
+  getInternal<Partial<ApiSettings>>('/api/internal/settings', 'los ajustes del sitio').then((api) =>
+    toSiteSettings(api, process.env),
+  ),
+);

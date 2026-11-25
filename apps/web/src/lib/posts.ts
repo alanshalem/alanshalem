@@ -1,5 +1,5 @@
 import { excerpt, readingTimeMinutes, renderMarkdown, slugify, type Heading } from '@blog/markdown';
-import { getInternal } from './api.ts';
+import { getInternal, oncePerBuild } from './api.ts';
 import { resolveCover, type Cover } from './cover.ts';
 
 /** Forma en que la API entrega un post publicado (GET /api/internal/posts). */
@@ -83,13 +83,8 @@ async function loadPosts(): Promise<BlogPost[]> {
     .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
 }
 
-// Astro ejecuta cada página en el mismo proceso: la lista se pide una sola vez por build.
-let cache: Promise<BlogPost[]> | undefined;
-
 /** Todos los posts publicados, más nuevos primero. */
-export function getPosts(): Promise<BlogPost[]> {
-  return (cache ??= loadPosts());
-}
+export const getPosts: () => Promise<BlogPost[]> = oncePerBuild(loadPosts);
 
 /** Etiquetas con sus posts, ordenadas por cantidad de posts. */
 export async function getTags(): Promise<Array<{ tag: Tag; posts: BlogPost[] }>> {

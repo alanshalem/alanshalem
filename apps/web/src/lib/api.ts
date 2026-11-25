@@ -17,3 +17,16 @@ export async function getInternal<T>(path: string, what: string): Promise<T> {
   }
   return (await response.json()) as T;
 }
+
+/** Servidor de desarrollo de Astro (`astro dev`). En los tests y en el build de producción es falso. */
+const isDevServer = (): boolean => import.meta.env?.DEV === true;
+
+/**
+ * Envuelve un loader para que haga una sola petición por build: Astro renderiza todas las páginas en el mismo
+ * proceso. En `astro dev` el proceso vive mientras editás en el admin, así que ahí se pide en cada render;
+ * si no, los cambios (y hasta un fallo de la API) quedarían congelados hasta reiniciar el servidor.
+ */
+export function oncePerBuild<T>(load: () => Promise<T>, reloadEachCall: () => boolean = isDevServer): () => Promise<T> {
+  let cache: Promise<T> | undefined;
+  return () => (reloadEachCall() ? load() : (cache ??= load()));
+}

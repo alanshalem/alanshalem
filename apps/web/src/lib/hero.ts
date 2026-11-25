@@ -1,4 +1,4 @@
-import { getInternal } from './api.ts';
+import { getInternal, oncePerBuild } from './api.ts';
 import { htmlAttributes } from './html.ts';
 import { safeColor, safePlaceholder, srcset, type MediaAsset } from './media.ts';
 import { videoSourcesHtml, type VideoAsset } from './video.ts';
@@ -89,11 +89,6 @@ export function resolveHero(gallery: readonly ApiHeroImage[], heroJpgExists: boo
   return heroJpgExists ? { kind: 'static', src: STATIC_HERO_SRC } : null;
 }
 
-// Una sola petición por build.
-let cache: Promise<ApiHeroImage[]> | undefined;
-
-export function getHeroImages(): Promise<ApiHeroImage[]> {
-  return (cache ??= getInternal<ApiHeroImage[]>('/api/internal/hero-images', 'las fotos del hero').then(
-    orderHeroImages,
-  ));
-}
+export const getHeroImages: () => Promise<ApiHeroImage[]> = oncePerBuild(() =>
+  getInternal<ApiHeroImage[]>('/api/internal/hero-images', 'las fotos del hero').then(orderHeroImages),
+);

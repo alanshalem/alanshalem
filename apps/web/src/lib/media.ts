@@ -1,4 +1,4 @@
-import { getInternal } from './api.ts';
+import { getInternal, oncePerBuild } from './api.ts';
 
 /**
  * Imágenes optimizadas por la API al subirlas (L10): AVIF + WebP en varios anchos, color dominante y placeholder.
@@ -57,9 +57,6 @@ export const safeColor = (color: string): string | null => (HEX_COLOR.test(color
 export const safePlaceholder = (placeholder: string): string | null =>
   PLACEHOLDER_DATA_URI.test(placeholder) ? placeholder : null;
 
-// Una sola petición por build (Astro renderiza todas las páginas en el mismo proceso).
-let cache: Promise<MediaIndex> | undefined;
-
-export function getMediaIndex(): Promise<MediaIndex> {
-  return (cache ??= getInternal<MediaAsset[]>('/api/internal/media', 'las imágenes subidas').then(indexMedia));
-}
+export const getMediaIndex: () => Promise<MediaIndex> = oncePerBuild(() =>
+  getInternal<MediaAsset[]>('/api/internal/media', 'las imágenes subidas').then(indexMedia),
+);
