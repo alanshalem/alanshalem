@@ -1,7 +1,7 @@
 import { renderMarkdown } from '@blog/markdown';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api } from '../api/client.ts';
-import { ImageField } from '../components/ImageField.tsx';
+import { HeroGallery } from '../hero/HeroGallery.tsx';
 import {
   emptySettingsForm,
   LIMITS,
@@ -16,7 +16,9 @@ interface Props {
   onError: (error: unknown) => boolean;
 }
 
-type TextKey = Exclude<keyof SettingsForm, 'bio' | 'heroImageUrl' | 'heroImageAlt' | 'heroImageCredit'>;
+type TextKey = Exclude<keyof SettingsForm, 'bio'>;
+
+const FORM_ID = 'settings-form';
 
 interface TextFieldSpec {
   key: TextKey;
@@ -45,7 +47,10 @@ const LINKS: TextFieldSpec[] = [
   { key: 'xUrl', label: 'X', type: 'url', placeholder: 'https://x.com/…' },
 ];
 
-/** Datos del autor (S4): nombre, bio, links y foto del hero. Guardar regenera el sitio. */
+/**
+ * Datos del autor (S4): nombre, bio y links; guardar regenera el sitio. Las fotos del hero van debajo, fuera del
+ * <form>: cada una se guarda por separado y sus campos no deben disparar el "Guardar" de los ajustes.
+ */
 export function SettingsPage({ onError }: Props) {
   const [form, setForm] = useState<SettingsForm>(emptySettingsForm);
   const [saved, setSaved] = useState<string>(() => JSON.stringify(emptySettingsForm()));
@@ -180,8 +185,7 @@ export function SettingsPage({ onError }: Props) {
   };
 
   return (
-    // noValidate: la validación propia marca todos los campos a la vez y con los mismos mensajes que la API.
-    <form className="settings" onSubmit={handleSubmit} noValidate>
+    <div className="settings">
       <div className="page-head page-head-sticky">
         <div>
           <p className="eyebrow">Sitio</p>
@@ -189,7 +193,7 @@ export function SettingsPage({ onError }: Props) {
         </div>
         <div className="actions">
           <span className="meta">{dirty ? 'Cambios sin guardar' : 'Todo guardado'}</span>
-          <button type="submit" className="primary" disabled={busy || !dirty}>
+          <button type="submit" form={FORM_ID} className="primary" disabled={busy || !dirty}>
             {busy ? 'Guardando…' : 'Guardar'}
           </button>
         </div>
@@ -204,92 +208,67 @@ export function SettingsPage({ onError }: Props) {
         </p>
       )}
 
-      <section className="settings-section" aria-labelledby="settings-identity">
-        <div className="section-head">
-          <h2 id="settings-identity">Autor</h2>
-          <p className="section-note">Lo que se ve en el hero y el footer de todas las páginas.</p>
-        </div>
-        <div className="settings-grid">{IDENTITY.map(renderField)}</div>
-
-        <div className="bio-editor">
-          <div className="field">
-            <label className="label" htmlFor="settings-bio">
-              Bio (Markdown)
-            </label>
-            <textarea
-              id="settings-bio"
-              className="bio-input"
-              value={form.bio}
-              onChange={(event) => update('bio', event.target.value)}
-              rows={9}
-              maxLength={LIMITS.bio}
-              lang="es"
-              spellCheck
-              aria-invalid={errors.bio ? true : undefined}
-              aria-describedby={errors.bio ? 'settings-bio-error settings-bio-count' : 'settings-bio-count'}
-              placeholder="Dos o tres líneas sobre vos. Admite **negrita**, *cursiva* y [links](https://…)."
-            />
-            <p id="settings-bio-count" className="help">
-              {form.bio.length} / {LIMITS.bio}
-            </p>
-            {errors.bio && (
-              <p id="settings-bio-error" className="field-error">
-                {errors.bio}
-              </p>
-            )}
+      {/* noValidate: la validación propia marca todos los campos a la vez y con los mismos mensajes que la API. */}
+      <form id={FORM_ID} onSubmit={handleSubmit} noValidate>
+        <section className="settings-section" aria-labelledby="settings-identity">
+          <div className="section-head">
+            <h2 id="settings-identity">Autor</h2>
+            <p className="section-note">Lo que se ve en el hero y el footer de todas las páginas.</p>
           </div>
-          <div className="field">
-            <span className="label" id="settings-bio-preview">
-              Vista previa
-            </span>
-            <div className="paper bio-preview" aria-labelledby="settings-bio-preview">
-              {form.bio.trim() === '' ? (
-                <p className="bio-preview-empty">Sin bio todavía.</p>
-              ) : (
-                <div className="prose" dangerouslySetInnerHTML={{ __html: bioHtml }} />
+          <div className="settings-grid">{IDENTITY.map(renderField)}</div>
+
+          <div className="bio-editor">
+            <div className="field">
+              <label className="label" htmlFor="settings-bio">
+                Bio (Markdown)
+              </label>
+              <textarea
+                id="settings-bio"
+                className="bio-input"
+                value={form.bio}
+                onChange={(event) => update('bio', event.target.value)}
+                rows={9}
+                maxLength={LIMITS.bio}
+                lang="es"
+                spellCheck
+                aria-invalid={errors.bio ? true : undefined}
+                aria-describedby={errors.bio ? 'settings-bio-error settings-bio-count' : 'settings-bio-count'}
+                placeholder="Dos o tres líneas sobre vos. Admite **negrita**, *cursiva* y [links](https://…)."
+              />
+              <p id="settings-bio-count" className="help">
+                {form.bio.length} / {LIMITS.bio}
+              </p>
+              {errors.bio && (
+                <p id="settings-bio-error" className="field-error">
+                  {errors.bio}
+                </p>
               )}
             </div>
+            <div className="field">
+              <span className="label" id="settings-bio-preview">
+                Vista previa
+              </span>
+              <div className="paper bio-preview" aria-labelledby="settings-bio-preview">
+                {form.bio.trim() === '' ? (
+                  <p className="bio-preview-empty">Sin bio todavía.</p>
+                ) : (
+                  <div className="prose" dangerouslySetInnerHTML={{ __html: bioHtml }} />
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="settings-section" aria-labelledby="settings-links">
-        <div className="section-head">
-          <h2 id="settings-links">Contacto y redes</h2>
-          <p className="section-note">Vacío = no se muestra. Los enlaces tienen que empezar con https://.</p>
-        </div>
-        <div className="settings-grid">{LINKS.map(renderField)}</div>
-      </section>
+        <section className="settings-section" aria-labelledby="settings-links">
+          <div className="section-head">
+            <h2 id="settings-links">Contacto y redes</h2>
+            <p className="section-note">Vacío = no se muestra. Los enlaces tienen que empezar con https://.</p>
+          </div>
+          <div className="settings-grid">{LINKS.map(renderField)}</div>
+        </section>
+      </form>
 
-      <section className="settings-section" aria-labelledby="settings-hero">
-        <div className="section-head">
-          <h2 id="settings-hero">Foto del hero</h2>
-          <p className="section-note">La imagen de fondo de la home.</p>
-        </div>
-        <ImageField
-          legend="Imagen"
-          url={form.heroImageUrl}
-          alt={form.heroImageAlt}
-          onUrlChange={(value) => update('heroImageUrl', value)}
-          onAltChange={(value) => update('heroImageAlt', value)}
-          onUpload={api.uploadImage}
-          error={errors.heroImageUrl}
-          altError={errors.heroImageAlt}
-          help="Si no cargás ninguna, la home usa la foto por defecto del sitio si existe; si no, un hero tipográfico oscuro. Conviene una foto horizontal grande (2400 px o más de ancho)."
-        >
-          <label className="field">
-            <span className="label">Crédito</span>
-            <input
-              value={form.heroImageCredit}
-              onChange={(event) => update('heroImageCredit', event.target.value)}
-              placeholder="Foto: …"
-              maxLength={LIMITS.imageCredit}
-              aria-invalid={errors.heroImageCredit ? true : undefined}
-            />
-          </label>
-          {errors.heroImageCredit && <p className="field-error">{errors.heroImageCredit}</p>}
-        </ImageField>
-      </section>
-    </form>
+      <HeroGallery onError={onError} />
+    </div>
   );
 }

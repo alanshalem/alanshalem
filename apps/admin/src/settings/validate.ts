@@ -17,8 +17,6 @@ export const LIMITS = {
   bio: 2000,
   email: 254,
   url: 2048,
-  imageAlt: 300,
-  imageCredit: 200,
   coverAlt: 300,
 } as const;
 
@@ -32,9 +30,6 @@ export const emptySettingsForm = (): SettingsForm => ({
   githubUrl: '',
   linkedinUrl: '',
   xUrl: '',
-  heroImageUrl: '',
-  heroImageAlt: '',
-  heroImageCredit: '',
 });
 
 /** Recorta; el vacío se guarda como `null` (igual que la API). */
@@ -84,9 +79,6 @@ export const toSettingsForm = (settings: SiteSettings): SettingsForm => ({
   githubUrl: settings.githubUrl ?? '',
   linkedinUrl: settings.linkedinUrl ?? '',
   xUrl: settings.xUrl ?? '',
-  heroImageUrl: settings.heroImageUrl ?? '',
-  heroImageAlt: settings.heroImageAlt ?? '',
-  heroImageCredit: settings.heroImageCredit ?? '',
 });
 
 export type SettingsValidation = { ok: true; input: SiteSettings } | { ok: false; errors: SettingsErrors };
@@ -125,36 +117,8 @@ export function validateSettings(form: SettingsForm): SettingsValidation {
   const linkedinUrl = httpLink('linkedinUrl', 'LinkedIn');
   const xUrl = httpLink('xUrl', 'X');
 
-  const heroImageUrl = cleanOptional(form.heroImageUrl);
-  if (heroImageUrl !== null) {
-    if (heroImageUrl.length > LIMITS.url) {
-      errors.heroImageUrl = `La URL de la imagen del hero no puede superar ${LIMITS.url} caracteres.`;
-    } else if (!isImageUrl(heroImageUrl)) {
-      errors.heroImageUrl = 'La imagen del hero debe ser una ruta /media/... o una URL http(s).';
-    }
-  }
-
-  const heroImageAlt = cleanOptional(form.heroImageAlt);
-  tooLong(
-    'heroImageAlt',
-    heroImageAlt,
-    LIMITS.imageAlt,
-    `El texto alternativo de la imagen del hero no puede superar ${LIMITS.imageAlt} caracteres.`,
-  );
-
-  const heroImageCredit = cleanOptional(form.heroImageCredit);
-  tooLong(
-    'heroImageCredit',
-    heroImageCredit,
-    LIMITS.imageCredit,
-    `El crédito de la imagen del hero no puede superar ${LIMITS.imageCredit} caracteres.`,
-  );
-
   if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return {
-    ok: true,
-    input: { name, tagline, bio, email, githubUrl, linkedinUrl, xUrl, heroImageUrl, heroImageAlt, heroImageCredit },
-  };
+  return { ok: true, input: { name, tagline, bio, email, githubUrl, linkedinUrl, xUrl } };
 }
 
 export type CoverValidation = { ok: true; coverUrl: string | null; coverAlt: string | null } | { ok: false; error: string };

@@ -94,9 +94,6 @@ describe('validateSettings', () => {
         githubUrl: null,
         linkedinUrl: null,
         xUrl: null,
-        heroImageUrl: null,
-        heroImageAlt: null,
-        heroImageCredit: null,
       },
     });
   });
@@ -111,14 +108,12 @@ describe('validateSettings', () => {
 
   it('límites de largo como la API', () => {
     const result = validateSettings(
-      form({ name: 'a'.repeat(101), tagline: 'a'.repeat(201), bio: 'a'.repeat(2001), heroImageAlt: 'a'.repeat(301), heroImageCredit: 'a'.repeat(201) }),
+      form({ name: 'a'.repeat(101), tagline: 'a'.repeat(201), bio: 'a'.repeat(2001) }),
     );
     assert.deepEqual(!result.ok && result.errors, {
       name: 'El nombre no puede superar 100 caracteres.',
       tagline: 'La frase no puede superar 200 caracteres.',
       bio: 'La bio no puede superar 2000 caracteres.',
-      heroImageAlt: 'El texto alternativo de la imagen del hero no puede superar 300 caracteres.',
-      heroImageCredit: 'El crédito de la imagen del hero no puede superar 200 caracteres.',
     });
   });
 
@@ -134,7 +129,6 @@ describe('validateSettings', () => {
         githubUrl: 'github.com/alan',
         linkedinUrl: 'javascript:alert(1)',
         xUrl: '/media/x.png',
-        heroImageUrl: 'ftp://x.com/a.jpg',
       }),
     );
     assert.deepEqual(!result.ok && result.errors, {
@@ -142,13 +136,13 @@ describe('validateSettings', () => {
       githubUrl: 'El enlace de GitHub debe ser una URL http(s).',
       linkedinUrl: 'El enlace de LinkedIn debe ser una URL http(s).',
       xUrl: 'El enlace de X debe ser una URL http(s).',
-      heroImageUrl: 'La imagen del hero debe ser una ruta /media/... o una URL http(s).',
     });
   });
 
-  it('acepta la imagen del hero subida (/media/...) o externa (https)', () => {
-    assert.equal(validateSettings(form({ heroImageUrl: '/media/hero.jpg' })).ok, true);
-    assert.equal(validateSettings(form({ heroImageUrl: 'https://images.example.com/hero.jpg' })).ok, true);
+  it('la foto del hero ya no es un ajuste: el formulario no tiene campos heroImage* (L10)', () => {
+    assert.deepEqual(Object.keys(emptySettingsForm()).filter((key) => key.startsWith('heroImage')), []);
+    const result = validateSettings(form());
+    assert.deepEqual(result.ok && Object.keys(result.input).filter((key) => key.startsWith('heroImage')), []);
   });
 });
 
@@ -162,9 +156,6 @@ describe('toSettingsForm', () => {
       githubUrl: 'https://github.com/a',
       linkedinUrl: null,
       xUrl: null,
-      heroImageUrl: null,
-      heroImageAlt: null,
-      heroImageCredit: null,
     };
     assert.deepEqual(toSettingsForm(settings), {
       ...emptySettingsForm(),
@@ -183,9 +174,6 @@ describe('toSettingsForm', () => {
       githubUrl: null,
       linkedinUrl: 'https://linkedin.com/in/a',
       xUrl: null,
-      heroImageUrl: '/media/h.jpg',
-      heroImageAlt: 'Montañas',
-      heroImageCredit: 'Foto: Alan',
     };
     assert.deepEqual(validateSettings(toSettingsForm(settings)), { ok: true, input: settings });
   });

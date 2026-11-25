@@ -49,7 +49,41 @@ export interface SiteSettings {
   githubUrl: string | null;
   linkedinUrl: string | null;
   xUrl: string | null;
-  heroImageUrl: string | null;
-  heroImageAlt: string | null;
-  heroImageCredit: string | null;
+}
+
+/** Una versión optimizada de una imagen subida (L10: AVIF y WebP en varios anchos). */
+export interface MediaVariant {
+  format: 'avif' | 'webp';
+  width: number;
+  url: string;
+}
+
+/** `MediaAssetDto`: lo que devuelve `POST /api/admin/media`. */
+export interface MediaAsset {
+  id: string;
+  /** WebP del mayor ancho ≤ 1600: la URL que usan el Markdown y las portadas. */
+  url: string;
+  width: number;
+  height: number;
+  /** Color dominante `#rrggbb`. */
+  color: string;
+  /** Miniatura borrosa de ~16 px en data URI, para mostrar mientras carga la imagen real. */
+  placeholder: string;
+  variants: MediaVariant[];
+  createdAt: string;
+}
+
+/** `HeroImageDto`: una foto de la galería del hero (la home muestra una al azar en cada visita). */
+export interface HeroImage {
+  id: string;
+  media: MediaAsset;
+  alt: string;
+  credit: string | null;
+  createdAt: string;
+}
+
+/** Lo que se edita de una foto del hero (cuerpo del PUT; el POST agrega `mediaId`). */
+export interface HeroImageInput {
+  alt: string;
+  credit: string | null;
 }

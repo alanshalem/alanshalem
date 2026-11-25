@@ -1,5 +1,5 @@
 import { messageFromProblem } from './problem.ts';
-import type { Post, PostInput, PostSummary, SiteSettings } from './types.ts';
+import type { HeroImage, HeroImageInput, MediaAsset, Post, PostInput, PostSummary, SiteSettings } from './types.ts';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -44,6 +44,13 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
 
+/** Sube una imagen; la API la optimiza (AVIF/WebP en varios anchos) y devuelve el asset con sus variantes. */
+function uploadMedia(file: File): Promise<MediaAsset> {
+  const form = new FormData();
+  form.append('file', file);
+  return request<MediaAsset>('POST', '/admin/media', form);
+}
+
 export const api = {
   /** 200 si hay sesión, ApiError(401) si no. */
   me: () => request<{ authenticated: true }>('GET', '/auth/me'),
@@ -62,11 +69,15 @@ export const api = {
   /** Guarda los ajustes; la API pide un rebuild del sitio (nombre, bio y links están en todas las páginas). */
   saveSettings: (input: SiteSettings) => request<SiteSettings>('PUT', '/admin/settings', input),
 
-  /** Sube una imagen y devuelve la URL pública (relativa, /media/...): para el Markdown, la portada o el hero. */
-  async uploadImage(file: File): Promise<string> {
-    const form = new FormData();
-    form.append('file', file);
-    const { url } = await request<{ url: string }>('POST', '/admin/media', form);
-    return url;
-  },
+  uploadMedia,
+  /** Sube una imagen y devuelve solo su URL pública (/media/...): lo que necesitan el Markdown y la portada. */
+  uploadImage: async (file: File): Promise<string> => (await uploadMedia(file)).url,
+
+  // Galería del hero. Cada cambio pide un rebuild del sitio (la galería va embebida en la home).
+  listHeroImages: () => request<HeroImage[]>('GET', '/admin/hero-images'),
+  createHeroImage: (mediaId: string, input: HeroImageInput) =>
+    request<HeroImage>('POST', '/admin/hero-images', { mediaId, ...input }),
+  updateHeroImage: (id: string, input: HeroImageInput) =>
+    request<HeroImage>('PUT', `/admin/hero-images/${encodeURIComponent(id)}`, input),
+  deleteHeroImage: (id: string) => request<void>('DELETE', `/admin/hero-images/${encodeURIComponent(id)}`),
 };

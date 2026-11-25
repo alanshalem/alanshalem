@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import { isImageUrl } from '../settings/validate.ts';
+import { ImagePreview } from './ImagePreview.tsx';
 
 interface Props {
   legend: string;
@@ -15,28 +16,23 @@ interface Props {
   altError?: string | undefined;
   /** Explicación debajo del bloque. */
   help?: ReactNode;
-  /** Campos extra (p. ej. el crédito de la foto del hero). */
-  children?: ReactNode;
 }
 
-const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif';
+/** Formatos que acepta la subida de media (input `accept`). */
+export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif';
 
 /**
- * Bloque de imagen reutilizable (portada del post, foto del hero): subir un archivo o pegar una URL,
+ * Bloque de imagen reutilizable (portada del post): subir un archivo o pegar una URL,
  * texto alternativo, miniatura y botón para quitarla.
  */
-export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUpload, error, altError, help, children }: Props) {
+export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUpload, error, altError, help }: Props) {
   const id = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [broken, setBroken] = useState(false);
 
   const trimmed = url.trim();
   const canPreview = trimmed !== '' && isImageUrl(trimmed);
-
-  // Una URL nueva merece otro intento de vista previa.
-  useEffect(() => setBroken(false), [trimmed]);
 
   const handleFile = async (file: File | undefined): Promise<void> => {
     if (!file) return;
@@ -59,15 +55,11 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUploa
       <legend className="label">{legend}</legend>
 
       <div className="image-field-grid">
-        <div className="image-field-preview">
-          {canPreview && !broken ? (
-            <img src={trimmed} alt={alt.trim() || 'Vista previa'} onError={() => setBroken(true)} />
-          ) : (
-            <span className="image-field-empty">
-              {trimmed === '' ? 'Sin imagen' : broken ? 'No se pudo cargar la vista previa' : 'URL no válida'}
-            </span>
-          )}
-        </div>
+        <ImagePreview
+          src={canPreview ? trimmed : null}
+          alt={alt.trim() || 'Vista previa'}
+          emptyText={trimmed === '' ? 'Sin imagen' : 'URL no válida'}
+        />
 
         <div className="image-field-controls">
           <div className="actions">
@@ -91,7 +83,7 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUploa
             <input
               ref={fileInputRef}
               type="file"
-              accept={ACCEPT}
+              accept={IMAGE_ACCEPT}
               hidden
               onChange={(event) => {
                 void handleFile(event.target.files?.[0]);
@@ -129,8 +121,6 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUploa
             />
           </label>
           {altError && <p className="field-error">{altError}</p>}
-
-          {children}
 
           <p className="field-status" role="status" aria-live="polite">
             {status}

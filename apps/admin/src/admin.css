@@ -128,6 +128,7 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
   white-space: nowrap;
 }
 .chip-published { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
+.chip-error { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
 
 /* ==========================================================================
    Estructura
@@ -290,7 +291,7 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
 }
 .danger-zone { margin-top: var(--space-3); padding-top: var(--space-1-25); border-top: var(--rule); }
 
-/* ----- Bloque de imagen (portada, foto del hero) ----- */
+/* ----- Bloque de imagen (portada) y miniaturas (también las de las fotos del hero) ----- */
 .image-field {
   margin: 0 0 var(--space-1-75);
   padding: var(--space-1-25);
@@ -307,6 +308,9 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
   display: grid;
   place-items: center;
   overflow: hidden;
+  /* Color dominante y placeholder borroso (si los hay) mientras baja la imagen. */
+  background-size: cover;
+  background-position: center;
 }
 .image-field-preview img { width: 100%; height: 100%; object-fit: cover; }
 .image-field-empty { padding: var(--space-1); font-size: var(--text-xs); color: var(--text-tertiary); text-align: center; }
@@ -389,6 +393,16 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
 .bio-preview.paper { min-height: 14rem; padding: var(--space-1-5) var(--space-1-75); }
 .bio-preview .prose { max-width: none; }
 .bio-preview-empty { font-family: var(--font-ui); font-size: var(--text-xs); color: var(--paper-muted); }
+
+/* Fotos del hero: subir arriba, una fila por foto (miniatura + campos) con reglas de 1px como la lista de posts. */
+.hero-upload { display: flex; align-items: center; gap: var(--space-0-9) var(--space-1-25); flex-wrap: wrap; }
+.hero-list { list-style: none; padding: 0; margin-top: var(--space-0-9); border-top: var(--rule); }
+.hero-list + .hero-list { margin-top: var(--space-1-75); }
+.hero-card { display: grid; gap: var(--space-1) var(--space-1-5); padding: var(--space-1-25) 0; border-bottom: var(--rule); }
+@media (min-width: 800px) { .hero-card { grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); } }
+.hero-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-0-5); min-width: 0; }
+.hero-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hero-empty { margin-top: var(--space-0-9); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
