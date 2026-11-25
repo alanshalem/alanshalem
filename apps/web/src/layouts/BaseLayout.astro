@@ -5,6 +5,7 @@ import '../styles/site.css';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
 import { hreflangLinks, ogLocale, paths, ui, type Alternates, type Lang } from '../lib/i18n.ts';
+import { MEDIA_GUARD_SCRIPT } from '../lib/media-guard.ts';
 import { getSettings } from '../lib/settings.ts';
 import { absoluteUrl } from '../lib/site.ts';
 
@@ -52,6 +53,8 @@ const t = ui(lang);
 <html lang={lang}>
   <head>
     <meta charset="utf-8" />
+    <!-- Primero de todo: una imagen o video que no carga se oculta (fondo oscuro) en vez de verse roto. -->
+    <script is:inline set:html={MEDIA_GUARD_SCRIPT} />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0a0a0b" />
     <title>{fullTitle}</title>

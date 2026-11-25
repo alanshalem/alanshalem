@@ -25,5 +25,11 @@ export default defineConfig({
 
   devToolbar: { enabled: false },
 
-  vite: { server: { watch: reliableDevWatch } },
+  vite: {
+    server: {
+      watch: reliableDevWatch,
+      // Solo `astro dev`: en producción Caddy sirve /media desde el disco; acá lo sirve la API (en Development).
+      proxy: { '/media': process.env.API_URL ?? 'http://localhost:5090' },
+    },
+  },
 });

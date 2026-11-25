@@ -53,7 +53,7 @@ const more = posts.slice(4, 8);
   <section class:list={['hero', { 'hero--photo': hero, 'hero--type': !hero }]} aria-labelledby="hero-title">
     {
       hero?.kind === 'gallery' && (
-        <div class="hero-bg">
+        <div class="hero-bg" data-media>
           {/* Vacío a propósito: el script de abajo elige foto o video; completa estos tres hijos (en este orden) o pone el video encima. */}
           <picture id={HERO_ELEMENT_IDS.picture} class="hero-picture">
             <source type="image/avif" sizes={IMAGE_SIZES.hero} />
@@ -76,7 +76,7 @@ const more = posts.slice(4, 8);
     }
     {
       hero?.kind === 'static' && (
-        <div class="hero-bg">
+        <div class="hero-bg" data-media>
           <ResponsiveImage src={hero.src} alt="" context="hero" priority width={1920} height={1080} />
         </div>
       )
