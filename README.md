@@ -103,7 +103,7 @@ Esperá errores de compilación o de integración en el primer arranque; son esp
 
 1. `pnpm install` y commitear `pnpm-lock.yaml` (los Dockerfiles hoy usan `pnpm install` sin `--frozen-lockfile`).
 2. `pnpm typecheck && pnpm test`, y `dotnet test` en `apps/api`. Corregir lo que salga.
-3. Agregar las fuentes en `apps/web/public/fonts/` (Gloock, Pagella, Hanken Grotesk en `.woff2`). Faltan las Pagella; mientras tanto se usa la cadena de fallback.
+3. Fuentes: Gloock y Hanken Grotesk salen de npm (`pnpm --filter @blog/web fonts`); las Pagella (TeX Gyre Pagella, GUST) ya están versionadas en `apps/web/public/fonts/` (ver `LICENSES.txt`).
 4. Probar `pnpm build:web` con la API corriendo.
 5. Deploy y medir con `docker stats`: los límites de memoria del compose son topes, no consumo medido.
 

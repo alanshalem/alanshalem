@@ -2,7 +2,8 @@
 //   pnpm --filter @blog/web fonts
 //
 // Gloock y Hanken Grotesk salen de los paquetes @fontsource (licencia OFL).
-// Pagella (TeX Gyre Pagella, licencia GUST) NO está en npm: hay que bajarla de
+// Pagella (TeX Gyre Pagella, licencia GUST) NO está en npm: ya está versionada en public/fonts (ver LICENSES.txt).
+// Para regenerarla, bajarla de
 // https://www.gust.org.pl/projects/e-foundry/tex-gyre/pagella, convertir los .otf a woff2
 // y dejarlos como pagella-regular-latin.woff2, pagella-italic-latin.woff2 y pagella-bold-latin.woff2.
 // Sin ellos el sitio funciona igual: la pila de fuentes cae a Palatino / Georgia.
