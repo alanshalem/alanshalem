@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from './api/client.ts';
+import { UiLanguageSwitch, useUiLanguage } from './i18n/UiLanguage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { PostEditorPage } from './pages/PostEditorPage.tsx';
 import { PostsPage } from './pages/PostsPage.tsx';
@@ -12,6 +13,7 @@ type Session = 'loading' | 'anonymous' | 'authenticated';
 export function App() {
   const [session, setSession] = useState<Session>('loading');
   const route = useRoute();
+  const { t } = useUiLanguage();
 
   useEffect(() => {
     api
@@ -34,7 +36,7 @@ export function App() {
     return false;
   }, []);
 
-  if (session === 'loading') return <p className="center-note">Cargando…</p>;
+  if (session === 'loading') return <p className="center-note">{t('common.loading')}</p>;
   if (session === 'anonymous') return <LoginPage onLoggedIn={() => setSession('authenticated')} />;
 
   const section = route.name === 'settings' ? 'settings' : 'posts';
@@ -42,25 +44,26 @@ export function App() {
   return (
     <div className="shell">
       <a className="skip-link" href="#main">
-        Saltar al contenido
+        {t('nav.skip')}
       </a>
       <header className="shell-header">
         <a className="brand" href={href.posts}>
           Admin
         </a>
-        <nav className="shell-nav" aria-label="Secciones">
+        <nav className="shell-nav" aria-label={t('nav.sections')}>
           <a href={href.posts} aria-current={section === 'posts' ? 'page' : undefined}>
-            Posts
+            {t('nav.posts')}
           </a>
           <a href={href.settings} aria-current={section === 'settings' ? 'page' : undefined}>
-            Ajustes
+            {t('nav.settings')}
           </a>
           <a href={SITE_URL} target="_blank" rel="noopener">
-            Ver sitio ↗
+            {t('nav.viewSite')}
           </a>
         </nav>
-        <button type="button" className="ghost logout" onClick={() => void handleLogout()}>
-          Salir
+        <UiLanguageSwitch />
+        <button type="button" className="ghost" onClick={() => void handleLogout()}>
+          {t('nav.logout')}
         </button>
       </header>
       <main id="main" className="shell-main" tabIndex={-1}>

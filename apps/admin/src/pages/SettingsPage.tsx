@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from '../api/client.ts';
 import { HeroGallery } from '../hero/HeroGallery.tsx';
+import type { Translate } from '../i18n/i18n.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { BioField } from '../settings/BioField.tsx';
 import {
   emptySettingsForm,
@@ -18,9 +20,6 @@ interface Props {
 
 type TextKey = Exclude<keyof SettingsForm, 'bio' | 'bioEn'>;
 
-// Los textos en inglés son opcionales (L3, L6): vacíos, el sitio en inglés muestra los de español.
-const SPANISH_FALLBACK_HINT = 'Si queda vacío, el sitio en inglés usa el texto en español.';
-
 const FORM_ID = 'settings-form';
 
 interface TextFieldSpec {
@@ -33,20 +32,17 @@ interface TextFieldSpec {
   required?: boolean;
 }
 
-const IDENTITY: TextFieldSpec[] = [
-  { key: 'name', label: 'Nombre', required: true, maxLength: LIMITS.name, hint: 'Aparece en el hero y en el footer.' },
-  { key: 'nameEn', label: 'Nombre (inglés)', maxLength: LIMITS.name, hint: SPANISH_FALLBACK_HINT },
-  {
-    key: 'tagline',
-    label: 'Frase corta',
-    maxLength: LIMITS.tagline,
-    hint: 'Una línea: la descripción del sitio para buscadores y redes.',
-  },
-  { key: 'taglineEn', label: 'Frase corta (inglés)', maxLength: LIMITS.tagline, hint: SPANISH_FALLBACK_HINT },
+// Los textos en inglés son opcionales (L3, L6): vacíos, el sitio en inglés muestra los de español (`fallbackHint`).
+const identityFields = (t: Translate): TextFieldSpec[] => [
+  { key: 'name', label: t('settings.name'), required: true, maxLength: LIMITS.name, hint: t('settings.nameHint') },
+  { key: 'nameEn', label: t('settings.nameEn'), maxLength: LIMITS.name, hint: t('settings.fallbackHint') },
+  { key: 'tagline', label: t('settings.tagline'), maxLength: LIMITS.tagline, hint: t('settings.taglineHint') },
+  { key: 'taglineEn', label: t('settings.taglineEn'), maxLength: LIMITS.tagline, hint: t('settings.fallbackHint') },
 ];
 
-const LINKS: TextFieldSpec[] = [
-  { key: 'email', label: 'Email', type: 'email', placeholder: 'vos@ejemplo.com' },
+// GitHub, LinkedIn y X son marcas: no se traducen.
+const linkFields = (t: Translate): TextFieldSpec[] => [
+  { key: 'email', label: t('settings.email'), type: 'email', placeholder: t('settings.emailPlaceholder') },
   { key: 'githubUrl', label: 'GitHub', type: 'url', placeholder: 'https://github.com/…' },
   { key: 'linkedinUrl', label: 'LinkedIn', type: 'url', placeholder: 'https://www.linkedin.com/in/…' },
   { key: 'xUrl', label: 'X', type: 'url', placeholder: 'https://x.com/…' },
@@ -57,6 +53,8 @@ const LINKS: TextFieldSpec[] = [
  * <form>: cada una se guarda por separado y sus campos no deben disparar el "Guardar" de los ajustes.
  */
 export function SettingsPage({ onError }: Props) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const [form, setForm] = useState<SettingsForm>(emptySettingsForm);
   const [saved, setSaved] = useState<string>(() => JSON.stringify(emptySettingsForm()));
   const [loading, setLoading] = useState(true);
@@ -76,10 +74,12 @@ export function SettingsPage({ onError }: Props) {
       })
       .catch((caught: unknown) => {
         if (!onError(caught)) {
-          setMessage({ kind: 'error', text: `No se pudieron cargar los ajustes: ${caught instanceof Error ? caught.message : 'error desconocido'}` });
+          const error = caught instanceof Error ? caught.message : t('error.unknown');
+          setMessage({ kind: 'error', text: t('settings.loadError', { error }) });
         }
       })
       .finally(() => setLoading(false));
+    // Sin `t`: cambiar el idioma de la interfaz no vuelve a cargar los ajustes (pisaría lo que se está editando).
   }, [onError]);
 
   useEffect(() => {
@@ -99,10 +99,10 @@ export function SettingsPage({ onError }: Props) {
   };
 
   const save = useCallback(async (): Promise<void> => {
-    const result = validateSettings(form);
+    const result = validateSettings(form, i18n);
     if (!result.ok) {
       setErrors(result.errors);
-      setMessage({ kind: 'error', text: 'Revisá los campos marcados.' });
+      setMessage({ kind: 'error', text: t('settings.checkFields') });
       // Llevar el foco al primer campo con error, para teclado y lectores de pantalla.
       const first = Object.keys(result.errors)[0];
       if (first) document.getElementById(`settings-${first}`)?.focus();
@@ -115,19 +115,16 @@ export function SettingsPage({ onError }: Props) {
       const stored = toSettingsForm(await api.saveSettings(result.input));
       setForm(stored);
       setSaved(JSON.stringify(stored));
-      setMessage({
-        kind: 'ok',
-        text: 'Ajustes guardados. El sitio se está regenerando; en unos segundos los cambios estarán online.',
-      });
+      setMessage({ kind: 'ok', text: t('settings.saved') });
     } catch (caught) {
       if (!onError(caught)) {
         // El mensaje de la API (ProblemDetails) es la autoridad: se muestra tal cual.
-        setMessage({ kind: 'error', text: caught instanceof Error ? caught.message : 'No se pudieron guardar los ajustes.' });
+        setMessage({ kind: 'error', text: caught instanceof Error ? caught.message : t('settings.saveError') });
       }
     } finally {
       setBusy(false);
     }
-  }, [form, onError]);
+  }, [form, onError, i18n, t]);
 
   // Ctrl/Cmd+S guarda, igual que en el editor de posts.
   const saveRef = useRef(save);
@@ -148,7 +145,7 @@ export function SettingsPage({ onError }: Props) {
     void save();
   };
 
-  if (loading) return <p className="center-note">Cargando…</p>;
+  if (loading) return <p className="center-note">{t('common.loading')}</p>;
 
   const renderField = (spec: TextFieldSpec) => {
     const id = `settings-${spec.key}`;
@@ -190,13 +187,13 @@ export function SettingsPage({ onError }: Props) {
     <div className="settings">
       <div className="page-head page-head-sticky">
         <div>
-          <p className="eyebrow">Sitio</p>
-          <h1 className="page-title">Ajustes</h1>
+          <p className="eyebrow">{t('settings.eyebrow')}</p>
+          <h1 className="page-title">{t('nav.settings')}</h1>
         </div>
         <div className="actions">
-          <span className="meta">{dirty ? 'Cambios sin guardar' : 'Todo guardado'}</span>
+          <span className="meta">{dirty ? t('common.unsaved') : t('common.allSaved')}</span>
           <button type="submit" form={FORM_ID} className="primary" disabled={busy || !dirty}>
-            {busy ? 'Guardando…' : 'Guardar'}
+            {busy ? t('common.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -214,38 +211,38 @@ export function SettingsPage({ onError }: Props) {
       <form id={FORM_ID} onSubmit={handleSubmit} noValidate>
         <section className="settings-section" aria-labelledby="settings-identity">
           <div className="section-head">
-            <h2 id="settings-identity">Autor</h2>
-            <p className="section-note">Lo que se ve en el hero y el footer de todas las páginas.</p>
+            <h2 id="settings-identity">{t('settings.author')}</h2>
+            <p className="section-note">{t('settings.authorNote')}</p>
           </div>
-          <div className="settings-grid">{IDENTITY.map(renderField)}</div>
+          <div className="settings-grid">{identityFields(t).map(renderField)}</div>
 
           <BioField
             name="bio"
-            label="Bio (Markdown)"
+            label={t('settings.bio')}
             lang="es"
             value={form.bio}
             error={errors.bio}
-            placeholder="Dos o tres líneas sobre vos. Admite **negrita**, *cursiva* y [links](https://…)."
+            placeholder={t('settings.bioPlaceholder')}
             onChange={(value) => update('bio', value)}
           />
           <BioField
             name="bioEn"
-            label="Bio en inglés (Markdown)"
+            label={t('settings.bioEn')}
             lang="en"
             value={form.bioEn}
             error={errors.bioEn}
-            hint={SPANISH_FALLBACK_HINT}
-            placeholder="La misma bio, en inglés."
+            hint={t('settings.fallbackHint')}
+            placeholder={t('settings.bioEnPlaceholder')}
             onChange={(value) => update('bioEn', value)}
           />
         </section>
 
         <section className="settings-section" aria-labelledby="settings-links">
           <div className="section-head">
-            <h2 id="settings-links">Contacto y redes</h2>
-            <p className="section-note">Vacío = no se muestra. Los enlaces tienen que empezar con https://.</p>
+            <h2 id="settings-links">{t('settings.links')}</h2>
+            <p className="section-note">{t('settings.linksNote')}</p>
           </div>
-          <div className="settings-grid">{LINKS.map(renderField)}</div>
+          <div className="settings-grid">{linkFields(t).map(renderField)}</div>
         </section>
       </form>
 

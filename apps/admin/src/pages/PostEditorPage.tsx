@@ -4,9 +4,10 @@ import { api } from '../api/client.ts';
 import type { Post, PostInput } from '../api/types.ts';
 import { ImageField } from '../components/ImageField.tsx';
 import { MarkdownEditor } from '../editor/MarkdownEditor.tsx';
-import { DEFAULT_LANG, LANG_LABELS, LANGS, type Lang } from '../languages.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
+import { DEFAULT_LANG, LANGS, type Lang } from '../languages.ts';
 import { PostVersions } from '../posts/PostVersions.tsx';
-import { STATUS_LABELS } from '../posts/versions.ts';
+import { statusLabel } from '../posts/versions.ts';
 import { validateCover } from '../settings/validate.ts';
 import { href, navigate } from '../useRoute.ts'; // navigate: solo al eliminar
 
@@ -52,6 +53,8 @@ const toInput = (form: Form, cover: Pick<PostInput, 'coverUrl' | 'coverAlt'>): P
 });
 
 export function PostEditorPage({ postId, onError }: Props) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const [post, setPost] = useState<Post | null>(null);
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [saved, setSaved] = useState<string>(JSON.stringify(EMPTY_FORM)); // para detectar cambios sin guardar
@@ -77,9 +80,10 @@ export function PostEditorPage({ postId, onError }: Props) {
         setSlugTouched(true); // un post existente conserva su slug aunque cambie el título
       })
       .catch((caught: unknown) => {
-        if (!onError(caught)) setMessage({ kind: 'error', text: 'No se pudo cargar el post.' });
+        if (!onError(caught)) setMessage({ kind: 'error', text: t('post.loadError') });
       })
       .finally(() => setLoading(false));
+    // Sin `t`: cambiar el idioma de la interfaz no vuelve a cargar el post (pisaría lo que se está editando).
   }, [postId, onError]);
 
   // Aviso del navegador si se intenta cerrar la pestaña con cambios sin guardar.
@@ -99,10 +103,10 @@ export function PostEditorPage({ postId, onError }: Props) {
   /** Guarda (crea o actualiza) y devuelve el post resultante, o null si falló. */
   const save = useCallback(async (): Promise<Post | null> => {
     if (form.title.trim() === '') {
-      setMessage({ kind: 'error', text: 'El título es obligatorio.' });
+      setMessage({ kind: 'error', text: t('post.titleRequired') });
       return null;
     }
-    const cover = validateCover(form.coverUrl, form.coverAlt);
+    const cover = validateCover(form.coverUrl, form.coverAlt, i18n);
     if (!cover.ok) {
       setCoverError(cover.error);
       setMessage({ kind: 'error', text: cover.error });
@@ -121,17 +125,17 @@ export function PostEditorPage({ postId, onError }: Props) {
       // El post nuevo pasa a tener su propia URL. replaceState (y no navigate) para no disparar
       // hashchange: remontaría la página en medio de un "Publicar" y perdería el mensaje de resultado.
       if (!post) window.history.replaceState(null, '', href.post(result.id));
-      setMessage({ kind: 'ok', text: 'Guardado.' });
+      setMessage({ kind: 'ok', text: t('post.saved') });
       return result;
     } catch (caught) {
       if (!onError(caught)) {
-        setMessage({ kind: 'error', text: caught instanceof Error ? caught.message : 'No se pudo guardar.' });
+        setMessage({ kind: 'error', text: caught instanceof Error ? caught.message : t('post.saveError') });
       }
       return null;
     } finally {
       setBusy(false);
     }
-  }, [form, post, newLang, onError]);
+  }, [form, post, newLang, onError, i18n, t]);
 
   // Ctrl/Cmd+S guarda. El ref evita re-registrar el listener en cada tecla.
   const saveRef = useRef(save);
@@ -153,9 +157,9 @@ export function PostEditorPage({ postId, onError }: Props) {
     setBusy(true);
     try {
       setPost(await api.publishPost(current.id));
-      setMessage({ kind: 'ok', text: 'Publicado. El sitio se está regenerando; en unos segundos estará online.' });
+      setMessage({ kind: 'ok', text: t('post.publishedNote') });
     } catch (caught) {
-      if (!onError(caught)) setMessage({ kind: 'error', text: 'No se pudo publicar.' });
+      if (!onError(caught)) setMessage({ kind: 'error', text: t('post.publishError') });
     } finally {
       setBusy(false);
     }
@@ -166,28 +170,28 @@ export function PostEditorPage({ postId, onError }: Props) {
     setBusy(true);
     try {
       setPost(await api.unpublishPost(post.id));
-      setMessage({ kind: 'ok', text: 'Vuelto a borrador. El sitio se está regenerando.' });
+      setMessage({ kind: 'ok', text: t('post.unpublishedNote') });
     } catch (caught) {
-      if (!onError(caught)) setMessage({ kind: 'error', text: 'No se pudo despublicar.' });
+      if (!onError(caught)) setMessage({ kind: 'error', text: t('post.unpublishError') });
     } finally {
       setBusy(false);
     }
   };
 
   const handleDelete = async (): Promise<void> => {
-    if (!post || !window.confirm(`¿Eliminar "${post.title}"? No se puede deshacer.`)) return;
+    if (!post || !window.confirm(t('post.confirmDelete', { title: post.title }))) return;
     setBusy(true);
     try {
       await api.deletePost(post.id);
       setSaved(JSON.stringify(form)); // evita el aviso de cambios sin guardar al salir
       navigate(href.posts);
     } catch (caught) {
-      if (!onError(caught)) setMessage({ kind: 'error', text: 'No se pudo eliminar.' });
+      if (!onError(caught)) setMessage({ kind: 'error', text: t('post.deleteError') });
       setBusy(false);
     }
   };
 
-  if (loading) return <p>Cargando…</p>;
+  if (loading) return <p>{t('common.loading')}</p>;
 
   const isPublished = post?.status === 'published';
 
@@ -196,25 +200,25 @@ export function PostEditorPage({ postId, onError }: Props) {
       <div className="page-head page-head-sticky">
         <div>
           <a className="back-link" href={href.posts}>
-            ← Posts
+            ← {t('nav.posts')}
           </a>
-          <h1 className="page-title">{post ? post.title || '(sin título)' : 'Nuevo post'}</h1>
+          <h1 className="page-title">{post ? post.title || t('common.untitled') : t('post.new')}</h1>
         </div>
         <div className="actions">
-          <span className="meta">{dirty ? 'Cambios sin guardar' : post ? 'Todo guardado' : ''}</span>
+          <span className="meta">{dirty ? t('common.unsaved') : post ? t('common.allSaved') : ''}</span>
           {post && (
-            <span className={`chip chip-${post.status}`}>{STATUS_LABELS[post.status]}</span>
+            <span className={`chip chip-${post.status}`}>{statusLabel(post.status, i18n)}</span>
           )}
           <button type="button" disabled={busy || !dirty} onClick={() => void save()}>
-            Guardar
+            {t('common.save')}
           </button>
           {isPublished ? (
             <button type="button" disabled={busy} onClick={() => void handleUnpublish()}>
-              Despublicar
+              {t('post.unpublish')}
             </button>
           ) : null}
           <button type="button" className="primary" disabled={busy} onClick={() => void handlePublish()}>
-            {isPublished ? 'Guardar y republicar' : 'Publicar'}
+            {isPublished ? t('post.republish') : t('post.publish')}
           </button>
         </div>
       </div>
@@ -230,11 +234,11 @@ export function PostEditorPage({ postId, onError }: Props) {
       ) : (
         <div className="post-versions">
           <label className="field post-lang-select">
-            <span className="label">Idioma</span>
+            <span className="label">{t('post.language')}</span>
             <select value={newLang} onChange={(event) => setNewLang(event.target.value as Lang)}>
               {LANGS.map((lang) => (
                 <option key={lang} value={lang}>
-                  {LANG_LABELS[lang]}
+                  {t(`lang.label.${lang}`)}
                 </option>
               ))}
             </select>
@@ -244,11 +248,11 @@ export function PostEditorPage({ postId, onError }: Props) {
 
       <div className="fields">
         <label className="field">
-          <span className="label">Título</span>
+          <span className="label">{t('post.title')}</span>
           <input value={form.title} onChange={(event) => handleTitleChange(event.target.value)} maxLength={200} />
         </label>
         <label className="field">
-          <span className="label">Slug (URL)</span>
+          <span className="label">{t('post.slug')}</span>
           <input
             value={form.slug}
             onChange={(event) => {
@@ -256,21 +260,21 @@ export function PostEditorPage({ postId, onError }: Props) {
               update('slug', event.target.value);
             }}
             maxLength={120}
-            placeholder="se genera del título"
+            placeholder={t('post.slugPlaceholder')}
           />
         </label>
         <label className="field">
-          <span className="label">Resumen (para listados y SEO)</span>
+          <span className="label">{t('post.summary')}</span>
           <textarea value={form.summary} onChange={(event) => update('summary', event.target.value)} rows={2} maxLength={400} />
         </label>
         <label className="field">
-          <span className="label">Etiquetas (separadas por coma)</span>
+          <span className="label">{t('post.tags')}</span>
           <input value={form.tags} onChange={(event) => update('tags', event.target.value)} />
         </label>
       </div>
 
       <ImageField
-        legend="Portada"
+        legend={t('post.cover')}
         url={form.coverUrl}
         alt={form.coverAlt}
         onUrlChange={(coverUrl) => {
@@ -280,13 +284,7 @@ export function PostEditorPage({ postId, onError }: Props) {
         onAltChange={(coverAlt) => update('coverAlt', coverAlt)}
         onUpload={api.uploadImage}
         error={coverError ?? undefined}
-        help={
-          <>
-            Opcional. Se muestra en la home, en los listados y arriba del artículo. Si no cargás una portada, el sitio
-            usa la primera imagen del texto; si el texto no tiene ninguna imagen, genera una portada abstracta (siempre la
-            misma para este post).
-          </>
-        }
+        help={t('post.coverHelp')}
       />
 
       <MarkdownEditor value={form.body} onChange={(body) => update('body', body)} onUploadImage={api.uploadImage} />
@@ -294,7 +292,7 @@ export function PostEditorPage({ postId, onError }: Props) {
       {post && (
         <div className="danger-zone">
           <button type="button" className="danger" disabled={busy} onClick={() => void handleDelete()}>
-            Eliminar post
+            {t('post.delete')}
           </button>
         </div>
       )}

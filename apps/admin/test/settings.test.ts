@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { messageFromProblem } from '../src/api/problem.ts';
 import type { SiteSettings } from '../src/api/types.ts';
+import { i18nFor } from '../src/i18n/i18n.ts';
 import {
   cleanOptional,
   emptySettingsForm,
@@ -18,6 +19,9 @@ import {
  * Estas reglas son un espejo de las del dominio de la API (L4: SiteSettingsContent, PostContent, WebUrl).
  * Sirven para avisar antes de enviar; la API sigue siendo la autoridad y sus errores se muestran igual.
  */
+
+const es = i18nFor('es');
+const en = i18nFor('en');
 
 const form = (overrides: Partial<SettingsForm> = {}): SettingsForm => ({ ...emptySettingsForm(), name: 'Alan', ...overrides });
 
@@ -83,6 +87,7 @@ describe('validateSettings', () => {
   it('normaliza: recorta todo y los opcionales vacíos viajan como null', () => {
     const result = validateSettings(
       form({ name: '  Alan  ', tagline: ' Notas ', bio: '  Hola **mundo**  ', email: ' yo@ejemplo.com ', githubUrl: '   ' }),
+      es,
     );
     assert.deepEqual(result, {
       ok: true,
@@ -103,7 +108,7 @@ describe('validateSettings', () => {
 
   it('el nombre es obligatorio (vacío o solo espacios)', () => {
     for (const name of ['', '   ']) {
-      const result = validateSettings(form({ name }));
+      const result = validateSettings(form({ name }), es);
       assert.equal(result.ok, false);
       assert.deepEqual(!result.ok && result.errors, { name: 'El nombre es obligatorio.' });
     }
@@ -112,6 +117,7 @@ describe('validateSettings', () => {
   it('límites de largo como la API', () => {
     const result = validateSettings(
       form({ name: 'a'.repeat(101), tagline: 'a'.repeat(201), bio: 'a'.repeat(2001) }),
+      es,
     );
     assert.deepEqual(!result.ok && result.errors, {
       name: 'El nombre no puede superar 100 caracteres.',
@@ -121,7 +127,7 @@ describe('validateSettings', () => {
   });
 
   it('justo en el límite pasa', () => {
-    const result = validateSettings(form({ name: 'a'.repeat(100), bio: 'a'.repeat(2000) }));
+    const result = validateSettings(form({ name: 'a'.repeat(100), bio: 'a'.repeat(2000) }), es);
     assert.equal(result.ok, true);
   });
 
@@ -133,6 +139,7 @@ describe('validateSettings', () => {
         linkedinUrl: 'javascript:alert(1)',
         xUrl: '/media/x.png',
       }),
+      es,
     );
     assert.deepEqual(!result.ok && result.errors, {
       email: 'El email no tiene un formato válido.',
@@ -144,14 +151,14 @@ describe('validateSettings', () => {
 
   it('la foto del hero ya no es un ajuste: el formulario no tiene campos heroImage* (L10)', () => {
     assert.deepEqual(Object.keys(emptySettingsForm()).filter((key) => key.startsWith('heroImage')), []);
-    const result = validateSettings(form());
+    const result = validateSettings(form(), es);
     assert.deepEqual(result.ok && Object.keys(result.input).filter((key) => key.startsWith('heroImage')), []);
   });
 });
 
 describe('validateSettings: textos en inglés (L4, L6: nameEn, taglineEn y bioEn, mismos límites que sus pares)', () => {
   it('recorta; vacíos viajan como null (el sitio en inglés usa el texto en español)', () => {
-    const result = validateSettings(form({ nameEn: '  Alan S.  ', taglineEn: '  Notes  ', bioEn: '   ' }));
+    const result = validateSettings(form({ nameEn: '  Alan S.  ', taglineEn: '  Notes  ', bioEn: '   ' }), es);
     assert.equal(result.ok && result.input.nameEn, 'Alan S.');
     assert.equal(result.ok && result.input.taglineEn, 'Notes');
     assert.equal(result.ok && result.input.bioEn, null);
@@ -159,22 +166,49 @@ describe('validateSettings: textos en inglés (L4, L6: nameEn, taglineEn y bioEn
 
   it('el nombre en inglés no es obligatorio aunque el nombre sí (vacío o solo espacios = null)', () => {
     for (const nameEn of ['', '   ']) {
-      const result = validateSettings(form({ nameEn }));
+      const result = validateSettings(form({ nameEn }), es);
       assert.equal(result.ok && result.input.nameEn, null);
     }
   });
 
   it('justo en el límite pasa', () => {
-    const result = validateSettings(form({ nameEn: 'a'.repeat(100), taglineEn: 'a'.repeat(200), bioEn: 'a'.repeat(2000) }));
+    const result = validateSettings(form({ nameEn: 'a'.repeat(100), taglineEn: 'a'.repeat(200), bioEn: 'a'.repeat(2000) }), es);
     assert.equal(result.ok, true);
   });
 
   it('un carácter de más: error en cada campo en inglés', () => {
-    const result = validateSettings(form({ nameEn: 'a'.repeat(101), taglineEn: 'a'.repeat(201), bioEn: 'a'.repeat(2001) }));
+    const result = validateSettings(form({ nameEn: 'a'.repeat(101), taglineEn: 'a'.repeat(201), bioEn: 'a'.repeat(2001) }), es);
     assert.deepEqual(!result.ok && result.errors, {
       nameEn: 'El nombre en inglés no puede superar 100 caracteres.',
       taglineEn: 'La frase en inglés no puede superar 200 caracteres.',
       bioEn: 'La bio en inglés no puede superar 2000 caracteres.',
+    });
+  });
+});
+
+describe('validateSettings y validateCover en inglés (L4: también se traducen los mensajes del cliente)', () => {
+  it('obligatorio, largo y formato', () => {
+    assert.deepEqual(validateSettings(form({ name: ' ' }), en), { ok: false, errors: { name: 'The name is required.' } });
+    const result = validateSettings(
+      form({ tagline: 'a'.repeat(201), bioEn: 'a'.repeat(2001), email: 'yo@ejemplo', githubUrl: 'github.com/alan' }),
+      en,
+    );
+    assert.deepEqual(!result.ok && result.errors, {
+      tagline: 'The tagline can’t be longer than 200 characters.',
+      bioEn: 'The English bio can’t be longer than 2000 characters.',
+      email: 'The email address isn’t valid.',
+      githubUrl: 'The GitHub link must be an http(s) URL.',
+    });
+  });
+
+  it('portada', () => {
+    assert.deepEqual(validateCover('imagenes/p.jpg', '', en), {
+      ok: false,
+      error: 'The cover must be a /media/... path or an http(s) URL.',
+    });
+    assert.deepEqual(validateCover('/media/p.jpg', 'a'.repeat(301), en), {
+      ok: false,
+      error: 'The cover alt text can’t be longer than 300 characters.',
     });
   });
 });
@@ -215,28 +249,28 @@ describe('toSettingsForm', () => {
       linkedinUrl: 'https://linkedin.com/in/a',
       xUrl: null,
     };
-    assert.deepEqual(validateSettings(toSettingsForm(settings)), { ok: true, input: settings });
+    assert.deepEqual(validateSettings(toSettingsForm(settings), es), { ok: true, input: settings });
   });
 });
 
 describe('validateCover', () => {
   it('sin portada: ambos null (un alt sin imagen no significa nada)', () => {
-    assert.deepEqual(validateCover('  ', 'texto suelto'), { ok: true, coverUrl: null, coverAlt: null });
+    assert.deepEqual(validateCover('  ', 'texto suelto', es), { ok: true, coverUrl: null, coverAlt: null });
   });
 
   it('recorta URL y alt; alt vacío = null', () => {
-    assert.deepEqual(validateCover(' /media/p.jpg ', '  Un faro  '), { ok: true, coverUrl: '/media/p.jpg', coverAlt: 'Un faro' });
-    assert.deepEqual(validateCover('https://x.com/p.jpg', ' '), { ok: true, coverUrl: 'https://x.com/p.jpg', coverAlt: null });
+    assert.deepEqual(validateCover(' /media/p.jpg ', '  Un faro  ', es), { ok: true, coverUrl: '/media/p.jpg', coverAlt: 'Un faro' });
+    assert.deepEqual(validateCover('https://x.com/p.jpg', ' ', es), { ok: true, coverUrl: 'https://x.com/p.jpg', coverAlt: null });
   });
 
   it('rechaza URLs que la API rechaza, con su mensaje', () => {
     for (const bad of ['javascript:alert(1)', '//otro.com/p.jpg', 'imagenes/p.jpg']) {
-      assert.deepEqual(validateCover(bad, ''), { ok: false, error: 'La portada debe ser una ruta /media/... o una URL http(s).' });
+      assert.deepEqual(validateCover(bad, '', es), { ok: false, error: 'La portada debe ser una ruta /media/... o una URL http(s).' });
     }
   });
 
   it('alt de más de 300 caracteres', () => {
-    assert.deepEqual(validateCover('/media/p.jpg', 'a'.repeat(301)), {
+    assert.deepEqual(validateCover('/media/p.jpg', 'a'.repeat(301), es), {
       ok: false,
       error: 'El texto alternativo de la portada no puede superar 300 caracteres.',
     });

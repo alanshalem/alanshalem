@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { api } from '../api/client.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { Lang } from '../languages.ts';
 import { href, navigate } from '../useRoute.ts';
 
@@ -8,6 +9,7 @@ import { href, navigate } from '../useRoute.ts';
  * El mensaje de la API (409 si ya existe, en español) se muestra tal cual.
  */
 export function useCreateTranslation(onError: (error: unknown) => boolean) {
+  const { t } = useUiLanguage();
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,12 +21,12 @@ export function useCreateTranslation(onError: (error: unknown) => boolean) {
         const draft = await api.createTranslation(sourceId, lang);
         navigate(href.post(draft.id));
       } catch (caught) {
-        if (!onError(caught)) setError(caught instanceof Error ? caught.message : 'No se pudo crear la versión.');
+        if (!onError(caught)) setError(caught instanceof Error ? caught.message : t('versions.createError'));
       } finally {
         setCreating(false);
       }
     },
-    [onError],
+    [onError, t],
   );
 
   return { create, creating, error };

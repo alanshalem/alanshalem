@@ -1,5 +1,6 @@
 import { renderMarkdown } from '@blog/markdown';
 import { useDeferredValue, useMemo } from 'react';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { Lang } from '../languages.ts';
 import { LIMITS } from './validate.ts';
 
@@ -18,6 +19,7 @@ interface Props {
 
 /** Bio en Markdown con su vista previa al lado, tal como la muestra el sitio. Una por idioma. */
 export function BioField({ name, label, lang, value, error, hint, placeholder, onChange }: Props) {
+  const { t } = useUiLanguage();
   const id = `settings-${name}`;
   // Diferido: renderizar el Markdown no frena el tipeo.
   const deferred = useDeferredValue(value);
@@ -59,11 +61,11 @@ export function BioField({ name, label, lang, value, error, hint, placeholder, o
       </div>
       <div className="field">
         <span className="label" id={`${id}-preview`}>
-          Vista previa
+          {t('common.preview')}
         </span>
         <div className="paper bio-preview" aria-labelledby={`${id}-preview`}>
           {value.trim() === '' ? (
-            <p className="bio-preview-empty">Sin bio todavía.</p>
+            <p className="bio-preview-empty">{t('settings.bioEmpty')}</p>
           ) : (
             <div className="prose" lang={lang} dangerouslySetInnerHTML={{ __html: html }} />
           )}

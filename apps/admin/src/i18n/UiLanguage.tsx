@@ -1,0 +1,68 @@
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { langCode, LANGS, type Lang } from '../languages.ts';
+import { i18nFor, loadUiLang, saveUiLang, type I18n } from './i18n.ts';
+
+export interface UiLanguage extends I18n {
+  setLang: (lang: Lang) => void;
+}
+
+const UiLanguageContext = createContext<UiLanguage | null>(null);
+
+// Leer `window.localStorage` ya puede lanzar (cookies bloqueadas): sin almacenamiento, decide el navegador.
+function browserStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Idioma de la interfaz para todo el admin: el elegido (persistido) o el del navegador, y `<html lang>` al día. */
+export function UiLanguageProvider({ children }: { children: ReactNode }) {
+  const [lang, setLang] = useState<Lang>(() => loadUiLang(browserStorage(), navigator.language));
+
+  // Lectores de pantalla y el corrector del navegador leen la interfaz con el idioma correcto.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
+  const value = useMemo<UiLanguage>(
+    () => ({
+      ...i18nFor(lang),
+      setLang: (next) => {
+        saveUiLang(browserStorage(), next);
+        setLang(next);
+      },
+    }),
+    [lang],
+  );
+
+  return <UiLanguageContext value={value}>{children}</UiLanguageContext>;
+}
+
+/** El idioma de la interfaz y sus textos (`t`, `plural`, fechas). Solo dentro de `UiLanguageProvider`. */
+export function useUiLanguage(): UiLanguage {
+  const value = useContext(UiLanguageContext);
+  if (!value) throw new Error('useUiLanguage necesita un UiLanguageProvider arriba.');
+  return value;
+}
+
+/** Selector "ES | EN" (header y login): botones con aria-pressed, cada uno nombrado en el idioma actual. */
+export function UiLanguageSwitch() {
+  const { lang: current, setLang, t } = useUiLanguage();
+  return (
+    <div className="lang-switch" role="group" aria-label={t('uiLang.label')}>
+      {LANGS.map((lang) => (
+        <button
+          key={lang}
+          type="button"
+          aria-pressed={lang === current}
+          aria-label={t(`lang.label.${lang}`)}
+          onClick={() => setLang(lang)}
+        >
+          {langCode(lang)}
+        </button>
+      ))}
+    </div>
+  );
+}

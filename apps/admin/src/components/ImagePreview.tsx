@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 
 interface Props {
   /** `null` = no hay nada que mostrar todavía (se ve `emptyText`). */
@@ -18,6 +19,7 @@ const SAFE_PLACEHOLDER = /^data:image\/[a-z]+;base64,[a-z0-9+/=]+$/i;
 
 /** Miniatura con fondo de espera y aviso si la imagen o el video no cargan (portada, ítems del hero). */
 export function ImagePreview({ src, alt, emptyText, color, placeholder, video }: Props) {
+  const { t } = useUiLanguage();
   const [broken, setBroken] = useState(false);
 
   // Una imagen nueva merece otro intento de vista previa.
@@ -36,7 +38,7 @@ export function ImagePreview({ src, alt, emptyText, color, placeholder, video }:
       ) : src && !broken ? (
         <img src={src} alt={alt} decoding="async" onError={() => setBroken(true)} />
       ) : (
-        <span className="image-field-empty">{broken ? 'No se pudo cargar la vista previa' : emptyText}</span>
+        <span className="image-field-empty">{broken ? t('image.previewFailed') : emptyText}</span>
       )}
     </div>
   );

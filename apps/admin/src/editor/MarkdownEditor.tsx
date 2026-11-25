@@ -8,6 +8,8 @@ import {
   type DragEvent,
   type KeyboardEvent,
 } from 'react';
+import type { MessageKey } from '../i18n/i18n.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { applyEditToTextarea } from './applyEdit.ts';
 import {
   insertCodeBlock,
@@ -36,28 +38,31 @@ interface Props {
 }
 
 interface ToolbarAction {
-  label: string;
-  title: string;
+  /** Lo que se ve en el botón; sin símbolo, el botón muestra su nombre ("Link", "Tabla"). */
+  symbol?: string;
+  name: MessageKey;
+  /** Se agrega al nombre en el título ("Negrita (Ctrl+B)"); las teclas no se traducen. */
+  shortcut?: string;
   command: Command;
 }
 
 const TOOLBAR: Array<ToolbarAction | 'separator'> = [
-  { label: 'B', title: 'Negrita (Ctrl+B)', command: toggleBold },
-  { label: 'I', title: 'Cursiva (Ctrl+I)', command: toggleItalic },
-  { label: 'S', title: 'Tachado (Ctrl+Shift+X)', command: toggleStrike },
-  { label: '</>', title: 'Código en línea (Ctrl+E)', command: toggleCode },
+  { symbol: 'B', name: 'editor.bold', shortcut: 'Ctrl+B', command: toggleBold },
+  { symbol: 'I', name: 'editor.italic', shortcut: 'Ctrl+I', command: toggleItalic },
+  { symbol: 'S', name: 'editor.strike', shortcut: 'Ctrl+Shift+X', command: toggleStrike },
+  { symbol: '</>', name: 'editor.code', shortcut: 'Ctrl+E', command: toggleCode },
   'separator',
-  { label: 'H2', title: 'Título', command: setHeading(2) },
-  { label: 'H3', title: 'Subtítulo', command: setHeading(3) },
+  { symbol: 'H2', name: 'editor.heading', command: setHeading(2) },
+  { symbol: 'H3', name: 'editor.subheading', command: setHeading(3) },
   'separator',
-  { label: '•', title: 'Lista con viñetas', command: toggleBulletList },
-  { label: '1.', title: 'Lista numerada', command: toggleNumberedList },
-  { label: '❝', title: 'Cita', command: toggleQuote },
+  { symbol: '•', name: 'editor.bulletList', command: toggleBulletList },
+  { symbol: '1.', name: 'editor.numberedList', command: toggleNumberedList },
+  { symbol: '❝', name: 'editor.quote', command: toggleQuote },
   'separator',
-  { label: 'Link', title: 'Link (Ctrl+K)', command: insertLink },
-  { label: '{ }', title: 'Bloque de código', command: insertCodeBlock },
-  { label: 'Tabla', title: 'Tabla', command: insertTable },
-  { label: '—', title: 'Línea horizontal', command: insertHorizontalRule },
+  { name: 'editor.link', shortcut: 'Ctrl+K', command: insertLink },
+  { symbol: '{ }', name: 'editor.codeBlock', command: insertCodeBlock },
+  { name: 'editor.table', command: insertTable },
+  { symbol: '—', name: 'editor.rule', command: insertHorizontalRule },
 ];
 
 const isImageFile = (file: File): boolean => file.type.startsWith('image/');
@@ -70,6 +75,7 @@ const isImageFile = (file: File): boolean => file.type.startsWith('image/');
  * El HTML que se inyecta es seguro: el renderer escapa todo el texto y filtra las URLs.
  */
 export function MarkdownEditor({ value, onChange, onUploadImage }: Props) {
+  const { t } = useUiLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [tab, setTab] = useState<'write' | 'preview'>('write'); // solo se usa en pantallas angostas
@@ -91,14 +97,15 @@ export function MarkdownEditor({ value, onChange, onUploadImage }: Props) {
   const uploadAndInsert = async (files: File[]): Promise<void> => {
     if (!onUploadImage) return;
     for (const file of files) {
-      setStatus(`Subiendo ${file.name}…`);
+      setStatus(t('upload.progress', { name: file.name }));
       try {
         const url = await onUploadImage(file);
         const alt = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
         run(insertImage(url, alt));
         setStatus(null);
       } catch (error) {
-        setStatus(`No se pudo subir ${file.name}: ${error instanceof Error ? error.message : 'error desconocido'}`);
+        const reason = error instanceof Error ? error.message : t('error.unknown');
+        setStatus(t('upload.failed', { name: file.name, error: reason }));
         return;
       }
     }
@@ -130,33 +137,36 @@ export function MarkdownEditor({ value, onChange, onUploadImage }: Props) {
 
   return (
     <div className="editor" data-tab={tab}>
-      <div className="editor-toolbar" role="toolbar" aria-label="Formato">
-        {TOOLBAR.map((item, index) =>
-          item === 'separator' ? (
-            <span key={`sep-${index}`} className="toolbar-separator" aria-hidden="true" />
-          ) : (
+      <div className="editor-toolbar" role="toolbar" aria-label={t('editor.format')}>
+        {TOOLBAR.map((item, index) => {
+          if (item === 'separator') {
+            return <span key={`sep-${index}`} className="toolbar-separator" aria-hidden="true" />;
+          }
+          const name = t(item.name);
+          const title = item.shortcut ? `${name} (${item.shortcut})` : name;
+          return (
             <button
-              key={item.title}
+              key={item.name}
               type="button"
               className="toolbar-button"
-              title={item.title}
-              aria-label={item.title}
+              title={title}
+              aria-label={title}
               onClick={() => run(item.command)}
             >
-              {item.label}
+              {item.symbol ?? name}
             </button>
-          ),
-        )}
+          );
+        })}
         {onUploadImage && (
           <>
             <button
               type="button"
               className="toolbar-button"
-              title="Subir imagen"
-              aria-label="Subir imagen"
+              title={t('image.upload')}
+              aria-label={t('image.upload')}
               onClick={() => fileInputRef.current?.click()}
             >
-              Imagen
+              {t('editor.image')}
             </button>
             <input
               ref={fileInputRef}
@@ -172,12 +182,12 @@ export function MarkdownEditor({ value, onChange, onUploadImage }: Props) {
           </>
         )}
 
-        <div className="editor-tabs" role="tablist" aria-label="Vista">
+        <div className="editor-tabs" role="tablist" aria-label={t('editor.view')}>
           <button type="button" role="tab" aria-selected={tab === 'write'} onClick={() => setTab('write')}>
-            Escribir
+            {t('editor.write')}
           </button>
           <button type="button" role="tab" aria-selected={tab === 'preview'} onClick={() => setTab('preview')}>
-            Vista previa
+            {t('common.preview')}
           </button>
         </div>
       </div>
@@ -193,10 +203,10 @@ export function MarkdownEditor({ value, onChange, onUploadImage }: Props) {
           onDrop={handleDrop}
           spellCheck
           lang="es"
-          aria-label="Contenido en Markdown"
-          placeholder="Escribí en Markdown…"
+          aria-label={t('editor.contentLabel')}
+          placeholder={t('editor.placeholder')}
         />
-        <div className="paper editor-preview" aria-label="Vista previa">
+        <div className="paper editor-preview" aria-label={t('common.preview')}>
           <div className="prose" dangerouslySetInnerHTML={{ __html: previewHtml }} />
         </div>
       </div>

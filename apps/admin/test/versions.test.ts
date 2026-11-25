@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { PostSummary } from '../src/api/types.ts';
-import { DEFAULT_LANG, LANG_IN_SENTENCE, LANG_LABELS, LANGS } from '../src/languages.ts';
+import { i18nFor } from '../src/i18n/i18n.ts';
+import { DEFAULT_LANG, LANGS } from '../src/languages.ts';
 import { groupPosts, translationWarnings, versionLabel, versionSlots } from '../src/posts/versions.ts';
 
 /* Versiones de un post por idioma (L3, L4): la lista agrupa por translationGroupId y el editor avisa en la traducción. */
+
+const es = i18nFor('es');
+const en = i18nFor('en');
 
 const summary = (id: string, overrides: Partial<PostSummary> = {}): PostSummary => ({
   id,
@@ -26,9 +30,17 @@ describe('languages: los dos idiomas fijos en un solo lugar (L3)', () => {
     assert.deepEqual(LANGS, ['es', 'en']);
     assert.equal(DEFAULT_LANG, 'es');
   });
-  it('etiquetas del selector y del texto del admin', () => {
-    assert.deepEqual(LANG_LABELS, { es: 'Español', en: 'English' });
-    assert.deepEqual(LANG_IN_SENTENCE, { es: 'español', en: 'inglés' });
+  it('sus nombres en la interfaz: en español, Español e Inglés; en inglés, Spanish y English', () => {
+    const names = (i18n: typeof es) =>
+      LANGS.map((lang) => [i18n.t(`lang.label.${lang}`), i18n.t(`lang.inSentence.${lang}`)]);
+    assert.deepEqual(names(es), [
+      ['Español', 'español'],
+      ['Inglés', 'inglés'],
+    ]);
+    assert.deepEqual(names(en), [
+      ['Spanish', 'Spanish'],
+      ['English', 'English'],
+    ]);
   });
 });
 
@@ -94,9 +106,15 @@ describe('versionSlots: un lugar por idioma, con su versión o vacío', () => {
 
 describe('versionLabel: el texto del chip por idioma', () => {
   it('código del idioma y estado, o "Falta"', () => {
-    assert.equal(versionLabel('es', 'published'), 'ES · Publicado');
-    assert.equal(versionLabel('en', 'draft'), 'EN · Borrador');
-    assert.equal(versionLabel('en', null), 'EN · Falta');
+    assert.equal(versionLabel('es', 'published', es), 'ES · Publicado');
+    assert.equal(versionLabel('en', 'draft', es), 'EN · Borrador');
+    assert.equal(versionLabel('en', null, es), 'EN · Falta');
+  });
+
+  it('en inglés: el código no cambia, el estado sí', () => {
+    assert.equal(versionLabel('es', 'published', en), 'ES · Published');
+    assert.equal(versionLabel('en', 'draft', en), 'EN · Draft');
+    assert.equal(versionLabel('en', null, en), 'EN · Missing');
   });
 });
 

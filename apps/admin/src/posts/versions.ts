@@ -1,14 +1,11 @@
 import type { PostStatus, PostSummary } from '../api/types.ts';
+import type { I18n } from '../i18n/i18n.ts';
 import { DEFAULT_LANG, langCode, LANGS, type Lang } from '../languages.ts';
 
 /*
  * Reglas puras de las versiones de un post por idioma (L3, L4). Cada versión es un post propio unido a las otras
  * por `translationGroupId`; la traducción es manual (S2) y queda como borrador hasta que se revisa (S3).
  */
-
-export const STATUS_LABELS: Record<PostStatus, string> = { draft: 'Borrador', published: 'Publicado' };
-
-const MISSING_LABEL = 'Falta';
 
 /** Una fila de la lista: todas las versiones de un mismo post. */
 export interface PostGroup {
@@ -56,9 +53,12 @@ export function versionSlots<T extends { lang: Lang }>(versions: readonly T[], e
   }));
 }
 
-/** El texto del chip de una versión: "ES · Publicado", "EN · Borrador" o "EN · Falta". */
-export const versionLabel = (lang: Lang, status: PostStatus | null): string =>
-  `${langCode(lang)} · ${status ? STATUS_LABELS[status] : MISSING_LABEL}`;
+/** Estado de un post en el idioma de la interfaz: "Borrador" / "Draft". */
+export const statusLabel = (status: PostStatus, i18n: I18n): string => i18n.t(`status.${status}`);
+
+/** El texto del chip de una versión: "ES · Publicado", "EN · Borrador" o "EN · Falta" (el código no se traduce). */
+export const versionLabel = (lang: Lang, status: PostStatus | null, i18n: I18n): string =>
+  `${langCode(lang)} · ${status ? statusLabel(status, i18n) : i18n.t('versions.missing')}`;
 
 export type TranslationWarning = 'untranslated' | 'outdated';
 

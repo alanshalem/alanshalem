@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api/client.ts';
+import { UiLanguageSwitch, useUiLanguage } from '../i18n/UiLanguage.tsx';
+import type { MessageKey } from '../i18n/i18n.ts';
 import { SITE_URL } from '../siteUrl.ts';
 
 interface Props {
@@ -7,8 +9,10 @@ interface Props {
 }
 
 export function LoginPage({ onLoggedIn }: Props) {
+  const { t } = useUiLanguage();
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  // La clave y no el texto: si se cambia de idioma con el error a la vista, el error también cambia.
+  const [error, setError] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
 
   const handleSubmit = async (event: FormEvent): Promise<void> => {
@@ -20,11 +24,7 @@ export function LoginPage({ onLoggedIn }: Props) {
       onLoggedIn();
     } catch (caught) {
       // Mensaje genérico a propósito: no revelamos nada útil para adivinar la contraseña.
-      setError(
-        caught instanceof ApiError && caught.status === 429
-          ? 'Demasiados intentos. Esperá unos minutos.'
-          : 'Contraseña incorrecta.',
-      );
+      setError(caught instanceof ApiError && caught.status === 429 ? 'login.tooManyAttempts' : 'login.wrongPassword');
     } finally {
       setBusy(false);
     }
@@ -33,15 +33,15 @@ export function LoginPage({ onLoggedIn }: Props) {
   return (
     <main className="login-screen">
       <form className="login" onSubmit={(event) => void handleSubmit(event)} aria-labelledby="login-title">
-        <p className="eyebrow">Panel de escritura</p>
+        <p className="eyebrow">{t('login.eyebrow')}</p>
         <h1 id="login-title" className="login-title">
           Admin
         </h1>
-        <p className="login-dek">Entrá para escribir, editar y publicar.</p>
+        <p className="login-dek">{t('login.dek')}</p>
 
         <div className="field">
           <label className="label" htmlFor="login-password">
-            Contraseña
+            {t('login.password')}
           </label>
           <input
             id="login-password"
@@ -57,15 +57,18 @@ export function LoginPage({ onLoggedIn }: Props) {
         </div>
         {error && (
           <p id="login-error" className="field-error" role="alert">
-            {error}
+            {t(error)}
           </p>
         )}
         <button type="submit" className="primary login-submit" disabled={busy || password === ''}>
-          {busy ? 'Entrando…' : 'Entrar'}
+          {busy ? t('login.submitting') : t('login.submit')}
         </button>
-        <a className="login-back" href={SITE_URL}>
-          ← Volver al sitio
-        </a>
+        <div className="login-foot">
+          <a className="login-back" href={SITE_URL}>
+            {t('login.back')}
+          </a>
+          <UiLanguageSwitch />
+        </div>
       </form>
     </main>
   );

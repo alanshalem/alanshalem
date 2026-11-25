@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { isImageUrl } from '../settings/validate.ts';
 import { ImagePreview } from './ImagePreview.tsx';
 
@@ -26,6 +27,7 @@ export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avi
  * texto alternativo, miniatura y botón para quitarla.
  */
 export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUpload, error, altError, help }: Props) {
+  const { t } = useUiLanguage();
   const id = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -37,12 +39,13 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUploa
   const handleFile = async (file: File | undefined): Promise<void> => {
     if (!file) return;
     setUploading(true);
-    setStatus(`Subiendo ${file.name}…`);
+    setStatus(t('upload.progress', { name: file.name }));
     try {
       onUrlChange(await onUpload(file));
-      setStatus(alt.trim() === '' ? 'Imagen subida. Describila en el texto alternativo.' : 'Imagen subida.');
+      setStatus(alt.trim() === '' ? t('image.uploadedDescribe') : t('image.uploaded'));
     } catch (caught) {
-      setStatus(`No se pudo subir ${file.name}: ${caught instanceof Error ? caught.message : 'error desconocido'}`);
+      const error = caught instanceof Error ? caught.message : t('error.unknown');
+      setStatus(t('upload.failed', { name: file.name, error }));
     } finally {
       setUploading(false);
     }
@@ -57,14 +60,14 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUploa
       <div className="image-field-grid">
         <ImagePreview
           src={canPreview ? trimmed : null}
-          alt={alt.trim() || 'Vista previa'}
-          emptyText={trimmed === '' ? 'Sin imagen' : 'URL no válida'}
+          alt={alt.trim() || t('common.preview')}
+          emptyText={trimmed === '' ? t('image.none') : t('image.invalidUrl')}
         />
 
         <div className="image-field-controls">
           <div className="actions">
             <button type="button" disabled={uploading} onClick={() => fileInputRef.current?.click()}>
-              {uploading ? 'Subiendo…' : 'Subir imagen'}
+              {uploading ? t('common.uploading') : t('image.upload')}
             </button>
             {trimmed !== '' && (
               <button
@@ -74,10 +77,10 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUploa
                 onClick={() => {
                   onUrlChange('');
                   onAltChange('');
-                  setStatus('Imagen quitada.');
+                  setStatus(t('image.removed'));
                 }}
               >
-                Quitar
+                {t('image.remove')}
               </button>
             )}
             <input
@@ -93,11 +96,11 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUploa
           </div>
 
           <label className="field">
-            <span className="label">URL de la imagen</span>
+            <span className="label">{t('image.url')}</span>
             <input
               value={url}
               onChange={(event) => onUrlChange(event.target.value)}
-              placeholder="/media/… o https://…"
+              placeholder={t('image.urlPlaceholder')}
               inputMode="url"
               spellCheck={false}
               aria-invalid={error ? true : undefined}
@@ -111,11 +114,11 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, onUploa
           )}
 
           <label className="field">
-            <span className="label">Texto alternativo</span>
+            <span className="label">{t('image.alt')}</span>
             <input
               value={alt}
               onChange={(event) => onAltChange(event.target.value)}
-              placeholder="Qué se ve en la imagen"
+              placeholder={t('image.altPlaceholder')}
               maxLength={300}
               aria-invalid={altError ? true : undefined}
             />

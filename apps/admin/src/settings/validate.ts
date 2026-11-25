@@ -1,10 +1,12 @@
 import type { SiteSettings } from '../api/types.ts';
+import type { I18n, MessageKey } from '../i18n/i18n.ts';
 
 /*
  * Validación y normalización del lado del admin para los ajustes del sitio y la portada de un post.
  * Es un espejo de las reglas del dominio de la API (SiteSettingsContent, PostContent y WebUrl, ver L4),
- * con los mismos mensajes: sirve para avisar antes de enviar. La API sigue siendo la autoridad y
- * sus errores (ProblemDetails) se muestran igual.
+ * con los mismos mensajes (en español; en inglés, su traducción): sirve para avisar antes de enviar. La API sigue
+ * siendo la autoridad y sus errores (ProblemDetails) se muestran igual. Los textos salen del `I18n` recibido: las
+ * reglas siguen puras y se prueban en los dos idiomas.
  */
 
 /** Lo que editan los inputs: todo texto (los `null` de la API se ven como vacío). */
@@ -89,44 +91,48 @@ export const toSettingsForm = (settings: SiteSettings): SettingsForm => ({
 
 export type SettingsValidation = { ok: true; input: SiteSettings } | { ok: false; errors: SettingsErrors };
 
+/** "{sujeto} no puede superar {max} caracteres.": una sola frase para todo límite de largo (ajustes, portada, hero). */
+export const tooLongMessage = (i18n: I18n, subject: MessageKey, max: number, params?: Record<string, string>): string =>
+  i18n.t('validation.tooLong', { subject: i18n.t(subject, params), max });
+
 /** Valida todo de una vez (para marcar cada campo) y devuelve el cuerpo listo para el PUT. */
-export function validateSettings(form: SettingsForm): SettingsValidation {
+export function validateSettings(form: SettingsForm, i18n: I18n): SettingsValidation {
   const errors: SettingsErrors = {};
-  const tooLong = (key: keyof SiteSettings, value: string | null, max: number, message: string): void => {
-    if (value !== null && value.length > max) errors[key] = message;
+  const tooLong = (key: keyof SiteSettings, value: string | null, max: number, subject: MessageKey): void => {
+    if (value !== null && value.length > max) errors[key] = tooLongMessage(i18n, subject, max);
   };
-  const httpLink = (key: 'githubUrl' | 'linkedinUrl' | 'xUrl', label: string): string | null => {
+  const httpLink = (key: 'githubUrl' | 'linkedinUrl' | 'xUrl', site: string): string | null => {
     const value = cleanOptional(form[key]);
     if (value === null) return null;
-    if (value.length > LIMITS.url) errors[key] = `El enlace de ${label} no puede superar ${LIMITS.url} caracteres.`;
-    else if (!isHttpUrl(value)) errors[key] = `El enlace de ${label} debe ser una URL http(s).`;
+    if (value.length > LIMITS.url) errors[key] = tooLongMessage(i18n, 'subject.link', LIMITS.url, { site });
+    else if (!isHttpUrl(value)) errors[key] = i18n.t('settings.linkNotHttp', { site });
     return value;
   };
 
   const name = form.name.trim();
-  if (name === '') errors.name = 'El nombre es obligatorio.';
-  else tooLong('name', name, LIMITS.name, `El nombre no puede superar ${LIMITS.name} caracteres.`);
+  if (name === '') errors.name = i18n.t('settings.nameRequired');
+  else tooLong('name', name, LIMITS.name, 'subject.name');
 
   const tagline = cleanOptional(form.tagline);
-  tooLong('tagline', tagline, LIMITS.tagline, `La frase no puede superar ${LIMITS.tagline} caracteres.`);
+  tooLong('tagline', tagline, LIMITS.tagline, 'subject.tagline');
 
   const bio = cleanOptional(form.bio);
-  tooLong('bio', bio, LIMITS.bio, `La bio no puede superar ${LIMITS.bio} caracteres.`);
+  tooLong('bio', bio, LIMITS.bio, 'subject.bio');
 
   // Las versiones en inglés tienen los mismos límites que sus pares en español (L4); ninguna es obligatoria.
   const nameEn = cleanOptional(form.nameEn);
-  tooLong('nameEn', nameEn, LIMITS.name, `El nombre en inglés no puede superar ${LIMITS.name} caracteres.`);
+  tooLong('nameEn', nameEn, LIMITS.name, 'subject.nameEn');
 
   const taglineEn = cleanOptional(form.taglineEn);
-  tooLong('taglineEn', taglineEn, LIMITS.tagline, `La frase en inglés no puede superar ${LIMITS.tagline} caracteres.`);
+  tooLong('taglineEn', taglineEn, LIMITS.tagline, 'subject.taglineEn');
 
   const bioEn = cleanOptional(form.bioEn);
-  tooLong('bioEn', bioEn, LIMITS.bio, `La bio en inglés no puede superar ${LIMITS.bio} caracteres.`);
+  tooLong('bioEn', bioEn, LIMITS.bio, 'subject.bioEn');
 
   const email = cleanOptional(form.email);
   if (email !== null) {
-    if (email.length > LIMITS.email) errors.email = `El email no puede superar ${LIMITS.email} caracteres.`;
-    else if (!isEmail(email)) errors.email = 'El email no tiene un formato válido.';
+    if (email.length > LIMITS.email) errors.email = tooLongMessage(i18n, 'subject.email', LIMITS.email);
+    else if (!isEmail(email)) errors.email = i18n.t('settings.emailInvalid');
   }
 
   const githubUrl = httpLink('githubUrl', 'GitHub');
@@ -143,17 +149,15 @@ export type CoverValidation = { ok: true; coverUrl: string | null; coverAlt: str
  * Portada de un post. Sin URL no hay portada y el alt se descarta: el sitio cae a la primera imagen
  * del texto o, si no hay ninguna, a una portada generativa (L5).
  */
-export function validateCover(url: string, alt: string): CoverValidation {
+export function validateCover(url: string, alt: string, i18n: I18n): CoverValidation {
   const coverUrl = cleanOptional(url);
   if (coverUrl === null) return { ok: true, coverUrl: null, coverAlt: null };
-  if (coverUrl.length > LIMITS.url) {
-    return { ok: false, error: `La URL de la portada no puede superar ${LIMITS.url} caracteres.` };
-  }
-  if (!isImageUrl(coverUrl)) return { ok: false, error: 'La portada debe ser una ruta /media/... o una URL http(s).' };
+  if (coverUrl.length > LIMITS.url) return { ok: false, error: tooLongMessage(i18n, 'subject.coverUrl', LIMITS.url) };
+  if (!isImageUrl(coverUrl)) return { ok: false, error: i18n.t('cover.notImage') };
 
   const coverAlt = cleanOptional(alt);
   if (coverAlt !== null && coverAlt.length > LIMITS.coverAlt) {
-    return { ok: false, error: `El texto alternativo de la portada no puede superar ${LIMITS.coverAlt} caracteres.` };
+    return { ok: false, error: tooLongMessage(i18n, 'subject.coverAlt', LIMITS.coverAlt) };
   }
   return { ok: true, coverUrl, coverAlt };
 }

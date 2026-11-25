@@ -177,10 +177,18 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .shell-nav a:hover { color: var(--text-primary); text-decoration: none; }
 .shell-nav a[aria-current='page'] { color: var(--text-primary); border-bottom-color: var(--text-primary); }
 
+/* Idioma de la interfaz (S6): "ES | EN" en un solo bloque de 1px; el elegido, encendido. */
+.lang-switch { display: inline-flex; border: var(--rule); }
+.lang-switch button { min-height: 2rem; padding: 0 var(--space-0-7); border: 0; color: var(--text-tertiary); }
+.lang-switch button + button { border-left: var(--rule); }
+.lang-switch button:hover:not(:disabled) { color: var(--text-primary); }
+.lang-switch button[aria-pressed='true'] { color: var(--text-primary); background: var(--bg-surface-alt); }
+
 @media (max-width: 600px) {
   .shell-header { flex-wrap: wrap; gap: var(--space-0-9) var(--space-1-25); }
   .shell-nav { order: 3; width: 100%; padding: var(--space-0-7) 0 0; border-left: 0; border-top: var(--rule); }
-  .logout { margin-left: auto; }
+  /* El selector y "Salir" van juntos a la derecha de la marca. */
+  .shell-header .lang-switch { margin-left: auto; }
 }
 
 .shell-main { max-width: var(--admin-max); margin: 0 auto; padding: var(--space-2) var(--gutter) var(--space-5); }
@@ -247,6 +255,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 }
 .login-dek { font-family: var(--font-text); font-size: var(--text-lead); line-height: var(--leading-dek); color: var(--text-secondary); margin-bottom: var(--space-0-5); }
 .login-submit { width: 100%; min-height: 2.875rem; }
+.login-foot { display: flex; justify-content: space-between; align-items: center; gap: var(--space-1); }
 .login-back { justify-self: start; font-size: var(--text-xs); color: var(--text-tertiary); text-decoration: none; transition: color var(--ease); }
 .login-back:hover { color: var(--text-primary); text-decoration: none; }
 

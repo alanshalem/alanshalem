@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { PostSummary } from '../api/types.ts';
-import { LANG_IN_SENTENCE } from '../languages.ts';
+import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { useCreateTranslation } from '../posts/useCreateTranslation.ts';
 import { groupPosts, versionLabel, versionSlots } from '../posts/versions.ts';
 import { VersionLink } from '../posts/VersionLink.tsx';
@@ -12,11 +12,11 @@ interface Props {
   onError: (error: unknown) => boolean;
 }
 
-const dateFormat = new Intl.DateTimeFormat('es-AR', { dateStyle: 'medium' });
-
 export function PostsPage({ onError }: Props) {
+  const i18n = useUiLanguage();
+  const { t } = i18n;
   const [posts, setPosts] = useState<PostSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const translation = useCreateTranslation(onError);
 
   useEffect(() => {
@@ -24,24 +24,24 @@ export function PostsPage({ onError }: Props) {
       .listPosts()
       .then(setPosts)
       .catch((caught: unknown) => {
-        if (!onError(caught)) setError('No se pudieron cargar los posts.');
+        if (!onError(caught)) setLoadFailed(true);
       });
   }, [onError]);
 
   // Una fila por post, con un chip por idioma (L3): las versiones de un mismo post comparten grupo.
   const groups = posts ? groupPosts(posts) : [];
   const published = groups.filter((group) => group.versions.some((version) => version.status === 'published')).length;
-  const problem = error ?? translation.error;
+  const problem = loadFailed ? t('posts.loadError') : translation.error;
 
   return (
     <section>
       <div className="page-head">
         <div>
-          <p className="eyebrow">Escritura</p>
-          <h1 className="page-title">Posts</h1>
+          <p className="eyebrow">{t('posts.eyebrow')}</p>
+          <h1 className="page-title">{t('nav.posts')}</h1>
         </div>
         <a className="primary button-link" href={href.newPost}>
-          Nuevo post
+          {t('post.new')}
         </a>
       </div>
 
@@ -50,21 +50,20 @@ export function PostsPage({ onError }: Props) {
           {problem}
         </p>
       )}
-      {posts === null && !error && <p className="center-note">Cargando…</p>}
+      {posts === null && !loadFailed && <p className="center-note">{t('common.loading')}</p>}
       {posts?.length === 0 && (
         <div className="empty-state">
-          <p>Todavía no hay posts.</p>
-          <a href={href.newPost}>Escribí el primero →</a>
+          <p>{t('posts.empty')}</p>
+          <a href={href.newPost}>{t('posts.writeFirst')}</a>
         </div>
       )}
 
       {groups.length > 0 && (
         <>
           <div className="section-head">
-            <h2>Todos</h2>
+            <h2>{t('posts.all')}</h2>
             <p className="section-note">
-              {groups.length} {groups.length === 1 ? 'post' : 'posts'} · {published}{' '}
-              {published === 1 ? 'publicado' : 'publicados'}
+              {i18n.plural(groups.length, 'posts.count')} · {i18n.plural(published, 'posts.published')}
             </p>
           </div>
           <ol className="post-list">
@@ -74,7 +73,7 @@ export function PostsPage({ onError }: Props) {
                   {String(index + 1).padStart(2, '0')}
                 </span>
                 <a className="post-main" href={href.post(group.main.id)}>
-                  <span className="post-title">{group.main.title || '(sin título)'}</span>
+                  <span className="post-title">{group.main.title || t('common.untitled')}</span>
                   <span className="post-slug">/{group.main.slug}</span>
                 </a>
                 <span className="post-langs">
@@ -87,16 +86,19 @@ export function PostsPage({ onError }: Props) {
                         type="button"
                         className="chip chip-missing"
                         disabled={translation.creating}
-                        aria-label={`${versionLabel(lang, null)}: crear versión en ${LANG_IN_SENTENCE[lang]}`}
+                        aria-label={t('versions.createAria', {
+                          chip: versionLabel(lang, null, i18n),
+                          lang: t(`lang.inSentence.${lang}`),
+                        })}
                         onClick={() => void translation.create(group.main.id, lang)}
                       >
-                        {versionLabel(lang, null)}
+                        {versionLabel(lang, null, i18n)}
                       </button>
                     ),
                   )}
                 </span>
                 <time className="meta post-date" dateTime={group.updatedAt}>
-                  {dateFormat.format(new Date(group.updatedAt))}
+                  {i18n.formatDate(group.updatedAt)}
                 </time>
               </li>
             ))}

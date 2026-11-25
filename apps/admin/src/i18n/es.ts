@@ -1,0 +1,289 @@
+/**
+ * Textos de la interfaz del admin en español (S6, L4): el diccionario de referencia. Sus claves definen el tipo
+ * `MessageKey`, así que al inglés no le puede faltar ni sobrar ninguna (lo marca el compilador y lo repite un test).
+ *
+ * - `{nombre}` es un parámetro de `t()`; los números se formatean según el idioma.
+ * - `.one` / `.other`: el par que elige `plural()`.
+ * - Las claves con `${...}` en el código (`status.${status}`) dependen de un tipo de la API o del dominio: si se
+ *   suma un valor, el compilador pide su texto.
+ */
+export const es = {
+  // ----- General -----
+  'common.loading': 'Cargando…',
+  'common.save': 'Guardar',
+  'common.saving': 'Guardando…',
+  'common.deleting': 'Eliminando…',
+  'common.uploading': 'Subiendo…',
+  'common.unsaved': 'Cambios sin guardar',
+  'common.allSaved': 'Todo guardado',
+  'common.untitled': '(sin título)',
+  'common.preview': 'Vista previa',
+  // Dos formas porque una va dentro de una frase ("No se pudo subir x: error desconocido") y la otra sola.
+  'error.unknown': 'error desconocido',
+  'error.unknownSentence': 'Error desconocido.',
+
+  // ----- Estructura y navegación -----
+  'nav.skip': 'Saltar al contenido',
+  'nav.sections': 'Secciones',
+  'nav.posts': 'Posts',
+  'nav.settings': 'Ajustes',
+  'nav.viewSite': 'Ver sitio ↗',
+  'nav.logout': 'Salir',
+  'uiLang.label': 'Idioma de la interfaz',
+
+  // ----- Idiomas del contenido (el de cada post, no el de la interfaz) -----
+  'lang.label.es': 'Español',
+  'lang.label.en': 'Inglés',
+  'lang.inSentence.es': 'español',
+  'lang.inSentence.en': 'inglés',
+
+  // ----- Login -----
+  'login.eyebrow': 'Panel de escritura',
+  'login.dek': 'Entrá para escribir, editar y publicar.',
+  'login.password': 'Contraseña',
+  'login.submit': 'Entrar',
+  'login.submitting': 'Entrando…',
+  'login.tooManyAttempts': 'Demasiados intentos. Esperá unos minutos.',
+  'login.wrongPassword': 'Contraseña incorrecta.',
+  'login.back': '← Volver al sitio',
+
+  // ----- Lista de posts -----
+  'posts.eyebrow': 'Escritura',
+  'posts.loadError': 'No se pudieron cargar los posts.',
+  'posts.empty': 'Todavía no hay posts.',
+  'posts.writeFirst': 'Escribí el primero →',
+  'posts.all': 'Todos',
+  'posts.count.one': '{count} post',
+  'posts.count.other': '{count} posts',
+  'posts.published.one': '{count} publicado',
+  'posts.published.other': '{count} publicados',
+
+  // ----- Versiones por idioma -----
+  'status.draft': 'Borrador',
+  'status.published': 'Publicado',
+  'versions.missing': 'Falta',
+  'versions.label': 'Versiones',
+  'versions.create': 'Crear versión en {lang}',
+  'versions.createAria': '{chip}: crear versión en {lang}',
+  'versions.creating': 'Creando…',
+  'versions.createError': 'No se pudo crear la versión.',
+  'versions.saveFirst': 'Guardá los cambios antes: la versión nueva parte de lo guardado.',
+  'versions.untranslated.title': 'Sin traducir.',
+  'versions.untranslated.text': 'El título o el texto siguen iguales a la versión en {lang}: traducilos antes de publicar.',
+  'versions.outdated.title': 'Desactualizada.',
+  'versions.outdated.text':
+    'La versión en {lang} cambió después de la última edición de esta: pasá esos cambios acá y guardá.',
+
+  // ----- Editor de posts -----
+  'post.new': 'Nuevo post',
+  'post.language': 'Idioma',
+  'post.title': 'Título',
+  'post.slug': 'Slug (URL)',
+  'post.slugPlaceholder': 'se genera del título',
+  'post.summary': 'Resumen (para listados y SEO)',
+  'post.tags': 'Etiquetas (separadas por coma)',
+  'post.cover': 'Portada',
+  'post.coverHelp':
+    'Opcional. Se muestra en la home, en los listados y arriba del artículo. Si no cargás una portada, el sitio usa ' +
+    'la primera imagen del texto; si el texto no tiene ninguna imagen, genera una portada abstracta (siempre la misma ' +
+    'para este post).',
+  'post.publish': 'Publicar',
+  'post.republish': 'Guardar y republicar',
+  'post.unpublish': 'Despublicar',
+  'post.delete': 'Eliminar post',
+  'post.confirmDelete': '¿Eliminar "{title}"? No se puede deshacer.',
+  'post.titleRequired': 'El título es obligatorio.',
+  'post.saved': 'Guardado.',
+  'post.publishedNote': 'Publicado. El sitio se está regenerando; en unos segundos estará online.',
+  'post.unpublishedNote': 'Vuelto a borrador. El sitio se está regenerando.',
+  'post.loadError': 'No se pudo cargar el post.',
+  'post.saveError': 'No se pudo guardar.',
+  'post.publishError': 'No se pudo publicar.',
+  'post.unpublishError': 'No se pudo despublicar.',
+  'post.deleteError': 'No se pudo eliminar.',
+
+  // ----- Editor Markdown (el atajo se agrega en el código: no se traduce) -----
+  'editor.format': 'Formato',
+  'editor.bold': 'Negrita',
+  'editor.italic': 'Cursiva',
+  'editor.strike': 'Tachado',
+  'editor.code': 'Código en línea',
+  'editor.heading': 'Título',
+  'editor.subheading': 'Subtítulo',
+  'editor.bulletList': 'Lista con viñetas',
+  'editor.numberedList': 'Lista numerada',
+  'editor.quote': 'Cita',
+  'editor.link': 'Link',
+  'editor.codeBlock': 'Bloque de código',
+  'editor.table': 'Tabla',
+  'editor.rule': 'Línea horizontal',
+  'editor.image': 'Imagen',
+  'editor.view': 'Vista',
+  'editor.write': 'Escribir',
+  'editor.contentLabel': 'Contenido en Markdown',
+  'editor.placeholder': 'Escribí en Markdown…',
+
+  // ----- Imágenes (portada, editor) -----
+  'image.upload': 'Subir imagen',
+  'image.remove': 'Quitar',
+  'image.removed': 'Imagen quitada.',
+  'image.uploaded': 'Imagen subida.',
+  'image.uploadedDescribe': 'Imagen subida. Describila en el texto alternativo.',
+  'image.url': 'URL de la imagen',
+  'image.urlPlaceholder': '/media/… o https://…',
+  'image.alt': 'Texto alternativo',
+  'image.altPlaceholder': 'Qué se ve en la imagen',
+  'image.none': 'Sin imagen',
+  'image.invalidUrl': 'URL no válida',
+  'image.previewFailed': 'No se pudo cargar la vista previa',
+  'upload.progress': 'Subiendo {name}…',
+  'upload.failed': 'No se pudo subir {name}: {error}',
+
+  // ----- Validación compartida (ajustes, portada, hero) -----
+  'validation.tooLong': '{subject} no puede superar {max} caracteres.',
+  'subject.name': 'El nombre',
+  'subject.nameEn': 'El nombre en inglés',
+  'subject.tagline': 'La frase',
+  'subject.taglineEn': 'La frase en inglés',
+  'subject.bio': 'La bio',
+  'subject.bioEn': 'La bio en inglés',
+  'subject.email': 'El email',
+  'subject.link': 'El enlace de {site}',
+  'subject.coverUrl': 'La URL de la portada',
+  'subject.coverAlt': 'El texto alternativo de la portada',
+  'subject.alt': 'El texto alternativo',
+  'subject.credit': 'El crédito',
+  'subject.altEn': 'El texto alternativo en inglés',
+  'subject.creditEn': 'El crédito en inglés',
+  'settings.nameRequired': 'El nombre es obligatorio.',
+  'settings.emailInvalid': 'El email no tiene un formato válido.',
+  'settings.linkNotHttp': 'El enlace de {site} debe ser una URL http(s).',
+  'cover.notImage': 'La portada debe ser una ruta /media/... o una URL http(s).',
+
+  // ----- Ajustes -----
+  'settings.eyebrow': 'Sitio',
+  'settings.author': 'Autor',
+  'settings.authorNote': 'Lo que se ve en el hero y el footer de todas las páginas.',
+  'settings.name': 'Nombre',
+  'settings.nameHint': 'Aparece en el hero y en el footer.',
+  'settings.nameEn': 'Nombre (inglés)',
+  'settings.tagline': 'Frase corta',
+  'settings.taglineHint': 'Una línea: la descripción del sitio para buscadores y redes.',
+  'settings.taglineEn': 'Frase corta (inglés)',
+  'settings.fallbackHint': 'Si queda vacío, el sitio en inglés usa el texto en español.',
+  'settings.bio': 'Bio (Markdown)',
+  'settings.bioPlaceholder': 'Dos o tres líneas sobre vos. Admite **negrita**, *cursiva* y [links](https://…).',
+  'settings.bioEn': 'Bio en inglés (Markdown)',
+  'settings.bioEnPlaceholder': 'La misma bio, en inglés.',
+  'settings.bioEmpty': 'Sin bio todavía.',
+  'settings.links': 'Contacto y redes',
+  'settings.linksNote': 'Vacío = no se muestra. Los enlaces tienen que empezar con https://.',
+  'settings.email': 'Email',
+  'settings.emailPlaceholder': 'vos@ejemplo.com',
+  'settings.checkFields': 'Revisá los campos marcados.',
+  'settings.saved': 'Ajustes guardados. El sitio se está regenerando; en unos segundos los cambios estarán online.',
+  'settings.loadError': 'No se pudieron cargar los ajustes: {error}',
+  'settings.saveError': 'No se pudieron guardar los ajustes.',
+
+  // ----- Fotos y videos del hero -----
+  'hero.title': 'Fotos y videos del hero',
+  'hero.note':
+    'La home muestra uno al azar en cada visita, nunca el mismo dos veces seguidas. Cada cambio regenera el sitio.',
+  'hero.guidance':
+    'Ideal: {ideal} o más, horizontal 16:9. Videos: de {min} a {max} segundos (antes de subir elegís el tramo); ' +
+    'se les quita el audio.',
+  'hero.upload': 'Subir fotos o videos',
+  'hero.uploadHelp':
+    'Podés elegir varios a la vez; se optimizan al subir. Antes de subir un video elegís el tramo y el fundido. ' +
+    'Cada uno necesita su texto alternativo antes de guardarlo.',
+  'hero.pendingList': 'Por guardar',
+  'hero.savedList': 'Guardados',
+  'hero.empty':
+    'Todavía no hay fotos ni videos: la home usa la foto por defecto del sitio si existe; si no, un hero tipográfico ' +
+    'oscuro.',
+  'hero.savedTitle': 'N.º {n}',
+  'hero.saveChanges': 'Guardar cambios',
+  'hero.discard': 'Descartar',
+  'hero.delete': 'Eliminar',
+  'hero.confirmDelete.photo': '¿Eliminar esta foto del hero? Deja de aparecer en la home.',
+  'hero.confirmDelete.video': '¿Eliminar este video del hero? Deja de aparecer en la home.',
+  'hero.badge.editing': 'Sin subir',
+  'hero.badge.queued': 'En cola',
+  'hero.badge.processing': 'Procesando…',
+  'hero.badge.uploaded': 'Sin guardar',
+  'hero.badge.failed': 'Error',
+  'hero.badge.video': 'Video',
+  'hero.noPreview': 'Sin vista previa',
+  'hero.previewLater': 'La vista previa aparece al terminar el proceso',
+  'hero.altPlaceholder': 'Qué se ve',
+  'hero.credit': 'Crédito (opcional)',
+  'hero.creditPlaceholder': 'Foto: …',
+  'hero.altEn': 'Texto alternativo (inglés)',
+  'hero.altEnPlaceholder': 'What it shows',
+  'hero.creditEn': 'Crédito (inglés)',
+  'hero.creditEnPlaceholder': 'Photo: …',
+  'hero.fallbackHelp': 'Opcionales: si quedan vacíos, el sitio en inglés usa los textos en español.',
+  'hero.warning': 'Aviso: {warning}',
+  'hero.altRequired': 'El texto alternativo es obligatorio.',
+  'hero.added.photo': 'Foto agregada.',
+  'hero.added.video': 'Video agregado.',
+  'hero.deleted.photo': 'Foto eliminada.',
+  'hero.deleted.video': 'Video eliminado.',
+  'hero.changesSaved': 'Cambios guardados.',
+  'hero.rebuilding': 'El sitio se está regenerando.',
+  'hero.discarded': 'Descartada: {name}.',
+  'hero.loadError': 'No se pudieron cargar las fotos y videos del hero: {error}',
+  'hero.pollError': 'No se pudo consultar el estado del video: {error}',
+  'hero.unsupportedFile':
+    'Formato no soportado: subí una foto (JPG, PNG, WebP, AVIF o GIF) o un video (MP4, MOV, WebM o MKV).',
+  'hero.videoFailed': 'No se pudo procesar el video.',
+  'hero.notLandscape': 'Formato vertical o cuadrado ({received}): el hero necesita uno horizontal. Ideal: {ideal} (16:9).',
+  'hero.tooSmall': 'Tamaño insuficiente ({received}): el mínimo es {min}. Ideal: {ideal} o más.',
+  'hero.belowIdeal': 'Mide {received}, menos que lo ideal ({ideal}): puede perder nitidez en pantallas grandes.',
+
+  // ----- Recorte y fundido de videos -----
+  'video.editorTitle': 'Recorte y fundido',
+  'video.previewLabel': 'Vista previa del tramo elegido',
+  'video.play': 'Reproducir',
+  'video.pause': 'Pausar',
+  'video.upload': 'Subir video',
+  'video.approximationNote':
+    'Vista previa aproximada en el navegador. El resultado real (recortado y con el fundido) aparece al terminar el ' +
+    'proceso, antes de guardar.',
+  'video.reducedMotionNote':
+    'Tu sistema pide reducir el movimiento: la vista previa no arranca sola ni anima el fundido. El resultado real ' +
+    'aparece al terminar el proceso, antes de guardar.',
+  'video.tooShort': 'Dura {seconds} s: el mínimo es {min} s.',
+  'video.trimTooShort': 'El tramo dura {seconds} s: el mínimo es {min} s.',
+  'video.trimTooLong': 'El tramo dura {seconds} s: el máximo es {max} s.',
+  'video.trimOutside': 'El tramo tiene que estar dentro del video (0 a {duration} s).',
+  'video.fadeTooLong.black':
+    'Un fundido de {fade} necesita un tramo de al menos {needed}: entra en {fade} desde negro y sale en {fade} a ' +
+    'negro. Este dura {length} s; alargalo o elegí un fundido más corto.',
+  'video.fadeTooLong.loop':
+    'Un fundido de {fade} necesita un tramo de al menos {needed}: el final se funde con el principio, {fade} de cada ' +
+    'lado. Este dura {length} s; alargalo o elegí un fundido más corto.',
+  'trim.start': 'Inicio del tramo',
+  'trim.end': 'Fin del tramo',
+  'trim.startField': 'Inicio (s)',
+  'trim.endField': 'Fin (s)',
+  'trim.length': 'Tramo',
+  'trim.hint':
+    'Flechas: 0,1 s; con Shift, 1 s. El tramo dura entre {min} y {max} s: si una manija lo pasa, la otra la acompaña.',
+  'fade.legend': 'Fundido',
+  'fade.durationLegend': 'Duración del fundido',
+  'fade.loop.label': 'Loop perfecto',
+  'fade.loop.description': 'El final se funde con el principio: vuelve a empezar sin salto.',
+  'fade.black.label': 'Desde y hacia negro',
+  'fade.black.description': 'Aparece desde negro al empezar y se va a negro al terminar.',
+  'fade.none.label': 'Sin fundido',
+  'fade.none.description': 'Corte directo: al terminar vuelve a empezar tal cual.',
+  'fade.duration.short': 'Corto',
+  'fade.duration.medium': 'Medio',
+  'fade.duration.long': 'Largo',
+};
+
+export type MessageKey = keyof typeof es;
+
+/** Lo que tiene que cumplir cada traducción: las mismas claves, todas con texto. */
+export type Dictionary = Record<MessageKey, string>;
