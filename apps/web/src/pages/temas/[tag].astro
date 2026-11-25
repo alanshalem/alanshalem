@@ -13,17 +13,19 @@ interface Props {
 }
 
 const { tag, posts } = Astro.props;
+const count = posts.length === 1 ? '1 artículo' : `${posts.length} artículos`;
 ---
 
 <BaseLayout title={tag.name} description={`Artículos sobre ${tag.name}.`} path={tagPath(tag)}>
-  <section class="hero hero-small">
+  <header class="page-head">
     <p class="eyebrow"><a href="/temas/">Temas</a></p>
     <h1>{tag.name}</h1>
-  </section>
+    <p class="page-dek">{count}</p>
+  </header>
 
-  <section class="section">
+  <section class="section section--flush" aria-label={`Artículos sobre ${tag.name}`}>
     <div class="card-grid">
-      {posts.map((post) => <PostCard post={post} />)}
+      {posts.map((post) => <PostCard post={post} headingLevel={2} />)}
     </div>
   </section>
 </BaseLayout>

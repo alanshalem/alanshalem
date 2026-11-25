@@ -4,6 +4,7 @@ import '@blog/tokens/prose.css';
 import '../styles/site.css';
 import Footer from '../components/Footer.astro';
 import Header from '../components/Header.astro';
+import { getSettings } from '../lib/settings.ts';
 import { absoluteUrl, site } from '../lib/site.ts';
 
 interface Props {
@@ -14,10 +15,26 @@ interface Props {
   type?: 'website' | 'article';
   noindex?: boolean;
   publishedTime?: Date;
+  /** URL absoluta de una imagen real para og:image (nunca la portada generativa). */
+  image?: string | undefined;
+  imageAlt?: string | undefined;
+  /** La página empieza con un hero oscuro a pantalla completa: la cabecera va transparente encima. */
+  overlayHeader?: boolean;
 }
 
-const { title, description = site.tagline, path, type = 'website', noindex = false, publishedTime } = Astro.props;
-const fullTitle = path === '/' ? site.name : `${title} · ${site.name}`;
+const settings = await getSettings();
+const {
+  title,
+  description = settings.tagline,
+  path,
+  type = 'website',
+  noindex = false,
+  publishedTime,
+  image,
+  imageAlt,
+  overlayHeader = false,
+} = Astro.props;
+const fullTitle = path === '/' ? settings.name : `${title} · ${settings.name}`;
 const canonical = absoluteUrl(path);
 ---
 
@@ -26,29 +43,33 @@ const canonical = absoluteUrl(path);
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0a0a0b" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     {noindex && <meta name="robots" content="noindex" />}
 
-    <meta property="og:site_name" content={site.name} />
+    <meta property="og:site_name" content={settings.name} />
     <meta property="og:type" content={type} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content={site.locale.replace('-', '_')} />
+    {image && <meta property="og:image" content={image} />}
+    {image && imageAlt && <meta property="og:image:alt" content={imageAlt} />}
     {publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
-    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
 
-    <link rel="alternate" type="application/rss+xml" title={site.name} href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title={settings.name} href="/rss.xml" />
 
-    <!-- Solo las dos fuentes que se ven sin hacer scroll; el resto carga cuando hace falta. -->
-    <link rel="preload" as="font" type="font/woff2" href="/fonts/gloock-latin.woff2" crossorigin />
+    <!-- Solo las fuentes que se ven sin hacer scroll; el resto carga cuando hace falta. -->
     <link rel="preload" as="font" type="font/woff2" href="/fonts/pagella-regular-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/hanken-grotesk-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/gloock-latin.woff2" crossorigin />
   </head>
   <body>
     <a class="skip-link" href="#contenido">Saltar al contenido</a>
-    <Header currentPath={path} />
+    <Header currentPath={path} overlay={overlayHeader} />
     <main id="contenido">
       <slot />
     </main>

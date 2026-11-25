@@ -8,6 +8,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "fonts": "node scripts/copy-fonts.mjs",
+    "test": "node --test \"test/*.test.ts\"",
     "typecheck": "astro check"
   },
   "dependencies": {

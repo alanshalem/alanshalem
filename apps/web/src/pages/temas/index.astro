@@ -6,22 +6,25 @@ const tags = await getTags();
 ---
 
 <BaseLayout title="Temas" description="Los artículos agrupados por tema." path="/temas/">
-  <section class="hero hero-small">
+  <header class="page-head">
     <h1>Temas</h1>
-  </section>
+    <p class="page-dek">Los artículos agrupados por tema. El número indica cuántos hay en cada uno.</p>
+  </header>
 
-  <section class="section">
+  <section class="section section--flush" aria-label="Lista de temas">
     {tags.length === 0 && <p class="empty">Todavía no hay temas.</p>}
-    <ul class="chip-cloud">
-      {
-        tags.map(({ tag, posts }) => (
-          <li>
-            <a href={tagPath(tag)}>
-              {tag.name} <span class="count">{posts.length}</span>
-            </a>
-          </li>
-        ))
-      }
-    </ul>
+    {
+      tags.length > 0 && (
+        <ul class="chip-cloud">
+          {tags.map(({ tag, posts }) => (
+            <li>
+              <a href={tagPath(tag)}>
+                {tag.name} <span class="count">{posts.length}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
   </section>
 </BaseLayout>

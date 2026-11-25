@@ -1,8 +1,10 @@
 ---
+import CoverMedia from '../../components/CoverMedia.astro';
 import PostCard from '../../components/PostCard.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import { absoluteImageUrl } from '../../lib/cover.ts';
 import { getPosts, postPath, tagPath, type BlogPost } from '../../lib/posts.ts';
-import { formatDate } from '../../lib/site.ts';
+import { absoluteUrl, formatDate } from '../../lib/site.ts';
 
 export async function getStaticPaths() {
   const posts = await getPosts();
@@ -24,6 +26,7 @@ interface Props {
 const { post, readNext } = Astro.props;
 // El índice lateral lista solo h2 y h3: más profundidad ensucia más de lo que ayuda.
 const toc = post.headings.filter((heading) => heading.level <= 3);
+const image = post.cover.kind === 'image' ? post.cover : null;
 ---
 
 <BaseLayout
@@ -32,22 +35,49 @@ const toc = post.headings.filter((heading) => heading.level <= 3);
   path={postPath(post)}
   type="article"
   publishedTime={post.publishedAt}
+  image={image ? absoluteImageUrl(image.src, absoluteUrl(postPath(post))) : undefined}
+  imageAlt={image?.alt || undefined}
+  overlayHeader
 >
   <header class="article-hero">
-    {post.tags.length > 0 && <p class="eyebrow">{post.tags.map((tag) => tag.name).join(' · ')}</p>}
-    <h1>{post.title}</h1>
-    {post.description && <p class="dek">{post.description}</p>}
-    <p class="meta">
-      <time datetime={post.publishedAt.toISOString()}>{formatDate(post.publishedAt)}</time> · {post.readingMinutes} min
-      de lectura
-    </p>
+    <CoverMedia cover={post.cover} ratio="hero" eager />
+    <div class="article-hero-body">
+      {
+        post.tags.length > 0 && (
+          <p class="eyebrow">
+            {post.tags.map((tag, i) => (
+              <>
+                {i > 0 && ' · '}
+                <a href={tagPath(tag)}>{tag.name}</a>
+              </>
+            ))}
+          </p>
+        )
+      }
+      <h1>{post.title}</h1>
+      {post.description && <p class="article-dek">{post.description}</p>}
+      <p class="meta">
+        <time datetime={post.publishedAt.toISOString()}>{formatDate(post.publishedAt)}</time> · {post.readingMinutes} min
+        de lectura
+      </p>
+    </div>
   </header>
+
+  {
+    image?.alt && (
+      <aside class="image-strip" aria-label="Sobre la imagen">
+        <span class="eyebrow">Sobre la imagen</span>
+        <span>{image.alt}</span>
+      </aside>
+    )
+  }
 
   <div class="paper reading">
     <div class="reading-grid">
       {
         toc.length > 1 && (
           <nav class="toc" aria-label="Índice del artículo">
+            <p class="toc-label">En esta página</p>
             <ol>
               {toc.map((heading) => (
                 <li class={`toc-level-${heading.level}`}>
@@ -62,6 +92,7 @@ const toc = post.headings.filter((heading) => heading.level <= 3);
       {
         post.tags.length > 0 && (
           <footer class="end-matter">
+            <p class="end-label">Temas</p>
             <ul class="tag-list">
               {post.tags.map((tag) => (
                 <li>
@@ -77,11 +108,12 @@ const toc = post.headings.filter((heading) => heading.level <= 3);
 
   {
     readNext.length > 0 && (
-      <section class="section">
+      <section class="section" aria-labelledby="seguir-title">
         <div class="section-head">
-          <h2>Seguir leyendo</h2>
+          <h2 id="seguir-title">Seguir leyendo</h2>
+          <a href="/articulos/">Todos los artículos</a>
         </div>
-        <div class="card-grid">
+        <div class="card-grid card-grid--row">
           {readNext.map((other) => (
             <PostCard post={other} />
           ))}

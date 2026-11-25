@@ -1,8 +1,8 @@
-/** Datos del sitio. Se editan acá (o por variables de entorno en el build). */
+/**
+ * Datos fijos del sitio. Nombre, bajada, bio y links del autor vienen de los ajustes del admin (lib/settings.ts);
+ * SITE_NAME / SITE_TAGLINE / SITE_AUTHOR quedan solo como respaldo cuando la API los trae vacíos.
+ */
 export const site = {
-  name: process.env.SITE_NAME ?? 'Mi blog',
-  tagline: process.env.SITE_TAGLINE ?? 'Notas sobre software, ideas y cosas que estoy aprendiendo.',
-  author: process.env.SITE_AUTHOR ?? 'El autor',
   lang: 'es',
   locale: 'es-AR',
   url: (process.env.SITE_URL ?? 'http://localhost:4321').replace(/\/$/, ''),
@@ -22,3 +22,7 @@ const dateFormatter = new Intl.DateTimeFormat(site.locale, {
 });
 
 export const formatDate = (date: Date): string => dateFormatter.format(date);
+
+/** Año en la zona del sitio (para agrupar el archivo sin desfasajes de UTC). */
+export const yearOf = (date: Date): number =>
+  Number(new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' }).format(date));

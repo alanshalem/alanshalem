@@ -1,19 +1,41 @@
 ---
+import { contactLinks, getSettings } from '../lib/settings.ts';
 import { site } from '../lib/site.ts';
 
+const settings = await getSettings();
+const contact = contactLinks(settings);
+const explore = site.nav.filter((item) => item.href !== '/rss.xml');
 const year = new Date().getFullYear();
 ---
 
 <footer class="site-footer">
-  <div>
-    <p class="footer-brand">{site.name}</p>
-    <p class="footer-tagline">{site.tagline}</p>
+  <div class="footer-brand-col">
+    <p class="footer-brand"><a href="/">{settings.name}</a></p>
+    <p class="footer-tagline">{settings.tagline}</p>
+    <p class="footer-legal">© {year} {settings.author}</p>
   </div>
-  <nav aria-label="Secundaria">
-    <h2>Explorar</h2>
+  {
+    contact.length > 0 && (
+      <nav class="footer-col" aria-labelledby="footer-contacto">
+        <h2 id="footer-contacto">Contacto</h2>
+        <ul>
+          {contact.map((link) => (
+            <li>
+              <a href={link.href} rel={link.href.startsWith('http') ? 'me noopener' : undefined}>
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )
+  }
+  <nav class="footer-col" aria-labelledby="footer-explorar">
+    <h2 id="footer-explorar">Explorar</h2>
     <ul>
+      <li><a href="/">Inicio</a></li>
       {
-        site.nav.map((item) => (
+        explore.map((item) => (
           <li>
             <a href={item.href}>{item.label}</a>
           </li>
@@ -21,5 +43,10 @@ const year = new Date().getFullYear();
       }
     </ul>
   </nav>
-  <p class="footer-legal">© {year} {site.author}</p>
+  <nav class="footer-col" aria-labelledby="footer-suscribirse">
+    <h2 id="footer-suscribirse">Suscribirse</h2>
+    <ul>
+      <li><a href="/rss.xml">RSS</a></li>
+    </ul>
+  </nav>
 </footer>

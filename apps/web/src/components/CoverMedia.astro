@@ -1,0 +1,35 @@
+---
+import type { Cover } from '../lib/cover.ts';
+
+interface Props {
+  cover: Cover;
+  /** Proporción del recorte: lead 16:9, card 16:10, tile 6:5, hero = llena el contenedor. */
+  ratio: 'lead' | 'card' | 'tile' | 'hero';
+  /** La primera imagen visible de la página no se difiere. */
+  eager?: boolean;
+  /** Fuerza alt vacío (la imagen acompaña a un título que ya la describe). */
+  decorative?: boolean;
+}
+
+const { cover, ratio, eager = false, decorative = false } = Astro.props;
+// width/height reservan el espacio con la proporción correcta antes de que llegue la imagen (sin saltos de layout).
+const size = { lead: [1600, 900], card: [1600, 1000], tile: [1200, 1000], hero: [1920, 1080] }[ratio];
+---
+
+<div class={`media media--${ratio}`}>
+  {
+    cover.kind === 'image' ? (
+      <img
+        src={cover.src}
+        alt={decorative ? '' : cover.alt}
+        width={size[0]}
+        height={size[1]}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        fetchpriority={eager ? 'high' : undefined}
+      />
+    ) : (
+      <Fragment set:html={cover.svg} />
+    )
+  }
+</div>

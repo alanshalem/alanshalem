@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getPosts, postPath } from '../lib/posts.ts';
+import { getSettings } from '../lib/settings.ts';
 import { absoluteUrl, site } from '../lib/site.ts';
 
 const escapeXml = (text: string): string =>
@@ -10,6 +11,7 @@ const withAbsoluteUrls = (html: string): string => html.replace(/(href|src)="\/(
 
 export const GET: APIRoute = async () => {
   const posts = (await getPosts()).slice(0, 20);
+  const settings = await getSettings();
 
   const items = posts
     .map((post) => {
@@ -30,9 +32,9 @@ export const GET: APIRoute = async () => {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${escapeXml(site.name)}</title>
+    <title>${escapeXml(settings.name)}</title>
     <link>${site.url}/</link>
-    <description>${escapeXml(site.tagline)}</description>
+    <description>${escapeXml(settings.tagline)}</description>
     <language>${site.lang}</language>
     <atom:link href="${absoluteUrl('/rss.xml')}" rel="self" type="application/rss+xml" />
 ${items}

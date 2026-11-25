@@ -1,16 +1,20 @@
 ---
+import { getSettings } from '../lib/settings.ts';
 import { site } from '../lib/site.ts';
 
 interface Props {
   currentPath: string;
+  /** Transparente y superpuesta al hero (home y artículo). */
+  overlay?: boolean;
 }
 
-const { currentPath } = Astro.props;
+const { currentPath, overlay = false } = Astro.props;
+const settings = await getSettings();
 const isCurrent = (href: string): boolean => href !== '/rss.xml' && currentPath.startsWith(href);
 ---
 
-<header class="site-header">
-  <a class="brand" href="/">{site.name}</a>
+<header class:list={['site-header', { 'site-header--overlay': overlay }]}>
+  <a class="brand" href="/">{settings.name}</a>
 
   <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menú">☰</button>
   <nav id="site-nav" class="site-nav" aria-label="Principal">

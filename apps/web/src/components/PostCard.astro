@@ -1,19 +1,24 @@
 ---
+import CoverMedia from './CoverMedia.astro';
 import { formatDate } from '../lib/site.ts';
 import { postPath, type BlogPost } from '../lib/posts.ts';
 
 interface Props {
   post: BlogPost;
+  /** Nivel del título según la página (h2 en listados sin encabezado de sección, h3 debajo de uno). */
+  headingLevel?: 2 | 3;
 }
 
-const { post } = Astro.props;
+const { post, headingLevel = 3 } = Astro.props;
 const eyebrow = post.tags[0]?.name ?? 'Artículo';
+const Heading = `h${headingLevel}` as 'h2' | 'h3';
 ---
 
 <article class="card">
+  <CoverMedia cover={post.cover} ratio="card" decorative />
   <p class="eyebrow">{eyebrow}</p>
-  <h3><a href={postPath(post)}>{post.title}</a></h3>
-  {post.description && <p class="dek">{post.description}</p>}
+  <Heading class="card-title"><a href={postPath(post)}>{post.title}</a></Heading>
+  {post.description && <p class="card-dek">{post.description}</p>}
   <p class="meta">
     <time datetime={post.publishedAt.toISOString()}>{formatDate(post.publishedAt)}</time> · {post.readingMinutes} min
   </p>

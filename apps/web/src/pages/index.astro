@@ -1,33 +1,153 @@
 ---
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { renderMarkdown } from '@blog/markdown';
+import CoverMedia from '../components/CoverMedia.astro';
 import PostCard from '../components/PostCard.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getPosts } from '../lib/posts.ts';
-import { site } from '../lib/site.ts';
+import { absoluteImageUrl } from '../lib/cover.ts';
+import { generativeCover } from '../lib/generative.ts';
+import { getPosts, getTags, postPath, tagPath } from '../lib/posts.ts';
+import { getSettings, resolveHeroImage } from '../lib/settings.ts';
+import { absoluteUrl, formatDate } from '../lib/site.ts';
 
+const settings = await getSettings();
 const posts = await getPosts();
-const latest = posts.slice(0, 6);
+const tags = (await getTags()).slice(0, 8);
+
+// Foto del hero (S2): la de los ajustes, o public/hero.jpg si alguien la dejó ahí; si no, hero tipográfico.
+const heroJpgExists = existsSync(join(process.cwd(), 'public', 'hero.jpg'));
+const hero = resolveHeroImage(settings, heroJpgExists);
+const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }).html : null;
+
+const [featured, ...rest] = posts;
+const latest = rest.slice(0, 3);
+const more = posts.slice(4, 8);
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 ---
 
-<BaseLayout title={site.name} path="/">
-  <section class="hero">
-    <p class="eyebrow">{site.author}</p>
-    <h1>{site.tagline}</h1>
-  </section>
-
-  <section class="section">
-    <div class="section-head">
-      <h2>Últimos artículos</h2>
-      <a href="/articulos/">Ver todos</a>
-    </div>
-
+<BaseLayout
+  title={settings.name}
+  path="/"
+  overlayHeader
+  image={hero ? absoluteImageUrl(hero.src, absoluteUrl('/')) : undefined}
+  imageAlt={hero?.alt || undefined}
+>
+  <section class:list={['hero', { 'hero--photo': hero, 'hero--type': !hero }]} aria-labelledby="hero-title">
     {
-      latest.length > 0 ? (
-        <div class="card-grid">
-          {latest.map((post) => <PostCard post={post} />)}
+      hero && (
+        <div class="hero-bg">
+          <img src={hero.src} alt={hero.alt} width="1920" height="1080" loading="eager" fetchpriority="high" decoding="async" />
         </div>
-      ) : (
-        <p class="empty">Todavía no hay artículos publicados.</p>
       )
     }
+    <div class="hero-body">
+      <h1 id="hero-title">{settings.name}</h1>
+      {bioHtml ? <div class="hero-dek" set:html={bioHtml} /> : <p class="hero-dek">{settings.tagline}</p>}
+      <p class="entry-links">
+        <a href={posts.length > 0 ? '#ultimos' : '/articulos/'}>Últimos artículos</a>
+        <a href="/temas/">Temas</a>
+        <a href="/rss.xml">RSS</a>
+      </p>
+    </div>
+    {hero?.credit && <p class="hero-credit">{hero.credit}</p>}
   </section>
+
+  {
+    !featured && (
+      <section class="section">
+        <div class="section-head">
+          <h2>Últimos</h2>
+        </div>
+        <p class="empty">Todavía no hay artículos publicados.</p>
+      </section>
+    )
+  }
+
+  {
+    featured && (
+      <section class="section" id="ultimos" aria-labelledby="ultimos-title">
+        <div class="section-head">
+          <h2 id="ultimos-title">Últimos</h2>
+          <a href="/articulos/">Todos los artículos</a>
+        </div>
+
+        <article class="lead">
+          <CoverMedia cover={featured.cover} ratio="lead" eager={!hero} decorative />
+          <div class="lead-body">
+            <p class="eyebrow">{featured.tags.length > 0 ? featured.tags.map((t) => t.name).join(' · ') : 'Artículo'}</p>
+            <h3 class="lead-title">
+              <a href={postPath(featured)}>{featured.title}</a>
+            </h3>
+            {featured.description && <p class="lead-dek">{featured.description}</p>}
+            <p class="meta">
+              <time datetime={featured.publishedAt.toISOString()}>{formatDate(featured.publishedAt)}</time> ·{' '}
+              {featured.readingMinutes} min de lectura
+            </p>
+            {featured.cover.kind === 'image' && featured.cover.alt && <p class="lead-credit">{featured.cover.alt}</p>}
+          </div>
+        </article>
+
+        {
+          latest.length > 0 && (
+            <div class="card-grid card-grid--row">
+              {latest.map((post) => (
+                <PostCard post={post} />
+              ))}
+            </div>
+          )
+        }
+      </section>
+    )
+  }
+
+  {
+    more.length > 0 && (
+      <section class="section" aria-labelledby="mas-title">
+        <div class="section-head">
+          <h2 id="mas-title">Más artículos</h2>
+          <a href="/articulos/">Archivo completo</a>
+        </div>
+        <ol class="numbered">
+          {more.map((post, i) => (
+            <li>
+              <span class="numbered-n" aria-hidden="true">
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div>
+                <h3>
+                  <a href={postPath(post)}>{post.title}</a>
+                </h3>
+                {post.description && <p>{post.description}</p>}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+    )
+  }
+
+  {
+    tags.length > 0 && (
+      <section class="section" aria-labelledby="temas-title">
+        <div class="section-head">
+          <h2 id="temas-title">Temas</h2>
+          <a href="/temas/">Todos los temas</a>
+        </div>
+        <ul class="tiles">
+          {tags.map(({ tag, posts: tagPosts }) => (
+            <li class="tile">
+              <CoverMedia cover={{ kind: 'generative', svg: generativeCover(`tema:${tag.slug}`, tag.slug) }} ratio="tile" />
+              <div class="tile-body">
+                <h3 class="tile-title">
+                  <a href={tagPath(tag)}>{tag.name}</a>
+                </h3>
+                <p class="meta">{plural(tagPosts.length, 'artículo', 'artículos')}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
 </BaseLayout>
