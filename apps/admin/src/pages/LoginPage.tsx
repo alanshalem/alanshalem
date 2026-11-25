@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api/client.ts';
+import { SITE_URL } from '../siteUrl.ts';
 
 interface Props {
   onLoggedIn: () => void;
@@ -62,7 +63,7 @@ export function LoginPage({ onLoggedIn }: Props) {
         <button type="submit" className="primary login-submit" disabled={busy || password === ''}>
           {busy ? 'Entrando…' : 'Entrar'}
         </button>
-        <a className="login-back" href="/">
+        <a className="login-back" href={SITE_URL}>
           ← Volver al sitio
         </a>
       </form>

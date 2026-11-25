@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage.tsx';
 import { PostEditorPage } from './pages/PostEditorPage.tsx';
 import { PostsPage } from './pages/PostsPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
+import { SITE_URL } from './siteUrl.ts';
 import { href, useRoute } from './useRoute.ts';
 
 type Session = 'loading' | 'anonymous' | 'authenticated';
@@ -54,7 +55,7 @@ export function App() {
           <a href={href.settings} aria-current={section === 'settings' ? 'page' : undefined}>
             Ajustes
           </a>
-          <a href="/" target="_blank" rel="noopener">
+          <a href={SITE_URL} target="_blank" rel="noopener">
             Ver sitio ↗
           </a>
         </nav>

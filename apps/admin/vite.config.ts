@@ -30,9 +30,14 @@ function devFonts(): Plugin {
   };
 }
 
+/** Servidor de desarrollo del sitio público (`astro dev`). En producción el sitio comparte dominio con el admin. */
+const DEV_SITE_URL = 'http://localhost:4321/';
+
 // El admin se sirve bajo /admin/ (Caddy) y habla con la API en /api (mismo origen: sin CORS).
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base: '/admin/',
+  // Solo en `vite dev`: los enlaces al sitio apuntan al servidor de Astro (src/siteUrl.ts). En el build queda "/".
+  define: command === 'serve' ? { 'import.meta.env.VITE_SITE_URL': JSON.stringify(DEV_SITE_URL) } : {},
   plugins: [react(), devFonts()],
   server: {
     port: 5173,
@@ -47,4 +52,4 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
   },
-});
+}));
