@@ -20,6 +20,11 @@ public sealed class HeroImage
     public VideoAsset? Video { get; private set; }
     public string Alt { get; private set; }
     public string? Credit { get; private set; }
+
+    /// <summary>Versión en inglés de <see cref="Alt"/>. Null = el sitio en inglés usa la de español.</summary>
+    public string? AltEn { get; private set; }
+
+    public string? CreditEn { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
     /// <summary>
@@ -53,6 +58,8 @@ public sealed class HeroImage
     {
         Alt = content.Alt;
         Credit = content.Credit;
+        AltEn = content.AltEn;
+        CreditEn = content.CreditEn;
     }
 
     private static HeroImage New(MediaAsset media, VideoAsset? video, HeroImageContent content, DateTime nowUtc)
@@ -72,12 +79,13 @@ public sealed class HeroImage
 }
 
 /// <summary>Lo editable de un ítem del hero, ya validado y normalizado. Si existe una instancia, es válida.</summary>
-public sealed record HeroImageContent(string Alt, string? Credit)
+public sealed record HeroImageContent(string Alt, string? Credit, string? AltEn = null, string? CreditEn = null)
 {
     public const int MaxAltLength = 300;
     public const int MaxCreditLength = 200;
 
-    public static HeroImageContent Create(string? alt, string? credit)
+    /// <param name="altEn">Opcional aunque el de español no: si falta, el sitio en inglés usa el de español.</param>
+    public static HeroImageContent Create(string? alt, string? credit, string? altEn = null, string? creditEn = null)
     {
         // El texto alternativo es obligatorio: es lo único que "ve" un lector de pantalla del hero.
         var cleanAlt = OptionalText.Clean(alt, MaxAltLength, $"El texto alternativo no puede superar {MaxAltLength} caracteres.")
@@ -85,6 +93,8 @@ public sealed record HeroImageContent(string Alt, string? Credit)
 
         return new HeroImageContent(
             cleanAlt,
-            OptionalText.Clean(credit, MaxCreditLength, $"El crédito no puede superar {MaxCreditLength} caracteres."));
+            OptionalText.Clean(credit, MaxCreditLength, $"El crédito no puede superar {MaxCreditLength} caracteres."),
+            OptionalText.Clean(altEn, MaxAltLength, $"El texto alternativo en inglés no puede superar {MaxAltLength} caracteres."),
+            OptionalText.Clean(creditEn, MaxCreditLength, $"El crédito en inglés no puede superar {MaxCreditLength} caracteres."));
     }
 }

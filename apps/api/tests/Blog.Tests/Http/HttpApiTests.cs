@@ -34,6 +34,7 @@ public class HttpApiTests(ApiFactory api)
     [InlineData("POST", "/api/admin/hero-images")]
     [InlineData("PUT", "/api/admin/settings")]
     [InlineData("DELETE", "/api/admin/hero-images/0198f3a0-0000-7000-8000-000000000000")]
+    [InlineData("POST", "/api/admin/posts/0198f3a0-0000-7000-8000-000000000000/translations")]
     public async Task Mutations_without_the_csrf_header_are_403_even_with_a_session(string method, string url)
     {
         var admin = await api.AdminClientAsync();
@@ -94,9 +95,11 @@ public class HttpApiTests(ApiFactory api)
         var buildsBefore = api.Build.Requests;
 
         using var created = await admin.SendAsync(ApiFactory.Mutation(
-            HttpMethod.Post, "/api/admin/hero-images", ApiFactory.JsonContent(new { mediaId, alt = "Nebulosa", credit = "Foto: Ana" })));
+            HttpMethod.Post, "/api/admin/hero-images", ApiFactory.JsonContent(new { mediaId, alt = "Nebulosa", credit = "Foto: Ana", altEn = "Nebula" })));
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var image = await created.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Nebula", image.GetProperty("altEn").GetString());
+        Assert.Equal(JsonValueKind.Null, image.GetProperty("creditEn").ValueKind);
         var id = image.GetProperty("id").GetGuid();
         Assert.Equal($"/api/admin/hero-images/{id}", created.Headers.Location?.OriginalString);
         Assert.Equal(mediaId, image.GetProperty("media").GetProperty("id").GetGuid());
@@ -119,6 +122,66 @@ public class HttpApiTests(ApiFactory api)
 
         // Alta, edición y baja piden regenerar el sitio; lo rechazado no.
         Assert.Equal(buildsBefore + 3, api.Build.Requests);
+    }
+
+    [Fact]
+    public async Task Creating_a_translation_answers_201_409_400_and_404_with_the_spanish_detail_and_links_the_versions()
+    {
+        var admin = await api.AdminClientAsync();
+        using var anonymous = api.CreateHttpsClient();
+        using var createdPost = await admin.SendAsync(ApiFactory.Mutation(
+            HttpMethod.Post, "/api/admin/posts", ApiFactory.JsonContent(new { title = "Hola traducción", body = "cuerpo" })));
+        var original = await createdPost.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        var group = original.GetProperty("translationGroupId").GetGuid();
+        var buildsBefore = api.Build.Requests;
+
+        using var created = await admin.SendAsync(TranslationRequest(id, "en"));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var translation = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var translationId = translation.GetProperty("id").GetGuid();
+        Assert.Equal($"/api/admin/posts/{translationId}", created.Headers.Location?.OriginalString);
+        Assert.Equal(("en", "draft", "hola-traduccion", group), (
+            translation.GetProperty("lang").GetString(), translation.GetProperty("status").GetString(),
+            translation.GetProperty("slug").GetString(), translation.GetProperty("translationGroupId").GetGuid()));
+        var linked = Assert.Single(translation.GetProperty("translations").EnumerateArray());
+        Assert.Equal(["id", "lang", "slug", "status", "updatedAt"], linked.EnumerateObject().Select(property => property.Name));
+        Assert.Equal((id, "es", "draft"), (linked.GetProperty("id").GetGuid(), linked.GetProperty("lang").GetString(), linked.GetProperty("status").GetString()));
+
+        await AssertProblemAsync(await admin.SendAsync(TranslationRequest(id, "en")), HttpStatusCode.Conflict, "Este post ya tiene su versión en inglés.");
+        await AssertProblemAsync(
+            await admin.SendAsync(TranslationRequest(translationId, "en")),
+            HttpStatusCode.BadRequest,
+            "El post ya está en inglés: la versión nueva tiene que ser en el otro idioma.");
+        await AssertProblemAsync(await admin.SendAsync(TranslationRequest(id, "fr")), HttpStatusCode.BadRequest, LanguageTests.InvalidLanguageMessage);
+        await AssertProblemAsync(await admin.SendAsync(TranslationRequest(Guid.NewGuid(), "en")), HttpStatusCode.NotFound, "El post no existe.");
+        using var withoutSession = await anonymous.SendAsync(TranslationRequest(id, "en"));
+        Assert.Equal(HttpStatusCode.Unauthorized, withoutSession.StatusCode);
+
+        var summary = (await admin.GetFromJsonAsync<JsonElement>("/api/admin/posts")).EnumerateArray()
+            .Single(item => item.GetProperty("id").GetGuid() == id);
+        Assert.Equal(("es", group), (summary.GetProperty("lang").GetString(), summary.GetProperty("translationGroupId").GetGuid()));
+        Assert.Equal([translationId], summary.GetProperty("translations").EnumerateArray().Select(item => item.GetProperty("id").GetGuid()));
+        // Un borrador nuevo no se ve en el sitio: no se regenera.
+        Assert.Equal(buildsBefore, api.Build.Requests);
+    }
+
+    [Fact]
+    public async Task Settings_take_and_return_the_english_name_tagline_and_bio()
+    {
+        var admin = await api.AdminClientAsync();
+
+        using var saved = await admin.SendAsync(ApiFactory.Mutation(HttpMethod.Put, "/api/admin/settings", ApiFactory.JsonContent(
+            new { name = "Alan", nameEn = "Alan S.", taglineEn = "Notes on software", bioEn = " " })));
+        using var client = api.CreateHttpsClient();
+        var internalSettings = await (await client.SendAsync(WithBearer("/api/internal/settings", ApiFactory.BuilderToken)))
+            .Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+        Assert.Equal(
+            ("Alan S.", "Notes on software", JsonValueKind.Null),
+            (internalSettings.GetProperty("nameEn").GetString(), internalSettings.GetProperty("taglineEn").GetString(),
+                internalSettings.GetProperty("bioEn").ValueKind));
     }
 
     [Theory]
@@ -215,6 +278,9 @@ public class HttpApiTests(ApiFactory api)
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
+
+    private static HttpRequestMessage TranslationRequest(Guid id, string lang) =>
+        ApiFactory.Mutation(HttpMethod.Post, $"/api/admin/posts/{id}/translations", ApiFactory.JsonContent(new { lang }));
 
     private static HttpRequestMessage WithBearer(string url, string token) =>
         new(HttpMethod.Get, url) { Headers = { Authorization = new AuthenticationHeaderValue("Bearer", token) } };

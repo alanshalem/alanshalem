@@ -8,9 +8,16 @@ public interface IPostRepository
 {
     Task<Post?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
-    Task<bool> SlugExistsAsync(string slug, Guid? excludingId, CancellationToken cancellationToken);
+    /// <summary>El slug es único por idioma.</summary>
+    Task<bool> SlugExistsAsync(string lang, string slug, Guid? excludingId, CancellationToken cancellationToken);
 
-    /// <summary>Todos los posts, más recientes primero, SIN el cuerpo (la lista del admin no necesita cargarlo).</summary>
+    /// <summary>Todas las versiones del grupo de traducción, incluida la del post que se pidió.</summary>
+    Task<IReadOnlyList<PostTranslationDto>> ListVersionsAsync(Guid translationGroupId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Todos los posts, más recientes primero, SIN el cuerpo (la lista del admin no necesita cargarlo) y con
+    /// Translations vacío: las versiones las vincula el servicio con la lista misma.
+    /// </summary>
     Task<IReadOnlyList<PostSummaryDto>> ListSummariesAsync(CancellationToken cancellationToken);
 
     Task<IReadOnlyList<Post>> ListPublishedAsync(CancellationToken cancellationToken);
@@ -19,7 +26,9 @@ public interface IPostRepository
 
     void Remove(Post post);
 
-    /// <exception cref="ConflictException">Si el slug ya existe (carrera entre dos guardados simultáneos).</exception>
+    /// <exception cref="ConflictException">
+    /// Si el slug ya existe en ese idioma o el grupo ya tiene esa versión (carrera entre dos guardados simultáneos).
+    /// </exception>
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 

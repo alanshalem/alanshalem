@@ -20,7 +20,10 @@ public sealed class SiteSettingsService(ISiteSettingsRepository settings, ISiteB
             request.Email,
             request.GithubUrl,
             request.LinkedinUrl,
-            request.XUrl);
+            request.XUrl,
+            request.NameEn,
+            request.TaglineEn,
+            request.BioEn);
 
         var current = await settings.GetAsync(cancellationToken);
         if (current is null)

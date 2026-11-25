@@ -11,15 +11,23 @@ internal sealed class PostRepository(BlogDbContext db) : IPostRepository
     public Task<Post?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         db.Posts.FirstOrDefaultAsync(post => post.Id == id, cancellationToken);
 
-    public Task<bool> SlugExistsAsync(string slug, Guid? excludingId, CancellationToken cancellationToken) =>
-        db.Posts.AnyAsync(post => post.Slug == slug && post.Id != excludingId, cancellationToken);
+    public Task<bool> SlugExistsAsync(string lang, string slug, Guid? excludingId, CancellationToken cancellationToken) =>
+        db.Posts.AnyAsync(post => post.Lang == lang && post.Slug == slug && post.Id != excludingId, cancellationToken);
+
+    public async Task<IReadOnlyList<PostTranslationDto>> ListVersionsAsync(Guid translationGroupId, CancellationToken cancellationToken) =>
+        await db.Posts
+            .AsNoTracking()
+            .Where(post => post.TranslationGroupId == translationGroupId)
+            .Select(post => new PostTranslationDto(post.Id, post.Lang, post.Slug, post.Status, post.UpdatedAtUtc))
+            .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<PostSummaryDto>> ListSummariesAsync(CancellationToken cancellationToken) =>
         await db.Posts
             .AsNoTracking()
             .OrderByDescending(post => post.UpdatedAtUtc)
             .Select(post => new PostSummaryDto(
-                post.Id, post.Slug, post.Title, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc, post.CoverUrl, post.CoverAlt))
+                post.Id, post.Slug, post.Title, post.Lang, post.TranslationGroupId, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc,
+                post.CoverUrl, post.CoverAlt, new List<PostTranslationDto>()))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Post>> ListPublishedAsync(CancellationToken cancellationToken) =>
@@ -41,8 +49,9 @@ internal sealed class PostRepository(BlogDbContext db) : IPostRepository
         }
         catch (DbUpdateException exception) when (SqliteConventions.IsConstraintViolation(exception))
         {
-            // El chequeo previo de slug no es atómico: si dos guardados chocan, el índice único tiene la última palabra.
-            throw new ConflictException("Ya existe un post con ese slug.");
+            // Los chequeos previos (slug por idioma, una versión por idioma) no son atómicos: si dos guardados chocan,
+            // los índices únicos tienen la última palabra.
+            throw new ConflictException("Ya existe un post con ese slug en ese idioma, o el post ya tiene esa versión. Recargá y volvé a intentar.");
         }
     }
 }

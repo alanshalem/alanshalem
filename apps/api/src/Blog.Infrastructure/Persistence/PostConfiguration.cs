@@ -25,8 +25,12 @@ internal sealed class PostConfiguration : IEntityTypeConfiguration<Post>
         builder.ToTable("posts");
         builder.HasKey(post => post.Id);
 
+        // Slug único por idioma: /es/articulos/hola/ y /en/articles/hola/ pueden convivir.
         builder.Property(post => post.Slug).IsRequired().HasMaxLength(Slug.MaxLength);
-        builder.HasIndex(post => post.Slug).IsUnique();
+        builder.HasIndex(post => new { post.Lang, post.Slug }).IsUnique();
+
+        // A lo sumo una versión por idioma en cada grupo de traducción.
+        builder.HasIndex(post => new { post.TranslationGroupId, post.Lang }).IsUnique();
 
         builder.Property(post => post.Title).IsRequired().HasMaxLength(PostContent.MaxTitleLength);
         builder.Property(post => post.Summary).IsRequired().HasMaxLength(PostContent.MaxSummaryLength);

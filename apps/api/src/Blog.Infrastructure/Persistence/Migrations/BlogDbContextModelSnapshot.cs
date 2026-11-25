@@ -29,10 +29,18 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AltEn")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Credit")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CreditEn")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
@@ -145,15 +153,21 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid>("TranslationGroupId")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Slug")
+                    b.HasIndex("Status");
+
+                    b.HasIndex("Lang", "Slug")
                         .IsUnique();
 
-                    b.HasIndex("Status");
+                    b.HasIndex("TranslationGroupId", "Lang")
+                        .IsUnique();
 
                     b.ToTable("posts", (string)null);
                 });
@@ -164,6 +178,10 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Bio")
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BioEn")
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
@@ -184,7 +202,15 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("NameEn")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Tagline")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaglineEn")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 

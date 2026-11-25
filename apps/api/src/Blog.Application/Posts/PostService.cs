@@ -6,32 +6,41 @@ namespace Blog.Application.Posts;
 /// <summary>Casos de uso de posts. Cada cambio que afecta lo que ve el público dispara una regeneración del sitio.</summary>
 public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildTrigger siteBuild)
 {
-    private const string DefaultLanguage = "es";
-
-    public Task<IReadOnlyList<PostSummaryDto>> ListAsync(CancellationToken cancellationToken) =>
-        posts.ListSummariesAsync(cancellationToken);
+    public async Task<IReadOnlyList<PostSummaryDto>> ListAsync(CancellationToken cancellationToken)
+    {
+        // La lista ya trae todas las versiones: se vinculan entre sí sin otra consulta.
+        var summaries = await posts.ListSummariesAsync(cancellationToken);
+        var groups = summaries.ToLookup(summary => summary.TranslationGroupId, summary => summary.ToTranslation());
+        return summaries
+            .Select(summary => summary with { Translations = PostMapping.OthersThan(summary.Id, groups[summary.TranslationGroupId]) })
+            .ToList();
+    }
 
     public async Task<PostDto> GetAsync(Guid id, CancellationToken cancellationToken) =>
-        (await FindAsync(id, cancellationToken)).ToDto();
+        await ToDtoAsync(await FindAsync(id, cancellationToken), cancellationToken);
 
     public async Task<PostDto> CreateAsync(SavePostRequest request, CancellationToken cancellationToken)
     {
-        var content = ToContent(request);
-        await EnsureSlugIsFreeAsync(content.Slug, excludingId: null, cancellationToken);
+        var post = Post.CreateDraft(ToContent(request), request.Lang ?? Language.Default, clock.UtcNow);
+        await EnsureSlugIsFreeAsync(post.Lang, post.Slug, excludingId: null, cancellationToken);
 
-        var post = Post.CreateDraft(content, DefaultLanguage, clock.UtcNow);
         posts.Add(post);
         await posts.SaveChangesAsync(cancellationToken);
 
         // Un borrador nuevo no es visible para el público: no hace falta regenerar.
-        return post.ToDto();
+        return await ToDtoAsync(post, cancellationToken);
     }
 
     public async Task<PostDto> UpdateAsync(Guid id, SavePostRequest request, CancellationToken cancellationToken)
     {
         var post = await FindAsync(id, cancellationToken);
+        if (request.Lang is not null && Language.Parse(request.Lang) != post.Lang)
+        {
+            throw new DomainException("El idioma de un post no se puede cambiar: creá su versión en el otro idioma.");
+        }
+
         var content = ToContent(request);
-        await EnsureSlugIsFreeAsync(content.Slug, excludingId: id, cancellationToken);
+        await EnsureSlugIsFreeAsync(post.Lang, content.Slug, excludingId: id, cancellationToken);
 
         post.Update(content, clock.UtcNow);
         await posts.SaveChangesAsync(cancellationToken);
@@ -41,7 +50,31 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
             await siteBuild.RequestBuildAsync(cancellationToken);
         }
 
-        return post.ToDto();
+        return await ToDtoAsync(post, cancellationToken);
+    }
+
+    /// <summary>
+    /// Crea el borrador de la versión en otro idioma copiando el contenido del post (la traducción es manual, encima de
+    /// la copia). Un borrador no se ve en el sitio: no se regenera.
+    /// </summary>
+    /// <exception cref="ConflictException">Si el grupo ya tiene esa versión, o si otro post usa el slug en ese idioma.</exception>
+    public async Task<PostDto> CreateTranslationAsync(Guid id, CreateTranslationRequest request, CancellationToken cancellationToken)
+    {
+        var source = await FindAsync(id, cancellationToken);
+        var translation = source.CreateTranslation(request.Lang, clock.UtcNow);
+
+        // Una versión por idioma en cada grupo. El índice único (TranslationGroupId, Lang) cubre la carrera entre dos pedidos.
+        var versions = await posts.ListVersionsAsync(source.TranslationGroupId, cancellationToken);
+        if (versions.Any(version => version.Lang == translation.Lang))
+        {
+            throw new ConflictException($"Este post ya tiene su versión en {Language.NameOf(translation.Lang)}.");
+        }
+
+        await EnsureSlugIsFreeAsync(translation.Lang, translation.Slug, excludingId: null, cancellationToken);
+
+        posts.Add(translation);
+        await posts.SaveChangesAsync(cancellationToken);
+        return translation.ToDto(versions);
     }
 
     public async Task<PostDto> PublishAsync(Guid id, CancellationToken cancellationToken)
@@ -50,7 +83,7 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
         post.Publish(clock.UtcNow);
         await posts.SaveChangesAsync(cancellationToken);
         await siteBuild.RequestBuildAsync(cancellationToken);
-        return post.ToDto();
+        return await ToDtoAsync(post, cancellationToken);
     }
 
     public async Task<PostDto> UnpublishAsync(Guid id, CancellationToken cancellationToken)
@@ -66,9 +99,10 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
             await siteBuild.RequestBuildAsync(cancellationToken);
         }
 
-        return post.ToDto();
+        return await ToDtoAsync(post, cancellationToken);
     }
 
+    /// <summary>Borra solo esta versión: las demás del grupo quedan (si queda una, el grupo sigue con ella).</summary>
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         var post = await FindAsync(id, cancellationToken);
@@ -83,21 +117,32 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
         }
     }
 
-    /// <summary>Lo que consume el builder de Astro: todos los posts publicados, con cuerpo.</summary>
-    public async Task<IReadOnlyList<PostDto>> ListPublishedAsync(CancellationToken cancellationToken) =>
-        (await posts.ListPublishedAsync(cancellationToken)).Select(post => post.ToDto()).ToList();
+    /// <summary>
+    /// Lo que consume el builder de Astro: todos los posts publicados, con cuerpo. Cada uno se vincula solo con sus
+    /// versiones publicadas: el sitio nunca enlaza un borrador.
+    /// </summary>
+    public async Task<IReadOnlyList<PostDto>> ListPublishedAsync(CancellationToken cancellationToken)
+    {
+        var published = await posts.ListPublishedAsync(cancellationToken);
+        var groups = published.ToLookup(post => post.TranslationGroupId, post => post.ToTranslation());
+        return published.Select(post => post.ToDto(groups[post.TranslationGroupId])).ToList();
+    }
 
     private async Task<Post> FindAsync(Guid id, CancellationToken cancellationToken) =>
         await posts.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("El post no existe.");
 
+    private async Task<PostDto> ToDtoAsync(Post post, CancellationToken cancellationToken) =>
+        post.ToDto(await posts.ListVersionsAsync(post.TranslationGroupId, cancellationToken));
+
     private static PostContent ToContent(SavePostRequest request) =>
         PostContent.Create(request.Title, request.Slug, request.Summary, request.Body, request.Tags, request.CoverUrl, request.CoverAlt);
 
-    private async Task EnsureSlugIsFreeAsync(string slug, Guid? excludingId, CancellationToken cancellationToken)
+    // El slug es único por idioma: la misma URL puede existir en /es/ y en /en/.
+    private async Task EnsureSlugIsFreeAsync(string lang, string slug, Guid? excludingId, CancellationToken cancellationToken)
     {
-        if (await posts.SlugExistsAsync(slug, excludingId, cancellationToken))
+        if (await posts.SlugExistsAsync(lang, slug, excludingId, cancellationToken))
         {
-            throw new ConflictException($"Ya existe un post con el slug \"{slug}\".");
+            throw new ConflictException($"Ya existe un post en {Language.NameOf(lang)} con el slug \"{slug}\".");
         }
     }
 }

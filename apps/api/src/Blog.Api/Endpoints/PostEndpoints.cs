@@ -29,6 +29,13 @@ public static class PostEndpoints
         posts.MapPost("/{id:guid}/unpublish", (Guid id, PostService service, CancellationToken ct) =>
             service.UnpublishAsync(id, ct));
 
+        // Crea el borrador de la versión en otro idioma (contenido copiado); responde con ese borrador nuevo.
+        posts.MapPost("/{id:guid}/translations", async (Guid id, CreateTranslationRequest request, PostService service, CancellationToken ct) =>
+        {
+            var translation = await service.CreateTranslationAsync(id, request, ct);
+            return Results.Created($"/api/admin/posts/{translation.Id}", translation);
+        });
+
         posts.MapDelete("/{id:guid}", async (Guid id, PostService service, CancellationToken ct) =>
         {
             await service.DeleteAsync(id, ct);

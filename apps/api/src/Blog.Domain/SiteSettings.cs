@@ -5,7 +5,8 @@ namespace Blog.Domain;
 /// <summary>
 /// Datos del autor y del sitio que se editan desde el admin (nombre, bio, enlaces). Las fotos del hero son
 /// una galería aparte (<see cref="HeroImage"/>).
-/// Hay una sola fila: siempre con <see cref="SingletonId"/>.
+/// Hay una sola fila: siempre con <see cref="SingletonId"/>. Los textos sin sufijo son los de español; los En son su
+/// versión en inglés y, si faltan (null), el sitio en inglés usa el de español.
 /// </summary>
 public sealed class SiteSettings
 {
@@ -28,6 +29,9 @@ public sealed class SiteSettings
     public string? GithubUrl { get; private set; }
     public string? LinkedinUrl { get; private set; }
     public string? XUrl { get; private set; }
+    public string? NameEn { get; private set; }
+    public string? TaglineEn { get; private set; }
+    public string? BioEn { get; private set; }
 
     public static SiteSettings Create(SiteSettingsContent content)
     {
@@ -47,6 +51,9 @@ public sealed class SiteSettings
         GithubUrl = content.GithubUrl;
         LinkedinUrl = content.LinkedinUrl;
         XUrl = content.XUrl;
+        NameEn = content.NameEn;
+        TaglineEn = content.TaglineEn;
+        BioEn = content.BioEn;
     }
 }
 
@@ -58,7 +65,10 @@ public sealed partial record SiteSettingsContent(
     string? Email,
     string? GithubUrl,
     string? LinkedinUrl,
-    string? XUrl)
+    string? XUrl,
+    string? NameEn = null,
+    string? TaglineEn = null,
+    string? BioEn = null)
 {
     public const int MaxNameLength = 100;
     public const int MaxTaglineLength = 200;
@@ -80,7 +90,10 @@ public sealed partial record SiteSettingsContent(
         string? email,
         string? githubUrl,
         string? linkedinUrl,
-        string? xUrl)
+        string? xUrl,
+        string? nameEn = null,
+        string? taglineEn = null,
+        string? bioEn = null)
     {
         var cleanName = (name ?? string.Empty).Trim();
         if (cleanName.Length == 0)
@@ -106,7 +119,11 @@ public sealed partial record SiteSettingsContent(
             cleanEmail,
             HttpLink(githubUrl, "GitHub"),
             HttpLink(linkedinUrl, "LinkedIn"),
-            HttpLink(xUrl, "X"));
+            HttpLink(xUrl, "X"),
+            // Mismos límites que sus pares en español, pero todos opcionales: el nombre en inglés también cae al español.
+            OptionalText.Clean(nameEn, MaxNameLength, $"El nombre en inglés no puede superar {MaxNameLength} caracteres."),
+            OptionalText.Clean(taglineEn, MaxTaglineLength, $"La frase en inglés no puede superar {MaxTaglineLength} caracteres."),
+            OptionalText.Clean(bioEn, MaxBioLength, $"La bio en inglés no puede superar {MaxBioLength} caracteres."));
     }
 
     private static string? HttpLink(string? value, string label)

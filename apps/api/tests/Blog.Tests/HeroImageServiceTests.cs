@@ -272,6 +272,42 @@ public class HeroImageServiceTests
     }
 
     [Fact]
+    public async Task The_english_alt_and_credit_round_trip_through_create_update_and_both_lists()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var asset = await AddAssetAsync(database, '1');
+
+        var created = await database.WithHeroImagesAsync(heroes => heroes.CreateAsync(
+            new CreateHeroImageRequest(asset.Id, "Nebulosa", "Foto: Ana", AltEn: " Nebula ", CreditEn: " Photo: Ana "), default));
+        var updated = await database.WithHeroImagesAsync(heroes =>
+            heroes.UpdateAsync(created.Id, new UpdateHeroImageRequest("Nebulosa", "Foto: Ana", "Orion nebula", "  "), default));
+
+        Assert.Equal(("Nebula", "Photo: Ana"), (created.AltEn, created.CreditEn));
+        Assert.Equal(("Orion nebula", null), (updated.AltEn, updated.CreditEn));
+        Assert.Equivalent(new[] { updated }, await ListAsync(database), strict: true);
+        Assert.Equivalent(new[] { updated }, await database.WithHeroImagesAsync(heroes => heroes.ListForSiteAsync(default)), strict: true);
+    }
+
+    [Fact]
+    public async Task A_too_long_english_alt_or_credit_is_rejected_and_leaves_the_stored_item_unchanged()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var asset = await AddAssetAsync(database, '1');
+        var created = await database.WithHeroImagesAsync(heroes => heroes.CreateAsync(
+            new CreateHeroImageRequest(asset.Id, "Nebulosa", null, AltEn: "Nebula"), default));
+
+        var onCreate = await Assert.ThrowsAsync<DomainException>(() => database.WithHeroImagesAsync(heroes => heroes.CreateAsync(
+            new CreateHeroImageRequest(asset.Id, "Otra", null, AltEn: new string('a', HeroImageContent.MaxAltLength + 1)), default)));
+        var onUpdate = await Assert.ThrowsAsync<DomainException>(() => database.WithHeroImagesAsync(heroes => heroes.UpdateAsync(
+            created.Id, new UpdateHeroImageRequest("Cambiada", null, null, new string('c', HeroImageContent.MaxCreditLength + 1)), default)));
+
+        Assert.Equal("El texto alternativo en inglés no puede superar 300 caracteres.", onCreate.Message);
+        Assert.Equal("El crédito en inglés no puede superar 200 caracteres.", onUpdate.Message);
+        Assert.Equivalent(new[] { created }, await ListAsync(database), strict: true);
+        Assert.Equal(1, database.Build.Requests);
+    }
+
+    [Fact]
     public async Task Update_or_delete_of_an_unknown_photo_is_not_found_and_does_not_rebuild()
     {
         await using var database = await CreateDatabaseAsync();

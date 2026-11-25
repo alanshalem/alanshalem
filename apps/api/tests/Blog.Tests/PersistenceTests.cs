@@ -1,3 +1,4 @@
+using Blog.Application;
 using Blog.Application.Abstractions;
 using Blog.Application.HeroImages;
 using Blog.Application.Media;
@@ -193,6 +194,10 @@ public class MigrationTests
         var postColumns = await database.ListAsync("SELECT name FROM pragma_table_info('posts')");
         Assert.Contains("CoverUrl", postColumns);
         Assert.Contains("CoverAlt", postColumns);
+        Assert.Contains("TranslationGroupId", postColumns);
+        Assert.Superset(new HashSet<string> { "TaglineEn", "BioEn" }, (await SettingsColumnsAsync(database)).ToHashSet());
+        Assert.Superset(
+            new HashSet<string> { "AltEn", "CreditEn" }, (await database.ListAsync("SELECT name FROM pragma_table_info('hero_images')")).ToHashSet());
         Assert.DoesNotContain(await SettingsColumnsAsync(database), column => column.StartsWith("HeroImage", StringComparison.Ordinal));
 
         var applied = await database.ListAsync("SELECT MigrationId FROM __EFMigrationsHistory");
@@ -200,6 +205,7 @@ public class MigrationTests
         Assert.Contains(applied, id => id.EndsWith("_AddMediaAssetsAndHeroGallery", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddHeroVideos", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddVideoEdit", StringComparison.Ordinal));
+        Assert.Contains(applied, id => id.EndsWith("_AddTranslations", StringComparison.Ordinal));
 
         await database.InScopeAsync<bool>(async provider =>
         {
@@ -255,7 +261,7 @@ public class MigrationTests
         Assert.Equal("/media/2026/11/a.png", post.CoverUrl);
         Assert.Equal(new DateTime(2026, 11, 21, 10, 0, 0, DateTimeKind.Utc), post.PublishedAt);
         Assert.Equal(
-            new SiteSettingsDto("Alan", "Frase", "Bio", "alan@example.com", "https://github.com/alan", null, null),
+            new SiteSettingsDto("Alan", "Frase", "Bio", "alan@example.com", "https://github.com/alan", null, null, null, null, null),
             await database.WithSettingsAsync(settings => settings.GetAsync(default)));
         Assert.DoesNotContain(await SettingsColumnsAsync(database), column => column.StartsWith("HeroImage", StringComparison.Ordinal));
         Assert.Empty(await database.ListAsync("SELECT Id FROM hero_images"));
@@ -330,6 +336,58 @@ public class MigrationTests
         // Conserva el hash del original: sus archivos siguen en la misma ruta.
         Assert.Equal($"/media/videos/{contentHash}/1080.av1.mp4", Assert.Single(video.Sources).Url);
         Assert.DoesNotContain("DurationSeconds", await database.ListAsync("SELECT name FROM pragma_table_info('video_assets')"));
+    }
+
+    [Fact]
+    public async Task Upgrading_from_video_edit_keeps_posts_settings_and_hero_and_puts_each_post_in_its_own_group()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InScopeAsync(async provider =>
+        {
+            var db = provider.GetRequiredService<BlogDbContext>();
+            await db.GetService<IMigrator>().MigrateAsync("AddVideoEdit");
+            return true;
+        });
+        var firstId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e21");
+        var secondId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e22");
+        var assetId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e23");
+        var heroId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e24");
+        await database.ExecuteAsync($"""
+            INSERT INTO posts (Id, Slug, Title, Summary, Body, Tags, CoverUrl, CoverAlt, Lang, Status, CreatedAtUtc, UpdatedAtUtc, PublishedAtUtc)
+            VALUES ('{firstId.ToString().ToUpperInvariant()}', 'uno', 'Uno', 'R1', 'Cuerpo 1', '["net"]', NULL, NULL,
+                    'es', 'Published', '2026-11-20 10:00:00', '2026-11-21 10:00:00', '2026-11-21 10:00:00'),
+                   ('{secondId.ToString().ToUpperInvariant()}', 'dos', 'Dos', 'R2', 'Cuerpo 2', '[]', NULL, NULL,
+                    'es', 'Draft', '2026-11-22 10:00:00', '2026-11-22 10:00:00', NULL);
+            INSERT INTO site_settings (Id, Name, Tagline, Bio, Email, GithubUrl, LinkedinUrl, XUrl)
+            VALUES (1, 'Alan', 'Frase', 'Bio', NULL, NULL, NULL, NULL);
+            INSERT INTO media_assets (Id, Hash, Width, Height, IsAnimated, Color, Placeholder, CreatedAtUtc)
+            VALUES ('{assetId.ToString().ToUpperInvariant()}', '{new string('b', MediaAsset.HashLength)}', 1920, 1080, 0, '#102030',
+                    'data:image/webp;base64,UklGRg==', '2026-11-25 10:00:00');
+            INSERT INTO hero_images (Id, MediaAssetId, VideoAssetId, Alt, Credit, CreatedAtUtc)
+            VALUES ('{heroId.ToString().ToUpperInvariant()}', '{assetId.ToString().ToUpperInvariant()}', NULL, 'Nebulosa', 'Foto: Ana',
+                    '2026-11-25 11:00:00');
+            """);
+
+        await database.InitializeAsync();
+
+        var first = await database.WithPostsAsync(posts => posts.GetAsync(firstId, default));
+        var second = await database.WithPostsAsync(posts => posts.GetAsync(secondId, default));
+        Assert.Equal(("uno", "Uno", "Cuerpo 1", "es", PostStatus.Published), (first.Slug, first.Title, first.Body, first.Lang, first.Status));
+        Assert.Equal(("dos", "Dos", "es", PostStatus.Draft), (second.Slug, second.Title, second.Lang, second.Status));
+        Assert.NotEqual(Guid.Empty, first.TranslationGroupId);
+        Assert.NotEqual(Guid.Empty, second.TranslationGroupId);
+        Assert.NotEqual(first.TranslationGroupId, second.TranslationGroupId);
+        Assert.Empty(first.Translations);
+        Assert.Empty(second.Translations);
+        Assert.Equal(
+            new SiteSettingsDto("Alan", "Frase", "Bio", null, null, null, null, null, null, null),
+            await database.WithSettingsAsync(settings => settings.GetAsync(default)));
+        var hero = Assert.Single(await database.WithHeroImagesAsync(heroes => heroes.ListAsync(default)));
+        Assert.Equal((heroId, "Nebulosa", "Foto: Ana", null, null), (hero.Id, hero.Alt, hero.Credit, hero.AltEn, hero.CreditEn));
+
+        // Un post existente ya puede sumar su versión en inglés con el mismo slug.
+        var english = await database.WithPostsAsync(posts => posts.CreateTranslationAsync(firstId, new CreateTranslationRequest("en"), default));
+        Assert.Equal((first.TranslationGroupId, "uno"), (english.TranslationGroupId, english.Slug));
     }
 
     private static Task<IReadOnlyList<string>> SettingsColumnsAsync(SqliteTestDatabase database) =>
@@ -414,6 +472,78 @@ public class PostPersistenceTests
     }
 }
 
+public class TranslationPersistenceTests
+{
+    [Fact]
+    public async Task Versions_round_trip_through_get_lists_and_delete_against_the_real_database()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InitializeAsync();
+        var original = await database.WithPostsAsync(posts => posts.CreateAsync(new SavePostRequest("Hola", null, "Resumen", "cuerpo", ["net"]), default));
+
+        var english = await database.WithPostsAsync(posts => posts.CreateTranslationAsync(original.Id, new CreateTranslationRequest("en"), default));
+
+        Assert.Equivalent(english, await database.WithPostsAsync(posts => posts.GetAsync(english.Id, default)), strict: true);
+        var loaded = await database.WithPostsAsync(posts => posts.GetAsync(original.Id, default));
+        Assert.Equal([new PostTranslationDto(english.Id, "en", "hola", PostStatus.Draft, english.UpdatedAt)], loaded.Translations);
+        var list = (await database.WithPostsAsync(posts => posts.ListAsync(default))).ToDictionary(summary => summary.Id);
+        Assert.Equal(("en", original.TranslationGroupId), (list[english.Id].Lang, list[english.Id].TranslationGroupId));
+        Assert.Equal([original.Id], list[english.Id].Translations.Select(version => version.Id));
+
+        await database.WithPostsAsync(async posts =>
+        {
+            await posts.DeleteAsync(original.Id, default);
+            return true;
+        });
+
+        var kept = await database.WithPostsAsync(posts => posts.GetAsync(english.Id, default));
+        Assert.Equal((original.TranslationGroupId, "en"), (kept.TranslationGroupId, kept.Lang));
+        Assert.Empty(kept.Translations);
+    }
+
+    [Fact]
+    public async Task The_slug_is_unique_per_language_and_a_rejected_duplicate_leaves_the_database_unchanged()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InitializeAsync();
+        await database.WithPostsAsync(posts => posts.CreateAsync(new SavePostRequest("Hola", "hola", null, "cuerpo", null), default));
+        await database.WithPostsAsync(posts => posts.CreateAsync(new SavePostRequest("Hello", "hola", null, "body", null, Lang: "en"), default));
+        var before = await database.ListAsync("SELECT Lang || ':' || Slug || ':' || Title FROM posts ORDER BY Lang");
+
+        var error = await Assert.ThrowsAsync<ConflictException>(() => database.WithPostsAsync(posts =>
+            posts.CreateAsync(new SavePostRequest("Otro", "hola", null, "x", null, Lang: "en"), default)));
+
+        Assert.Equal("Ya existe un post en inglés con el slug \"hola\".", error.Message);
+        Assert.Equal(["en:hola:Hello", "es:hola:Hola"], before);
+        Assert.Equal(before, await database.ListAsync("SELECT Lang || ':' || Slug || ':' || Title FROM posts ORDER BY Lang"));
+    }
+
+    [Fact]
+    public async Task The_database_itself_refuses_a_second_version_in_the_same_language_or_slug()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InitializeAsync();
+        var original = await database.WithPostsAsync(posts => posts.CreateAsync(new SavePostRequest("Hola", null, null, "cuerpo", null), default));
+        var group = original.TranslationGroupId.ToString().ToUpperInvariant();
+
+        // Lo que dejaría pasar una carrera entre dos pedidos: los índices únicos tienen la última palabra.
+        var sameLanguage = await Assert.ThrowsAsync<SqliteException>(() => database.ExecuteAsync($"""
+            INSERT INTO posts (Id, TranslationGroupId, Slug, Title, Summary, Body, Tags, Lang, Status, CreatedAtUtc, UpdatedAtUtc)
+            VALUES ('{Guid.NewGuid().ToString().ToUpperInvariant()}', '{group}', 'otro', 'Otro', '', '', '[]', 'es', 'Draft',
+                    '2026-11-25 10:00:00', '2026-11-25 10:00:00');
+            """));
+        var sameSlug = await Assert.ThrowsAsync<SqliteException>(() => database.ExecuteAsync($"""
+            INSERT INTO posts (Id, TranslationGroupId, Slug, Title, Summary, Body, Tags, Lang, Status, CreatedAtUtc, UpdatedAtUtc)
+            VALUES ('{Guid.NewGuid().ToString().ToUpperInvariant()}', '{Guid.NewGuid().ToString().ToUpperInvariant()}', 'hola', 'Otro',
+                    '', '', '[]', 'es', 'Draft', '2026-11-25 10:00:00', '2026-11-25 10:00:00');
+            """));
+
+        Assert.Contains("posts.TranslationGroupId, posts.Lang", sameLanguage.Message, StringComparison.Ordinal);
+        Assert.Contains("posts.Lang, posts.Slug", sameSlug.Message, StringComparison.Ordinal);
+        Assert.Single(await database.ListAsync("SELECT Slug FROM posts"));
+    }
+}
+
 public class SiteSettingsPersistenceTests
 {
     [Fact]
@@ -448,6 +578,28 @@ public class SiteSettingsPersistenceTests
         await Assert.ThrowsAsync<DomainException>(() => database.WithSettingsAsync(settings =>
             settings.SaveAsync(SiteSettingsServiceTests.FullRequest("Cambiado") with { Email = "no-es-mail" }, default)));
 
+        Assert.Equal(saved, await database.WithSettingsAsync(settings => settings.GetAsync(default)));
+        Assert.Equal(1, database.Build.Requests);
+    }
+
+    [Fact]
+    public async Task The_english_name_tagline_and_bio_round_trip_and_a_rejected_one_leaves_them_unchanged()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InitializeAsync();
+        var request = SiteSettingsServiceTests.FullRequest() with
+        {
+            NameEn = " Alan S. ", TaglineEn = " I write about .NET ", BioEn = "Hi, I'm **Alan**.",
+        };
+
+        var saved = await database.WithSettingsAsync(settings => settings.SaveAsync(request, default));
+        var tooLongName = await Assert.ThrowsAsync<DomainException>(() => database.WithSettingsAsync(settings =>
+            settings.SaveAsync(request with { NameEn = new string('a', SiteSettingsContent.MaxNameLength + 1) }, default)));
+        await Assert.ThrowsAsync<DomainException>(() => database.WithSettingsAsync(settings =>
+            settings.SaveAsync(request with { BioEn = new string('a', SiteSettingsContent.MaxBioLength + 1) }, default)));
+
+        Assert.Equal(("Alan S.", "I write about .NET", "Hi, I'm **Alan**."), (saved.NameEn, saved.TaglineEn, saved.BioEn));
+        Assert.Equal("El nombre en inglés no puede superar 100 caracteres.", tooLongName.Message);
         Assert.Equal(saved, await database.WithSettingsAsync(settings => settings.GetAsync(default)));
         Assert.Equal(1, database.Build.Requests);
     }

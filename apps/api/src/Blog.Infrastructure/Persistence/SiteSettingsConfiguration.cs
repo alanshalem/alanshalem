@@ -21,5 +21,8 @@ internal sealed class SiteSettingsConfiguration : IEntityTypeConfiguration<SiteS
         builder.Property(settings => settings.GithubUrl).HasMaxLength(WebUrl.MaxLength);
         builder.Property(settings => settings.LinkedinUrl).HasMaxLength(WebUrl.MaxLength);
         builder.Property(settings => settings.XUrl).HasMaxLength(WebUrl.MaxLength);
+        builder.Property(settings => settings.NameEn).HasMaxLength(SiteSettingsContent.MaxNameLength);
+        builder.Property(settings => settings.TaglineEn).HasMaxLength(SiteSettingsContent.MaxTaglineLength);
+        builder.Property(settings => settings.BioEn).HasMaxLength(SiteSettingsContent.MaxBioLength);
     }
 }

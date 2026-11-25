@@ -24,7 +24,7 @@ public sealed class HeroImageService(
 
     public async Task<HeroImageDto> CreateAsync(CreateHeroImageRequest request, CancellationToken cancellationToken)
     {
-        var content = HeroImageContent.Create(request.Alt, request.Credit);
+        var content = HeroImageContent.Create(request.Alt, request.Credit, request.AltEn, request.CreditEn);
         var image = (request.MediaId, request.VideoId) switch
         {
             ({ } mediaId, null) => HeroImage.CreatePhoto(
@@ -46,7 +46,7 @@ public sealed class HeroImageService(
     public async Task<HeroImageDto> UpdateAsync(Guid id, UpdateHeroImageRequest request, CancellationToken cancellationToken)
     {
         // Se valida antes de leer o tocar nada: un pedido inválido no cambia lo guardado.
-        var content = HeroImageContent.Create(request.Alt, request.Credit);
+        var content = HeroImageContent.Create(request.Alt, request.Credit, request.AltEn, request.CreditEn);
         var image = await FindAsync(id, cancellationToken);
 
         image.Update(content);
