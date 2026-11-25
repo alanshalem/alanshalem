@@ -1,5 +1,27 @@
+import { LANGS, type Lang } from '../languages.ts';
 import { clamp, runAfter, runBefore, selectedLinesRange } from './text.ts';
 import type { Command, TextEdit } from './types.ts';
+
+/**
+ * Textos de relleno que quedan DENTRO del post: van en el idioma del post, no en el de la interfaz (el corrector y
+ * quien lee el post usan ese idioma). Los comandos que los usan existen uno por idioma (`insertLink.en`).
+ */
+const CONTENT_PLACEHOLDERS: Record<Lang, { text: string; column: string; cell: string; uploading: string }> = {
+  es: { text: 'texto', column: 'Columna', cell: 'Dato', uploading: 'Subiendo…' },
+  en: { text: 'text', column: 'Column', cell: 'Value', uploading: 'Uploading…' },
+};
+const URL_PLACEHOLDER = 'url';
+
+const perLang = (make: (lang: Lang) => Command): Record<Lang, Command> =>
+  Object.fromEntries(LANGS.map((lang) => [lang, make(lang)])) as Record<Lang, Command>;
+
+/** Lo que se ve en el texto mientras sube una imagen pegada o soltada; después se reemplaza o se quita. */
+export const uploadPlaceholder = (lang: Lang): string => `![${CONTENT_PLACEHOLDERS[lang].uploading}]()`;
+
+/** Reemplaza la selección por `text` y deja el cursor al final (HTML pegado ya convertido, marcadores). */
+export function insertText(text: string): Command {
+  return ({ start, end }) => ({ from: start, to: end, insert: text, selectStart: start + text.length, selectEnd: start + text.length });
+}
 
 /* =========================================================================
    Comandos del editor. Todos son funciones puras: (estado) => edición | null.
@@ -79,13 +101,33 @@ export const toggleStrike = toggleInline('~~');
 const URL_PATTERN = /^https?:\/\/\S+$/i;
 export const looksLikeUrl = (text: string): boolean => URL_PATTERN.test(text.trim());
 
+const LINK = /\[[^\]\n]*\]\(([^)\n]*)\)/g;
+
+/** Si la selección está dentro de un `[texto](url)`, selecciona su url: Ctrl+K edita el link en vez de anidar otro. */
+function selectLinkUrlAt(value: string, start: number, end: number): TextEdit | null {
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+  const newline = value.indexOf('\n', start);
+  const line = value.slice(lineStart, newline === -1 ? value.length : newline);
+  for (const match of line.matchAll(LINK)) {
+    const from = lineStart + match.index;
+    const to = from + match[0].length;
+    if (start <= from || end >= to) continue;
+    const urlEnd = to - 1;
+    return { from: start, to: start, insert: '', selectStart: urlEnd - (match[1] ?? '').length, selectEnd: urlEnd };
+  }
+  return null;
+}
+
 /** Ctrl+K: [texto](url) y deja seleccionada la parte que falta completar. */
-export const insertLink: Command = ({ value, start, end }) => {
+export const insertLink = perLang((lang): Command => ({ value, start, end }) => {
+  const existing = selectLinkUrlAt(value, start, end);
+  if (existing) return existing;
+
   const selected = value.slice(start, end);
+  const placeholder = CONTENT_PLACEHOLDERS[lang].text;
 
   if (looksLikeUrl(selected)) {
     // Había una URL seleccionada: falta el texto del link.
-    const placeholder = 'texto';
     return {
       from: start,
       to: end,
@@ -95,18 +137,17 @@ export const insertLink: Command = ({ value, start, end }) => {
     };
   }
 
-  const text = selected || 'texto';
-  const placeholder = 'url';
+  const text = selected || placeholder;
   const urlStart = start + text.length + 3; // "[" + text + "]("
   return {
     from: start,
     to: end,
-    insert: `[${text}](${placeholder})`,
+    insert: `[${text}](${URL_PLACEHOLDER})`,
     // Con texto ya escrito se selecciona la url; sin texto, el texto de relleno.
     selectStart: selected ? urlStart : start + 1,
-    selectEnd: selected ? urlStart + placeholder.length : start + 1 + text.length,
+    selectEnd: selected ? urlStart + URL_PLACEHOLDER.length : start + 1 + text.length,
   };
-};
+});
 
 /** Pegar una URL sobre texto seleccionado lo convierte en link. Si no aplica, `null` (pegado normal). */
 export function pasteUrlAsLink(clipboardText: string): Command {
@@ -119,15 +160,13 @@ export function pasteUrlAsLink(clipboardText: string): Command {
   };
 }
 
-/** Imagen en Markdown a partir de una URL (la subida del archivo la hace el componente). */
-export function insertImage(url: string, alt = ''): Command {
-  return ({ value, start, end }) => {
-    const text = (alt || value.slice(start, end)).replace(/[[\]\n]/g, ' ').trim();
-    // Con espacios o paréntesis la URL va entre <...> para que no corte el destino.
-    const destination = /[\s()]/.test(url) ? `<${url}>` : url;
-    const insert = `![${text}](${destination})`;
-    return { from: start, to: end, insert, selectStart: start + insert.length, selectEnd: start + insert.length };
-  };
+/**
+ * `![alt](url)` de una imagen ya subida (la subida la hace useImageUpload). Con espacios o paréntesis la URL va
+ * entre <...> para que no corte el destino; corchetes y saltos del alt se vuelven espacios.
+ */
+export function imageMarkdown(url: string, alt: string): string {
+  const text = alt.replace(/[[\]\n]/g, ' ').trim();
+  return `![${text}](${/[\s()]/.test(url) ? `<${url}>` : url})`;
 }
 
 /* --------------------------- Encabezados --------------------------- */
@@ -346,9 +385,12 @@ export const insertCodeBlock: Command = (state) => {
   return insertAsBlock(state, `\`\`\`\n${selected}\n\`\`\``, { from: 4, to: 4 + selected.length });
 };
 
-const TABLE_TEMPLATE = '| Columna | Columna |\n| --- | --- |\n| Dato | Dato |';
-export const insertTable: Command = (state) =>
-  insertAsBlock(state, TABLE_TEMPLATE, { from: 2, to: 9 });
+/** Tabla de 2×2 con el primer encabezado seleccionado para escribirlo. */
+export const insertTable = perLang((lang): Command => {
+  const { column, cell } = CONTENT_PLACEHOLDERS[lang];
+  const template = `| ${column} | ${column} |\n| --- | --- |\n| ${cell} | ${cell} |`;
+  return (state) => insertAsBlock(state, template, { from: 2, to: 2 + column.length });
+});
 
 export const insertHorizontalRule: Command = (state) =>
   insertAsBlock(state, '---', { from: 3, to: 3 });

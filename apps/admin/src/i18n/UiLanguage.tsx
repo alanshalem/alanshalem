@@ -8,8 +8,8 @@ export interface UiLanguage extends I18n {
 
 const UiLanguageContext = createContext<UiLanguage | null>(null);
 
-// Leer `window.localStorage` ya puede lanzar (cookies bloqueadas): sin almacenamiento, decide el navegador.
-function browserStorage(): Storage | null {
+// Leer `window.localStorage` ya puede lanzar (cookies bloqueadas): sin almacenamiento, `null` (lo usa también el editor).
+export function browserStorage(): Storage | null {
   try {
     return window.localStorage;
   } catch {

@@ -367,16 +367,16 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 }
 .toolbar-button:hover:not(:disabled) { border-color: var(--border-subtle); color: var(--text-primary); background: var(--bg-surface-alt); }
 .toolbar-separator { width: 1px; align-self: stretch; background: var(--border-subtle); margin: 0 var(--space-0-25); }
+.toolbar-spacer { margin-left: auto; }
+.toolbar-button[aria-pressed='true'] { background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-page); }
 
-.editor-tabs { margin-left: auto; display: flex; gap: 0; }
-.editor-tabs button { min-height: 2.25rem; }
-.editor-tabs button + button { border-left: 0; }
-.editor-tabs button[aria-selected='true'] { background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-page); }
-
-.editor-panes { display: grid; grid-template-columns: 1fr; min-height: 60vh; }
+/* Los dos paneles tienen la misma altura fija y scroll propio: es lo que permite sincronizarlos. */
+.editor { --editor-height: max(24rem, 70vh); }
+.editor-panes { display: grid; grid-template-columns: minmax(0, 1fr); }
 .editor-input {
   border: 0;
-  min-height: 60vh;
+  height: var(--editor-height);
+  resize: none;
   padding: var(--space-1-5);
   background: var(--bg-page);
   font-family: var(--font-mono);
@@ -389,21 +389,60 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .editor-input:focus-visible { outline-offset: -2px; }
 
 /* Vista previa = la hoja blanca del artículo publicado (.paper .prose). */
-.editor-preview.paper { overflow: auto; max-height: 80vh; padding: var(--space-2-5) clamp(1.25rem, 4vw, 3rem) var(--space-3); }
+.editor-preview.paper { overflow: auto; height: var(--editor-height); padding: var(--space-2-5) clamp(1.25rem, 4vw, 3rem) var(--space-3); }
 .editor-preview .prose { margin-inline: auto; }
 .editor-status { min-height: 1.75rem; padding: var(--space-0-25) var(--space-0-9); border-top: var(--rule); font-size: var(--text-xs); color: var(--text-tertiary); }
 
-/* Pantallas angostas: se muestra una sola vista a la vez, según la pestaña. */
-.editor[data-tab='write'] .editor-preview { display: none; }
-.editor[data-tab='preview'] .editor-input { display: none; }
-
-/* Pantallas anchas: escribir y previsualizar lado a lado; las pestañas sobran. */
+/* Vistas: solo editor, solo vista previa o dividida (lado a lado; en pantallas angostas, una arriba de la otra). */
+.editor[data-view='editor'] .editor-preview { display: none; }
+.editor[data-view='preview'] .editor-input-wrap { display: none; }
+.editor-input-wrap { position: relative; min-width: 0; overflow: hidden; }
+.editor-input { display: block; width: 100%; }
+.editor[data-view='split'] { --editor-height: max(16rem, 42vh); }
+.editor[data-view='split'] .editor-input { border-bottom: var(--rule); }
 @media (min-width: 1000px) {
-  .editor-panes { grid-template-columns: 1fr 1fr; }
-  .editor[data-tab] .editor-input, .editor[data-tab] .editor-preview { display: block; }
-  .editor-tabs { display: none; }
-  .editor-input { border-right: var(--rule); }
+  .editor[data-view='split'] { --editor-height: max(24rem, 70vh); }
+  .editor[data-view='split'] .editor-panes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .editor[data-view='split'] .editor-input { border-bottom: 0; border-right: var(--rule); }
 }
+
+/* Modo foco: el editor ocupa toda la ventana y tapa el resto del admin; con el editor solo, una columna de lectura. */
+.editor[data-focus] { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; border: 0; background: var(--bg-page); }
+.editor[data-focus] .editor-panes { flex: 1; min-height: 0; }
+.editor[data-focus] .editor-input, .editor[data-focus] .editor-preview.paper, .editor[data-focus] .editor-input-wrap { height: 100%; }
+.editor[data-focus][data-view='split'] .editor-panes { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+@media (min-width: 1000px) { .editor[data-focus][data-view='split'] .editor-panes { grid-template-rows: minmax(0, 1fr); } }
+.editor[data-focus][data-view='editor'] .editor-input { padding-inline: max(var(--space-1-5), calc((100% - 72ch) / 2)); }
+
+/* Buscar y reemplazar */
+.find-panel { display: grid; gap: var(--space-0-5); padding: var(--space-0-5); background: var(--bg-surface); border-bottom: var(--rule); }
+.find-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-0-25) var(--space-0-5); }
+.find-row input { flex: 1 1 14rem; min-width: 0; padding-block: var(--space-0-5); }
+/* La coincidencia actual (el textarea no pinta su selección mientras el foco está en el buscador). */
+.find-highlight { position: absolute; pointer-events: none; background: color-mix(in srgb, var(--link-accent) 35%, transparent); outline: 1px solid var(--link-accent); }
+.find-count { min-width: 6rem; font-size: var(--text-xs); color: var(--text-tertiary); }
+
+/* Diálogos del editor (paleta de comandos, atajos) */
+.modal {
+  width: min(36rem, calc(100vw - 2 * var(--gutter)));
+  max-height: min(36rem, 85vh);
+  margin: 12vh auto auto;
+  padding: var(--space-1-25);
+  border: var(--rule);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+.modal::backdrop { background: color-mix(in srgb, var(--bg-page) 70%, transparent); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-1); margin-bottom: var(--space-1); }
+.modal-title { font-family: var(--font-display); font-size: var(--text-title-md); font-weight: 400; }
+.palette-input { width: 100%; }
+.palette-list { list-style: none; margin: var(--space-0-5) 0 0; padding: 0; max-height: 22rem; overflow: auto; }
+.palette-list li { display: flex; justify-content: space-between; gap: var(--space-1); padding: var(--space-0-5) var(--space-0-7); cursor: pointer; }
+.palette-list li[aria-selected='true'] { background: var(--bg-surface-alt); box-shadow: inset 2px 0 0 var(--text-primary); }
+.shortcuts-groups { display: grid; gap: var(--space-1-25); }
+.shortcut-row { display: flex; justify-content: space-between; gap: var(--space-1); padding: var(--space-0-25) 0; border-bottom: var(--rule); }
+.shortcut-row dd { margin: 0; }
+kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-secondary); white-space: nowrap; }
 
 /* ==========================================================================
    Ajustes

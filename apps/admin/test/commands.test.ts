@@ -5,9 +5,10 @@ import {
   continueMarkdownBlock,
   insertCodeBlock,
   insertHorizontalRule,
-  insertImage,
+  imageMarkdown,
   insertLink,
   insertTable,
+  insertText,
   pasteUrlAsLink,
   setHeading,
   toggleBold,
@@ -204,15 +205,21 @@ describe('Enter en listas y citas', () => {
 
 describe('links e imágenes', () => {
   it('link sobre texto seleccionado deja la url seleccionada', () => {
-    assert.equal(run(insertLink, '«texto»'), '[texto](«url»)');
+    assert.equal(run(insertLink.es, '«texto»'), '[texto](«url»)');
   });
 
   it('link sobre una URL seleccionada deja el texto seleccionado', () => {
-    assert.equal(run(insertLink, '«https://x.com»'), '[«texto»](https://x.com)');
+    assert.equal(run(insertLink.es, '«https://x.com»'), '[«texto»](https://x.com)');
   });
 
   it('link sin selección', () => {
-    assert.equal(run(insertLink, '¦'), '[«texto»](url)');
+    assert.equal(run(insertLink.es, '¦'), '[«texto»](url)');
+  });
+
+  it('Ctrl+K con el cursor dentro de un link existente selecciona su url para editarla', () => {
+    assert.equal(run(insertLink.es, 'ver [sit¦io](https://x.com) y más'), 'ver [sitio](«https://x.com») y más');
+    assert.equal(run(insertLink.es, '[a](ht¦tp://x) [b](y)'), '[a](«http://x») [b](y)');
+    assert.equal(run(insertLink.es, '[a](x) ¦fuera'), '[a](x) [«texto»](url)fuera');
   });
 
   it('pegar una URL sobre texto seleccionado crea el link', () => {
@@ -224,10 +231,14 @@ describe('links e imágenes', () => {
     assert.equal(run(pasteUrlAsLink('hola'), '«a»'), 'null');
   });
 
-  it('imagen: alt vacío, con selección y con URL con espacios', () => {
-    assert.equal(run(insertImage('/img/a.png'), '¦'), '![](/img/a.png)¦');
-    assert.equal(run(insertImage('/img/a.png'), '«un gato»'), '![un gato](/img/a.png)¦');
-    assert.equal(run(insertImage('/mi foto.png', 'x'), '¦'), '![x](</mi foto.png>)¦');
+  it('imagen: alt vacío, alt con corchetes y URL con espacios', () => {
+    assert.equal(imageMarkdown('/img/a.png', ''), '![](/img/a.png)');
+    assert.equal(imageMarkdown('/img/a.png', ' un [gato] '), '![un  gato](/img/a.png)');
+    assert.equal(imageMarkdown('/mi foto.png', 'x'), '![x](</mi foto.png>)');
+  });
+
+  it('insertText reemplaza la selección y deja el cursor al final', () => {
+    assert.equal(run(insertText('**x**'), 'a «b» c'), 'a **x**¦ c');
   });
 });
 
@@ -245,7 +256,7 @@ describe('bloques', () => {
   });
 
   it('tabla y regla horizontal', () => {
-    assert.equal(run(insertTable, '¦'), '| «Columna» | Columna |\n| --- | --- |\n| Dato | Dato |');
+    assert.equal(run(insertTable.es, '¦'), '| «Columna» | Columna |\n| --- | --- |\n| Dato | Dato |');
     assert.equal(run(insertHorizontalRule, 'a¦'), 'a\n\n---¦');
   });
 
@@ -263,7 +274,7 @@ describe('atajos de teclado', () => {
     assert.equal(key('B', { metaKey: true }), toggleBold);
     assert.equal(key('i', { ctrlKey: true }), toggleItalic);
     assert.equal(key('e', { ctrlKey: true }), toggleCode);
-    assert.equal(key('k', { ctrlKey: true }), insertLink);
+    assert.equal(key('k', { ctrlKey: true }), insertLink.es);
   });
 
   it('Mod+Shift+X tachado; otras combinaciones con Shift no hacen nada', () => {

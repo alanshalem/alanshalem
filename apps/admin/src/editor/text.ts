@@ -33,4 +33,14 @@ export function applyEditToState(state: EditorState, edit: TextEdit): EditorStat
   };
 }
 
+/**
+ * Reemplaza [from, to) sin mover lo que el usuario tiene seleccionado (una subida que termina mientras sigue
+ * escribiendo): lo de antes queda igual, lo de después se corre y lo de adentro va al final del reemplazo.
+ */
+export function spliceKeepingSelection(state: EditorState, from: number, to: number, insert: string): TextEdit {
+  const map = (position: number): number =>
+    position <= from ? position : position >= to ? position + insert.length - (to - from) : from + insert.length;
+  return { from, to, insert, selectStart: map(state.start), selectEnd: map(state.end) };
+}
+
 export const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));

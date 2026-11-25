@@ -35,3 +35,13 @@ export function applyEditToTextarea(textarea: HTMLTextAreaElement, edit: TextEdi
 
   textarea.setSelectionRange(edit.selectStart, edit.selectEnd);
 }
+
+/**
+ * Igual, pero devuelve el foco a donde estaba: execCommand necesita el textarea enfocado, y una edición que llega
+ * desde otro lado (reemplazar desde el panel, una subida que termina) no tiene que robarle el foco a nadie.
+ */
+export function applyEditKeepingFocus(textarea: HTMLTextAreaElement, edit: TextEdit): void {
+  const previous = document.activeElement;
+  applyEditToTextarea(textarea, edit);
+  if (previous instanceof HTMLElement && previous !== textarea) previous.focus({ preventScroll: true });
+}

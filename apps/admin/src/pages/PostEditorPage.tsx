@@ -287,7 +287,12 @@ export function PostEditorPage({ postId, onError }: Props) {
         help={t('post.coverHelp')}
       />
 
-      <MarkdownEditor value={form.body} onChange={(body) => update('body', body)} onUploadImage={api.uploadImage} />
+      <MarkdownEditor
+        value={form.body}
+        onChange={(body) => update('body', body)}
+        lang={post?.lang ?? newLang}
+        onUploadImage={api.uploadImage}
+      />
 
       {post && (
         <div className="danger-zone">
