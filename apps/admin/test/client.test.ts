@@ -103,15 +103,71 @@ describe('api.getVideo', () => {
 describe('api.createHeroImage', () => {
   it('video listo: envía { videoId, alt, credit }', async () => {
     respond = () => json(201, {});
-    await api.createHeroImage({ videoId: 'v1' }, { alt: 'Olas', credit: null });
+    await api.createHeroImage({ videoId: 'v1' }, { alt: 'Olas', credit: null, altEn: null, creditEn: null });
     assert.equal(calls[0]?.url, '/api/admin/hero-images');
     assert.equal(calls[0]?.init.method, 'POST');
-    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { videoId: 'v1', alt: 'Olas', credit: null });
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { videoId: 'v1', alt: 'Olas', credit: null, altEn: null, creditEn: null });
   });
 
   it('foto: sigue enviando { mediaId, alt, credit }', async () => {
     respond = () => json(201, {});
-    await api.createHeroImage({ mediaId: 'm1' }, { alt: 'Luna', credit: 'Foto: Alan' });
-    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { mediaId: 'm1', alt: 'Luna', credit: 'Foto: Alan' });
+    await api.createHeroImage({ mediaId: 'm1' }, { alt: 'Luna', credit: 'Foto: Alan', altEn: null, creditEn: null });
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { mediaId: 'm1', alt: 'Luna', credit: 'Foto: Alan', altEn: null, creditEn: null });
+  });
+});
+
+/* Versiones por idioma (L4): el idioma solo viaja al crear; "Crear versión" es su propio endpoint. */
+
+describe('api.createPost / api.updatePost: el idioma solo al crear', () => {
+  const input = { title: 'Hola', slug: '', summary: '', body: 'Texto', tags: [], coverUrl: null, coverAlt: null };
+
+  it('POST /api/admin/posts suma el idioma elegido', async () => {
+    respond = () => json(201, {});
+    await api.createPost(input, 'en');
+    assert.equal(calls[0]?.url, '/api/admin/posts');
+    assert.equal(calls[0]?.init.method, 'POST');
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { ...input, lang: 'en' });
+  });
+
+  it('PUT no envía idioma (no se puede cambiar el de un post existente)', async () => {
+    respond = () => json(200, {});
+    await api.updatePost('p1', input);
+    assert.equal(calls[0]?.url, '/api/admin/posts/p1');
+    assert.equal(calls[0]?.init.method, 'PUT');
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), input);
+  });
+});
+
+describe('api.createTranslation', () => {
+  it('POST /api/admin/posts/{id}/translations con { lang } y devuelve el borrador del 201', async () => {
+    const draft = { id: 'p2', lang: 'en', status: 'draft' };
+    respond = () => json(201, draft);
+    assert.deepEqual(await api.createTranslation('a/b', 'en'), draft);
+    assert.equal(calls[0]?.url, '/api/admin/posts/a%2Fb/translations');
+    assert.equal(calls[0]?.init.method, 'POST');
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { lang: 'en' });
+    assert.equal((calls[0]?.init.headers as Record<string, string>)['X-Requested-With'], 'blog-admin');
+  });
+
+  it('un 409 llega como ApiError con el mensaje de la API', async () => {
+    respond = () => json(409, { title: 'Conflicto', detail: 'Ya existe la versión en inglés.' });
+    await assert.rejects(api.createTranslation('p1', 'en'), (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 409);
+      assert.equal(error.message, 'Ya existe la versión en inglés.');
+      return true;
+    });
+  });
+});
+
+describe('api.createHeroImage / api.updateHeroImage: textos en inglés (L4)', () => {
+  it('envía altEn y creditEn junto a los de español', async () => {
+    respond = () => json(201, {});
+    const input = { alt: 'Luna', credit: null, altEn: 'Moon', creditEn: 'Photo: Alan' };
+    await api.createHeroImage({ mediaId: 'm1' }, input);
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { mediaId: 'm1', ...input });
+    await api.updateHeroImage('h1', input);
+    assert.equal(calls[1]?.init.method, 'PUT');
+    assert.deepEqual(JSON.parse(calls[1]?.init.body as string), input);
   });
 });

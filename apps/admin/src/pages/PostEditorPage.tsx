@@ -4,6 +4,9 @@ import { api } from '../api/client.ts';
 import type { Post, PostInput } from '../api/types.ts';
 import { ImageField } from '../components/ImageField.tsx';
 import { MarkdownEditor } from '../editor/MarkdownEditor.tsx';
+import { DEFAULT_LANG, LANG_LABELS, LANGS, type Lang } from '../languages.ts';
+import { PostVersions } from '../posts/PostVersions.tsx';
+import { STATUS_LABELS } from '../posts/versions.ts';
 import { validateCover } from '../settings/validate.ts';
 import { href, navigate } from '../useRoute.ts'; // navigate: solo al eliminar
 
@@ -53,6 +56,8 @@ export function PostEditorPage({ postId, onError }: Props) {
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [saved, setSaved] = useState<string>(JSON.stringify(EMPTY_FORM)); // para detectar cambios sin guardar
   const [slugTouched, setSlugTouched] = useState(false);
+  // Solo se elige al crear; después el idioma es el del post (L4).
+  const [newLang, setNewLang] = useState<Lang>(DEFAULT_LANG);
   const [loading, setLoading] = useState(postId !== null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -108,7 +113,7 @@ export function PostEditorPage({ postId, onError }: Props) {
     setMessage(null);
     try {
       const input = toInput(form, { coverUrl: cover.coverUrl, coverAlt: cover.coverAlt });
-      const result = post ? await api.updatePost(post.id, input) : await api.createPost(input);
+      const result = post ? await api.updatePost(post.id, input) : await api.createPost(input, newLang);
       const resultForm = toForm(result);
       setPost(result);
       setForm(resultForm);
@@ -126,7 +131,7 @@ export function PostEditorPage({ postId, onError }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [form, post, onError]);
+  }, [form, post, newLang, onError]);
 
   // Ctrl/Cmd+S guarda. El ref evita re-registrar el listener en cada tecla.
   const saveRef = useRef(save);
@@ -198,7 +203,7 @@ export function PostEditorPage({ postId, onError }: Props) {
         <div className="actions">
           <span className="meta">{dirty ? 'Cambios sin guardar' : post ? 'Todo guardado' : ''}</span>
           {post && (
-            <span className={`chip chip-${post.status}`}>{isPublished ? 'Publicado' : 'Borrador'}</span>
+            <span className={`chip chip-${post.status}`}>{STATUS_LABELS[post.status]}</span>
           )}
           <button type="button" disabled={busy || !dirty} onClick={() => void save()}>
             Guardar
@@ -218,6 +223,23 @@ export function PostEditorPage({ postId, onError }: Props) {
         <p className={message.kind === 'error' ? 'banner banner-error' : 'banner banner-ok'} role={message.kind === 'error' ? 'alert' : 'status'}>
           {message.text}
         </p>
+      )}
+
+      {post ? (
+        <PostVersions post={post} draft={form} dirty={dirty} onError={onError} />
+      ) : (
+        <div className="post-versions">
+          <label className="field post-lang-select">
+            <span className="label">Idioma</span>
+            <select value={newLang} onChange={(event) => setNewLang(event.target.value as Lang)}>
+              {LANGS.map((lang) => (
+                <option key={lang} value={lang}>
+                  {LANG_LABELS[lang]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       )}
 
       <div className="fields">

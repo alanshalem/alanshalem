@@ -90,6 +90,9 @@ describe('validateSettings', () => {
         name: 'Alan',
         tagline: 'Notas',
         bio: 'Hola **mundo**',
+        nameEn: null,
+        taglineEn: null,
+        bioEn: null,
         email: 'yo@ejemplo.com',
         githubUrl: null,
         linkedinUrl: null,
@@ -146,12 +149,45 @@ describe('validateSettings', () => {
   });
 });
 
+describe('validateSettings: textos en inglés (L4, L6: nameEn, taglineEn y bioEn, mismos límites que sus pares)', () => {
+  it('recorta; vacíos viajan como null (el sitio en inglés usa el texto en español)', () => {
+    const result = validateSettings(form({ nameEn: '  Alan S.  ', taglineEn: '  Notes  ', bioEn: '   ' }));
+    assert.equal(result.ok && result.input.nameEn, 'Alan S.');
+    assert.equal(result.ok && result.input.taglineEn, 'Notes');
+    assert.equal(result.ok && result.input.bioEn, null);
+  });
+
+  it('el nombre en inglés no es obligatorio aunque el nombre sí (vacío o solo espacios = null)', () => {
+    for (const nameEn of ['', '   ']) {
+      const result = validateSettings(form({ nameEn }));
+      assert.equal(result.ok && result.input.nameEn, null);
+    }
+  });
+
+  it('justo en el límite pasa', () => {
+    const result = validateSettings(form({ nameEn: 'a'.repeat(100), taglineEn: 'a'.repeat(200), bioEn: 'a'.repeat(2000) }));
+    assert.equal(result.ok, true);
+  });
+
+  it('un carácter de más: error en cada campo en inglés', () => {
+    const result = validateSettings(form({ nameEn: 'a'.repeat(101), taglineEn: 'a'.repeat(201), bioEn: 'a'.repeat(2001) }));
+    assert.deepEqual(!result.ok && result.errors, {
+      nameEn: 'El nombre en inglés no puede superar 100 caracteres.',
+      taglineEn: 'La frase en inglés no puede superar 200 caracteres.',
+      bioEn: 'La bio en inglés no puede superar 2000 caracteres.',
+    });
+  });
+});
+
 describe('toSettingsForm', () => {
   it('pasa los null a texto vacío para los inputs', () => {
     const settings: SiteSettings = {
       name: 'Mi blog',
       tagline: null,
       bio: 'Bio',
+      nameEn: null,
+      taglineEn: null,
+      bioEn: 'Bio in English',
       email: null,
       githubUrl: 'https://github.com/a',
       linkedinUrl: null,
@@ -161,6 +197,7 @@ describe('toSettingsForm', () => {
       ...emptySettingsForm(),
       name: 'Mi blog',
       bio: 'Bio',
+      bioEn: 'Bio in English',
       githubUrl: 'https://github.com/a',
     });
   });
@@ -170,6 +207,9 @@ describe('toSettingsForm', () => {
       name: 'Alan',
       tagline: 'Notas',
       bio: null,
+      nameEn: 'Alan S.',
+      taglineEn: 'Notes',
+      bioEn: null,
       email: 'yo@ejemplo.com',
       githubUrl: null,
       linkedinUrl: 'https://linkedin.com/in/a',

@@ -1,6 +1,12 @@
 import { useId, useState, type FormEvent, type ReactNode } from 'react';
 import type { HeroImageInput } from '../api/types.ts';
-import { HERO_IMAGE_LIMITS, validateHeroImage, type HeroImageErrors } from './heroImage.ts';
+import {
+  HERO_IMAGE_LIMITS,
+  toHeroImageFields,
+  validateHeroImage,
+  type HeroImageErrors,
+  type HeroImageFields,
+} from './heroImage.ts';
 
 interface Props {
   title: string;
@@ -24,9 +30,9 @@ interface Props {
 }
 
 /**
- * Un ítem del hero (foto o video): miniatura, texto alternativo y crédito. La misma tarjeta sirve para un archivo
- * recién subido (POST) y para un ítem guardado (PUT), así el formulario no se duplica. Cada tarjeta es su propio
- * <form>: Enter guarda ese ítem y nada más.
+ * Un ítem del hero (foto o video): miniatura, texto alternativo y crédito, en español y en inglés. La misma tarjeta
+ * sirve para un archivo recién subido (POST) y para un ítem guardado (PUT), así el formulario no se duplica. Cada
+ * tarjeta es su propio <form>: Enter guarda ese ítem y nada más.
  */
 export function HeroImageCard({
   title,
@@ -42,13 +48,12 @@ export function HeroImageCard({
   remove,
 }: Props) {
   const id = useId();
-  const [alt, setAlt] = useState(saved?.alt ?? '');
-  const [credit, setCredit] = useState(saved?.credit ?? '');
+  const [fields, setFields] = useState<HeroImageFields>(() => toHeroImageFields(saved));
   const [errors, setErrors] = useState<HeroImageErrors>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [running, setRunning] = useState<'save' | 'remove' | null>(null);
 
-  const changed = saved === undefined || alt !== saved.alt || credit !== (saved.credit ?? '');
+  const changed = saved === undefined || JSON.stringify(fields) !== JSON.stringify(toHeroImageFields(saved));
   const problem = error ?? failure;
 
   // Una acción a la vez por tarjeta; el mensaje de la API (ProblemDetails) queda en la tarjeta.
@@ -66,7 +71,7 @@ export function HeroImageCard({
 
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
-    const result = validateHeroImage(alt, credit);
+    const result = validateHeroImage(fields);
     setErrors(result.ok ? {} : result.errors);
     if (!result.ok) {
       document.getElementById(`${id}-${Object.keys(result.errors)[0]}`)?.focus();
@@ -75,12 +80,11 @@ export function HeroImageCard({
     void run('save', async () => {
       await onSave(result.input);
       // Lo que quedó guardado (recortado) pasa a ser el punto de partida de la próxima edición.
-      setAlt(result.input.alt);
-      setCredit(result.input.credit ?? '');
+      setFields(toHeroImageFields(result.input));
     });
   };
 
-  const renderField = (key: keyof HeroImageInput, label: string, value: string, onChange: (value: string) => void, placeholder: string) => {
+  const renderField = (key: keyof HeroImageInput, label: string, placeholder: string) => {
     const fieldError = errors[key];
     return (
       <label className="field">
@@ -90,9 +94,10 @@ export function HeroImageCard({
         </span>
         <input
           id={`${id}-${key}`}
-          value={value}
+          value={fields[key]}
           onChange={(event) => {
-            onChange(event.target.value);
+            const value = event.target.value;
+            setFields((current) => ({ ...current, [key]: value }));
             setErrors(({ [key]: _fixed, ...rest }) => rest);
           }}
           placeholder={placeholder}
@@ -122,9 +127,12 @@ export function HeroImageCard({
         </div>
         {summary && <p className="chip hero-card-summary">{summary}</p>}
         <div className="settings-grid">
-          {renderField('alt', 'Texto alternativo', alt, setAlt, 'Qué se ve')}
-          {renderField('credit', 'Crédito (opcional)', credit, setCredit, 'Foto: …')}
+          {renderField('alt', 'Texto alternativo', 'Qué se ve')}
+          {renderField('credit', 'Crédito (opcional)', 'Foto: …')}
+          {renderField('altEn', 'Texto alternativo (inglés)', 'What it shows')}
+          {renderField('creditEn', 'Crédito (inglés)', 'Photo: …')}
         </div>
+        <p className="help">Opcionales: si quedan vacíos, el sitio en inglés usa los textos en español.</p>
         {warnings.map((warning) => (
           <p key={warning} className="field-warning">
             Aviso: {warning}

@@ -1,3 +1,4 @@
+import type { Lang } from '../languages.ts';
 import { messageFromProblem } from './problem.ts';
 import type {
   HeroImage,
@@ -87,11 +88,15 @@ export const api = {
 
   listPosts: () => request<PostSummary[]>('GET', '/admin/posts'),
   getPost: (id: string) => request<Post>('GET', `/admin/posts/${encodeURIComponent(id)}`),
-  createPost: (input: PostInput) => request<Post>('POST', '/admin/posts', input),
+  /** El idioma viaja solo al crear: el de un post existente no se puede cambiar (L4). */
+  createPost: (input: PostInput, lang: Lang) => request<Post>('POST', '/admin/posts', { ...input, lang }),
   updatePost: (id: string, input: PostInput) => request<Post>('PUT', `/admin/posts/${encodeURIComponent(id)}`, input),
   publishPost: (id: string) => request<Post>('POST', `/admin/posts/${encodeURIComponent(id)}/publish`),
   unpublishPost: (id: string) => request<Post>('POST', `/admin/posts/${encodeURIComponent(id)}/unpublish`),
   deletePost: (id: string) => request<void>('DELETE', `/admin/posts/${encodeURIComponent(id)}`),
+  /** Crea el borrador de la versión en otro idioma (201), con el contenido copiado como punto de partida (L3). */
+  createTranslation: (id: string, lang: Lang) =>
+    request<Post>('POST', `/admin/posts/${encodeURIComponent(id)}/translations`, { lang }),
 
   getSettings: () => request<SiteSettings>('GET', '/admin/settings'),
   /** Guarda los ajustes; la API pide un rebuild del sitio (nombre, bio y links están en todas las páginas). */

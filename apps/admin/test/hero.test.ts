@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { HeroImage, MediaAsset } from '../src/api/types.ts';
-import { HERO_IMAGE_LIMITS, inUploadOrder, thumbnailUrl, validateHeroImage } from '../src/hero/heroImage.ts';
+import {
+  HERO_IMAGE_LIMITS,
+  inUploadOrder,
+  thumbnailUrl,
+  toHeroImageFields,
+  validateHeroImage,
+  type HeroImageFields,
+} from '../src/hero/heroImage.ts';
 
 /*
  * Reglas de una foto del hero (L10): `alt` obligatorio (≤ 300), `credit` opcional (≤ 200).
@@ -20,30 +27,51 @@ const media = (overrides: Partial<MediaAsset> = {}): MediaAsset => ({
   ...overrides,
 });
 
-const heroImage = (id: string, createdAt: string): HeroImage => ({ id, media: media(), video: null, alt: id, credit: null, createdAt });
+const heroImage = (id: string, createdAt: string): HeroImage => ({
+  id,
+  media: media(),
+  video: null,
+  alt: id,
+  credit: null,
+  altEn: null,
+  creditEn: null,
+  createdAt,
+});
+
+const fields = (overrides: Partial<HeroImageFields> = {}): HeroImageFields => ({ ...toHeroImageFields(), ...overrides });
 
 describe('validateHeroImage', () => {
   it('recorta; el crédito vacío viaja como null', () => {
-    assert.deepEqual(validateHeroImage('  Nebulosa de Orión  ', '   '), {
+    assert.deepEqual(validateHeroImage(fields({ alt: '  Nebulosa de Orión  ', credit: '   ' })), {
       ok: true,
-      input: { alt: 'Nebulosa de Orión', credit: null },
+      input: { alt: 'Nebulosa de Orión', credit: null, altEn: null, creditEn: null },
     });
-    assert.deepEqual(validateHeroImage('Luna', ' Foto: Alan '), { ok: true, input: { alt: 'Luna', credit: 'Foto: Alan' } });
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', credit: ' Foto: Alan ' })), {
+      ok: true,
+      input: { alt: 'Luna', credit: 'Foto: Alan', altEn: null, creditEn: null },
+    });
   });
 
   it('el texto alternativo es obligatorio (vacío o solo espacios)', () => {
     for (const alt of ['', '   ']) {
-      assert.deepEqual(validateHeroImage(alt, ''), { ok: false, errors: { alt: 'El texto alternativo es obligatorio.' } });
+      assert.deepEqual(validateHeroImage(fields({ alt })), { ok: false, errors: { alt: 'El texto alternativo es obligatorio.' } });
     }
   });
 
   it('justo en el límite pasa', () => {
-    const result = validateHeroImage('a'.repeat(HERO_IMAGE_LIMITS.alt), 'c'.repeat(HERO_IMAGE_LIMITS.credit));
+    const result = validateHeroImage(
+      fields({
+        alt: 'a'.repeat(HERO_IMAGE_LIMITS.alt),
+        credit: 'c'.repeat(HERO_IMAGE_LIMITS.credit),
+        altEn: 'a'.repeat(HERO_IMAGE_LIMITS.altEn),
+        creditEn: 'c'.repeat(HERO_IMAGE_LIMITS.creditEn),
+      }),
+    );
     assert.equal(result.ok, true);
   });
 
   it('un carácter de más: junta los dos errores a la vez', () => {
-    assert.deepEqual(validateHeroImage('a'.repeat(301), 'c'.repeat(201)), {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'a'.repeat(301), credit: 'c'.repeat(201) })), {
       ok: false,
       errors: {
         alt: 'El texto alternativo no puede superar 300 caracteres.',
@@ -52,8 +80,36 @@ describe('validateHeroImage', () => {
     });
   });
 
-  it('los límites son los de L10', () => {
-    assert.deepEqual(HERO_IMAGE_LIMITS, { alt: 300, credit: 200 });
+  it('los límites son los de L10; los textos en inglés, los mismos que su par (L4)', () => {
+    assert.deepEqual(HERO_IMAGE_LIMITS, { alt: 300, credit: 200, altEn: 300, creditEn: 200 });
+  });
+
+  it('textos en inglés opcionales: recortados, vacíos = null (el sitio en inglés usa los de español)', () => {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: ' Moon ', creditEn: '  ' })), {
+      ok: true,
+      input: { alt: 'Luna', credit: null, altEn: 'Moon', creditEn: null },
+    });
+  });
+
+  it('textos en inglés: un carácter de más, con su propio mensaje', () => {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: 'a'.repeat(301), creditEn: 'c'.repeat(201) })), {
+      ok: false,
+      errors: {
+        altEn: 'El texto alternativo en inglés no puede superar 300 caracteres.',
+        creditEn: 'El crédito en inglés no puede superar 200 caracteres.',
+      },
+    });
+  });
+});
+
+describe('toHeroImageFields: lo guardado como texto de los inputs', () => {
+  it('sin ítem guardado: todo vacío', () => {
+    assert.deepEqual(toHeroImageFields(), { alt: '', credit: '', altEn: '', creditEn: '' });
+  });
+  it('los null pasan a vacío; ida y vuelta igual', () => {
+    const saved = { alt: 'Luna', credit: null, altEn: 'Moon', creditEn: null };
+    assert.deepEqual(toHeroImageFields(saved), { alt: 'Luna', credit: '', altEn: 'Moon', creditEn: '' });
+    assert.deepEqual(validateHeroImage(toHeroImageFields(saved)), { ok: true, input: saved });
   });
 });
 

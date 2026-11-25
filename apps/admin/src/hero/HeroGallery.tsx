@@ -108,7 +108,7 @@ export function HeroGallery({ onError }: Props) {
               placeholder={image.media.placeholder}
             />
           }
-          saved={{ alt: image.alt, credit: image.credit }}
+          saved={{ alt: image.alt, credit: image.credit, altEn: image.altEn, creditEn: image.creditEn }}
           saveLabel="Guardar cambios"
           onSave={(input) => gallery.updateImage(image.id, input)}
           remove={{

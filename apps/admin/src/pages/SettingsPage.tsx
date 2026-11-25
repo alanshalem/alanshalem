@@ -1,7 +1,7 @@
-import { renderMarkdown } from '@blog/markdown';
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api } from '../api/client.ts';
 import { HeroGallery } from '../hero/HeroGallery.tsx';
+import { BioField } from '../settings/BioField.tsx';
 import {
   emptySettingsForm,
   LIMITS,
@@ -16,7 +16,10 @@ interface Props {
   onError: (error: unknown) => boolean;
 }
 
-type TextKey = Exclude<keyof SettingsForm, 'bio'>;
+type TextKey = Exclude<keyof SettingsForm, 'bio' | 'bioEn'>;
+
+// Los textos en inglés son opcionales (L3, L6): vacíos, el sitio en inglés muestra los de español.
+const SPANISH_FALLBACK_HINT = 'Si queda vacío, el sitio en inglés usa el texto en español.';
 
 const FORM_ID = 'settings-form';
 
@@ -32,12 +35,14 @@ interface TextFieldSpec {
 
 const IDENTITY: TextFieldSpec[] = [
   { key: 'name', label: 'Nombre', required: true, maxLength: LIMITS.name, hint: 'Aparece en el hero y en el footer.' },
+  { key: 'nameEn', label: 'Nombre (inglés)', maxLength: LIMITS.name, hint: SPANISH_FALLBACK_HINT },
   {
     key: 'tagline',
     label: 'Frase corta',
     maxLength: LIMITS.tagline,
     hint: 'Una línea: la descripción del sitio para buscadores y redes.',
   },
+  { key: 'taglineEn', label: 'Frase corta (inglés)', maxLength: LIMITS.tagline, hint: SPANISH_FALLBACK_HINT },
 ];
 
 const LINKS: TextFieldSpec[] = [
@@ -138,9 +143,6 @@ export function SettingsPage({ onError }: Props) {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const deferredBio = useDeferredValue(form.bio);
-  const bioHtml = useMemo(() => renderMarkdown(deferredBio, { headingOffset: 2 }).html, [deferredBio]);
-
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
     void save();
@@ -217,46 +219,25 @@ export function SettingsPage({ onError }: Props) {
           </div>
           <div className="settings-grid">{IDENTITY.map(renderField)}</div>
 
-          <div className="bio-editor">
-            <div className="field">
-              <label className="label" htmlFor="settings-bio">
-                Bio (Markdown)
-              </label>
-              <textarea
-                id="settings-bio"
-                className="bio-input"
-                value={form.bio}
-                onChange={(event) => update('bio', event.target.value)}
-                rows={9}
-                maxLength={LIMITS.bio}
-                lang="es"
-                spellCheck
-                aria-invalid={errors.bio ? true : undefined}
-                aria-describedby={errors.bio ? 'settings-bio-error settings-bio-count' : 'settings-bio-count'}
-                placeholder="Dos o tres líneas sobre vos. Admite **negrita**, *cursiva* y [links](https://…)."
-              />
-              <p id="settings-bio-count" className="help">
-                {form.bio.length} / {LIMITS.bio}
-              </p>
-              {errors.bio && (
-                <p id="settings-bio-error" className="field-error">
-                  {errors.bio}
-                </p>
-              )}
-            </div>
-            <div className="field">
-              <span className="label" id="settings-bio-preview">
-                Vista previa
-              </span>
-              <div className="paper bio-preview" aria-labelledby="settings-bio-preview">
-                {form.bio.trim() === '' ? (
-                  <p className="bio-preview-empty">Sin bio todavía.</p>
-                ) : (
-                  <div className="prose" dangerouslySetInnerHTML={{ __html: bioHtml }} />
-                )}
-              </div>
-            </div>
-          </div>
+          <BioField
+            name="bio"
+            label="Bio (Markdown)"
+            lang="es"
+            value={form.bio}
+            error={errors.bio}
+            placeholder="Dos o tres líneas sobre vos. Admite **negrita**, *cursiva* y [links](https://…)."
+            onChange={(value) => update('bio', value)}
+          />
+          <BioField
+            name="bioEn"
+            label="Bio en inglés (Markdown)"
+            lang="en"
+            value={form.bioEn}
+            error={errors.bioEn}
+            hint={SPANISH_FALLBACK_HINT}
+            placeholder="La misma bio, en inglés."
+            onChange={(value) => update('bioEn', value)}
+          />
         </section>
 
         <section className="settings-section" aria-labelledby="settings-links">

@@ -1,4 +1,15 @@
+import type { Lang } from '../languages.ts';
+
 export type PostStatus = 'draft' | 'published';
+
+/** Otra versión del mismo post en otro idioma (L4: `translations` de `PostDto` y `PostSummaryDto`). */
+export interface PostTranslation {
+  id: string;
+  lang: Lang;
+  slug: string;
+  status: PostStatus;
+  updatedAt: string;
+}
 
 /** Fila de la lista de posts (sin el cuerpo, para que la lista sea liviana). */
 export interface PostSummary {
@@ -11,18 +22,23 @@ export interface PostSummary {
   /** Portada opcional: ruta `/media/...` (subida) o URL `http(s)`. */
   coverUrl: string | null;
   coverAlt: string | null;
+  lang: Lang;
+  /** Las versiones de un mismo post en distintos idiomas comparten grupo (a lo sumo una por idioma). */
+  translationGroupId: string;
+  /** Las otras versiones del grupo; vacío si no hay. */
+  translations: PostTranslation[];
 }
 
 export interface Post extends PostSummary {
   summary: string;
   body: string;
   tags: string[];
-  lang: string;
   createdAt: string;
 }
 
 /**
- * Lo que el editor envía al guardar. `slug` vacío = que la API lo genere desde el título.
+ * Lo que el editor envía al guardar. `slug` vacío = que la API lo genere desde el título. El idioma no está acá:
+ * se elige solo al crear (`api.createPost`) y después no cambia (L4).
  * Sin portada (`coverUrl: null`) el sitio usa la primera imagen del texto o, si no hay, una portada generativa.
  */
 export interface PostInput {
@@ -45,6 +61,10 @@ export interface SiteSettings {
   tagline: string | null;
   /** Markdown corto; el sitio lo renderiza con @blog/markdown. */
   bio: string | null;
+  /** Versiones en inglés de `name`, `tagline` y `bio`; `null` = el sitio en inglés usa las de español (L3, L6). */
+  nameEn: string | null;
+  taglineEn: string | null;
+  bioEn: string | null;
   email: string | null;
   githubUrl: string | null;
   linkedinUrl: string | null;
@@ -129,6 +149,9 @@ export interface HeroImage {
   video: VideoAsset | null;
   alt: string;
   credit: string | null;
+  /** Versiones en inglés; `null` = el sitio en inglés usa las de español (L3). */
+  altEn: string | null;
+  creditEn: string | null;
   createdAt: string;
 }
 
@@ -139,4 +162,6 @@ export type HeroMediaRef = { mediaId: string } | { videoId: string };
 export interface HeroImageInput {
   alt: string;
   credit: string | null;
+  altEn: string | null;
+  creditEn: string | null;
 }

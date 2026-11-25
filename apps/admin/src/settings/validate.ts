@@ -26,6 +26,9 @@ export const emptySettingsForm = (): SettingsForm => ({
   name: '',
   tagline: '',
   bio: '',
+  nameEn: '',
+  taglineEn: '',
+  bioEn: '',
   email: '',
   githubUrl: '',
   linkedinUrl: '',
@@ -75,6 +78,9 @@ export const toSettingsForm = (settings: SiteSettings): SettingsForm => ({
   name: settings.name,
   tagline: settings.tagline ?? '',
   bio: settings.bio ?? '',
+  nameEn: settings.nameEn ?? '',
+  taglineEn: settings.taglineEn ?? '',
+  bioEn: settings.bioEn ?? '',
   email: settings.email ?? '',
   githubUrl: settings.githubUrl ?? '',
   linkedinUrl: settings.linkedinUrl ?? '',
@@ -107,6 +113,16 @@ export function validateSettings(form: SettingsForm): SettingsValidation {
   const bio = cleanOptional(form.bio);
   tooLong('bio', bio, LIMITS.bio, `La bio no puede superar ${LIMITS.bio} caracteres.`);
 
+  // Las versiones en inglés tienen los mismos límites que sus pares en español (L4); ninguna es obligatoria.
+  const nameEn = cleanOptional(form.nameEn);
+  tooLong('nameEn', nameEn, LIMITS.name, `El nombre en inglés no puede superar ${LIMITS.name} caracteres.`);
+
+  const taglineEn = cleanOptional(form.taglineEn);
+  tooLong('taglineEn', taglineEn, LIMITS.tagline, `La frase en inglés no puede superar ${LIMITS.tagline} caracteres.`);
+
+  const bioEn = cleanOptional(form.bioEn);
+  tooLong('bioEn', bioEn, LIMITS.bio, `La bio en inglés no puede superar ${LIMITS.bio} caracteres.`);
+
   const email = cleanOptional(form.email);
   if (email !== null) {
     if (email.length > LIMITS.email) errors.email = `El email no puede superar ${LIMITS.email} caracteres.`;
@@ -118,7 +134,7 @@ export function validateSettings(form: SettingsForm): SettingsValidation {
   const xUrl = httpLink('xUrl', 'X');
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, input: { name, tagline, bio, email, githubUrl, linkedinUrl, xUrl } };
+  return { ok: true, input: { name, tagline, bio, nameEn, taglineEn, bioEn, email, githubUrl, linkedinUrl, xUrl } };
 }
 
 export type CoverValidation = { ok: true; coverUrl: string | null; coverAlt: string | null } | { ok: false; error: string };
