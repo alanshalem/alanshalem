@@ -1,13 +1,16 @@
 import { escapeHtml } from './escape.ts';
-import { plainInline, renderInline } from './inline.ts';
+import { plainInline, renderFigure, renderInline, type InlineContext } from './inline.ts';
+import { CALLOUT_KINDS, type CalloutKind, type Labels } from './labels.ts';
 import type { Heading } from './types.ts';
 
 /**
- * Renderer de bloques: encabezados, párrafos, listas, citas, código, tablas y reglas.
+ * Renderer de bloques: encabezados, párrafos, figuras, listas, citas, cajas destacadas,
+ * código, tablas y reglas.
  *
  * Trabaja sobre un arreglo de líneas. Los contenedores (citas, ítems de lista) le quitan
  * su prefijo a las líneas y se llaman a sí mismos de forma recursiva.
- * No soporta: HTML crudo, encabezados setext (subrayados con === / ---), notas al pie.
+ * Las definiciones de notas al pie se sacan antes (footnotes.ts): acá ya no llegan.
+ * No soporta: HTML crudo, encabezados setext (subrayados con === / ---).
  */
 
 export interface BlockContext {
@@ -18,17 +21,23 @@ export interface BlockContext {
   depth: number;
   /** En listas "apretadas" los párrafos de los ítems no llevan <p>. */
   tight: boolean;
+  inline: InlineContext;
+  labels: Labels;
+  /** Opción `figures`: imagen sola con título => <figure>. */
+  figures: boolean;
 }
 
 const MAX_DEPTH = 16;
 
-const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})[ \t]*([^\s`]*)[^`]*$/;
+export const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})[ \t]*([^\s`]*)[^`]*$/;
 const HEADING = /^ {0,3}(#{1,6})(?:[ \t]+(.*))?$/;
 const HR = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 const BLOCKQUOTE = /^ {0,3}>/;
 const LIST_ITEM = /^( {0,3})([-*+]|\d{1,9}[.)])([ \t]+|$)/;
 const TABLE_DELIMITER = /^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
 const SAFE_LANGUAGE = /^[\w+#.-]{1,30}$/;
+// Marcador de caja estilo GitHub: solo en la primera línea de la cita, sin texto al lado.
+const CALLOUT_MARKER = new RegExp(`^\\[!(${CALLOUT_KINDS.join('|')})\\][ \\t]*$`, 'i');
 
 const isBlank = (line: string): boolean => line.trim() === '';
 
@@ -62,6 +71,14 @@ function stripIndent(line: string, count: number): string {
     }
   }
   return line.slice(index);
+}
+
+/** ¿Esta línea cierra el bloque de código abierto con `fence`? Un cierre más largo también cierra. */
+export function closesFence(line: string, fence: string): boolean {
+  const trimmed = line.trim();
+  return (
+    indentOf(line) <= 3 && trimmed.length >= fence.length && trimmed[0] === fence[0] && /^(`+|~+)$/.test(trimmed)
+  );
 }
 
 /** ¿Esta línea abre un bloque nuevo? Sirve para saber cuándo termina un párrafo. */
@@ -126,7 +143,7 @@ export function renderBlocks(lines: string[], ctx: BlockContext): string {
     }
 
     if (isTableStart(lines, i)) {
-      const result = parseTable(lines, i);
+      const result = parseTable(lines, i, ctx);
       out.push(result.html);
       i = result.next;
       continue;
@@ -151,13 +168,7 @@ function parseFence(lines: string[], start: number, open: RegExpExecArray): { ht
   let i = start + 1;
   while (i < lines.length) {
     const line = lines[i] ?? '';
-    const trimmed = line.trim();
-    const closes =
-      indentOf(line) <= 3 &&
-      trimmed.length >= fence.length &&
-      trimmed[0] === fence[0] &&
-      /^(`+|~+)$/.test(trimmed);
-    if (closes) {
+    if (closesFence(line, fence)) {
       i += 1;
       break;
     }
@@ -177,12 +188,12 @@ function renderHeading(match: RegExpExecArray, ctx: BlockContext): string {
   const raw = (match[2] ?? '').replace(/[ \t]+#+[ \t]*$/, '').replace(/^#+[ \t]*$/, '').trim();
 
   // Solo los encabezados de primer nivel de documento reciben ancla y entran al índice.
-  if (ctx.depth > 0) return `<h${level}>${renderInline(raw)}</h${level}>`;
+  if (ctx.depth > 0) return `<h${level}>${renderInline(raw, ctx.inline)}</h${level}>`;
 
   const text = plainInline(raw);
   const id = ctx.slugger(text);
   ctx.headings.push({ level, id, text });
-  return `<h${level} id="${id}">${renderInline(raw)}</h${level}>`;
+  return `<h${level} id="${id}">${renderInline(raw, ctx.inline)}</h${level}>`;
 }
 
 /* ------------------------------ Párrafos ------------------------------ */
@@ -201,7 +212,9 @@ function parseParagraph(lines: string[], start: number, ctx: BlockContext): { ht
     .map((line) => line.replace(/^[ \t]+/, ''))
     .join('\n')
     .replace(/[ \t]+$/, '');
-  const inline = renderInline(text);
+  const figure = ctx.figures ? renderFigure(text, ctx.inline) : null;
+  if (figure) return { html: figure, next: i };
+  const inline = renderInline(text, ctx.inline);
   return { html: ctx.tight ? inline : `<p>${inline}</p>`, next: i };
 }
 
@@ -225,8 +238,19 @@ function parseBlockquote(lines: string[], start: number, ctx: BlockContext): { h
     i += 1;
   }
 
-  const body = renderBlocks(inner, { ...ctx, depth: ctx.depth + 1, tight: false });
+  const innerCtx: BlockContext = { ...ctx, depth: ctx.depth + 1, tight: false };
+  const marker = CALLOUT_MARKER.exec(inner[0] ?? '')?.[1]?.toLowerCase();
+  const kind = CALLOUT_KINDS.find((candidate) => candidate === marker);
+  if (kind) return { html: renderCallout(kind, renderBlocks(inner.slice(1), innerCtx), ctx.labels), next: i };
+
+  const body = renderBlocks(inner, innerCtx);
   return { html: `<blockquote>\n${body}\n</blockquote>`, next: i };
+}
+
+/** Caja destacada: <aside> porque es contenido complementario, no una cita de otra persona. */
+function renderCallout(kind: CalloutKind, body: string, labels: Labels): string {
+  const title = `<p class="callout-title">${escapeHtml(labels[kind])}</p>`;
+  return `<aside class="callout callout-${kind}">\n${body ? `${title}\n${body}` : title}\n</aside>`;
 }
 
 /* ------------------------------- Listas ------------------------------- */
@@ -363,14 +387,14 @@ function parseAlign(cell: string): Align {
   return null;
 }
 
-function parseTable(lines: string[], start: number): { html: string; next: number } {
+function parseTable(lines: string[], start: number, ctx: BlockContext): { html: string; next: number } {
   const headerCells = splitRow(lines[start] ?? '');
   const aligns = splitRow(lines[start + 1] ?? '').map(parseAlign);
 
   const cell = (tag: 'th' | 'td', content: string, column: number): string => {
     const align = aligns[column];
     const cls = align && align !== 'left' ? ` class="align-${align}"` : '';
-    return `<${tag}${cls}>${renderInline(content)}</${tag}>`;
+    return `<${tag}${cls}>${renderInline(content, ctx.inline)}</${tag}>`;
   };
 
   const head = `<tr>${headerCells.map((c, column) => cell('th', c, column)).join('')}</tr>`;

@@ -1,4 +1,7 @@
 import { renderBlocks } from './blocks.ts';
+import { createFootnotes, extractFootnoteDefinitions } from './footnotes.ts';
+import type { InlineContext } from './inline.ts';
+import { labelsFor } from './labels.ts';
 import { createSlugger } from './slug.ts';
 import type { RenderOptions, RenderResult } from './types.ts';
 
@@ -10,15 +13,26 @@ import type { RenderOptions, RenderResult } from './types.ts';
 export function renderMarkdown(source: string, options: RenderOptions = {}): RenderResult {
   const headings: RenderResult['headings'] = [];
   const headingOffset = Math.min(5, Math.max(0, options.headingOffset ?? 0));
+  const labels = labelsFor(options.lang);
 
-  const lines = source.replace(/\r\n?/g, '\n').split('\n');
-  const html = renderBlocks(lines, {
+  const { lines, definitions } = extractFootnoteDefinitions(source.replace(/\r\n?/g, '\n').split('\n'));
+  const footnotes = createFootnotes(definitions, labels);
+  const inline: InlineContext = {
+    smartTypography: options.smartTypography ?? false,
+    footnoteRef: footnotes.reference,
+  };
+
+  const body = renderBlocks(lines, {
     headings,
     slugger: createSlugger(),
     headingOffset,
     depth: 0,
     tight: false,
+    inline,
+    labels,
+    figures: options.figures ?? false,
   });
+  const section = footnotes.renderSection(inline);
 
-  return { html, headings };
+  return { html: section ? `${body}\n${section}` : body, headings };
 }

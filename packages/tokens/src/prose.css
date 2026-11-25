@@ -57,3 +57,55 @@
 .prose th { font-family: var(--font-ui); font-size: 0.8em; letter-spacing: 0.04em; text-transform: uppercase; }
 .prose .align-center { text-align: center; }
 .prose .align-right { text-align: right; }
+
+/* Figuras: imagen sola con título en el Markdown => <figure> con epígrafe (crédito o explicación) */
+.prose figcaption {
+  margin-top: 0.6em;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--paper-muted, var(--text-tertiary));
+  text-align: center;
+}
+
+/* Cajas destacadas (> [!NOTE] / [!TIP] / [!WARNING]): como la caja "Key takeaways" del diseño,
+   fondo gris muy claro y borde izquierdo de 4px igual que la cita. --callout-accent da el tono. */
+.prose .callout {
+  --callout-accent: var(--paper-rule, var(--border-subtle));
+  border-left: 4px solid var(--callout-accent);
+  background: var(--paper-code-bg, var(--bg-surface));
+  padding: 1em 1.25em 1em 25.6px;
+}
+.prose .callout-tip { --callout-accent: var(--dataviz-green); }
+.prose .callout-warning { --callout-accent: var(--dataviz-orange); }
+.prose .callout > * + * { margin-top: 0.8em; }
+.prose .callout-title {
+  font-family: var(--font-ui);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--paper-muted, var(--text-tertiary));
+}
+
+/* Notas al pie: la referencia es un número volado que no agranda el interlineado;
+   sin subrayado para que el engrosado del hover no "salte" dentro de la línea. */
+.prose .footnote-ref { line-height: 0; }
+.prose .footnote-ref a,
+.prose .footnote-backref {
+  font-family: var(--font-ui);
+  text-decoration: none;
+  scroll-margin-top: 1.5rem;
+}
+.prose .footnote-ref a { font-size: 0.75em; padding-inline: 0.1em; }
+.prose .footnote-ref a:hover,
+.prose .footnote-backref:hover { text-decoration: underline; text-decoration-thickness: 1px; }
+.prose .footnotes {
+  margin-top: 3em;
+  padding-top: 1.25em;
+  border-top: 1px solid var(--paper-rule, var(--border-subtle));
+  font-size: 0.85em;
+  color: var(--paper-muted, var(--text-secondary));
+}
+.prose .footnotes li { scroll-margin-top: 1.5rem; }
+.prose .footnotes li + li { margin-top: 0.5em; }

@@ -1,9 +1,10 @@
 import { escapeHtml } from './escape.ts';
+import { smartenText } from './typography.ts';
 import { isExternalUrl, sanitizeUrl } from './url.ts';
 
 /**
  * Renderer de elementos en línea: **negrita**, *cursiva*, ~~tachado~~, `código`,
- * [links](url), ![imágenes](url) y <autolinks>.
+ * [links](url), ![imágenes](url), <autolinks> y referencias a notas al pie [^id].
  *
  * Es un parser simple (no implementa el algoritmo completo de delimitadores de CommonMark):
  * un énfasis cierra con una tira de delimitadores del MISMO largo que la que lo abrió.
@@ -15,13 +16,21 @@ interface Parsed {
   end: number;
 }
 
+/** Lo que el renderer en línea necesita saber del documento y de las opciones. */
+export interface InlineContext {
+  smartTypography: boolean;
+  /** HTML de la referencia `[^id]`, o null si no tiene definición (entonces queda como texto literal). */
+  footnoteRef: (id: string) => string | null;
+}
+
 // Caracteres que pueden disparar sintaxis. Todo lo demás se copia escapado de una vez.
 const SPECIAL = /[\\`!\[<*_~\n]/g;
 const ASCII_PUNCTUATION = /[!-/:-@[-`{-~]/;
 const AUTOLINK = /<((?:https?:\/\/|mailto:)[^\s<>]+)>/y;
 const WORD_CHAR = /[\p{L}\p{N}]/u;
+const FOOTNOTE_REF = /\[\^([^\]\s]+)\]/y;
 
-export function renderInline(source: string, insideLink = false): string {
+export function renderInline(source: string, ctx: InlineContext, insideLink = false): string {
   let html = '';
   let i = 0;
 
@@ -31,7 +40,8 @@ export function renderInline(source: string, insideLink = false): string {
     const next = match ? match.index : source.length;
 
     if (next > i) {
-      html += escapeHtml(source.slice(i, next));
+      const text = source.slice(i, next);
+      html += escapeHtml(ctx.smartTypography ? smartenText(text, source[i - 1]) : text);
       i = next;
       continue;
     }
@@ -44,7 +54,7 @@ export function renderInline(source: string, insideLink = false): string {
       continue;
     }
 
-    const parsed = parseSpecial(source, i, insideLink);
+    const parsed = parseSpecial(source, i, ctx, insideLink);
     if (parsed) {
       html += parsed.html;
       i = parsed.end;
@@ -63,13 +73,14 @@ export function plainInline(source: string): string {
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<((?:https?:\/\/|mailto:)[^\s<>]+)>/g, '$1')
+    .replace(/\[\^[^\]\s]+\]/g, '') // el número de una nota al pie no es parte del título
     .replace(/\\([!-/:-@[-`{-~])/g, '$1')
     .replace(/[`*_~]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-function parseSpecial(source: string, i: number, insideLink: boolean): Parsed | null {
+function parseSpecial(source: string, i: number, ctx: InlineContext, insideLink: boolean): Parsed | null {
   switch (source[i]) {
     case '\\': {
       const next = source[i + 1];
@@ -82,9 +93,10 @@ function parseSpecial(source: string, i: number, insideLink: boolean): Parsed | 
     case '`':
       return parseCodeSpan(source, i);
     case '!':
-      return source[i + 1] === '[' ? parseLinkOrImage(source, i + 1, true, insideLink) : null;
+      return source[i + 1] === '[' ? parseLinkOrImage(source, i + 1, true, ctx) : null;
     case '[':
-      return insideLink ? null : parseLinkOrImage(source, i, false, insideLink);
+      if (insideLink) return null;
+      return parseFootnoteRef(source, i, ctx) ?? parseLinkOrImage(source, i, false, ctx);
     case '<': {
       if (insideLink) return null;
       AUTOLINK.lastIndex = i;
@@ -96,7 +108,7 @@ function parseSpecial(source: string, i: number, insideLink: boolean): Parsed | 
     case '*':
     case '_':
     case '~':
-      return parseEmphasis(source, i, insideLink);
+      return parseEmphasis(source, i, ctx, insideLink);
     default:
       return null;
   }
@@ -129,8 +141,24 @@ function parseCodeSpan(source: string, i: number): Parsed {
   return { html: '`'.repeat(runLength), end: i + runLength };
 }
 
-/** `[texto](url "título")` o, con isImage, `![alt](url "título")`. `start` apunta al '['. */
-function parseLinkOrImage(source: string, start: number, isImage: boolean, insideLink: boolean): Parsed | null {
+/** `[^id]` con definición. Sin definición devuelve null y el texto sigue su camino (queda literal). */
+function parseFootnoteRef(source: string, i: number, ctx: InlineContext): Parsed | null {
+  if (source[i + 1] !== '^') return null;
+  FOOTNOTE_REF.lastIndex = i;
+  const match = FOOTNOTE_REF.exec(source);
+  const html = match ? ctx.footnoteRef(match[1] ?? '') : null;
+  return match && html !== null ? { html, end: i + match[0].length } : null;
+}
+
+interface LinkTarget {
+  label: string;
+  destination: string;
+  title: string;
+  end: number;
+}
+
+/** Partes de `[label](destino "título")`. `start` apunta al '['. */
+function parseLinkTarget(source: string, start: number): LinkTarget | null {
   // 1) Buscar el ']' que cierra, respetando corchetes anidados, escapes y código.
   let depth = 1;
   let j = start + 1;
@@ -201,24 +229,45 @@ function parseLinkOrImage(source: string, start: number, isImage: boolean, insid
   }
 
   if (source[k] !== ')') return null;
-  const end = k + 1;
+  return { label, destination, title, end: k + 1 };
+}
 
-  // 3) HTML. Una URL insegura nunca produce un href/src: queda solo el texto.
-  const url = sanitizeUrl(destination);
+/** `[texto](url "título")` o, con isImage, `![alt](url "título")`. `start` apunta al '['. */
+function parseLinkOrImage(source: string, start: number, isImage: boolean, ctx: InlineContext): Parsed | null {
+  const target = parseLinkTarget(source, start);
+  if (!target) return null;
+  const { label, title, end } = target;
+
+  // Una URL insegura nunca produce un href/src: queda solo el texto.
+  const url = sanitizeUrl(target.destination);
   const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
 
   if (isImage) {
-    const alt = escapeHtml(plainInline(label));
-    if (!url) return { html: alt, end };
-    return {
-      html: `<img src="${escapeHtml(url)}" alt="${alt}"${titleAttr} loading="lazy" decoding="async">`,
-      end,
-    };
+    return { html: url ? renderImage(url, label, titleAttr) : escapeHtml(plainInline(label)), end };
   }
 
-  const inner = renderInline(label, true);
+  const inner = renderInline(label, ctx, true);
   if (!url) return { html: inner, end };
   return { html: renderAnchor(url, inner, titleAttr), end };
+}
+
+/**
+ * Figura: el párrafo es SOLO una imagen con título y URL segura. El título pasa a ser el
+ * epígrafe (con formato en línea, escapado como todo texto) y no se repite como atributo.
+ * Devuelve null si no aplica, y el párrafo se renderiza como siempre.
+ */
+export function renderFigure(source: string, ctx: InlineContext): string | null {
+  if (!source.startsWith('![')) return null;
+  const target = parseLinkTarget(source, 1);
+  const caption = target?.title.trim() ?? '';
+  if (!target || target.end !== source.length || caption === '') return null;
+  const url = sanitizeUrl(target.destination);
+  if (!url) return null;
+  return `<figure>${renderImage(url, target.label)}<figcaption>${renderInline(caption, ctx)}</figcaption></figure>`;
+}
+
+function renderImage(url: string, label: string, titleAttr = ''): string {
+  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(plainInline(label))}"${titleAttr} loading="lazy" decoding="async">`;
 }
 
 function renderAnchor(url: string, innerHtml: string, titleAttr = ''): string {
@@ -249,7 +298,7 @@ function wrapEmphasis(delimiter: string, length: number, inner: string): string 
   return `<em><strong>${inner}</strong></em>`;
 }
 
-function parseEmphasis(source: string, i: number, insideLink: boolean): Parsed | null {
+function parseEmphasis(source: string, i: number, ctx: InlineContext, insideLink: boolean): Parsed | null {
   const delimiter = source[i] ?? '';
   let length = 0;
   while (source[i + length] === delimiter) length += 1;
@@ -273,7 +322,7 @@ function parseEmphasis(source: string, i: number, insideLink: boolean): Parsed |
       let runLength = 0;
       while (source[j + runLength] === delimiter) runLength += 1;
       if (runLength === length && j > i + length && canClose(source, j, length, delimiter)) {
-        const inner = renderInline(source.slice(i + length, j), insideLink);
+        const inner = renderInline(source.slice(i + length, j), ctx, insideLink);
         return { html: wrapEmphasis(delimiter, length, inner), end: j + length };
       }
       j += runLength;
