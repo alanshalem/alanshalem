@@ -7,13 +7,17 @@ Blog propio con editor Markdown, pensado para un VPS chico compartido con otras 
 ```
 Visitante ──► Caddy ──► archivos estáticos (HTML precomprimido en br/gzip)
                  │
-                 ├─ /media/*   imágenes subidas (cache inmutable)
+                 ├─ /media/*   imágenes y videos subidos (cache inmutable, Range)
                  ├─ /admin/*   SPA de administración (React)
                  └─ /api/*     API .NET  (/api/internal está bloqueado desde afuera)
 
 Admin ──► API ──► SQLite
               └─ al publicar ──► Builder ──► astro build ──► releases/<timestamp>/ ──► symlink `current` (swap atómico)
 ```
+
+El hero de la home rota en cada visita entre fotos y videos cortos (≤ 15 s) que se suben desde Ajustes. Toda imagen se
+guarda optimizada (AVIF + WebP en varios anchos, sin metadatos, con libvips) y cada video se recorta, se le saca el
+audio y se codifica con ffmpeg en AV1 + H.264, 720p y 1080p.
 
 La idea: **los visitantes nunca tocan la API ni la base de datos**. Todo lo público es HTML ya generado, así que el
 servidor casi no trabaja en reposo y el sitio sigue vivo aunque la API se caiga.
@@ -30,7 +34,10 @@ servidor casi no trabaja en reposo y el sitio sigue vivo aunque la API se caiga.
 
 ## Desarrollo local
 
-Requisitos: Node ≥ 22.12, pnpm 10, .NET SDK 10.
+Requisitos: Node ≥ 22.12, pnpm 10, .NET SDK 10 y, para los videos del hero, `ffmpeg` y `ffprobe` con `libsvtav1`
+(SVT-AV1 4.x, con el que se calibró la codificación) y `libx264`. La API los busca en el PATH; si no, configurá
+`Video:FfmpegPath` y `Video:FfprobePath`. Los videos en proceso quedan en `Video:WorkDirectory` (por defecto
+`data/video-work`, nunca dentro de `Media:Directory`). libvips no hace falta: viene en el paquete NuGet.
 
 ```bash
 pnpm install            # y commiteá el pnpm-lock.yaml (ver "Primer arranque")
@@ -66,6 +73,10 @@ docker compose logs -f
 Entrás a `https://tu-dominio/admin/`, creás un post y lo publicás. El primer build tarda; los siguientes están
 con debounce y corren con `nice` y tope de heap para no pisar a las otras apps.
 
+La imagen de la API ya trae ffmpeg 9.1 estático (SVT-AV1 4.3 + x264, fijado por digest en `apps/api/Dockerfile`) y
+el compose pone `Video__WorkDirectory` en el volumen `api_data`. Codificar un video pide memoria: la API tiene tope de
+1,5 GB y 2 CPUs (medido, ver el comentario en `docker-compose.yml`); en reposo usa ~85 MB.
+
 Si el VPS ya tiene otro reverse proxy en 80/443, no levantes este Caddy tal cual: poné el tuyo adelante y que apunte
 al contenedor `caddy` por una red interna.
 
@@ -76,6 +87,8 @@ al contenedor `caddy` por una red interna.
 - CSRF: header obligatorio `X-Requested-With: blog-admin` en las rutas de admin.
 - Rate limit de login: 10 intentos / 15 min por IP.
 - Subida de imágenes validada por *magic bytes* (PNG, JPG, GIF, WebP, AVIF), máx. 8 MB; SVG rechazado a propósito.
+- Videos (MP4, MOV, WebM, MKV) validados por *magic bytes* y ffprobe, máx. 200 MB y 15 s; el original (con audio y
+  metadatos) nunca llega a `/media`.
 - El Markdown **no admite HTML crudo** (todo se escapa) y las URLs pasan por allowlist (`http`, `https`, `mailto`, `tel`, relativas).
 - `/api/internal` (usado por el builder) exige Bearer y Caddy lo bloquea hacia afuera.
 - Un build fallido **no toca** el sitio publicado.

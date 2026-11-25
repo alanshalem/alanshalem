@@ -55,13 +55,24 @@ services:
       ConnectionStrings__Blog: Data Source=/data/blog.db
       Media__Directory: /media
       DataProtection__KeysDirectory: /data/keys
+      # Originales de video en espera y salidas de ffmpeg: en el volumen persistente y fuera de /media (que se publica).
+      # ffmpeg y ffprobe vienen en la imagen, en el PATH.
+      Video__WorkDirectory: /data/video-work
     volumes:
       - api_data:/data
-      - media:/media
+      # nocopy: la imagen (Ubuntu) ya trae un /media vacío de root, y Docker copia su dueño al volumen mientras esté
+      # vacío: deshacía el chown de init-permisos y la primera subida fallaba con "Permission denied".
+      - media:/media:nocopy
     depends_on:
       init-permisos:
         condition: service_completed_successfully
-    mem_limit: 256m
+    # Medido con `docker stats` (ffmpeg 9.1, SVT-AV1 4.3), peor caso: video de 15 s a 1080p con ruido fuerte. En reposo
+    # ~85 MB. Codificando: ffmpeg llega a ~1,1 GB de RSS en la versión AV1 1080p (las otras, 0,4-0,8 GB) y el
+    # contenedor a 1,32 GB con estos topes; terminó en 211 s. Sin tope de CPU, ffmpeg usa hasta ~6,5 núcleos (decodificar,
+    # filtrar y codificar en paralelo, aunque cada etapa tenga 2 hilos): cpus lo acota, y la prioridad baja deja pasar
+    # primero al resto del VPS.
+    mem_limit: 1536m
+    cpus: 2.0
 
   builder:
     build:

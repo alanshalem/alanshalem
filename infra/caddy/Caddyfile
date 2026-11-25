@@ -34,7 +34,9 @@
 	handle_path /admin/* {
 		root * /srv/admin
 		encode zstd gzip
-		header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+		# blob: en img-src y media-src: la vista previa local de fotos y el editor de recorte de videos usan URLs de objeto
+		# (el archivo todavía no se subió). Los videos ya procesados vienen de /media ('self').
+		header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 		header Cache-Control "no-cache"
 		@hashed path /assets/*
 		header @hashed Cache-Control "public, max-age=31536000, immutable"
@@ -43,12 +45,13 @@
 		file_server
 	}
 
-	# ---------- Imágenes subidas ----------
-	# Los nombres son GUIDs aleatorios y nunca cambian: se pueden cachear para siempre.
+	# ---------- Imágenes y videos subidos ----------
+	# Los nombres salen del hash del contenido y nunca cambian: se pueden cachear para siempre. Sin encode: AVIF, WebP y
+	# MP4 ya vienen comprimidos, y file_server responde Range (206) para que el <video> pida solo lo que necesita.
 	handle_path /media/* {
 		root * /srv/media
 		header Cache-Control "public, max-age=31536000, immutable"
-		header Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox"
+		header Content-Security-Policy "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox"
 		file_server
 	}
 
