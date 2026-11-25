@@ -29,8 +29,8 @@ public class PostServiceTests
             Task.FromResult<IReadOnlyList<PostSummaryDto>>(Items
                 .OrderByDescending(post => post.UpdatedAtUtc)
                 .Select(post => new PostSummaryDto(
-                    post.Id, post.Slug, post.Title, post.Lang, post.TranslationGroupId, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc,
-                    post.ScheduledAtUtc, post.CoverUrl, post.CoverAlt, []))
+                    post.Id, post.Slug, post.Title, post.Lang, post.TranslationGroupId, post.Status, post.UpdatedAtUtc, post.ContentUpdatedAtUtc,
+                    post.PublishedAtUtc, post.ScheduledAtUtc, post.CoverUrl, post.CoverAlt, []))
                 .ToList());
 
         public Task<IReadOnlyList<Post>> ListPublishedAsync(CancellationToken cancellationToken) =>
@@ -302,10 +302,10 @@ public class PostServiceTests
         Assert.Equal(1, _repository.Items.Count(post => post.Lang == "en"));
         var published = await _service.GetAsync(original.Id, default);
         Assert.Equal(
-            [new PostTranslationDto(original.Id, "es", "hola", PostStatus.Published, published.UpdatedAt)],
+            [new PostTranslationDto(original.Id, "es", "hola", PostStatus.Published, published.UpdatedAt, published.ContentUpdatedAt)],
             translation.Translations);
         Assert.Equal(
-            [new PostTranslationDto(translation.Id, "en", "hola", PostStatus.Draft, _clock.UtcNow)],
+            [new PostTranslationDto(translation.Id, "en", "hola", PostStatus.Draft, _clock.UtcNow, _clock.UtcNow)],
             published.Translations);
         // Un borrador nuevo no se ve en el sitio: no se regenera.
         Assert.Equal(builds, _build.Requests);
@@ -353,16 +353,61 @@ public class PostServiceTests
     }
 
     [Fact]
-    public async Task CreateTranslation_is_a_conflict_when_another_post_already_uses_the_slug_in_that_language()
+    public async Task CreateTranslation_suffixes_the_language_when_another_post_already_uses_the_slug_in_that_language()
+    {
+        var original = await _service.CreateAsync(Request("Hola"), default);
+        var unrelated = await _service.CreateAsync(Request("Hello", "hola") with { Lang = "en" }, default);
+
+        var translation = await _service.CreateTranslationAsync(original.Id, new CreateTranslationRequest("en"), default);
+
+        Assert.Equal(("hola-en", "en", original.TranslationGroupId), (translation.Slug, translation.Lang, translation.TranslationGroupId));
+        Assert.Equal("hola-en", (await _service.GetRevisionAsync(translation.Id, Assert.Single(await RevisionsAsync(translation.Id)).Id, default)).Slug);
+        // El original y el otro post en inglés no cambian.
+        Assert.Equal("hola", (await _service.GetAsync(original.Id, default)).Slug);
+        Assert.Equal("hola", (await _service.GetAsync(unrelated.Id, default)).Slug);
+    }
+
+    [Fact]
+    public async Task CreateTranslation_is_a_conflict_when_the_slug_with_the_language_suffix_is_taken_too_and_stores_nothing()
     {
         var original = await _service.CreateAsync(Request("Hola"), default);
         await _service.CreateAsync(Request("Hello", "hola") with { Lang = "en" }, default);
+        await _service.CreateAsync(Request("Hello again", "hola-en") with { Lang = "en" }, default);
+        var revisionsBefore = _repository.Revisions.Count;
 
         var error = await Assert.ThrowsAsync<ConflictException>(() =>
             _service.CreateTranslationAsync(original.Id, new CreateTranslationRequest("en"), default));
 
-        Assert.Equal("Ya existe un post en inglés con el slug \"hola\".", error.Message);
-        Assert.Equal(2, _repository.Items.Count);
+        Assert.Equal("Ya existe un post en inglés con el slug \"hola-en\".", error.Message);
+        Assert.Equal(3, _repository.Items.Count);
+        Assert.Equal(revisionsBefore, _repository.Revisions.Count);
+        Assert.Empty((await _service.GetAsync(original.Id, default)).Translations);
+    }
+
+    [Fact]
+    public async Task Publishing_or_unpublishing_a_version_does_not_move_the_content_time_the_other_one_sees()
+    {
+        var original = await _service.CreateAsync(Request("Hola"), default);
+        var created = _clock.UtcNow;
+        _clock.UtcNow = created.AddHours(1);
+        var english = await _service.CreateTranslationAsync(original.Id, new CreateTranslationRequest("en"), default);
+        _clock.UtcNow = created.AddHours(2);
+
+        var published = await _service.PublishAsync(original.Id, default);
+        var unpublished = await _service.UnpublishAsync(english.Id, default);
+
+        Assert.Equal((created.AddHours(2), created), (published.UpdatedAt, published.ContentUpdatedAt));
+        Assert.Equal((created.AddHours(2), created.AddHours(1)), (unpublished.UpdatedAt, unpublished.ContentUpdatedAt));
+        Assert.Equal(created, Assert.Single(unpublished.Translations).ContentUpdatedAt);
+        var summaries = (await _service.ListAsync(default)).ToDictionary(summary => summary.Id);
+        Assert.Equal(created, summaries[original.Id].ContentUpdatedAt);
+        Assert.Equal(created, Assert.Single(summaries[english.Id].Translations).ContentUpdatedAt);
+
+        // Editar el contenido sí la mueve.
+        _clock.UtcNow = created.AddHours(3);
+        var edited = await _service.UpdateAsync(original.Id, Request("Hola editado", "hola"), default);
+        Assert.Equal(created.AddHours(3), edited.ContentUpdatedAt);
+        Assert.Equal(created.AddHours(3), Assert.Single((await _service.GetAsync(english.Id, default)).Translations).ContentUpdatedAt);
     }
 
     [Fact]

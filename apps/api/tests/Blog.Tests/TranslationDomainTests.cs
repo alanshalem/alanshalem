@@ -93,6 +93,97 @@ public class PostTranslationTests
     }
 }
 
+/// <summary>
+/// La fecha del último cambio de contenido (multiidioma L9): con ella el admin decide si una traducción quedó atrás, así
+/// que publicar, despublicar o programar no pueden moverla.
+/// </summary>
+public class PostContentUpdatedAtTests
+{
+    private static readonly DateTime Now = new(2026, 11, 25, 12, 0, 0, DateTimeKind.Utc);
+
+    private static PostContent Content(string body = "cuerpo") => PostContent.Create("Hola", "hola", "Resumen", body, ["net"], "/media/a.png", "Alt");
+
+    [Fact]
+    public void A_new_post_and_a_new_translation_start_with_their_creation_time()
+    {
+        var post = Post.CreateDraft(Content(), "es", Now);
+        var translation = post.CreateTranslation("en", Now.AddHours(1));
+
+        Assert.Equal(Now, post.ContentUpdatedAtUtc);
+        Assert.Equal(Now.AddHours(1), translation.ContentUpdatedAtUtc);
+    }
+
+    [Fact]
+    public void Publishing_unpublishing_and_scheduling_touch_UpdatedAt_but_not_the_content_time()
+    {
+        var post = Post.CreateDraft(Content(), "es", Now);
+
+        post.Schedule(Now.AddDays(1), Now.AddMinutes(1));
+        Assert.Equal((Now.AddMinutes(1), Now), (post.UpdatedAtUtc, post.ContentUpdatedAtUtc));
+        post.Unschedule(Now.AddMinutes(2));
+        Assert.Equal((Now.AddMinutes(2), Now), (post.UpdatedAtUtc, post.ContentUpdatedAtUtc));
+        post.Publish(Now.AddMinutes(3));
+        Assert.Equal((Now.AddMinutes(3), Now), (post.UpdatedAtUtc, post.ContentUpdatedAtUtc));
+        post.Unpublish(Now.AddMinutes(4));
+        Assert.Equal((Now.AddMinutes(4), Now), (post.UpdatedAtUtc, post.ContentUpdatedAtUtc));
+    }
+
+    [Fact]
+    public void Only_a_save_that_changes_the_content_moves_the_content_time()
+    {
+        var post = Post.CreateDraft(Content(), "es", Now);
+
+        Assert.False(post.Update(Content(), Now.AddMinutes(1)));
+        Assert.Equal((Now.AddMinutes(1), Now), (post.UpdatedAtUtc, post.ContentUpdatedAtUtc));
+        Assert.True(post.Update(Content("otro"), Now.AddMinutes(2)));
+        Assert.Equal((Now.AddMinutes(2), Now.AddMinutes(2)), (post.UpdatedAtUtc, post.ContentUpdatedAtUtc));
+    }
+}
+
+/// <summary>
+/// El slug copiado a la versión nueva puede estar tomado en su idioma por otro artículo (multiidioma L9): se le suma el
+/// sufijo del idioma, como un cambio de contenido más.
+/// </summary>
+public class TranslationSlugSuffixTests
+{
+    private static readonly DateTime Now = new(2026, 11, 25, 12, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public void The_suffix_is_the_language_code_and_counts_as_a_content_change()
+    {
+        var translation = Post.CreateDraft(PostContent.Create("Hola", "hola", null, "cuerpo", null), "es", Now)
+            .CreateTranslation("en", Now.AddHours(1));
+
+        translation.SuffixSlugWithLanguage(Now.AddHours(2));
+
+        Assert.Equal("hola-en", translation.Slug);
+        Assert.Equal((Now.AddHours(2), Now.AddHours(2)), (translation.UpdatedAtUtc, translation.ContentUpdatedAtUtc));
+        Assert.Equal(("Hola", "cuerpo"), (translation.Title, translation.Body));
+    }
+
+    public static TheoryData<string, string, string> LongSlugs => new()
+    {
+        // Justo entra: no se corta nada.
+        { new string('a', Slug.MaxLength - 3), "en", new string('a', Slug.MaxLength - 3) + "-en" },
+        // No entra: se corta la base, y el guion que queda colgando en el corte se quita (el slug no lo admite).
+        { new string('a', Slug.MaxLength - 4) + "-bbb", "en", new string('a', Slug.MaxLength - 4) + "-en" },
+        { new string('a', Slug.MaxLength), "es", new string('a', Slug.MaxLength - 3) + "-es" },
+    };
+
+    [Theory]
+    [MemberData(nameof(LongSlugs))]
+    public void A_long_slug_is_shortened_so_the_suffixed_one_still_fits(string slug, string lang, string expected)
+    {
+        var post = Post.CreateDraft(PostContent.Create("Hola", slug, null, "cuerpo", null), lang == "en" ? "es" : "en", Now)
+            .CreateTranslation(lang, Now);
+
+        post.SuffixSlugWithLanguage(Now);
+
+        Assert.Equal(expected, post.Slug);
+        Assert.True(Slug.IsValid(post.Slug));
+    }
+}
+
 public class EnglishTextsDomainTests
 {
     [Fact]

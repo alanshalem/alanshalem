@@ -18,6 +18,17 @@ public static partial class Slug
     public static bool IsValid(string? value) =>
         !string.IsNullOrEmpty(value) && value.Length <= MaxLength && ValidPattern().IsMatch(value);
 
+    /// <summary>
+    /// "mi-post" + "en" -> "mi-post-en". Si no entra en <see cref="MaxLength"/> se acorta la base (nunca el sufijo, que
+    /// es lo que distingue al slug), sin dejarle un guion final.
+    /// </summary>
+    public static string WithSuffix(string slug, string suffix)
+    {
+        var room = MaxLength - suffix.Length - 1;
+        var stem = slug.Length > room ? slug[..room].TrimEnd('-') : slug;
+        return $"{stem}-{suffix}";
+    }
+
     /// <summary>"¡Hola, Mundo! Año 2026" -> "hola-mundo-ano-2026". Mismo criterio que slugify() del frontend.</summary>
     public static string From(string text)
     {

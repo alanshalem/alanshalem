@@ -45,6 +45,13 @@ export interface BlogPost {
   cover: Cover;
 }
 
+/**
+ * Cómo se renderiza el cuerpo de un post en el sitio. El título del post ya es el <h1>: el "#" del cuerpo pasa a <h2>.
+ * Figuras y tipografía inteligente son opcionales en @blog/markdown solo para no cambiar la salida de otros usos; el
+ * sitio las quiere siempre (editor-pro L4). El idioma lo agrega cada post: títulos de cajas y notas en su idioma.
+ */
+const BODY_RENDER_OPTIONS = { headingOffset: 1, smartTypography: true, figures: true } as const;
+
 /** Ruta pública de un post: su idioma define el prefijo y el segmento (/es/articulos/, /en/articles/). */
 export const postPath = (post: Pick<BlogPost, 'lang' | 'slug'>): string => paths.post(post.lang, post.slug);
 
@@ -59,8 +66,7 @@ export function toBlogPost(apiPost: ApiPost): BlogPost {
   const { lang } = apiPost;
   // Publicarlo bajo otro idioma lo mostraría con la interfaz equivocada: mejor que el build falle y quede el sitio anterior.
   if (!isLang(lang)) throw new Error(`El post "${apiPost.slug}" tiene un idioma "${lang}" que el sitio no publica.`);
-  // En el sitio, el título del post es el <h1>: el "#" del cuerpo pasa a <h2> (headingOffset: 1).
-  const { html, headings } = renderMarkdown(apiPost.body, { headingOffset: 1 });
+  const { html, headings } = renderMarkdown(apiPost.body, { ...BODY_RENDER_OPTIONS, lang });
   const tags = apiPost.tags.map((name) => ({ name, slug: slugify(name) }));
   const cover = resolveCover({
     slug: apiPost.slug,

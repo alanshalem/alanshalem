@@ -26,7 +26,7 @@ export function PostVersions({ post, draft, dirty, onError }: Props) {
   const other = useOtherVersion(post.translations[0]?.id ?? null, onError);
   const slots = versionSlots(post.translations, post.lang);
   const warnings = other
-    ? translationWarnings({ ...draft, createdAt: post.createdAt, updatedAt: post.updatedAt }, other).map((warning) => ({
+    ? translationWarnings({ ...draft, createdAt: post.createdAt, contentUpdatedAt: post.contentUpdatedAt }, other).map((warning) => ({
         title: t(`versions.${warning}.title`),
         text: t(`versions.${warning}.text`, { lang: t(`lang.inSentence.${other.lang}`) }),
       }))

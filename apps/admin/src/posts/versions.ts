@@ -67,14 +67,15 @@ export interface VersionContent {
   title: string;
   body: string;
   createdAt: string;
-  updatedAt: string;
+  /** No `updatedAt`: publicar o programar también lo cambian, y eso no vuelve vieja a ninguna traducción. */
+  contentUpdatedAt: string;
 }
 
 /**
  * Avisos de la traducción respecto de la otra versión (L3). La traducción es la versión creada después: "Crear
  * versión" copia el original, así que el original nunca se avisa a sí mismo.
  * - `untranslated`: el título o el cuerpo siguen iguales al original (el contenido copiado sin traducir).
- * - `outdated`: el original se editó después de la última edición de la traducción.
+ * - `outdated`: el contenido del original cambió después del último cambio de contenido de la traducción.
  */
 export function translationWarnings(current: VersionContent, other: VersionContent): TranslationWarning[] {
   if (Date.parse(current.createdAt) <= Date.parse(other.createdAt)) return [];
@@ -82,6 +83,6 @@ export function translationWarnings(current: VersionContent, other: VersionConte
   if (current.title.trim() === other.title.trim() || current.body.trim() === other.body.trim()) {
     warnings.push('untranslated');
   }
-  if (Date.parse(other.updatedAt) > Date.parse(current.updatedAt)) warnings.push('outdated');
+  if (Date.parse(other.contentUpdatedAt) > Date.parse(current.contentUpdatedAt)) warnings.push('outdated');
   return warnings;
 }

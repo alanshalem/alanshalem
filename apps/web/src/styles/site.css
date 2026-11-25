@@ -63,6 +63,10 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 .lang-switch a + a { border-left: 1px solid currentColor; }
 .lang-switch a:hover, .lang-switch a:focus-visible, .lang-switch a[aria-current='true'] { color: var(--text-primary); }
+/* Sobre el hero, text-tertiary casi no se ve en una foto clara: los dos idiomas van en text-primary, como el menú sobre
+   el mismo overlay, y el actual se distingue como en el menú, con subrayado de 1px (sin sombras: regla del sistema). */
+.site-header--overlay .lang-switch a { color: var(--text-primary); }
+.site-header--overlay .lang-switch a[aria-current='true'] { text-decoration: underline; text-decoration-thickness: 1px; }
 
 @media (min-width: 900px) {
   .nav-toggle { display: none; }

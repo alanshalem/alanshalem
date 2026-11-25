@@ -9,6 +9,8 @@ export interface PostTranslation {
   slug: string;
   status: PostStatus;
   updatedAt: string;
+  /** Último cambio de su contenido; publicar, despublicar o programar no lo mueven (ver `PostSummary`). */
+  contentUpdatedAt: string;
 }
 
 /** Fila de la lista de posts (sin el cuerpo, para que la lista sea liviana). */
@@ -17,7 +19,13 @@ export interface PostSummary {
   slug: string;
   title: string;
   status: PostStatus;
+  /** Último cambio de cualquier tipo, también de estado: ordena y fecha la lista. */
   updatedAt: string;
+  /**
+   * Último cambio del contenido (la creación incluida). Es la fecha que dice si una traducción quedó atrás: publicar
+   * el original no le deja nada nuevo que traducir (multiidioma L9).
+   */
+  contentUpdatedAt: string;
   publishedAt: string | null;
   /** Portada opcional: ruta `/media/...` (subida) o URL `http(s)`. */
   coverUrl: string | null;

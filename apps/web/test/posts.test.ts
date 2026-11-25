@@ -38,6 +38,26 @@ describe('toBlogPost: idioma y grupo de traducción (L4)', () => {
   });
 });
 
+describe('toBlogPost: extensiones de Markdown del cuerpo en el idioma del post (editor-pro L4, L5)', () => {
+  it('las cajas destacadas se titulan en el idioma del post', () => {
+    const callout = '> [!NOTE]\n> Texto.';
+    assert.match(toBlogPost(apiPost({ lang: 'en', body: callout })).html, /<p class="callout-title">Note<\/p>/);
+    assert.match(toBlogPost(apiPost({ lang: 'es', body: callout })).html, /<p class="callout-title">Nota<\/p>/);
+  });
+  it('una imagen sola con título es una figura con epígrafe, y sigue sirviendo de portada', () => {
+    const post = toBlogPost(apiPost({ body: '![Faro](/media/faro.jpg "Faro de noche")' }));
+    assert.match(post.html, /^<figure><img src="\/media\/faro\.jpg" alt="Faro"[^>]*><figcaption>Faro de noche<\/figcaption><\/figure>$/);
+    assert.equal(post.cover.kind === 'image' && post.cover.src, '/media/faro.jpg');
+  });
+  it('tipografía inteligente: comillas, rayas y puntos suspensivos, nunca dentro del código', () => {
+    const { html } = toBlogPost(apiPost({ lang: 'en', body: 'He said "wait" -- then... `a -- "b"`' }));
+    assert.equal(html, '<p>He said “wait” – then… <code>a -- &quot;b&quot;</code></p>');
+  });
+  it('el título del cuerpo sigue bajando un nivel (el <h1> es el título del post)', () => {
+    assert.match(toBlogPost(apiPost({ body: '# Uno' })).html, /^<h2 id="uno">Uno<\/h2>$/);
+  });
+});
+
 describe('alternatesByGroup: versiones publicadas de cada grupo (L3)', () => {
   const es = toBlogPost(apiPost({ id: 'a', slug: 'hola', lang: 'es', translationGroupId: 'g1' }));
   const en = toBlogPost(apiPost({ id: 'b', slug: 'hello', lang: 'en', translationGroupId: 'g1' }));

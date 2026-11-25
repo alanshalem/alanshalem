@@ -44,6 +44,14 @@ test('la raíz redirige según el idioma del navegador: inglés → /en/, si no 
   assert.match(caddy, /@root path \/\s*$/m, 'el matcher @root tiene que ser exactamente la raíz');
   assert.match(root, /header Vary Accept-Language/, 'las cachés tienen que separar la respuesta por idioma');
   assert.match(root, /header_regexp Accept-Language/);
+  // La expresión exacta: solo la PRIMERA preferencia, y "en" como palabra completa (en, en-US) — sin \b, "eng" o un
+  // "english-fake" también mandarían a /en/ (multiidioma L9).
+  const english = /@english header_regexp Accept-Language (\S+)\s*$/m.exec(root)?.[1];
+  assert.equal(english, String.raw`(?i)^\s*en\b`);
+  // La misma expresión en JS (`(?i)` de Go = flag i) para fijar qué entra y qué no.
+  const prefersEnglish = new RegExp((english ?? '').replace(/^\(\?i\)/, ''), 'i');
+  for (const header of ['en', 'en-US,en;q=0.9', ' EN-gb', 'en;q=0.8,es']) assert.ok(prefersEnglish.test(header), header);
+  for (const header of ['english-fake', 'eng', 'es-AR,en;q=0.9', 'fr,en']) assert.ok(!prefersEnglish.test(header), header);
   assert.match(root, /redir @english \/en\/ 302/);
   // `redir /es/ 302` NO sirve: Caddy toma /es/ como filtro de ruta y no como destino. Hace falta el comodín.
   assert.match(root, /redir \* \/es\/ 302/);

@@ -215,6 +215,8 @@ public class MigrationTests
         Assert.Contains(applied, id => id.EndsWith("_AddVideoEdit", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddTranslations", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddPostRevisionsAndScheduling", StringComparison.Ordinal));
+        Assert.Contains(applied, id => id.EndsWith("_AddPostContentUpdatedAt", StringComparison.Ordinal));
+        Assert.Contains("ContentUpdatedAtUtc", postColumns);
 
         await database.InScopeAsync<bool>(async provider =>
         {
@@ -439,6 +441,41 @@ public class MigrationTests
         Assert.Equal([2, 1], (await database.WithPostsAsync(posts => posts.ListRevisionsAsync(firstId, default))).Select(item => item.Number));
     }
 
+    [Fact]
+    public async Task Upgrading_from_revisions_dates_each_posts_content_at_its_latest_revision_or_else_its_last_update()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InScopeAsync(async provider =>
+        {
+            var db = provider.GetRequiredService<BlogDbContext>();
+            await db.GetService<IMigrator>().MigrateAsync("AddPostRevisionsAndScheduling");
+            return true;
+        });
+        // "editado" se editó el 22 y se publicó el 24: UpdatedAtUtc es la publicación, la última versión es la edición.
+        var edited = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e41").ToString().ToUpperInvariant();
+        var withoutRevisions = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e42").ToString().ToUpperInvariant();
+        await database.ExecuteAsync($"""
+            INSERT INTO posts (Id, TranslationGroupId, Slug, Title, Summary, Body, Tags, Lang, Status, CreatedAtUtc, UpdatedAtUtc, PublishedAtUtc)
+            VALUES ('{edited}', '{edited}', 'editado', 'Editado', '', 'v2', '[]', 'es', 'Published',
+                    '2026-11-20 10:00:00', '2026-11-24 10:00:00', '2026-11-24 10:00:00'),
+                   ('{withoutRevisions}', '{withoutRevisions}', 'suelto', 'Suelto', '', 'x', '[]', 'es', 'Draft',
+                    '2026-11-20 10:00:00', '2026-11-23 10:00:00', NULL);
+            INSERT INTO post_revisions (Id, PostId, Number, Title, Slug, Summary, Body, Tags, CreatedAtUtc)
+            VALUES ('{Guid.NewGuid().ToString().ToUpperInvariant()}', '{edited}', 1, 'Editado', 'editado', '', 'v1', '[]', '2026-11-20 10:00:00'),
+                   ('{Guid.NewGuid().ToString().ToUpperInvariant()}', '{edited}', 2, 'Editado', 'editado', '', 'v2', '[]', '2026-11-22 10:00:00');
+            """);
+
+        await database.InitializeAsync();
+
+        var first = await database.WithPostsAsync(posts => posts.GetAsync(Guid.Parse(edited), default));
+        var second = await database.WithPostsAsync(posts => posts.GetAsync(Guid.Parse(withoutRevisions), default));
+        Assert.Equal(
+            (new DateTime(2026, 11, 24, 10, 0, 0, DateTimeKind.Utc), new DateTime(2026, 11, 22, 10, 0, 0, DateTimeKind.Utc)),
+            (first.UpdatedAt, first.ContentUpdatedAt));
+        Assert.Equal(new DateTime(2026, 11, 23, 10, 0, 0, DateTimeKind.Utc), second.ContentUpdatedAt);
+        Assert.Equal(DateTimeKind.Utc, first.ContentUpdatedAt.Kind);
+    }
+
     private static Task<IReadOnlyList<string>> SettingsColumnsAsync(SqliteTestDatabase database) =>
         database.ListAsync("SELECT name FROM pragma_table_info('site_settings')");
 
@@ -534,7 +571,7 @@ public class TranslationPersistenceTests
 
         Assert.Equivalent(english, await database.WithPostsAsync(posts => posts.GetAsync(english.Id, default)), strict: true);
         var loaded = await database.WithPostsAsync(posts => posts.GetAsync(original.Id, default));
-        Assert.Equal([new PostTranslationDto(english.Id, "en", "hola", PostStatus.Draft, english.UpdatedAt)], loaded.Translations);
+        Assert.Equal([new PostTranslationDto(english.Id, "en", "hola", PostStatus.Draft, english.UpdatedAt, english.ContentUpdatedAt)], loaded.Translations);
         var list = (await database.WithPostsAsync(posts => posts.ListAsync(default))).ToDictionary(summary => summary.Id);
         Assert.Equal(("en", original.TranslationGroupId), (list[english.Id].Lang, list[english.Id].TranslationGroupId));
         Assert.Equal([original.Id], list[english.Id].Translations.Select(version => version.Id));

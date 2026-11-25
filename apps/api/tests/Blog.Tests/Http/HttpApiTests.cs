@@ -150,7 +150,7 @@ public class HttpApiTests(ApiFactory api)
             translation.GetProperty("lang").GetString(), translation.GetProperty("status").GetString(),
             translation.GetProperty("slug").GetString(), translation.GetProperty("translationGroupId").GetGuid()));
         var linked = Assert.Single(translation.GetProperty("translations").EnumerateArray());
-        Assert.Equal(["id", "lang", "slug", "status", "updatedAt"], linked.EnumerateObject().Select(property => property.Name));
+        Assert.Equal(["id", "lang", "slug", "status", "updatedAt", "contentUpdatedAt"], linked.EnumerateObject().Select(property => property.Name));
         Assert.Equal((id, "es", "draft"), (linked.GetProperty("id").GetGuid(), linked.GetProperty("lang").GetString(), linked.GetProperty("status").GetString()));
 
         await AssertProblemAsync(await admin.SendAsync(TranslationRequest(id, "en")), HttpStatusCode.Conflict, "Este post ya tiene su versión en inglés.");
@@ -169,6 +169,64 @@ public class HttpApiTests(ApiFactory api)
         Assert.Equal([translationId], summary.GetProperty("translations").EnumerateArray().Select(item => item.GetProperty("id").GetGuid()));
         // Un borrador nuevo no se ve en el sitio: no se regenera.
         Assert.Equal(buildsBefore, api.Build.Requests);
+    }
+
+    [Fact]
+    public async Task ContentUpdatedAt_is_in_the_post_the_list_and_each_translation_and_publishing_does_not_move_it()
+    {
+        var admin = await api.AdminClientAsync();
+        using var createdPost = await admin.SendAsync(ApiFactory.Mutation(
+            HttpMethod.Post, "/api/admin/posts", ApiFactory.JsonContent(new { title = "Fecha de contenido", body = "cuerpo" })));
+        var original = await createdPost.Content.ReadFromJsonAsync<JsonElement>();
+        var id = original.GetProperty("id").GetGuid();
+        var contentTime = original.GetProperty("contentUpdatedAt").GetString();
+        Assert.Equal(original.GetProperty("createdAt").GetString(), contentTime);
+        using var createdTranslation = await admin.SendAsync(TranslationRequest(id, "en"));
+        var translationId = (await createdTranslation.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        using var publishResponse = await admin.SendAsync(ApiFactory.Mutation(HttpMethod.Post, $"/api/admin/posts/{id}/publish"));
+        var published = await publishResponse.Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Equal(contentTime, published.GetProperty("contentUpdatedAt").GetString());
+        var translation = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/posts/{translationId}");
+        Assert.Equal(contentTime, translation.GetProperty("translations")[0].GetProperty("contentUpdatedAt").GetString());
+        var summary = (await admin.GetFromJsonAsync<JsonElement>("/api/admin/posts")).EnumerateArray()
+            .Single(item => item.GetProperty("id").GetGuid() == id);
+        Assert.Equal(contentTime, summary.GetProperty("contentUpdatedAt").GetString());
+        Assert.Equal(
+            translation.GetProperty("contentUpdatedAt").GetString(), summary.GetProperty("translations")[0].GetProperty("contentUpdatedAt").GetString());
+
+        // Un cambio de contenido sí la mueve: queda igual a la fecha del guardado.
+        using var editResponse = await admin.SendAsync(ApiFactory.Mutation(
+            HttpMethod.Put, $"/api/admin/posts/{id}", ApiFactory.JsonContent(new { title = "Fecha de contenido", slug = "fecha-de-contenido", body = "otro" })));
+        var edited = await editResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(edited.GetProperty("updatedAt").GetString(), edited.GetProperty("contentUpdatedAt").GetString());
+    }
+
+    [Fact]
+    public async Task A_translation_whose_copied_slug_is_taken_gets_the_language_suffix_and_a_second_conflict_is_409()
+    {
+        var admin = await api.AdminClientAsync();
+        async Task<JsonElement> CreateAsync(object body)
+        {
+            using var response = await admin.SendAsync(ApiFactory.Mutation(HttpMethod.Post, "/api/admin/posts", ApiFactory.JsonContent(body)));
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            return await response.Content.ReadFromJsonAsync<JsonElement>();
+        }
+
+        var first = (await CreateAsync(new { title = "Ocupado", slug = "slug-ocupado", body = "cuerpo" })).GetProperty("id").GetGuid();
+        var second = (await CreateAsync(new { title = "Ocupado dos", slug = "slug-doble", body = "cuerpo" })).GetProperty("id").GetGuid();
+        await CreateAsync(new { title = "Taken", slug = "slug-ocupado", body = "body", lang = "en" });
+        await CreateAsync(new { title = "Taken", slug = "slug-doble", body = "body", lang = "en" });
+        await CreateAsync(new { title = "Taken too", slug = "slug-doble-en", body = "body", lang = "en" });
+
+        using var suffixed = await admin.SendAsync(TranslationRequest(first, "en"));
+        Assert.Equal(HttpStatusCode.Created, suffixed.StatusCode);
+        Assert.Equal("slug-ocupado-en", (await suffixed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("slug").GetString());
+
+        await AssertProblemAsync(
+            await admin.SendAsync(TranslationRequest(second, "en")), HttpStatusCode.Conflict, "Ya existe un post en inglés con el slug \"slug-doble-en\".");
+        Assert.Empty((await admin.GetFromJsonAsync<JsonElement>($"/api/admin/posts/{second}")).GetProperty("translations").EnumerateArray());
     }
 
     [Fact]

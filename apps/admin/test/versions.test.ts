@@ -16,6 +16,7 @@ const summary = (id: string, overrides: Partial<PostSummary> = {}): PostSummary 
   title: `Título ${id}`,
   status: 'draft',
   updatedAt: '2026-11-25T10:00:00Z',
+  contentUpdatedAt: '2026-11-25T10:00:00Z',
   publishedAt: null,
   coverUrl: null,
   coverAlt: null,
@@ -119,12 +120,12 @@ describe('versionLabel: el texto del chip por idioma', () => {
 });
 
 describe('translationWarnings: "Sin traducir" y "Desactualizada" en la traducción (L3)', () => {
-  const original = { title: 'Hola mundo', body: '# Hola\n\nTexto.', createdAt: '2026-11-20T10:00:00Z', updatedAt: '2026-11-21T10:00:00Z' };
+  const original = { title: 'Hola mundo', body: '# Hola\n\nTexto.', createdAt: '2026-11-20T10:00:00Z', contentUpdatedAt: '2026-11-21T10:00:00Z' };
   const translation = (overrides: Partial<typeof original> = {}) => ({
     title: 'Hello world',
     body: '# Hello\n\nText.',
     createdAt: '2026-11-22T10:00:00Z',
-    updatedAt: '2026-11-23T10:00:00Z',
+    contentUpdatedAt: '2026-11-23T10:00:00Z',
     ...overrides,
   });
 
@@ -141,19 +142,37 @@ describe('translationWarnings: "Sin traducir" y "Desactualizada" en la traducci�
     assert.deepEqual(translationWarnings(translation({ body: `${original.body}\n` }), original), ['untranslated']);
   });
 
-  it('el original se editó después de la última edición de la traducción: desactualizada', () => {
-    assert.deepEqual(translationWarnings(translation({ updatedAt: '2026-11-21T09:59:59Z' }), original), ['outdated']);
+  it('el contenido del original cambió después del de la traducción: desactualizada', () => {
+    assert.deepEqual(translationWarnings(translation({ contentUpdatedAt: '2026-11-21T09:59:59Z' }), original), ['outdated']);
   });
 
-  it('misma fecha de edición: no está desactualizada', () => {
-    assert.deepEqual(translationWarnings(translation({ updatedAt: original.updatedAt }), original), []);
+  it('misma fecha de cambio de contenido: no está desactualizada', () => {
+    assert.deepEqual(translationWarnings(translation({ contentUpdatedAt: original.contentUpdatedAt }), original), []);
   });
 
   it('los dos avisos a la vez', () => {
     assert.deepEqual(
-      translationWarnings(translation({ title: original.title, updatedAt: '2026-11-21T00:00:00Z' }), original),
+      translationWarnings(translation({ title: original.title, contentUpdatedAt: '2026-11-21T00:00:00Z' }), original),
       ['untranslated', 'outdated'],
     );
+  });
+
+  // Multiidioma L9: publicar, despublicar o programar cambian `updatedAt` pero no el contenido. Los avisos miran
+  // `contentUpdatedAt`; `updatedAt` va en los datos a propósito, para que mirarlo haga fallar estos casos.
+  it('publicar el original sin cambiar su contenido no marca la traducción como desactualizada', () => {
+    const t = (hour: number) => `2026-11-25T${String(hour).padStart(2, '0')}:00:00Z`;
+    // Original creado en t0; traducción creada en t1 y editada en t2; original publicado en t3 sin cambios.
+    const publishedOriginal = { title: 'Hola', body: 'Texto.', createdAt: t(0), contentUpdatedAt: t(0), updatedAt: t(3) };
+    const upToDate = { title: 'Hello', body: 'Text.', createdAt: t(1), contentUpdatedAt: t(2), updatedAt: t(2) };
+    assert.deepEqual(translationWarnings(upToDate, publishedOriginal), []);
+  });
+
+  it('publicar la traducción no borra un "desactualizada" real', () => {
+    const t = (hour: number) => `2026-11-25T${String(hour).padStart(2, '0')}:00:00Z`;
+    // Traducción creada en t1; original editado en t2; traducción publicada en t3 sin ponerse al día.
+    const editedOriginal = { title: 'Hola', body: 'Texto nuevo.', createdAt: t(0), contentUpdatedAt: t(2), updatedAt: t(2) };
+    const published = { title: 'Hello', body: 'Text.', createdAt: t(1), contentUpdatedAt: t(1), updatedAt: t(3) };
+    assert.deepEqual(translationWarnings(published, editedOriginal), ['outdated']);
   });
 
   it('el original (la versión creada antes) nunca muestra avisos', () => {

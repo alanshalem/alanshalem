@@ -50,6 +50,7 @@ internal sealed class PostConfiguration : IEntityTypeConfiguration<Post>
 
         builder.Property(post => post.CreatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
         builder.Property(post => post.UpdatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
+        builder.Property(post => post.ContentUpdatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
         builder.Property(post => post.PublishedAtUtc).HasConversion(SqliteConventions.NullableUtcConverter);
         builder.Property(post => post.ScheduledAtUtc).HasConversion(SqliteConventions.NullableUtcConverter);
     }

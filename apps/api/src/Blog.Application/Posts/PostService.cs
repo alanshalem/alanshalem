@@ -65,11 +65,15 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
     /// Crea el borrador de la versión en otro idioma copiando el contenido del post (la traducción es manual, encima de
     /// la copia). Un borrador no se ve en el sitio: no se regenera.
     /// </summary>
-    /// <exception cref="ConflictException">Si el grupo ya tiene esa versión, o si otro post usa el slug en ese idioma.</exception>
+    /// <exception cref="ConflictException">
+    /// Si el grupo ya tiene esa versión, o si otro post usa en ese idioma tanto el slug copiado como el mismo con el sufijo
+    /// del idioma.
+    /// </exception>
     public async Task<PostDto> CreateTranslationAsync(Guid id, CreateTranslationRequest request, CancellationToken cancellationToken)
     {
         var source = await FindAsync(id, cancellationToken);
-        var translation = source.CreateTranslation(request.Lang, clock.UtcNow);
+        var now = clock.UtcNow; // una sola hora: si hace falta el sufijo, la versión nace con ese slug y no "se edita" después
+        var translation = source.CreateTranslation(request.Lang, now);
 
         // Una versión por idioma en cada grupo. El índice único (TranslationGroupId, Lang) cubre la carrera entre dos pedidos.
         var versions = await posts.ListVersionsAsync(source.TranslationGroupId, cancellationToken);
@@ -78,7 +82,13 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
             throw new ConflictException($"Este post ya tiene su versión en {Language.NameOf(translation.Lang)}.");
         }
 
-        await EnsureSlugIsFreeAsync(translation.Lang, translation.Slug, excludingId: null, cancellationToken);
+        // El slug copiado puede ser de otro artículo en el idioma destino (dos posts sin relación con el mismo slug): se
+        // prueba una sola vez con el sufijo del idioma; si también está tomado, el conflicto es de siempre.
+        if (await posts.SlugExistsAsync(translation.Lang, translation.Slug, excludingId: null, cancellationToken))
+        {
+            translation.SuffixSlugWithLanguage(now);
+            await EnsureSlugIsFreeAsync(translation.Lang, translation.Slug, excludingId: null, cancellationToken);
+        }
 
         posts.Add(translation);
         await RecordRevisionAsync(translation, cancellationToken);

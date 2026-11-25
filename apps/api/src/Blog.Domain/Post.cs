@@ -33,7 +33,15 @@ public sealed class Post
 
     public PostStatus Status { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
+
+    /// <summary>Último cambio de cualquier tipo: contenido, estado o programación. Ordena la lista del admin.</summary>
     public DateTime UpdatedAtUtc { get; private set; }
+
+    /// <summary>
+    /// Último cambio del contenido (creación incluida). Publicar, despublicar o programar no lo mueven: es la referencia
+    /// para saber si una traducción quedó atrás de su original, y un cambio de estado no deja nada nuevo que traducir.
+    /// </summary>
+    public DateTime ContentUpdatedAtUtc { get; private set; }
 
     /// <summary>Primera vez que se publicó. Se conserva si el post se despublica y se vuelve a publicar.</summary>
     public DateTime? PublishedAtUtc { get; private set; }
@@ -59,17 +67,30 @@ public sealed class Post
             throw new DomainException($"El post ya está en {Language.NameOf(Lang)}: la versión nueva tiene que ser en el otro idioma.");
         }
 
-        // Ya es contenido válido (salió de un PostContent): se copia sin volver a validar. Las etiquetas en una lista
-        // propia, así editar una versión nunca toca la otra.
-        var content = new PostContent(Title, Slug, Summary, Body, [.. Tags], CoverUrl, CoverAlt);
-        return NewDraft(target, TranslationGroupId, content, nowUtc);
+        return NewDraft(target, TranslationGroupId, CurrentContent(), nowUtc);
     }
 
-    /// <returns>Si el contenido cambió: un guardado idéntico no merece una versión nueva en el historial.</returns>
+    /// <summary>
+    /// Para la versión recién creada cuyo slug copiado ya usa otro artículo en su idioma: "mi-post" pasa a "mi-post-en",
+    /// así crear la versión no falla por un slug que de todos modos se va a traducir. Es un cambio de contenido más.
+    /// </summary>
+    public void SuffixSlugWithLanguage(DateTime nowUtc) =>
+        Update(CurrentContent() with { Slug = Domain.Slug.WithSuffix(Slug, Lang) }, nowUtc);
+
+    /// <summary>
+    /// Guarda el contenido. Siempre cuenta como actualización (<see cref="UpdatedAtUtc"/>), pero solo un contenido
+    /// distinto mueve <see cref="ContentUpdatedAtUtc"/>: un guardado idéntico no deja nada nuevo que traducir.
+    /// </summary>
+    /// <returns>Si el contenido cambió: un guardado idéntico tampoco merece una versión nueva en el historial.</returns>
     public bool Update(PostContent content, DateTime nowUtc)
     {
         var changed = !HasContent(content);
         Apply(content, nowUtc);
+        if (changed)
+        {
+            ContentUpdatedAtUtc = nowUtc;
+        }
+
         return changed;
     }
 
@@ -123,10 +144,15 @@ public sealed class Post
             TranslationGroupId = translationGroupId,
             Status = PostStatus.Draft,
             CreatedAtUtc = nowUtc,
+            ContentUpdatedAtUtc = nowUtc,
         };
         post.Apply(content, nowUtc);
         return post;
     }
+
+    // Ya es contenido válido (salió de un PostContent): se copia sin volver a validar. Las etiquetas en una lista
+    // propia, así editar la copia (otra versión, otro slug) nunca toca este post.
+    private PostContent CurrentContent() => new(Title, Slug, Summary, Body, [.. Tags], CoverUrl, CoverAlt);
 
     private bool HasContent(PostContent content) =>
         Title == content.Title

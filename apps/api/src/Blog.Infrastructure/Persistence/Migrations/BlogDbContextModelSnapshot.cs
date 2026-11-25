@@ -110,6 +110,9 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime>("ContentUpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("CoverAlt")
                         .HasMaxLength(300)
                         .HasColumnType("TEXT");

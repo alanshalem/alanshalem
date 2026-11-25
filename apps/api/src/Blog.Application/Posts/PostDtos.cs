@@ -62,7 +62,8 @@ public sealed record PostRevisionDto(
     string? CoverAlt);
 
 /// <summary>Otra versión del mismo artículo (mismo grupo de traducción, otro idioma).</summary>
-public sealed record PostTranslationDto(Guid Id, string Lang, string Slug, PostStatus Status, DateTime UpdatedAt);
+/// <param name="ContentUpdatedAt">Último cambio de su contenido (<see cref="Post.ContentUpdatedAtUtc"/>): con esta fecha, y no con <paramref name="UpdatedAt"/>, el admin sabe si la traducción quedó atrás.</param>
+public sealed record PostTranslationDto(Guid Id, string Lang, string Slug, PostStatus Status, DateTime UpdatedAt, DateTime ContentUpdatedAt);
 
 /// <param name="Translations">Las otras versiones del grupo; vacío si no hay.</param>
 public sealed record PostSummaryDto(
@@ -73,6 +74,7 @@ public sealed record PostSummaryDto(
     Guid TranslationGroupId,
     PostStatus Status,
     DateTime UpdatedAt,
+    DateTime ContentUpdatedAt,
     DateTime? PublishedAt,
     DateTime? ScheduledAt,
     string? CoverUrl,
@@ -92,6 +94,7 @@ public sealed record PostDto(
     PostStatus Status,
     DateTime CreatedAt,
     DateTime UpdatedAt,
+    DateTime ContentUpdatedAt,
     DateTime? PublishedAt,
     DateTime? ScheduledAt,
     string? CoverUrl,
@@ -113,6 +116,7 @@ public static class PostMapping
         post.Status,
         post.CreatedAtUtc,
         post.UpdatedAtUtc,
+        post.ContentUpdatedAtUtc,
         post.PublishedAtUtc,
         post.ScheduledAtUtc,
         post.CoverUrl,
@@ -136,10 +140,10 @@ public static class PostMapping
         new(revision.Title, revision.Slug, revision.Summary, revision.Body, revision.Tags, revision.CoverUrl, revision.CoverAlt);
 
     public static PostTranslationDto ToTranslation(this Post post) =>
-        new(post.Id, post.Lang, post.Slug, post.Status, post.UpdatedAtUtc);
+        new(post.Id, post.Lang, post.Slug, post.Status, post.UpdatedAtUtc, post.ContentUpdatedAtUtc);
 
     public static PostTranslationDto ToTranslation(this PostSummaryDto summary) =>
-        new(summary.Id, summary.Lang, summary.Slug, summary.Status, summary.UpdatedAt);
+        new(summary.Id, summary.Lang, summary.Slug, summary.Status, summary.UpdatedAt, summary.ContentUpdatedAt);
 
     /// <summary>Las versiones que no son la del post, por idioma: un orden estable para el admin y el sitio.</summary>
     public static IReadOnlyList<PostTranslationDto> OthersThan(Guid postId, IEnumerable<PostTranslationDto> versions) =>

@@ -18,7 +18,7 @@ internal sealed class PostRepository(BlogDbContext db) : IPostRepository
         await db.Posts
             .AsNoTracking()
             .Where(post => post.TranslationGroupId == translationGroupId)
-            .Select(post => new PostTranslationDto(post.Id, post.Lang, post.Slug, post.Status, post.UpdatedAtUtc))
+            .Select(post => new PostTranslationDto(post.Id, post.Lang, post.Slug, post.Status, post.UpdatedAtUtc, post.ContentUpdatedAtUtc))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<PostSummaryDto>> ListSummariesAsync(CancellationToken cancellationToken) =>
@@ -26,8 +26,8 @@ internal sealed class PostRepository(BlogDbContext db) : IPostRepository
             .AsNoTracking()
             .OrderByDescending(post => post.UpdatedAtUtc)
             .Select(post => new PostSummaryDto(
-                post.Id, post.Slug, post.Title, post.Lang, post.TranslationGroupId, post.Status, post.UpdatedAtUtc, post.PublishedAtUtc,
-                post.ScheduledAtUtc, post.CoverUrl, post.CoverAlt, new List<PostTranslationDto>()))
+                post.Id, post.Slug, post.Title, post.Lang, post.TranslationGroupId, post.Status, post.UpdatedAtUtc, post.ContentUpdatedAtUtc,
+                post.PublishedAtUtc, post.ScheduledAtUtc, post.CoverUrl, post.CoverAlt, new List<PostTranslationDto>()))
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Post>> ListPublishedAsync(CancellationToken cancellationToken) =>
