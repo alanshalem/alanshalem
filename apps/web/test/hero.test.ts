@@ -1,0 +1,203 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { runInNewContext } from 'node:vm';
+import { orderHeroImages, resolveHero, toHeroSlide, type ApiHeroImage, type HeroSlide } from '../src/lib/hero.ts';
+import { HERO_ELEMENT_IDS, HERO_ROTATION_SCRIPT, HERO_STORAGE_KEY, PICK_HERO_INDEX_JS } from '../src/lib/hero-rotation.ts';
+import { jsonForScript } from '../src/lib/html.ts';
+import { mediaAsset } from './fixtures.ts';
+
+const heroImage = (n: number, overrides: Partial<ApiHeroImage> = {}): ApiHeroImage => ({
+  id: `h${n}`,
+  media: mediaAsset(`hash${n}`),
+  alt: `Foto ${n}`,
+  credit: `Crédito ${n}`,
+  createdAt: `2026-11-0${n}T10:00:00Z`,
+  ...overrides,
+});
+
+describe('orderHeroImages: la galería va por createdAt ascendente (L10)', () => {
+  it('la más vieja primero, sin mutar la entrada', () => {
+    const input = [heroImage(3), heroImage(1), heroImage(2)];
+    assert.deepEqual(orderHeroImages(input).map((h) => h.id), ['h1', 'h2', 'h3']);
+    assert.deepEqual(input.map((h) => h.id), ['h3', 'h1', 'h2']);
+  });
+});
+
+describe('resolveHero (S1): galería → public/hero.jpg → hero tipográfico', () => {
+  it('con galería: la primera es la de <noscript>; una diapositiva por foto', () => {
+    const hero = resolveHero([heroImage(1), heroImage(2)], true);
+    assert.equal(hero?.kind, 'gallery');
+    assert.ok(hero?.kind === 'gallery');
+    assert.equal(hero.first.id, 'h1');
+    assert.equal(hero.slides.length, 2);
+  });
+  it('sin galería usa /hero.jpg si existe', () => {
+    assert.deepEqual(resolveHero([], true), { kind: 'static', src: '/hero.jpg' });
+  });
+  it('sin galería ni hero.jpg => null (hero tipográfico)', () => {
+    assert.equal(resolveHero([], false), null);
+  });
+});
+
+describe('toHeroSlide: lo mínimo que necesita el script', () => {
+  it('srcset AVIF y WebP, <img> fallback con medidas y alt, fondo y crédito', () => {
+    assert.deepEqual(toHeroSlide(heroImage(1)), {
+      avif: '/media/hash1/640.avif 640w, /media/hash1/1024.avif 1024w, /media/hash1/1600.avif 1600w',
+      webp: '/media/hash1/640.webp 640w, /media/hash1/1024.webp 1024w, /media/hash1/1600.webp 1600w',
+      img: { alt: 'Foto 1', width: 2000, height: 1125, src: '/media/hash1/1600.webp' },
+      background: {
+        backgroundColor: '#336699',
+        backgroundImage: 'url(data:image/webp;base64,UklGRhIAAABXRUJQ)',
+      },
+      credit: 'Crédito 1',
+    } satisfies HeroSlide);
+  });
+
+  it('src va último: el script asigna en orden y la imagen se pide con alt y medidas ya puestos', () => {
+    assert.equal(Object.keys(toHeroSlide(heroImage(1)).img).at(-1), 'src');
+  });
+
+  it('color o placeholder inválidos no llegan al estilo; crédito vacío => null', () => {
+    const slide = toHeroSlide(
+      heroImage(1, { credit: '  ', media: mediaAsset('x', { color: 'red', placeholder: 'javascript:alert(1)' }) }),
+    );
+    assert.deepEqual(slide.background, { backgroundColor: '', backgroundImage: '' });
+    assert.equal(slide.credit, null);
+  });
+});
+
+describe('jsonForScript: JSON seguro dentro de <script>', () => {
+  it('no puede cerrar el <script> ni abrir comentarios HTML', () => {
+    const json = jsonForScript({ alt: '</script><script>alert(1)</script><!--' });
+    assert.doesNotMatch(json, /<|>/);
+    assert.deepEqual(JSON.parse(json), { alt: '</script><script>alert(1)</script><!--' });
+  });
+
+  it('escapa U+2028/U+2029 y &', () => {
+    const json = jsonForScript({ credit: 'a\u2028b\u2029c & d' });
+    assert.equal(json, '{"credit":"a\\u2028b\\u2029c \\u0026 d"}');
+    assert.equal(JSON.parse(json).credit, 'a\u2028b\u2029c & d');
+  });
+});
+
+type Pick = (count: number, last: number, random: number) => number;
+// El selector es JS plano que viaja tal cual dentro del script en línea: se prueba exactamente ese código.
+const pickHeroIndex = new Function(`return ${PICK_HERO_INDEX_JS}`)() as Pick;
+const RANDOMS = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999999];
+
+describe('selector de índice (función pura)', () => {
+  it('con n > 1 nunca repite la última vista y siempre cae en rango', () => {
+    for (const n of [2, 3, 5]) {
+      for (let last = 0; last < n; last++) {
+        for (const r of RANDOMS) {
+          const i = pickHeroIndex(n, last, r);
+          assert.ok(Number.isInteger(i) && i >= 0 && i < n, `n=${n} last=${last} r=${r} => ${i}`);
+          assert.notEqual(i, last, `n=${n} last=${last} r=${r}`);
+        }
+      }
+    }
+  });
+
+  it('con n > 1 todas las demás fotos son alcanzables', () => {
+    const seen = new Set(RANDOMS.map((r) => pickHeroIndex(4, 1, r)));
+    assert.deepEqual([...seen].sort(), [0, 2, 3]);
+  });
+
+  it('sin última vista válida (primera visita, almacenamiento vacío o galería más chica) elige entre todas', () => {
+    for (const last of [NaN, -1, 7, 4]) {
+      assert.deepEqual(
+        new Set(RANDOMS.map((r) => pickHeroIndex(4, last, r))),
+        new Set([0, 1, 2, 3]),
+        `last=${last}`,
+      );
+    }
+  });
+
+  it('con n = 1 siempre 0, sin importar el azar ni la última', () => {
+    for (const r of RANDOMS) {
+      assert.equal(pickHeroIndex(1, 0, r), 0);
+      assert.equal(pickHeroIndex(1, NaN, r), 0);
+    }
+  });
+});
+
+interface FakeElement {
+  srcset?: string;
+  style: Record<string, string>;
+  textContent?: string | null;
+  [key: string]: unknown;
+}
+
+/** DOM y localStorage mínimos para ejecutar el script real en un contexto aislado. */
+function runRotation(slides: HeroSlide[], storage: object) {
+  const avif: FakeElement = { style: {} };
+  const webp: FakeElement = { style: {} };
+  const img: FakeElement = { style: {} };
+  const picture = { style: {} as Record<string, string>, children: [avif, webp, img] };
+  const credit: FakeElement = { style: {}, textContent: 'inicial' };
+  const elements: Record<string, unknown> = {
+    [HERO_ELEMENT_IDS.slides]: { text: jsonForScript(slides) },
+    [HERO_ELEMENT_IDS.picture]: picture,
+    [HERO_ELEMENT_IDS.credit]: credit,
+  };
+  runInNewContext(HERO_ROTATION_SCRIPT, {
+    document: { getElementById: (id: string) => elements[id] ?? null },
+    localStorage: storage,
+  });
+  return { avif, webp, img, picture, credit };
+}
+
+const slides = [1, 2, 3].map((n) => toHeroSlide(heroImage(n)));
+
+describe('script de rotación en línea (S1)', () => {
+  it('pesa ≤ 400 bytes', () => {
+    const bytes = Buffer.byteLength(HERO_ROTATION_SCRIPT);
+    assert.ok(bytes <= 400, `pesa ${bytes} bytes`);
+  });
+
+  it('completa <picture>, <img>, fondo y crédito con la foto elegida', () => {
+    const { avif, webp, img, picture, credit } = runRotation(slides, {});
+    const chosen = slides.find((s) => s.img.src === img.src);
+    assert.ok(chosen, 'eligió una de la galería');
+    assert.equal(avif.srcset, chosen.avif);
+    assert.equal(webp.srcset, chosen.webp);
+    assert.equal(img.alt, chosen.img.alt);
+    assert.equal(img.width, chosen.img.width);
+    assert.equal(img.height, chosen.img.height);
+    assert.deepEqual(picture.style, chosen.background);
+    assert.equal(credit.textContent, chosen.credit);
+  });
+
+  it('nunca repite la última vista entre visitas consecutivas y las recorre todas', () => {
+    const storage: Record<string, unknown> = {};
+    const shown: string[] = [];
+    for (let visit = 0; visit < 60; visit++) shown.push(String(runRotation(slides, storage).img.src));
+    for (let i = 1; i < shown.length; i++) assert.notEqual(shown[i], shown[i - 1], `visita ${i}`);
+    assert.equal(new Set(shown).size, slides.length);
+  });
+
+  it('si localStorage tira (modo privado, cookies bloqueadas) igual muestra una foto', () => {
+    const throwing = Object.defineProperty({}, HERO_STORAGE_KEY, {
+      get() {
+        throw new Error('SecurityError');
+      },
+      set() {
+        throw new Error('QuotaExceededError');
+      },
+    });
+    const { img } = runRotation(slides, throwing);
+    assert.ok(slides.some((s) => s.img.src === img.src));
+  });
+
+  it('con una sola foto la muestra siempre', () => {
+    const storage: Record<string, unknown> = {};
+    for (let visit = 0; visit < 5; visit++) {
+      assert.equal(runRotation(slides.slice(0, 1), storage).img.src, slides[0]?.img.src);
+    }
+  });
+
+  it('una foto sin crédito vacía la línea de crédito', () => {
+    const { credit } = runRotation([toHeroSlide(heroImage(1, { credit: null }))], {});
+    assert.ok(!credit.textContent);
+  });
+});

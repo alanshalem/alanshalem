@@ -4,20 +4,26 @@ import { join } from 'node:path';
 import { renderMarkdown } from '@blog/markdown';
 import CoverMedia from '../components/CoverMedia.astro';
 import PostCard from '../components/PostCard.astro';
+import ResponsiveImage from '../components/ResponsiveImage.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { absoluteImageUrl } from '../lib/cover.ts';
 import { generativeCover } from '../lib/generative.ts';
+import { getHeroImages, resolveHero } from '../lib/hero.ts';
+import { HERO_ELEMENT_IDS, HERO_ROTATION_SCRIPT } from '../lib/hero-rotation.ts';
+import { jsonForScript } from '../lib/html.ts';
 import { getPosts, getTags, postPath, tagPath } from '../lib/posts.ts';
-import { getSettings, resolveHeroImage } from '../lib/settings.ts';
+import { IMAGE_SIZES } from '../lib/responsive-image.ts';
+import { getSettings } from '../lib/settings.ts';
 import { absoluteUrl, formatDate } from '../lib/site.ts';
 
 const settings = await getSettings();
 const posts = await getPosts();
 const tags = (await getTags()).slice(0, 8);
 
-// Foto del hero (S2): la de los ajustes, o public/hero.jpg si alguien la dejó ahí; si no, hero tipográfico.
+// Hero (S1): galería del admin (rota en cada visita), o public/hero.jpg si alguien la dejó ahí; si no, tipográfico.
 const heroJpgExists = existsSync(join(process.cwd(), 'public', 'hero.jpg'));
-const hero = resolveHeroImage(settings, heroJpgExists);
+const hero = resolveHero(await getHeroImages(), heroJpgExists);
+const heroSrc = hero?.kind === 'gallery' ? hero.first.media.url : hero?.src;
 const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }).html : null;
 
 const [featured, ...rest] = posts;
@@ -30,14 +36,36 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
   title={settings.name}
   path="/"
   overlayHeader
-  image={hero ? absoluteImageUrl(hero.src, absoluteUrl('/')) : undefined}
-  imageAlt={hero?.alt || undefined}
+  image={heroSrc && absoluteImageUrl(heroSrc, absoluteUrl('/'))}
+  imageAlt={hero?.kind === 'gallery' ? hero.first.alt : undefined}
 >
   <section class:list={['hero', { 'hero--photo': hero, 'hero--type': !hero }]} aria-labelledby="hero-title">
     {
-      hero && (
+      hero?.kind === 'gallery' && (
         <div class="hero-bg">
-          <img src={hero.src} alt={hero.alt} width="1920" height="1080" loading="eager" fetchpriority="high" decoding="async" />
+          {/* Vacío a propósito: el script de abajo elige la foto y completa estos tres hijos (en este orden). */}
+          <picture id={HERO_ELEMENT_IDS.picture} class="hero-picture">
+            <source type="image/avif" sizes={IMAGE_SIZES.hero} />
+            <source type="image/webp" sizes={IMAGE_SIZES.hero} />
+            <img alt="" decoding="async" fetchpriority="high" />
+          </picture>
+          <noscript>
+            <ResponsiveImage
+              src={hero.first.media.url}
+              alt={hero.first.alt}
+              context="hero"
+              priority
+              width={hero.first.media.width}
+              height={hero.first.media.height}
+            />
+          </noscript>
+        </div>
+      )
+    }
+    {
+      hero?.kind === 'static' && (
+        <div class="hero-bg">
+          <ResponsiveImage src={hero.src} alt="" context="hero" priority width={1920} height={1080} />
         </div>
       )
     }
@@ -50,8 +78,16 @@ const plural = (n: number, one: string, many: string): string => `${n} ${n === 1
         <a href="/rss.xml">RSS</a>
       </p>
     </div>
-    {hero?.credit && <p class="hero-credit">{hero.credit}</p>}
+    {hero?.kind === 'gallery' && <p class="hero-credit" id={HERO_ELEMENT_IDS.credit}>{hero.slides[0]?.credit}</p>}
   </section>
+  {
+    hero?.kind === 'gallery' && (
+      <>
+        <script is:inline type="application/json" id={HERO_ELEMENT_IDS.slides} set:html={jsonForScript(hero.slides)} />
+        <script is:inline set:html={HERO_ROTATION_SCRIPT} />
+      </>
+    )
+  }
 
   {
     !featured && (

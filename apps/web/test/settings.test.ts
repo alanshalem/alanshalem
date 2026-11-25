@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { contactLinks, resolveHeroImage, toSiteSettings } from '../src/lib/settings.ts';
+import { contactLinks, toSiteSettings } from '../src/lib/settings.ts';
 
 const env = { SITE_NAME: 'Nombre env', SITE_TAGLINE: 'Tagline env', SITE_AUTHOR: 'Autor env' };
 
@@ -15,9 +15,6 @@ describe('toSiteSettings: la API manda; el entorno solo cubre lo vacío (L4)', (
         githubUrl: 'https://github.com/ana',
         linkedinUrl: null,
         xUrl: '',
-        heroImageUrl: '/media/hero.jpg',
-        heroImageAlt: 'Un río',
-        heroImageCredit: 'Foto: Ana',
       },
       env,
     );
@@ -30,9 +27,6 @@ describe('toSiteSettings: la API manda; el entorno solo cubre lo vacío (L4)', (
       githubUrl: 'https://github.com/ana',
       linkedinUrl: null,
       xUrl: null,
-      heroImageUrl: '/media/hero.jpg',
-      heroImageAlt: 'Un río',
-      heroImageCredit: 'Foto: Ana',
     });
   });
 
@@ -43,7 +37,6 @@ describe('toSiteSettings: la API manda; el entorno solo cubre lo vacío (L4)', (
     assert.equal(s.author, 'Autor env');
     assert.equal(s.bio, null);
     assert.equal(s.email, null);
-    assert.equal(s.heroImageUrl, null);
   });
 
   it('sin API ni entorno usa los valores por defecto de siempre', () => {
@@ -55,12 +48,11 @@ describe('toSiteSettings: la API manda; el entorno solo cubre lo vacío (L4)', (
 
   it('descarta URLs inseguras o que no son http(s)', () => {
     const s = toSiteSettings(
-      { name: 'X', githubUrl: 'javascript:alert(1)', xUrl: 'ftp://x', heroImageUrl: 'data:image/png;base64,AA' },
+      { name: 'X', githubUrl: 'javascript:alert(1)', xUrl: 'ftp://x' },
       {},
     );
     assert.equal(s.githubUrl, null);
     assert.equal(s.xUrl, null);
-    assert.equal(s.heroImageUrl, null);
   });
 });
 
@@ -73,20 +65,5 @@ describe('contactLinks', () => {
       { label: 'X', href: 'https://x.com/a' },
     ]);
     assert.deepEqual(contactLinks(toSiteSettings({ name: 'X' }, {})), []);
-  });
-});
-
-describe('resolveHeroImage (S2): heroImageUrl → public/hero.jpg → hero tipográfico', () => {
-  const withHero = toSiteSettings({ name: 'X', heroImageUrl: '/media/h.jpg', heroImageAlt: 'Alt', heroImageCredit: 'Crédito' }, {});
-  const without = toSiteSettings({ name: 'X', heroImageCredit: 'Crédito' }, {});
-
-  it('heroImageUrl gana aunque exista hero.jpg', () => {
-    assert.deepEqual(resolveHeroImage(withHero, true), { src: '/media/h.jpg', alt: 'Alt', credit: 'Crédito' });
-  });
-  it('sin heroImageUrl usa /hero.jpg si existe', () => {
-    assert.deepEqual(resolveHeroImage(without, true), { src: '/hero.jpg', alt: '', credit: 'Crédito' });
-  });
-  it('sin ninguna imagen devuelve null (hero tipográfico)', () => {
-    assert.equal(resolveHeroImage(without, false), null);
   });
 });

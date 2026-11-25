@@ -1,4 +1,5 @@
 ---
+import ResponsiveImage from './ResponsiveImage.astro';
 import type { Cover } from '../lib/cover.ts';
 
 interface Props {
@@ -12,21 +13,20 @@ interface Props {
 }
 
 const { cover, ratio, eager = false, decorative = false } = Astro.props;
-// width/height reservan el espacio con la proporción correcta antes de que llegue la imagen (sin saltos de layout).
+// Caja reservada para imágenes que no son assets subidos (de esos se conocen las medidas reales): sin saltos de layout.
 const size = { lead: [1600, 900], card: [1600, 1000], tile: [1200, 1000], hero: [1920, 1080] }[ratio];
 ---
 
 <div class={`media media--${ratio}`}>
   {
     cover.kind === 'image' ? (
-      <img
+      <ResponsiveImage
         src={cover.src}
         alt={decorative ? '' : cover.alt}
+        context={ratio}
+        priority={eager}
         width={size[0]}
         height={size[1]}
-        loading={eager ? 'eager' : 'lazy'}
-        decoding="async"
-        fetchpriority={eager ? 'high' : undefined}
       />
     ) : (
       <Fragment set:html={cover.svg} />

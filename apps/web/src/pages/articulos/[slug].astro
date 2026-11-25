@@ -3,7 +3,9 @@ import CoverMedia from '../../components/CoverMedia.astro';
 import PostCard from '../../components/PostCard.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { absoluteImageUrl } from '../../lib/cover.ts';
+import { getMediaIndex } from '../../lib/media.ts';
 import { getPosts, postPath, tagPath, type BlogPost } from '../../lib/posts.ts';
+import { responsiveProseHtml } from '../../lib/responsive-image.ts';
 import { absoluteUrl, formatDate } from '../../lib/site.ts';
 
 export async function getStaticPaths() {
@@ -27,6 +29,8 @@ const { post, readNext } = Astro.props;
 // El índice lateral lista solo h2 y h3: más profundidad ensucia más de lo que ayuda.
 const toc = post.headings.filter((heading) => heading.level <= 3);
 const image = post.cover.kind === 'image' ? post.cover : null;
+// Solo en la página: el feed RSS conserva las <img> simples que entienden todos los lectores.
+const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
 ---
 
 <BaseLayout
@@ -88,7 +92,7 @@ const image = post.cover.kind === 'image' ? post.cover : null;
           </nav>
         )
       }
-      <article class="prose" set:html={post.html} />
+      <article class="prose" set:html={proseHtml} />
       {
         post.tags.length > 0 && (
           <footer class="end-matter">

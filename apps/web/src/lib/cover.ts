@@ -1,5 +1,6 @@
 import { sanitizeUrl } from '@blog/markdown';
 import { generativeCover } from './generative.ts';
+import { readAttribute } from './html.ts';
 
 /**
  * Portada efectiva de un post (L5): `coverUrl` → primera imagen del Markdown → SVG generativo (S3b).
@@ -32,15 +33,12 @@ export function acceptImageUrl(raw: string | null | undefined): string | null {
   return url;
 }
 
-const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
-const decode = (text: string): string => text.replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e] ?? e);
-
 /** Primera <img> aceptable del HTML renderizado, con src y alt ya sin escapar. */
 export function firstMarkdownImage(html: string): { src: string; alt: string } | null {
   for (const match of html.matchAll(/<img\b[^>]*>/g)) {
     const tag = match[0];
-    const src = acceptImageUrl(decode(/\ssrc="([^"]*)"/.exec(tag)?.[1] ?? ''));
-    if (src) return { src, alt: decode(/\salt="([^"]*)"/.exec(tag)?.[1] ?? '') };
+    const src = acceptImageUrl(readAttribute(tag, 'src'));
+    if (src) return { src, alt: readAttribute(tag, 'alt') ?? '' };
   }
   return null;
 }

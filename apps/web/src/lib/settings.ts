@@ -1,6 +1,5 @@
 import { sanitizeUrl } from '@blog/markdown';
 import { getInternal } from './api.ts';
-import { acceptImageUrl } from './cover.ts';
 
 /** Forma en que la API entrega los ajustes del sitio (GET /api/internal/settings, L4). */
 export interface ApiSettings {
@@ -12,9 +11,6 @@ export interface ApiSettings {
   githubUrl: string | null;
   linkedinUrl: string | null;
   xUrl: string | null;
-  heroImageUrl: string | null;
-  heroImageAlt: string | null;
-  heroImageCredit: string | null;
 }
 
 export interface SiteSettings {
@@ -26,9 +22,6 @@ export interface SiteSettings {
   githubUrl: string | null;
   linkedinUrl: string | null;
   xUrl: string | null;
-  heroImageUrl: string | null;
-  heroImageAlt: string | null;
-  heroImageCredit: string | null;
 }
 
 type Env = Partial<Record<'SITE_NAME' | 'SITE_TAGLINE' | 'SITE_AUTHOR', string | undefined>>;
@@ -69,9 +62,6 @@ export function toSiteSettings(api: Partial<ApiSettings>, env: Env): SiteSetting
     githubUrl: webUrl(api.githubUrl),
     linkedinUrl: webUrl(api.linkedinUrl),
     xUrl: webUrl(api.xUrl),
-    heroImageUrl: acceptImageUrl(text(api.heroImageUrl)),
-    heroImageAlt: text(api.heroImageAlt),
-    heroImageCredit: text(api.heroImageCredit),
   };
 }
 
@@ -84,19 +74,6 @@ export function contactLinks(settings: SiteSettings): Array<{ label: string; hre
     { label: 'X', href: settings.xUrl },
   ];
   return links.filter((link): link is { label: string; href: string } => Boolean(link.href));
-}
-
-export interface HeroImage {
-  src: string;
-  alt: string;
-  credit: string | null;
-}
-
-/** Foto del hero de la home (S2): heroImageUrl → public/hero.jpg → null (hero tipográfico oscuro). */
-export function resolveHeroImage(settings: SiteSettings, heroJpgExists: boolean): HeroImage | null {
-  const src = settings.heroImageUrl ?? (heroJpgExists ? '/hero.jpg' : null);
-  if (!src) return null;
-  return { src, alt: settings.heroImageAlt ?? '', credit: settings.heroImageCredit };
 }
 
 // Una sola petición por build (Astro renderiza todas las páginas en el mismo proceso).

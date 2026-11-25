@@ -1,0 +1,14 @@
+---
+import { getMediaIndex } from '../lib/media.ts';
+import { imageHtml, type PlainImageOptions } from '../lib/responsive-image.ts';
+
+/** La única forma de pintar una imagen en el sitio: <picture> AVIF + WebP si es un asset subido, si no <img>. */
+interface Props extends PlainImageOptions {
+  src: string;
+}
+
+const { src, ...options } = Astro.props;
+const media = await getMediaIndex();
+---
+
+<Fragment set:html={imageHtml(src, media, options)} />

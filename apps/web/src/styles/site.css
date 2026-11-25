@@ -64,7 +64,9 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 
 /* ---------- Medios: imagen real o portada generativa ---------- */
 .media { position: relative; overflow: hidden; background: var(--bg-surface); }
-.media > img, .media > svg { width: 100%; height: 100%; object-fit: cover; }
+.media img, .media > svg { width: 100%; height: 100%; object-fit: cover; }
+/* <picture> de los assets subidos: no agrega caja propia, el <img> sigue llenando el contenedor. */
+.media picture { display: contents; }
 .media--lead { aspect-ratio: var(--aspect-lead); }
 .media--card { aspect-ratio: var(--aspect-card); }
 .media--tile { aspect-ratio: var(--aspect-tile); }
@@ -88,7 +90,10 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   padding: var(--space-7) var(--gutter) var(--space-3-5);
 }
 .hero-bg { position: absolute; inset: 0; z-index: -1; }
+.hero-bg picture { position: absolute; inset: 0; }
 .hero-bg img { width: 100%; height: 100%; object-fit: cover; }
+/* El script de rotación pinta acá el color dominante y el placeholder mientras baja la foto elegida. */
+.hero-picture { background-position: center; background-size: cover; }
 .hero--type { border-bottom: 1px solid var(--border-subtle); }
 
 .hero-body { max-width: var(--hero-body-max); }
@@ -112,9 +117,11 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   margin-top: var(--space-2-5); max-width: 24rem;
   font-family: var(--font-ui); font-size: var(--text-2xs); line-height: 1.5; color: var(--text-tertiary);
 }
+/* Fotos de la galería sin crédito: el script deja la línea vacía. */
+.hero-credit:empty { display: none; }
 @media (min-width: 75em) {
   .hero-credit { position: absolute; right: var(--gutter); bottom: var(--space-3-5); max-width: 16rem; margin: 0; text-align: right; }
-  .hero:has(.hero-credit) .hero-body { max-width: min(var(--hero-body-max), calc(100% - 18rem)); }
+  .hero:has(.hero-credit:not(:empty)) .hero-body { max-width: min(var(--hero-body-max), calc(100% - 18rem)); }
 }
 
 /* ---------- Secciones ---------- */
