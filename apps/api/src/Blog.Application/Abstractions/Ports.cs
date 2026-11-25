@@ -165,7 +165,7 @@ public sealed record VideoProbe(int Width, int Height, double DurationSeconds);
 
 public sealed record EncodedVideo(VideoVariant Variant, byte[] Content);
 
-/// <summary>Lo que produce el transcodificador: cada versión pedida y el póster (JPEG del primer cuadro útil, sin optimizar).</summary>
+/// <summary>Lo que produce el transcodificador: cada versión pedida y el póster (JPEG de un cuadro visible, sin optimizar).</summary>
 public sealed record TranscodedVideo(IReadOnlyList<EncodedVideo> Files, byte[] Poster);
 
 /// <summary>
@@ -180,7 +180,11 @@ public interface IVideoTranscoder
     /// <summary>Null si el archivo no es un video legible (sin pista de video o sin duración).</summary>
     Task<VideoProbe?> ProbeAsync(string sourcePath, CancellationToken cancellationToken);
 
-    /// <summary>Genera cada versión pedida (sin audio ni metadatos) y el póster, sin escribir nada en /media.</summary>
+    /// <summary>
+    /// Genera cada versión pedida (sin audio ni metadatos) con el recorte y el fundido de la edición, y el póster de su
+    /// primer cuadro visible (<see cref="VideoEdit.FirstVisibleSecond"/>), sin escribir nada en /media.
+    /// </summary>
     /// <exception cref="VideoProcessingException">Si ffmpeg falla o se pasa del tiempo máximo.</exception>
-    Task<TranscodedVideo> TranscodeAsync(string sourcePath, IReadOnlyList<VideoVariant> variants, CancellationToken cancellationToken);
+    Task<TranscodedVideo> TranscodeAsync(
+        string sourcePath, IReadOnlyList<VideoVariant> variants, VideoEdit edit, CancellationToken cancellationToken);
 }

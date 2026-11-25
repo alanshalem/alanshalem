@@ -4,6 +4,10 @@
     <ProjectReference Include="..\Blog.Application\Blog.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Las pruebas verifican los grafos de filtros de ffmpeg, que son un detalle interno del adaptador. -->
+    <InternalsVisibleTo Include="Blog.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <!-- Trae Options, Logging, DI y IHttpClientFactory sin sumar paquetes sueltos. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />

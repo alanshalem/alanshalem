@@ -1,0 +1,49 @@
+using System.Globalization;
+using Blog.Domain;
+
+namespace Blog.Application.Videos;
+
+/// <summary>
+/// Los campos de edición tal como llegan en la subida (texto, todos opcionales; vacío es lo mismo que no mandarlo).
+/// Acá solo se leen; qué valores son válidos lo decide <see cref="VideoEdit"/>, que además necesita la duración del
+/// original (por eso se convierte recién después de leer el video con ffprobe).
+/// </summary>
+public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? Fade, string? FadeSeconds)
+{
+    /// <summary>Sin campos: la edición por defecto.</summary>
+    public static VideoEditInput Empty { get; } = new(null, null, null, null);
+
+    /// <exception cref="DomainException">Si un campo no se puede leer o la edición no es válida para ese video.</exception>
+    public VideoEdit ToEdit(double sourceSeconds) => VideoEdit.Create(
+        sourceSeconds,
+        Seconds(TrimStart, "El inicio del recorte"),
+        Seconds(TrimEnd, "El fin del recorte"),
+        ParseFade(Fade),
+        Seconds(FadeSeconds, "La duración del fundido"));
+
+    // Punto decimal siempre (cultura invariante): "2.5" significa lo mismo en cualquier servidor. Se rechazan la coma,
+    // NaN e infinito; el signo y los rangos los valida el dominio con su mensaje.
+    private static double? Seconds(string? text, string field)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) && double.IsFinite(seconds)
+            ? seconds
+            : throw new DomainException($"{field} no es un número válido: usá segundos con punto decimal (ej. 2.5).");
+    }
+
+    // Solo los nombres exactos del contrato: Enum.TryParse aceptaría también números ("0") y mayúsculas.
+    private static VideoFade? ParseFade(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return null;
+        }
+
+        return Enum.GetValues<VideoFade>().Cast<VideoFade?>().FirstOrDefault(fade => fade.ToString()!.ToLowerInvariant() == text)
+            ?? throw new DomainException("Fundido no válido: tiene que ser loop, black o none.");
+    }
+}

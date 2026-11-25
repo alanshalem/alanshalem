@@ -322,7 +322,7 @@ public class HeroImageServiceTests
         {
             var videos = provider.GetRequiredService<IVideoAssetRepository>();
             var trackedPoster = await provider.GetRequiredService<IMediaAssetRepository>().GetByIdAsync(poster.Id, default);
-            var video = VideoAsset.Create(new string(hashCharacter, MediaAsset.HashLength), 1920, 1080, 8, database.Clock.UtcNow);
+            var video = VideoAsset.Create(new string(hashCharacter, MediaAsset.HashLength), 1920, 1080, VideoEdit.DefaultFor(8), database.Clock.UtcNow);
             switch (status)
             {
                 case VideoStatus.Ready:

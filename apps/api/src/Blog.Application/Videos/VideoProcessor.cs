@@ -5,7 +5,8 @@ using Blog.Domain;
 namespace Blog.Application.Videos;
 
 /// <summary>
-/// Convierte un video ya validado: versiones AV1 y H.264 sin audio, y el póster por el pipeline de imágenes. Lo
+/// Convierte un video ya validado: versiones AV1 y H.264 sin audio con su recorte y fundido, y el póster por el
+/// pipeline de imágenes. Lo
 /// llama el proceso en segundo plano, de a un video por vez.
 /// </summary>
 public sealed class VideoProcessor(
@@ -73,7 +74,7 @@ public sealed class VideoProcessor(
     private async Task ConvertAsync(VideoAsset video, string sourcePath, CancellationToken cancellationToken)
     {
         // Todo se genera primero en la carpeta de trabajo: si ffmpeg falla, a /media no llega ningún archivo a medias.
-        var transcoded = await transcoder.TranscodeAsync(sourcePath, VideoVariant.For(video.Height), cancellationToken);
+        var transcoded = await transcoder.TranscodeAsync(sourcePath, VideoVariant.For(video.Height), video.Edit, cancellationToken);
 
         await using var posterContent = new MemoryStream(transcoded.Poster);
         var poster = await media.StoreImageAsync(posterContent, cancellationToken);

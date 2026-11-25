@@ -31,10 +31,18 @@ public static class MediaEndpoints
         // 202: el video queda validado y en cola; el admin consulta GET .../videos/{id} hasta que esté listo. El límite
         // de 200 MB se sube solo en esta ruta (el resto de la API sigue con el de Kestrel). ASP.NET guarda en disco
         // todo archivo de más de 64 KB al leer el formulario, así que la subida nunca queda entera en memoria.
-        admin.MapPost("/media/videos", async (IFormFile file, VideoService videos, CancellationToken ct) =>
+        // Recorte y fundido son campos opcionales del mismo formulario, como texto: los lee y valida el caso de uso.
+        admin.MapPost("/media/videos", async (
+                IFormFile file,
+                [FromForm] string? trimStart,
+                [FromForm] string? trimEnd,
+                [FromForm] string? fade,
+                [FromForm] string? fadeSeconds,
+                VideoService videos,
+                CancellationToken ct) =>
             {
                 await using var stream = file.OpenReadStream();
-                var video = await videos.UploadAsync(stream, ct);
+                var video = await videos.UploadAsync(stream, new VideoEditInput(trimStart, trimEnd, fade, fadeSeconds), ct);
                 return Results.Accepted($"/api/admin/media/videos/{video.Id}", video);
             })
             .DisableAntiforgery()

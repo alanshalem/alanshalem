@@ -67,6 +67,8 @@ internal sealed class FakeVideoTranscoder : IVideoTranscoder
 {
     public static readonly byte[] FailMarker = "FAIL"u8.ToArray();
 
+    private readonly ConcurrentQueue<VideoEdit> _edits = new();
+
     private int _running;
     private int _maxRunning;
     private int _transcodes;
@@ -77,11 +79,15 @@ internal sealed class FakeVideoTranscoder : IVideoTranscoder
 
     public int Transcodes => _transcodes;
 
+    /// <summary>La edición con que se pidió cada conversión.</summary>
+    public IReadOnlyList<VideoEdit> Edits => [.. _edits];
+
     public Task<VideoProbe?> ProbeAsync(string sourcePath, CancellationToken cancellationToken) => Task.FromResult(Probe);
 
     public async Task<TranscodedVideo> TranscodeAsync(
-        string sourcePath, IReadOnlyList<VideoVariant> variants, CancellationToken cancellationToken)
+        string sourcePath, IReadOnlyList<VideoVariant> variants, VideoEdit edit, CancellationToken cancellationToken)
     {
+        _edits.Enqueue(edit);
         var running = Interlocked.Increment(ref _running);
         Interlocked.Increment(ref _transcodes);
         InterlockedMax(ref _maxRunning, running);

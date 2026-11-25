@@ -36,6 +36,8 @@ public class VideoProcessingTests
 
         Assert.Equal(3, transcoder.Transcodes);
         Assert.Equal(1, transcoder.MaxConcurrent);
+        // Cada video se procesa con la edición que quedó guardada (sin campos: el original de 10 s con loop de 1 s).
+        Assert.All(transcoder.Edits, edit => Assert.Equal(VideoEdit.DefaultFor(10), edit));
 
         var failed = await GetAsync(database, ids[0]);
         Assert.Equal(VideoStatus.Failed, failed.Status);
@@ -59,7 +61,8 @@ public class VideoProcessingTests
 
         var videoFiles = database.MediaFiles().Where(file => file.StartsWith("videos/", StringComparison.Ordinal)).ToList();
         Assert.Equal(8, videoFiles.Count);
-        var failingHash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(failingContent));
+        var failingHash = VideoAsset.HashOf(
+            Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(failingContent)), VideoEdit.DefaultFor(10));
         Assert.DoesNotContain(videoFiles, file => file.Contains(failingHash, StringComparison.Ordinal));
         Assert.Empty(database.VideoWorkFiles());
     }
@@ -74,7 +77,7 @@ public class VideoProcessingTests
         var interrupted = await database.InScopeAsync(async provider =>
         {
             var videos = provider.GetRequiredService<IVideoAssetRepository>();
-            var video = VideoAsset.Create(new string('d', MediaAsset.HashLength), 1920, 1080, 10, database.Clock.UtcNow);
+            var video = VideoAsset.Create(new string('d', MediaAsset.HashLength), 1920, 1080, VideoEdit.DefaultFor(10), database.Clock.UtcNow);
             videos.Add(video);
             await videos.SaveChangesAsync(default);
             return video;
@@ -96,7 +99,7 @@ public class VideoProcessingTests
         database.WithVideosAsync(async videos =>
         {
             await using var stream = new MemoryStream(content);
-            return await videos.UploadAsync(stream, default);
+            return await videos.UploadAsync(stream, VideoEditInput.Empty, default);
         });
 
     private static Task<VideoAssetDto> GetAsync(SqliteTestDatabase database, Guid id) =>

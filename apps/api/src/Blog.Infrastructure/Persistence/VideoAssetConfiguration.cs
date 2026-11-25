@@ -31,9 +31,20 @@ internal sealed class VideoAssetConfiguration : IEntityTypeConfiguration<VideoAs
         builder.ToTable("video_assets");
         builder.HasKey(video => video.Id);
 
-        // Único: es lo que hace que el mismo video subido dos veces sea un solo asset.
+        // Único: es lo que hace que el mismo video con la misma edición subido dos veces sea un solo asset.
         builder.Property(video => video.Hash).IsRequired().HasMaxLength(MediaAsset.HashLength);
         builder.HasIndex(video => video.Hash).IsUnique();
+
+        // La edición es un valor sin identidad propia: sus cuatro campos son columnas de video_assets. La duración final
+        // se deriva de ellos, así que no se guarda.
+        builder.ComplexProperty(video => video.Edit, edit =>
+        {
+            edit.Property(value => value.TrimStart).HasColumnName(nameof(VideoEdit.TrimStart));
+            edit.Property(value => value.TrimEnd).HasColumnName(nameof(VideoEdit.TrimEnd));
+            edit.Property(value => value.Fade).HasColumnName(nameof(VideoEdit.Fade)).HasConversion<string>().HasMaxLength(10);
+            edit.Property(value => value.FadeSeconds).HasColumnName(nameof(VideoEdit.FadeSeconds));
+        });
+        builder.Ignore(video => video.DurationSeconds);
 
         builder.Property(video => video.Status).HasConversion<string>().HasMaxLength(20);
         builder.Property(video => video.Error).HasMaxLength(VideoAsset.MaxErrorLength);

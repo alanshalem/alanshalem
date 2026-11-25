@@ -52,7 +52,7 @@ public class FfmpegVideoTranscoderTests
     {
         var queue = new RecordingVideoQueue();
         await using var database = await CreateDatabaseAsync(queue);
-        var clip = await TestVideos.GenerateAsync(ScratchPath(database, "clip.mp4"), 1280, 720, seconds: 2);
+        var clip = await TestVideos.GenerateAsync(ScratchPath(database, "clip.mp4"), 1280, 720, seconds: 3);
         Assert.Contains(Streams(await TestVideos.ProbeAsync(clip)), stream => stream.GetProperty("codec_type").GetString() == "audio");
 
         var uploaded = await UploadAsync(database, clip);
@@ -61,6 +61,10 @@ public class FfmpegVideoTranscoderTests
         var video = await database.WithVideosAsync(videos => videos.GetAsync(uploaded.Id, default));
         Assert.Equal(VideoStatus.Ready, video.Status);
         Assert.Null(video.Error);
+        // Sin campos de edición: el video entero (dura menos de 15 s) con loop de 1 s.
+        Assert.Equal((0, VideoFade.Loop, 1), (video.Edit.TrimStart, video.Edit.Fade, video.Edit.FadeSeconds));
+        Assert.InRange(video.Edit.TrimEnd, 2.9, 3.1);
+        Assert.Equal(video.Edit.TrimEnd - 1, video.DurationSeconds, precision: 3);
         // Nunca se agranda: de un original de 720p no sale una versión de 1080p.
         Assert.Equal([(VideoCodec.Av1, 720), (VideoCodec.H264, 720)], video.Sources.Select(source => (source.Codec, source.Height)));
         foreach (var source in video.Sources)
@@ -81,8 +85,9 @@ public class FfmpegVideoTranscoderTests
         var queue = new RecordingVideoQueue();
         await using var database = await CreateDatabaseAsync(queue);
         var clip = await TestVideos.GenerateAsync(ScratchPath(database, "clip60.mp4"), 1920, 1080, seconds: 1, fps: 60);
+        var edit = new VideoEditInput(null, null, "none", null);
 
-        var uploaded = await UploadAsync(database, clip);
+        var uploaded = await UploadAsync(database, clip, edit);
         await ProcessAsync(database, Assert.Single(queue.Jobs));
 
         var video = await database.WithVideosAsync(videos => videos.GetAsync(uploaded.Id, default));
@@ -98,19 +103,111 @@ public class FfmpegVideoTranscoderTests
         Assert.Equal((1920, 1080), (video.Poster!.Width, video.Poster.Height));
     }
 
-    [Fact]
-    public async Task A_real_clip_longer_than_15_seconds_is_rejected_on_upload()
+    [Theory]
+    [InlineData("0", "16", "El tramo elegido dura 16 s y el máximo es 15 s. Acortalo y volvé a subirlo.")]
+    [InlineData("10", "16.5", "El fin del recorte (16,5 s) pasa el final del video, que dura 16 s.")]
+    public async Task A_trim_too_long_or_past_the_real_end_measured_by_ffprobe_is_rejected_on_upload(
+        string trimStart, string trimEnd, string expectedMessage)
     {
         var queue = new RecordingVideoQueue();
         await using var database = await CreateDatabaseAsync(queue);
         var clip = await TestVideos.GenerateAsync(ScratchPath(database, "largo.mp4"), 1280, 720, seconds: 16, fps: 10, audio: false);
 
-        var error = await Assert.ThrowsAsync<DomainException>(() => UploadAsync(database, clip));
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            UploadAsync(database, clip, new VideoEditInput(trimStart, trimEnd, null, null)));
 
-        Assert.Equal("El video dura 16 s y el máximo es 15 s. Recortalo y volvé a subirlo.", error.Message);
+        Assert.Equal(expectedMessage, error.Message);
         Assert.Empty(queue.Jobs);
         Assert.Empty(database.VideoWorkFiles());
         Assert.Empty(await database.ListAsync("SELECT Id FROM video_assets"));
+    }
+
+    [Fact]
+    public async Task The_trim_is_exact_to_the_frame_and_without_fade_the_wrap_is_a_visible_cut()
+    {
+        var queue = new RecordingVideoQueue();
+        await using var database = await CreateDatabaseAsync(queue);
+        var clip = await TestVideos.GeneratePanAsync(ScratchPath(database, "pan.mp4"), 1280, 720, seconds: 6);
+
+        var video = await UploadAndProcessAsync(database, queue, clip, new VideoEditInput("1.5", "4.5", "none", null));
+
+        Assert.Equal(new VideoEditDto(1.5, 4.5, VideoFade.None, 1), video.Edit);
+        Assert.Equal(3, video.DurationSeconds);
+        var output = OutputPath(database, video.Sources.Single(source => source.Codec == VideoCodec.H264));
+        Assert.InRange(await TestVideos.FrameCountAsync(output), 89, 91);
+        // Empieza en el cuadro 45 del original (1,5 s a 30 fps): se parece más a ese que a sus vecinos.
+        var atStart = await TestVideos.PsnrAsync(output, 0, clip, 45);
+        Assert.True(atStart > await TestVideos.PsnrAsync(output, 0, clip, 42), $"PSNR con el cuadro 45: {atStart}");
+        Assert.True(atStart > await TestVideos.PsnrAsync(output, 0, clip, 48), $"PSNR con el cuadro 45: {atStart}");
+        // Sin fundido, del último cuadro al primero hay un salto de 3 s: mucho más distinto que dos cuadros vecinos.
+        var adjacent = await TestVideos.PsnrAsync(output, 44, output, 45);
+        var wrap = await TestVideos.PsnrAsync(output, 89, output, 0);
+        Assert.True(wrap < adjacent - 10, $"vecinos: {adjacent} dB, vuelta: {wrap} dB");
+    }
+
+    [Fact]
+    public async Task Loop_blends_the_end_into_the_start_so_the_last_frame_continues_into_the_first()
+    {
+        var queue = new RecordingVideoQueue();
+        await using var database = await CreateDatabaseAsync(queue);
+        var clip = await TestVideos.GeneratePanAsync(ScratchPath(database, "pan.mp4"), 1280, 720, seconds: 6);
+
+        var video = await UploadAndProcessAsync(database, queue, clip, new VideoEditInput("1", "5", "loop", "1"));
+
+        Assert.Equal(new VideoEditDto(1, 5, VideoFade.Loop, 1), video.Edit);
+        // El recorte dura 4 s; el último segundo se superpone con el principio: quedan 3 s.
+        Assert.Equal(3, video.DurationSeconds);
+        foreach (var source in video.Sources)
+        {
+            var output = OutputPath(database, source);
+            Assert.InRange(await TestVideos.FrameCountAsync(output), 89, 91);
+            // Al repetirse, del último cuadro al primero cambia lo mismo que entre dos cuadros vecinos: no hay salto.
+            var adjacent = await TestVideos.PsnrAsync(output, 44, output, 45);
+            var wrap = await TestVideos.PsnrAsync(output, 89, output, 0);
+            Assert.True(wrap > adjacent - 3, $"{source.Url}: vecinos {adjacent} dB, vuelta {wrap} dB");
+        }
+    }
+
+    [Fact]
+    public async Task Black_fades_in_from_and_out_to_black_and_the_poster_is_a_visible_frame()
+    {
+        var queue = new RecordingVideoQueue();
+        await using var database = await CreateDatabaseAsync(queue);
+        var clip = await TestVideos.GeneratePanAsync(ScratchPath(database, "pan.mp4"), 1280, 720, seconds: 4);
+
+        var video = await UploadAndProcessAsync(database, queue, clip, new VideoEditInput("0.5", "3.5", "black", "0.5"));
+
+        Assert.Equal(new VideoEditDto(0.5, 3.5, VideoFade.Black, 0.5), video.Edit);
+        Assert.Equal(3, video.DurationSeconds);
+        var output = OutputPath(database, video.Sources.Single(source => source.Codec == VideoCodec.H264));
+        Assert.InRange(await TestVideos.FrameCountAsync(output), 89, 91);
+        const double NearBlack = 20; // el negro de video es 16
+        Assert.InRange(await TestVideos.MeanLumaAsync(output, 0), 0, NearBlack);
+        Assert.InRange(await TestVideos.MeanLumaAsync(output, 89), 0, NearBlack + 5);
+        Assert.True(await TestVideos.MeanLumaAsync(output, 45) > 60, "El medio del video no debería estar oscuro.");
+        // El póster se toma después del fundido de entrada: se ve el patrón, no negro.
+        var poster = Path.Combine(database.MediaDirectory, video.Poster!.Url[WebUrl.MediaPrefix.Length..]);
+        Assert.True(await TestVideos.MeanLumaAsync(poster, 0) > 60, "El póster no debería estar oscuro.");
+    }
+
+    [Fact]
+    public async Task The_bitrate_cap_keeps_a_very_noisy_clip_small()
+    {
+        var queue = new RecordingVideoQueue();
+        await using var database = await CreateDatabaseAsync(queue);
+        // 8 s, como un video de hero típico: el techo de H.264 admite pasarse a lo sumo un búfer (1 s) en todo el clip,
+        // y en uno muy corto ese búfer pesaría más que el margen del 10 %.
+        var clip = await TestVideos.GenerateNoisyAsync(ScratchPath(database, "ruido.mp4"), 1280, 720, seconds: 8);
+
+        var video = await UploadAndProcessAsync(database, queue, clip, new VideoEditInput(null, null, "none", null));
+
+        Assert.Equal(VideoStatus.Ready, video.Status);
+        foreach (var source in video.Sources)
+        {
+            var capKbps = source.Codec == VideoCodec.Av1 ? 1200 : 1920;
+            var maxBytes = capKbps * 1000 / 8 * video.DurationSeconds * 1.1;
+            Assert.True(source.Bytes <= maxBytes, $"{source.Url}: {source.Bytes} bytes, tope {maxBytes:0}");
+        }
     }
 
     private static async Task<SqliteTestDatabase> CreateDatabaseAsync(RecordingVideoQueue? queue = null)
@@ -132,12 +229,26 @@ public class FfmpegVideoTranscoderTests
     private static string ScratchPath(SqliteTestDatabase database, string name) =>
         Path.Combine(Path.GetDirectoryName(database.FilePath)!, name);
 
-    private static Task<VideoAssetDto> UploadAsync(SqliteTestDatabase database, string path) =>
+    private static Task<VideoAssetDto> UploadAsync(SqliteTestDatabase database, string path, VideoEditInput? edit = null) =>
         database.WithVideosAsync(async videos =>
         {
             await using var stream = File.OpenRead(path);
-            return await videos.UploadAsync(stream, default);
+            return await videos.UploadAsync(stream, edit ?? VideoEditInput.Empty, default);
         });
+
+    private static async Task<VideoAssetDto> UploadAndProcessAsync(
+        SqliteTestDatabase database, RecordingVideoQueue queue, string clip, VideoEditInput edit)
+    {
+        var uploaded = await UploadAsync(database, clip, edit);
+        await ProcessAsync(database, Assert.Single(queue.Jobs));
+        var video = await database.WithVideosAsync(videos => videos.GetAsync(uploaded.Id, default));
+        Assert.Equal(VideoStatus.Ready, video.Status);
+        return video;
+    }
+
+    private static string OutputPath(SqliteTestDatabase database, VideoSourceDto source) =>
+        Path.Combine(database.MediaDirectory, source.Url[WebUrl.MediaPrefix.Length..]);
+
 
     private static Task ProcessAsync(SqliteTestDatabase database, VideoJob job) =>
         database.WithVideoProcessorAsync(async processor =>

@@ -5,9 +5,13 @@ namespace Blog.Application.Videos;
 
 public sealed record VideoSourceDto(VideoCodec Codec, int Height, string Url, long Bytes);
 
+/// <summary>El recorte (segundos del original) y el fundido con que se procesó el video, ya normalizados.</summary>
+public sealed record VideoEditDto(double TrimStart, double TrimEnd, VideoFade Fade, double FadeSeconds);
+
 /// <summary>
 /// Un video del hero. Mientras <see cref="Status"/> es "processing" no tiene póster ni fuentes; el admin consulta
 /// GET /api/admin/media/videos/{id} hasta que pase a "ready" o "failed" (con <see cref="Error"/>).
+/// <see cref="DurationSeconds"/> es la duración final, ya aplicada la edición.
 /// </summary>
 public sealed record VideoAssetDto(
     Guid Id,
@@ -16,6 +20,7 @@ public sealed record VideoAssetDto(
     int Width,
     int Height,
     double DurationSeconds,
+    VideoEditDto Edit,
     MediaAssetDto? Poster,
     IReadOnlyList<VideoSourceDto> Sources,
     IReadOnlyList<string> Warnings,
@@ -30,6 +35,7 @@ public static class VideoMapping
         video.Width,
         video.Height,
         video.DurationSeconds,
+        new VideoEditDto(video.Edit.TrimStart, video.Edit.TrimEnd, video.Edit.Fade, video.Edit.FadeSeconds),
         video.Poster?.ToDto(),
         video.Sources.Select(source => new VideoSourceDto(source.Codec, source.Height, video.UrlOf(source.Variant), source.Bytes)).ToList(),
         video.Warnings,

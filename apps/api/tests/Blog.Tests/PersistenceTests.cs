@@ -186,6 +186,9 @@ public class MigrationTests
         Assert.Contains("video_assets", tables);
         Assert.Contains("VideoAssetId", await database.ListAsync("SELECT name FROM pragma_table_info('hero_images')"));
         Assert.Contains("IsAnimated", await database.ListAsync("SELECT name FROM pragma_table_info('media_assets')"));
+        var videoColumns = await database.ListAsync("SELECT name FROM pragma_table_info('video_assets')");
+        Assert.Superset(new HashSet<string> { "TrimStart", "TrimEnd", "Fade", "FadeSeconds" }, videoColumns.ToHashSet());
+        Assert.DoesNotContain("DurationSeconds", videoColumns);
 
         var postColumns = await database.ListAsync("SELECT name FROM pragma_table_info('posts')");
         Assert.Contains("CoverUrl", postColumns);
@@ -196,6 +199,7 @@ public class MigrationTests
         Assert.Contains(applied, id => id.EndsWith("_InitialCreate", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddMediaAssetsAndHeroGallery", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddHeroVideos", StringComparison.Ordinal));
+        Assert.Contains(applied, id => id.EndsWith("_AddVideoEdit", StringComparison.Ordinal));
 
         await database.InScopeAsync<bool>(async provider =>
         {
@@ -292,6 +296,40 @@ public class MigrationTests
             MediaVariant.For(1600).Select(variant => variant.Format),
             hero.Media.Variants.Select(variant => variant.Format));
         Assert.Empty(await database.ListAsync("SELECT Id FROM video_assets"));
+    }
+
+    [Fact]
+    public async Task Upgrading_from_hero_videos_keeps_processed_videos_whole_without_fade_and_with_their_files()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InScopeAsync(async provider =>
+        {
+            var db = provider.GetRequiredService<BlogDbContext>();
+            await db.GetService<IMigrator>().MigrateAsync("AddHeroVideos");
+            return true;
+        });
+        var posterId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e11");
+        var videoId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e12");
+        var contentHash = new string('e', MediaAsset.HashLength);
+        // $$: las llaves sueltas son el JSON de las fuentes; las dobles, los valores de la prueba.
+        await database.ExecuteAsync($$"""
+            INSERT INTO media_assets (Id, Hash, Width, Height, IsAnimated, Color, Placeholder, CreatedAtUtc)
+            VALUES ('{{posterId.ToString().ToUpperInvariant()}}', '{{new string('f', MediaAsset.HashLength)}}', 1920, 1080, 0, '#102030',
+                    'data:image/webp;base64,UklGRg==', '2026-11-25 10:00:00');
+            INSERT INTO video_assets (Id, Hash, Width, Height, DurationSeconds, Status, Error, PosterId, Sources, CreatedAtUtc)
+            VALUES ('{{videoId.ToString().ToUpperInvariant()}}', '{{contentHash}}', 1920, 1080, 12.5, 'Ready', NULL,
+                    '{{posterId.ToString().ToUpperInvariant()}}', '[{"Codec":"Av1","Height":1080,"Bytes":100}]', '2026-11-25 10:00:00');
+            """);
+
+        await database.InitializeAsync();
+
+        var video = await database.WithVideosAsync(videos => videos.GetAsync(videoId, default));
+        Assert.Equal(VideoStatus.Ready, video.Status);
+        Assert.Equal(new VideoEditDto(0, 12.5, VideoFade.None, 1), video.Edit);
+        Assert.Equal(12.5, video.DurationSeconds);
+        // Conserva el hash del original: sus archivos siguen en la misma ruta.
+        Assert.Equal($"/media/videos/{contentHash}/1080.av1.mp4", Assert.Single(video.Sources).Url);
+        Assert.DoesNotContain("DurationSeconds", await database.ListAsync("SELECT name FROM pragma_table_info('video_assets')"));
     }
 
     private static Task<IReadOnlyList<string>> SettingsColumnsAsync(SqliteTestDatabase database) =>
