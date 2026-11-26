@@ -1,6 +1,5 @@
 /**
- * Datos fijos del sitio. Nombre, bajada, bio y links del autor vienen de los ajustes del admin (lib/settings.ts);
- * SITE_NAME / SITE_TAGLINE / SITE_AUTHOR quedan solo como respaldo cuando la API los trae vacíos.
+ * Datos fijos del sitio. Nombre, bajada, bio y links del autor vienen de los ajustes del admin (lib/settings.ts).
  * Lo que depende del idioma (rutas, textos, fechas) está en lib/i18n.ts.
  */
 export const site = {

@@ -4,7 +4,8 @@ import { DEFAULT_LANG, ui, type Lang } from './i18n.ts';
 
 /** Forma en que la API entrega los ajustes del sitio (GET /api/internal/settings, L4). */
 export interface ApiSettings {
-  name: string | null;
+  /** Obligatorio: la API nunca lo guarda vacío (SiteSettingsContent.Create) y, sin ajustes guardados, manda el de fábrica. */
+  name: string;
   tagline: string | null;
   /** Markdown corto: se renderiza con @blog/markdown. */
   bio: string | null;
@@ -21,15 +22,12 @@ export interface ApiSettings {
 export interface SiteSettings {
   name: string;
   tagline: string;
-  author: string;
   bio: string | null;
   email: string | null;
   githubUrl: string | null;
   linkedinUrl: string | null;
   xUrl: string | null;
 }
-
-type Env = Partial<Record<'SITE_NAME' | 'SITE_TAGLINE' | 'SITE_AUTHOR', string | undefined>>;
 
 /** Texto recortado; vacío => null. */
 const text = (value: string | null | undefined): string | null => {
@@ -49,21 +47,20 @@ const emailAddress = (value: string | null | undefined): string | null => {
 };
 
 /**
- * Ajustes efectivos de un idioma: manda la API; SITE_NAME / SITE_TAGLINE / SITE_AUTHOR solo cubren lo que llega vacío,
- * y si tampoco están, los respaldos del diccionario en el idioma de la página.
- * En inglés, bajada y bio usan taglineEn / bioEn y, si faltan, los de español (L3, L6): mejor un texto en español
- * que ninguno. El nombre es uno solo en los dos idiomas (L12); el autor (pie "© año …") es ese nombre.
+ * Ajustes efectivos de un idioma: todo sale de la API. Solo la bajada puede llegar vacía y entonces usa la del
+ * diccionario en el idioma de la página. En inglés, bajada y bio usan taglineEn / bioEn y, si faltan, los de español
+ * (L3, L6): mejor un texto en español que ninguno. El nombre es uno solo en los dos idiomas (L12) y es también el
+ * autor del pie ("© año …"). Sin nombre la API rompió su contrato: el build falla y el builder conserva el sitio.
  */
-export function toSiteSettings(api: Partial<ApiSettings>, env: Env, lang: Lang = DEFAULT_LANG): SiteSettings {
+export function toSiteSettings(api: ApiSettings, lang: Lang = DEFAULT_LANG): SiteSettings {
   // Campo en español con su par `En`: en inglés gana el par si trae texto.
   const localized = (es: string | null | undefined, english: string | null | undefined): string | null =>
     (lang === 'en' ? text(english) : null) ?? text(es);
-  const t = ui(lang);
   const name = text(api.name);
+  if (name === null) throw new Error('La API devolvió los ajustes del sitio sin nombre.');
   return {
-    name: name ?? text(env.SITE_NAME) ?? t.defaultName,
-    tagline: localized(api.tagline, api.taglineEn) ?? text(env.SITE_TAGLINE) ?? t.defaultTagline,
-    author: name ?? text(env.SITE_AUTHOR) ?? t.defaultAuthor,
+    name,
+    tagline: localized(api.tagline, api.taglineEn) ?? ui(lang).defaultTagline,
     bio: localized(api.bio, api.bioEn),
     email: emailAddress(api.email),
     githubUrl: webUrl(api.githubUrl),
@@ -84,9 +81,9 @@ export function contactLinks(settings: SiteSettings): Array<{ label: string; hre
 }
 
 const getApiSettings = oncePerBuild(() =>
-  getInternal<Partial<ApiSettings>>('/api/internal/settings', 'los ajustes del sitio'),
+  getInternal<ApiSettings>('/api/internal/settings', 'los ajustes del sitio'),
 );
 
 /** Una sola petición por build para los dos idiomas; cada página resuelve los suyos. */
 export const getSettings = async (lang: Lang): Promise<SiteSettings> =>
-  toSiteSettings(await getApiSettings(), process.env, lang);
+  toSiteSettings(await getApiSettings(), lang);

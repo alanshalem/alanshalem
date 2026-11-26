@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 
 import { reliableDevWatch } from '../../tooling/dev-watch.ts';
+import { SITE_CSP } from './src/lib/csp.ts';
 
 const siteUrl = (process.env.SITE_URL ?? 'http://localhost:4321').replace(/\/$/, '');
 
@@ -24,6 +25,12 @@ export default defineConfig({
   outDir: process.env.OUT_DIR ?? './dist',
 
   devToolbar: { enabled: false },
+
+  // CSP en un <meta> de cada página, con los hashes de los scripts y estilos en línea (src/lib/csp.ts).
+  // Astro no la aplica en `astro dev`: se prueba con un build.
+  security: { csp: SITE_CSP },
+  // Los posts los renderiza @blog/markdown, no Astro: sin Shiki (sus estilos en línea chocarían con la CSP).
+  markdown: { syntaxHighlight: false },
 
   vite: {
     server: {

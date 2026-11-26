@@ -155,10 +155,8 @@ const es = {
   notFoundHeading: 'Esta página no existe.',
   notFoundDek: 'Puede que la dirección esté mal escrita o que el artículo haya cambiado de lugar.',
   backHome: 'Volver al inicio',
-  // Respaldos visibles cuando ni los ajustes ni SITE_NAME / SITE_TAGLINE / SITE_AUTHOR traen texto (lib/settings.ts).
-  defaultName: 'Mi blog',
+  // Bajada de respaldo cuando los ajustes no traen una (la única que la API puede mandar vacía; lib/settings.ts).
   defaultTagline: 'Notas sobre software, ideas y cosas que estoy aprendiendo.',
-  defaultAuthor: 'El autor',
 };
 
 export type UiKey = keyof typeof es;
@@ -208,9 +206,7 @@ const en: Record<UiKey, string> = {
   notFoundHeading: 'This page does not exist.',
   notFoundDek: 'The address may be misspelled, or the article may have moved.',
   backHome: 'Back to home',
-  defaultName: 'My blog',
   defaultTagline: 'Notes on software, ideas and things I am learning.',
-  defaultAuthor: 'The author',
 };
 
 const DICTIONARY: Record<Lang, Record<UiKey, string>> = { es, en };

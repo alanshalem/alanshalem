@@ -3,9 +3,11 @@
 Medido el 2026-11-24 sobre la home, en 5 viewports (390 · 768 · 1024 · 1440 · 1920). Los valores salen de `main.css` (`:root`) y de los estilos computados del DOM, no de estimaciones visuales.
 
 Archivos:
-- `tokens.json` — tokens en formato W3C DTCG (para Style Dictionary, Tokens Studio, etc.)
-- `tokens.css` — los mismos tokens como CSS custom properties + `@font-face` + base tipográfica
-- `../screenshots/` — full-page por viewport (`*-fullpage.png`) y versiones livianas (`*-preview.jpg`)
+- Los tokens tienen una sola fuente, la que usan sitio y admin: `packages/tokens/src/tokens.css` (CSS custom
+  properties + `@font-face` + base tipográfica) y `packages/tokens/src/tokens.json` (los mismos en formato W3C DTCG,
+  para Style Dictionary, Tokens Studio, etc.). Los valores de abajo son la medición de referencia; donde el blog los
+  cambió (contraste, overlays), mandan los de `packages/tokens`.
+- `reference/` — full-page por viewport (`*-fullpage.png`); no se versiona (`.gitignore`).
 
 ---
 
