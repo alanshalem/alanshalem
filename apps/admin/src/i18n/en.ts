@@ -58,10 +58,10 @@ export const en: Dictionary = {
   // ----- Language versions -----
   'status.draft': 'Draft',
   'status.published': 'Published',
-  'versions.missing': 'Missing',
   'versions.label': 'Versions',
   'versions.create': 'Create {lang} version',
-  'versions.createAria': '{chip}: create the {lang} version',
+  'versions.add': '+ {code}',
+  'versions.createAria': 'Create {lang} version ({code})',
   'versions.creating': 'Creating…',
   'versions.createError': 'Couldn’t create the version.',
   'versions.saveFirst': 'Save your changes first: the new version starts from what’s saved.',
@@ -358,6 +358,8 @@ export const en: Dictionary = {
   'hero.changesSaved': 'Changes saved.',
   'hero.rebuilding': 'The site is rebuilding.',
   'hero.discarded': 'Discarded: {name}.',
+  'hero.confirmDiscard.processing': 'Discard “{name}”? The video is being processed: that work will be lost.',
+  'hero.confirmDiscard.uploaded': 'Discard “{name}”? It was already uploaded: to use it you will have to upload it again.',
   'hero.loadError': 'Couldn’t load the hero photos and videos: {error}',
   'hero.pollError': 'Couldn’t check the video status: {error}',
   'hero.unsupportedFile':

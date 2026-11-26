@@ -1,6 +1,6 @@
 ---
 import BaseLayout from '../../../layouts/BaseLayout.astro';
-import { LANGS, alternatesFor, paths, segments, ui, type Lang } from '../../../lib/i18n.ts';
+import { LANGS, alternatesFor, articleCount, paths, segments, ui, type Lang } from '../../../lib/i18n.ts';
 import { getPosts, postsIn, tagsOf } from '../../../lib/posts.ts';
 
 // [topics] es el segmento traducido (temas / topics): una sola página para los dos idiomas.
@@ -29,7 +29,8 @@ const tags = tagsOf(postsIn(await getPosts(), lang));
           {tags.map(({ tag, posts }) => (
             <li>
               <a href={paths.tag(lang, tag.slug)}>
-                {tag.name} <span class="count">{posts.length}</span>
+                {tag.name} <span class="count" aria-hidden="true">{posts.length}</span>
+                <span class="visually-hidden">({articleCount(lang, posts.length)})</span>
               </a>
             </li>
           ))}

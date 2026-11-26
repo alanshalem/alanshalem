@@ -66,10 +66,11 @@ export const es = {
   // ----- Versiones por idioma -----
   'status.draft': 'Borrador',
   'status.published': 'Publicado',
-  'versions.missing': 'Falta',
   'versions.label': 'Versiones',
   'versions.create': 'Crear versión en {lang}',
-  'versions.createAria': '{chip}: crear versión en {lang}',
+  // Chip de una versión que falta: se ve "+ EN" y se anuncia la acción; el código va en el nombre (WCAG 2.5.3).
+  'versions.add': '+ {code}',
+  'versions.createAria': 'Crear versión en {lang} ({code})',
   'versions.creating': 'Creando…',
   'versions.createError': 'No se pudo crear la versión.',
   'versions.saveFirst': 'Guardá los cambios antes: la versión nueva parte de lo guardado.',
@@ -369,6 +370,8 @@ export const es = {
   'hero.changesSaved': 'Cambios guardados.',
   'hero.rebuilding': 'El sitio se está regenerando.',
   'hero.discarded': 'Descartada: {name}.',
+  'hero.confirmDiscard.processing': '¿Descartar “{name}”? El video se está procesando: se pierde ese trabajo.',
+  'hero.confirmDiscard.uploaded': '¿Descartar “{name}”? Ya se subió: para usarlo hay que volver a subirlo.',
   'hero.loadError': 'No se pudieron cargar las fotos y videos del hero: {error}',
   'hero.pollError': 'No se pudo consultar el estado del video: {error}',
   'hero.unsupportedFile':

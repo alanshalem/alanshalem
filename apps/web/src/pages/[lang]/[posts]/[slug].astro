@@ -79,7 +79,8 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
 
   {
     image?.alt && (
-      <aside class="image-strip" aria-label={t.aboutImage}>
+      // El texto es el alt de la portada, que el lector de pantalla ya leyó en la imagen: la franja es solo visual.
+      <aside class="image-strip" aria-hidden="true">
         <span class="eyebrow">{t.aboutImage}</span>
         <span>{image.alt}</span>
       </aside>

@@ -1,5 +1,5 @@
 ---
-import { LANGUAGE_NAMES, navLinks, paths, switcherLinks, ui, type Alternates, type Lang } from '../lib/i18n.ts';
+import { LANGUAGE_NAMES, navCurrent, navLinks, paths, switcherLinks, ui, type Alternates, type Lang } from '../lib/i18n.ts';
 import { getSettings } from '../lib/settings.ts';
 
 interface Props {
@@ -16,23 +16,15 @@ const settings = await getSettings(lang);
 const t = ui(lang);
 const nav = navLinks(lang);
 const languages = switcherLinks(lang, alternates, switchFallback);
-const isCurrent = (href: string): boolean => href !== paths.rss(lang) && currentPath.startsWith(href);
+// El feed no es una sección del sitio: nunca queda marcado.
+const current = (href: string) => (href === paths.rss(lang) ? undefined : navCurrent(currentPath, href));
 ---
 
 <header class:list={['site-header', { 'site-header--overlay': overlay }]}>
   <a class="brand" href={paths.home(lang)}>{settings.name}</a>
 
+  {/* En el HTML, en el orden en que se ve (WCAG 2.4.3): ES | EN, después ☰ y su menú, que se despliega debajo. */}
   <div class="header-tools">
-    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label={t.menu}>☰</button>
-    <nav id="site-nav" class="site-nav" aria-label={t.mainNav}>
-      {
-        nav.map((item) => (
-          <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-            {item.label}
-          </a>
-        ))
-      }
-    </nav>
     <nav class="lang-switch" aria-label={t.languageNav}>
       {
         languages.map((link) => (
@@ -48,14 +40,52 @@ const isCurrent = (href: string): boolean => href !== paths.rss(lang) && current
         ))
       }
     </nav>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label={t.menu}>☰</button>
+    <nav id="site-nav" class="site-nav" aria-label={t.mainNav}>
+      {
+        nav.map((item) => (
+          <a
+            href={item.href}
+            aria-label={item.ariaLabel}
+            type={item.href === paths.rss(lang) ? 'application/rss+xml' : undefined}
+            aria-current={current(item.href)}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
   </div>
 </header>
 
 <script>
-  // Único JavaScript de la cabecera: abrir/cerrar el menú en pantallas angostas.
+  // Único JavaScript de la cabecera: el menú desplegable de pantallas angostas (patrón disclosure). Se abre y cierra
+  // con ☰ y además se cierra con Esc, con un clic afuera y cuando el foco sale de él (P3, L4): abierto, tapaba el
+  // contenido al seguir con Tab o al tocar la página. En pantallas anchas el menú siempre se ve y esto no cambia nada.
   const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
-  toggle?.addEventListener('click', () => {
-    const open = toggle.getAttribute('aria-expanded') === 'true';
-    toggle.setAttribute('aria-expanded', String(!open));
-  });
+  const menu = document.getElementById('site-nav');
+  if (toggle && menu) {
+    const isOpen = (): boolean => toggle.getAttribute('aria-expanded') === 'true';
+    const setOpen = (open: boolean): void => toggle.setAttribute('aria-expanded', String(open));
+    const inside = (target: EventTarget | null): boolean =>
+      target instanceof Node && (toggle.contains(target) || menu.contains(target));
+
+    toggle.addEventListener('click', () => setOpen(!isOpen()));
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !isOpen()) return;
+      // Si el foco estaba en el menú, vuelve al botón: el panel que se cierra no se lo lleva.
+      const focusWasInside = inside(document.activeElement);
+      setOpen(false);
+      if (focusWasInside) toggle.focus();
+    });
+    document.addEventListener('click', (event) => {
+      if (isOpen() && !inside(event.target)) setOpen(false);
+    });
+    // `relatedTarget` es adónde va el foco; null = a ningún control (clic en texto, otra ventana): eso lo cierra el clic.
+    const closeWhenFocusLeaves = (event: FocusEvent): void => {
+      if (isOpen() && event.relatedTarget !== null && !inside(event.relatedTarget)) setOpen(false);
+    };
+    toggle.addEventListener('focusout', closeWhenFocusLeaves);
+    menu.addEventListener('focusout', closeWhenFocusLeaves);
+  }
 </script>

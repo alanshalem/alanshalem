@@ -50,3 +50,14 @@ test('botón Reproducir/Pausar del hero: accesible y oculto hasta que el script 
   // El contenedor de medios del hero no arma caja propia: el guardián lo oculta entero (fondo y botón juntos).
   assert.match(declarations('.hero-media'), /display:\s*contents/);
 });
+
+test('tiles de temas: velo detrás del texto con el mismo token que el hero (WCAG 1.4.3, P3 L4: 1,7:1 → 9,1:1 en Chrome)', () => {
+  assert.match(declarations('.tile-body::before'), /background:\s*var\(--overlay-hero-text\)/);
+  assert.match(declarations('.tile-body'), /z-index:\s*0/);
+  assert.match(declarations('.tile'), /overflow:\s*hidden/);
+});
+
+test('cabecera: sin `order` en el selector de idioma, lo que se ve sigue el orden del HTML y del Tab (WCAG 2.4.3)', () => {
+  assert.doesNotMatch(declarations('.lang-switch'), /order:/);
+  assert.match(css, /\.site-nav a\[aria-current\] \{/);
+});

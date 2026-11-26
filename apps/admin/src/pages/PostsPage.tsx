@@ -7,7 +7,7 @@ import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { pageTitle } from '../navigation/pageTitle.ts';
 import { scheduledAt, scheduledLabel } from '../posts/schedule.ts';
 import { useCreateTranslation } from '../posts/useCreateTranslation.ts';
-import { groupPosts, versionLabel, versionSlots } from '../posts/versions.ts';
+import { groupPosts, missingVersion, versionSlots } from '../posts/versions.ts';
 import { VersionLink } from '../posts/VersionLink.tsx';
 import { href } from '../useRoute.ts';
 
@@ -101,13 +101,10 @@ export function PostsPage({ onError }: Props) {
                         type="button"
                         className="chip chip-missing"
                         disabled={translation.creating}
-                        aria-label={t('versions.createAria', {
-                          chip: versionLabel(lang, null, i18n),
-                          lang: t(`lang.inSentence.${lang}`),
-                        })}
+                        aria-label={missingVersion(lang, i18n).label}
                         onClick={() => void translation.create(group.main.id, lang)}
                       >
-                        {versionLabel(lang, null, i18n)}
+                        {missingVersion(lang, i18n).text}
                       </button>
                     ),
                   )}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { rssXml, sitemapXml } from '../src/lib/feeds.ts';
+import { rssStylesheet, rssXml, sitemapXml } from '../src/lib/feeds.ts';
 import { toBlogPost } from '../src/lib/posts.ts';
 
 const BASE = 'https://blog.test';
@@ -29,6 +29,9 @@ describe('rssXml: un feed por idioma (L3)', () => {
     assert.match(xml, /<link>https:\/\/blog\.test\/en\/<\/link>/);
     assert.match(xml, /<atom:link href="https:\/\/blog\.test\/en\/rss\.xml" rel="self"/);
   });
+  it('una hoja de estilo CSS del idioma para verlo en el navegador (los lectores de feeds la ignoran)', () => {
+    assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/css" href="/en/rss.css"?>\n<rss '));
+  });
   it('ítems con URL absoluta del idioma, texto escapado y URLs del cuerpo absolutas', () => {
     assert.match(xml, /<link>https:\/\/blog\.test\/en\/articles\/hello\/<\/link>/);
     assert.match(xml, /<title>Hello &amp; &lt;welcome&gt;<\/title>/);
@@ -56,5 +59,22 @@ describe('sitemapXml: todas las páginas, con alternates hreflang donde hay vers
     assert.match(xml, /<xhtml:link rel="alternate" hreflang="en" href="https:\/\/blog\.test\/en\/"\/>/);
     assert.match(xml, /<xhtml:link rel="alternate" hreflang="x-default" href="https:\/\/blog\.test\/es\/"\/>/);
     assert.match(xml, /<url><loc>https:\/\/blog\.test\/es\/temas\/net\/<\/loc><\/url>/);
+  });
+});
+
+describe('rssStylesheet: el feed legible en el navegador (P3, L4)', () => {
+  const TOKENS = ':root { --bg-page: #0a0a0b; }';
+
+  it('parte de los tokens del sitio y explica qué es, en el idioma del feed', () => {
+    const es = rssStylesheet('es', TOKENS);
+    assert.ok(es.startsWith(TOKENS));
+    assert.match(es, /content: "Esto es un feed RSS: copiá la dirección de esta página en tu lector de feeds para recibir los artículos nuevos\.";/);
+    assert.match(rssStylesheet('en', TOKENS), /content: "This is an RSS feed: copy this page's address into your feed reader to get new articles\.";/);
+  });
+
+  it('muestra título, fecha y resumen de cada artículo; oculta el HTML completo y los datos técnicos', () => {
+    const css = rssStylesheet('es', TOKENS);
+    assert.match(css, /rss \* \{ display: none; \}/);
+    assert.match(css, /item > title, item > pubDate, item > description, item > link \{[^}]*display: block;/);
   });
 });

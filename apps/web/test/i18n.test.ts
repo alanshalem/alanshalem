@@ -9,6 +9,7 @@ import {
   hreflangLinks,
   interpolate,
   isLang,
+  navCurrent,
   navLinks,
   ogLocale,
   paths,
@@ -60,6 +61,7 @@ describe('rutas por idioma (L3)', () => {
     assert.equal(paths.tags('es'), '/es/temas/');
     assert.equal(paths.tag('es', 'dotnet'), '/es/temas/dotnet/');
     assert.equal(paths.rss('es'), '/es/rss.xml');
+    assert.equal(paths.rssStyle('es'), '/es/rss.css');
   });
   it('en: /en/, /en/articles/<slug>/, /en/topics/, /en/topics/<tag>/, /en/rss.xml', () => {
     assert.equal(paths.home('en'), '/en/');
@@ -68,16 +70,25 @@ describe('rutas por idioma (L3)', () => {
     assert.equal(paths.tags('en'), '/en/topics/');
     assert.equal(paths.tag('en', 'dotnet'), '/en/topics/dotnet/');
     assert.equal(paths.rss('en'), '/en/rss.xml');
+    assert.equal(paths.rssStyle('en'), '/en/rss.css');
   });
   it('alternatesFor: la misma página en cada idioma', () => {
     assert.deepEqual(alternatesFor(paths.posts), { es: '/es/articulos/', en: '/en/articles/' });
   });
-  it('navLinks: artículos, temas y RSS del idioma', () => {
+  it('navLinks: artículos, temas y RSS del idioma; RSS dice qué es (con "RSS" al principio, WCAG 2.5.3)', () => {
     assert.deepEqual(navLinks('en'), [
       { label: 'Articles', href: '/en/articles/' },
       { label: 'Topics', href: '/en/topics/' },
-      { label: 'RSS', href: '/en/rss.xml' },
+      { label: 'RSS', href: '/en/rss.xml', ariaLabel: 'RSS: feed of new articles' },
     ]);
+    assert.equal(navLinks('es')[2]?.ariaLabel, 'RSS: feed de artículos nuevos');
+  });
+  it('navCurrent: la página del enlace es "page"; una página dentro de su sección (un artículo, un tema), "true"', () => {
+    assert.equal(navCurrent('/es/articulos/', '/es/articulos/'), 'page');
+    assert.equal(navCurrent('/es/articulos/mi-post/', '/es/articulos/'), 'true');
+    assert.equal(navCurrent('/en/topics/dotnet/', '/en/topics/'), 'true');
+    assert.equal(navCurrent('/es/', '/es/articulos/'), undefined);
+    assert.equal(navCurrent('/es/temas/', '/es/articulos/'), undefined);
   });
 });
 

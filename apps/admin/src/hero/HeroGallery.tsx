@@ -6,7 +6,7 @@ import type { I18n, MessageKey } from '../i18n/i18n.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { IMAGE_ACCEPT } from '../media.ts';
 import { HeroImageCard } from './HeroImageCard.tsx';
-import { thumbnailUrl } from './heroImage.ts';
+import { discardConfirmation, thumbnailUrl } from './heroImage.ts';
 import { heroGuidance } from './heroSize.ts';
 import { heroItemKind, previewSourceUrl, VIDEO_ACCEPT } from './heroVideo.ts';
 import { useHeroImages, type PendingUpload, type UploadStatus } from './useHeroImages.ts';
@@ -85,7 +85,14 @@ export function HeroGallery({ onError }: Props) {
         warnings={upload.warnings}
         saveLabel={t('common.save')}
         onSave={(input) => gallery.savePending(upload, input)}
-        remove={{ label: t('hero.discard'), tone: 'ghost', onClick: () => gallery.discardPending(upload) }}
+        remove={{
+          label: t('hero.discard'),
+          tone: 'ghost',
+          onClick: () => {
+            const question = discardConfirmation(upload, i18n);
+            if (question === null || window.confirm(question)) gallery.discardPending(upload);
+          },
+        }}
       />
     </li>
   );

@@ -41,6 +41,8 @@ export const paths = {
   tags: (lang: Lang): string => `/${lang}/${segments(lang).topics}/`,
   tag: (lang: Lang, tagSlug: string): string => `/${lang}/${segments(lang).topics}/${tagSlug}/`,
   rss: (lang: Lang): string => `/${lang}/rss.xml`,
+  /** Hoja de estilo del feed: lo hace legible al abrirlo en el navegador (lib/feeds.ts). */
+  rssStyle: (lang: Lang): string => `/${lang}/rss.css`,
 };
 
 /** La página equivalente en cada idioma que la tiene (la propia incluida). Alimenta hreflang y el selector. */
@@ -92,6 +94,10 @@ const es = {
   posts: 'Artículos',
   topics: 'Temas',
   rss: 'RSS',
+  // Nombre accesible del enlace RSS: empieza con el texto visible (WCAG 2.5.3) y dice qué es.
+  rssLabel: 'RSS: feed de artículos nuevos',
+  // Lo que se lee arriba del feed abierto en el navegador (lib/feeds.ts, rssStylesheet).
+  rssIntro: 'Esto es un feed RSS: copiá la dirección de esta página en tu lector de feeds para recibir los artículos nuevos.',
   home: 'Inicio',
   contact: 'Contacto',
   explore: 'Explorar',
@@ -144,6 +150,8 @@ const en: Record<UiKey, string> = {
   posts: 'Articles',
   topics: 'Topics',
   rss: 'RSS',
+  rssLabel: 'RSS: feed of new articles',
+  rssIntro: "This is an RSS feed: copy this page's address into your feed reader to get new articles.",
   home: 'Home',
   contact: 'Contact',
   explore: 'Explore',
@@ -197,12 +205,28 @@ export const interpolate = (template: string, values: Record<string, string | nu
 export const articleCount = (lang: Lang, n: number): string =>
   n === 1 ? ui(lang).articleCountOne : interpolate(ui(lang).articleCountMany, { n });
 
+export interface NavLink {
+  label: string;
+  href: string;
+  /** Solo si el texto visible no alcanza para saber adónde lleva ("RSS"). */
+  ariaLabel?: string;
+}
+
 /** Menú principal del idioma (cabecera y pie). */
-export const navLinks = (lang: Lang): Array<{ label: string; href: string }> => [
+export const navLinks = (lang: Lang): NavLink[] => [
   { label: ui(lang).posts, href: paths.posts(lang) },
   { label: ui(lang).topics, href: paths.tags(lang) },
-  { label: ui(lang).rss, href: paths.rss(lang) },
+  { label: ui(lang).rss, href: paths.rss(lang), ariaLabel: ui(lang).rssLabel },
 ];
+
+/**
+ * `aria-current` de un enlace del menú: "page" solo en la página del enlace; dentro de su sección (un artículo bajo
+ * Artículos, un tema bajo Temas) "true", que marca la sección sin decir que es esta página (P3, L4).
+ */
+export function navCurrent(currentPath: string, href: string): 'page' | 'true' | undefined {
+  if (currentPath === href) return 'page';
+  return currentPath.startsWith(href) ? 'true' : undefined;
+}
 
 // Un formateador por idioma, creado una vez: Intl.DateTimeFormat es caro de construir y se usa en cada tarjeta.
 const DATE_FORMATTERS = Object.fromEntries(

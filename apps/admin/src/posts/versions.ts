@@ -56,9 +56,21 @@ export function versionSlots<T extends { lang: Lang }>(versions: readonly T[], e
 /** Estado de un post en el idioma de la interfaz: "Borrador" / "Draft". */
 export const statusLabel = (status: PostStatus, i18n: I18n): string => i18n.t(`status.${status}`);
 
-/** El texto del chip de una versión: "ES · Publicado", "EN · Borrador" o "EN · Falta" (el código no se traduce). */
-export const versionLabel = (lang: Lang, status: PostStatus | null, i18n: I18n): string =>
-  `${langCode(lang)} · ${status ? statusLabel(status, i18n) : i18n.t('versions.missing')}`;
+/** El texto del chip de una versión: "ES · Publicado" o "EN · Borrador" (el código no se traduce). */
+export const versionLabel = (lang: Lang, status: PostStatus, i18n: I18n): string =>
+  `${langCode(lang)} · ${statusLabel(status, i18n)}`;
+
+/**
+ * El chip de una versión que falta es un botón que la crea: se ve "+ EN" (antes "EN · Falta", que parecía un estado y
+ * no una acción) y se anuncia "Crear versión en inglés (EN)", con el texto visible dentro del nombre (WCAG 2.5.3).
+ */
+export const missingVersion = (lang: Lang, i18n: I18n): { text: string; label: string } => {
+  const code = langCode(lang);
+  return {
+    text: i18n.t('versions.add', { code }),
+    label: i18n.t('versions.createAria', { lang: i18n.t(`lang.inSentence.${lang}`), code }),
+  };
+};
 
 export type TranslationWarning = 'untranslated' | 'outdated';
 

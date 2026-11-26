@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { HeroImage, MediaAsset } from '../src/api/types.ts';
 import {
+  discardConfirmation,
   HERO_IMAGE_LIMITS,
   inUploadOrder,
   thumbnailUrl,
@@ -161,5 +162,32 @@ describe('inUploadOrder', () => {
       list.map((image) => image.id),
       ['c', 'a', 'b'],
     );
+  });
+});
+
+describe('discardConfirmation: Descartar pide confirmar solo si se pierde trabajo hecho (P3, L4)', () => {
+  it('un video procesándose o un archivo ya subido: pregunta, con el nombre del archivo', () => {
+    assert.equal(
+      discardConfirmation({ status: 'processing', fileName: 'mar.mp4' }, es),
+      '¿Descartar “mar.mp4”? El video se está procesando: se pierde ese trabajo.',
+    );
+    assert.equal(
+      discardConfirmation({ status: 'uploaded', fileName: 'luna.jpg' }, es),
+      '¿Descartar “luna.jpg”? Ya se subió: para usarlo hay que volver a subirlo.',
+    );
+    assert.equal(
+      discardConfirmation({ status: 'processing', fileName: 'sea.mp4' }, en),
+      'Discard “sea.mp4”? The video is being processed: that work will be lost.',
+    );
+    assert.equal(
+      discardConfirmation({ status: 'uploaded', fileName: 'moon.jpg' }, en),
+      'Discard “moon.jpg”? It was already uploaded: to use it you will have to upload it again.',
+    );
+  });
+
+  it('nada que perder (en el editor, en cola, subiendo o con error): descarta sin preguntar', () => {
+    for (const status of ['editing', 'queued', 'uploading', 'failed'] as const) {
+      assert.equal(discardConfirmation({ status, fileName: 'x.jpg' }, es), null, status);
+    }
   });
 });

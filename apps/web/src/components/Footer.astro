@@ -53,7 +53,7 @@ const year = new Date().getFullYear();
   <nav class="footer-col" aria-labelledby="footer-suscribirse">
     <h2 id="footer-suscribirse">{t.subscribe}</h2>
     <ul>
-      <li><a href={paths.rss(lang)}>{t.rss}</a></li>
+      <li><a href={paths.rss(lang)} type="application/rss+xml" aria-label={t.rssLabel}>{t.rss}</a></li>
     </ul>
   </nav>
 </footer>

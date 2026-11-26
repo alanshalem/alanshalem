@@ -1,5 +1,7 @@
 import type { HeroImage, HeroImageInput, MediaAsset } from '../api/types.ts';
 import type { I18n, MessageKey } from '../i18n/i18n.ts';
+import type { PendingUpload } from './useHeroImages.ts';
+import { LIMITS } from '../limits.ts';
 import { cleanOptional, tooLongMessage } from '../settings/validate.ts';
 
 /*
@@ -7,15 +9,12 @@ import { cleanOptional, tooLongMessage } from '../settings/validate.ts';
  * La API sigue siendo la autoridad y sus errores (ProblemDetails) se muestran igual. Los textos, del `I18n` recibido.
  */
 
-const ALT_MAX = 300;
-const CREDIT_MAX = 200;
-
 /** Los textos en inglés tienen los mismos límites que su par en español (L4). */
 export const HERO_IMAGE_LIMITS = {
-  alt: ALT_MAX,
-  credit: CREDIT_MAX,
-  altEn: ALT_MAX,
-  creditEn: CREDIT_MAX,
+  alt: LIMITS.heroImage.alt,
+  credit: LIMITS.heroImage.credit,
+  altEn: LIMITS.heroImage.alt,
+  creditEn: LIMITS.heroImage.credit,
 } as const satisfies Record<keyof HeroImageInput, number>;
 
 /** Lo que editan los inputs de la tarjeta: todo texto (los `null` de la API se ven como vacío). */
@@ -51,6 +50,17 @@ export function validateHeroImage(fields: HeroImageFields, i18n: I18n): HeroImag
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return { ok: true, input: { alt, credit, altEn, creditEn } };
+}
+
+/**
+ * "Descartar" de un archivo en curso pregunta antes solo si se pierde trabajo hecho (P3, L4): un video que la API está
+ * procesando o un archivo ya subido que falta describir. En el editor, en cola, subiendo o con error se descarta
+ * directo, como antes. `null` = no preguntar.
+ */
+export function discardConfirmation(upload: Pick<PendingUpload, 'status' | 'fileName'>, { t }: I18n): string | null {
+  return upload.status === 'processing' || upload.status === 'uploaded'
+    ? t(`hero.confirmDiscard.${upload.status}`, { name: upload.fileName })
+    : null;
 }
 
 /** La variante WebP más liviana: alcanza para una miniatura y evita bajar la foto de 1600 px. */

@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import type { PostSummary } from '../src/api/types.ts';
 import { i18nFor } from '../src/i18n/i18n.ts';
 import { DEFAULT_LANG, LANGS } from '../src/languages.ts';
-import { groupPosts, translationWarnings, versionLabel, versionSlots } from '../src/posts/versions.ts';
+import { groupPosts, missingVersion, translationWarnings, versionLabel, versionSlots } from '../src/posts/versions.ts';
 
 /* Versiones de un post por idioma (L3, L4): la lista agrupa por translationGroupId y el editor avisa en la traducción. */
 
@@ -107,16 +107,26 @@ describe('versionSlots: un lugar por idioma, con su versión o vacío', () => {
 });
 
 describe('versionLabel: el texto del chip por idioma', () => {
-  it('código del idioma y estado, o "Falta"', () => {
+  it('código del idioma y estado', () => {
     assert.equal(versionLabel('es', 'published', es), 'ES · Publicado');
     assert.equal(versionLabel('en', 'draft', es), 'EN · Borrador');
-    assert.equal(versionLabel('en', null, es), 'EN · Falta');
   });
 
   it('en inglés: el código no cambia, el estado sí', () => {
     assert.equal(versionLabel('es', 'published', en), 'ES · Published');
     assert.equal(versionLabel('en', 'draft', en), 'EN · Draft');
-    assert.equal(versionLabel('en', null, en), 'EN · Missing');
+  });
+});
+
+describe('missingVersion: el chip de una versión que falta es la acción de crearla (P3, L4)', () => {
+  it('se ve "+ EN" y se anuncia "Crear versión en inglés", con el código visible en el nombre (WCAG 2.5.3)', () => {
+    assert.deepEqual(missingVersion('en', es), { text: '+ EN', label: 'Crear versión en inglés (EN)' });
+    assert.deepEqual(missingVersion('es', es), { text: '+ ES', label: 'Crear versión en español (ES)' });
+  });
+
+  it('en inglés', () => {
+    assert.deepEqual(missingVersion('en', en), { text: '+ EN', label: 'Create English version (EN)' });
+    assert.deepEqual(missingVersion('es', en), { text: '+ ES', label: 'Create Spanish version (ES)' });
   });
 });
 

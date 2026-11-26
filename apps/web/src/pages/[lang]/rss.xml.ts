@@ -19,5 +19,8 @@ export const GET: APIRoute<{ lang: Lang }> = async ({ props: { lang } }) => {
     posts: postsIn(await getPosts(), lang).slice(0, FEED_SIZE),
     baseUrl: site.url,
   });
-  return new Response(xml, { headers: { 'Content-Type': 'application/rss+xml; charset=utf-8' } });
+  // Solo cuenta en `astro dev` (el build escribe un archivo y Caddy elige el tipo por la extensión .xml). Con
+  // application/rss+xml Chrome lo muestra como texto plano y no aplica la hoja de estilo (rss.css); con un tipo XML,
+  // igual que en producción, se ve como en el sitio publicado. Los lectores de feeds aceptan los dos.
+  return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8' } });
 };

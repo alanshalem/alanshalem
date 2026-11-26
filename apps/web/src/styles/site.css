@@ -33,7 +33,8 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 
 .brand { font-family: var(--font-display); font-size: 1.5rem; line-height: 1.2; }
 .site-nav a { font-family: var(--font-ui); font-size: var(--text-ui); font-weight: 500; line-height: var(--leading-body); }
-.site-nav a[aria-current='page'] { text-decoration: underline; text-decoration-thickness: 1px; }
+/* 'page' en la página del enlace y 'true' dentro de su sección (un artículo, un tema): se ven igual. */
+.site-nav a[aria-current] { text-decoration: underline; text-decoration-thickness: 1px; }
 
 .nav-toggle {
   display: inline-grid; place-items: center; flex: none;
@@ -54,9 +55,10 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 .nav-toggle[aria-expanded='true'] + .site-nav { display: flex; }
 
-/* Menú y selector de idioma a la derecha. En pantallas angostas el selector queda a la vista, a la izquierda del ☰. */
+/* Selector de idioma y menú a la derecha, sin `order`: se ven en el orden del HTML (ES | EN, ☰ y su panel; en
+   pantallas anchas ES | EN y los enlaces), así Tab recorre en el mismo orden en que se lee (WCAG 2.4.3). */
 .header-tools { display: flex; align-items: center; gap: var(--space-1-5); }
-.lang-switch { order: -1; display: flex; align-items: center; }
+.lang-switch { display: flex; align-items: center; }
 .lang-switch a {
   font-family: var(--font-ui); font-size: var(--text-2xs); font-weight: 600; letter-spacing: var(--tracking-label);
   line-height: 1; padding: 0.35rem 0.6rem; text-decoration: none; color: var(--text-tertiary);
@@ -70,7 +72,6 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 
 @media (min-width: 900px) {
   .nav-toggle { display: none; }
-  .lang-switch { order: 0; }
   .site-nav {
     display: flex; position: static; flex-direction: row; gap: var(--space-1-75);
     min-width: 0; padding: 0; background: none; border: 0;
@@ -246,8 +247,15 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 
 /* ---------- Tiles (temas) ---------- */
 .tiles { list-style: none; padding: 0; display: grid; gap: var(--space-1-25); grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
-.tile { position: relative; }
-.tile-body { position: absolute; inset: auto 0 0 0; padding: var(--space-1-25); display: grid; gap: var(--space-0-25); }
+.tile { position: relative; overflow: hidden; }
+.tile-body { position: absolute; z-index: 0; inset: auto 0 0 0; padding: var(--space-1-25); display: grid; gap: var(--space-0-25); }
+/* Velo detrás del texto, como en el hero (WCAG 1.4.3): con un nombre de tema largo el título sube a la zona donde
+   --overlay-tile casi no oscurece y quedaba a 1,7:1 sobre un nodo claro de la portada (medido en Chrome). Sigue al
+   texto y se funde hacia arriba; el tile lo recorta. */
+.tile-body::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  inset: calc(-1 * var(--overlay-hero-text-fade)) 0 0 0; background: var(--overlay-hero-text);
+}
 .tile-title { font-family: var(--font-display); font-weight: 400; font-size: var(--text-title-lg); line-height: 1.08; overflow-wrap: anywhere; }
 .tile-title a::after { content: ''; position: absolute; inset: 0; }
 .tile-title a:hover, .tile-title a:focus { text-decoration: none; }
@@ -257,7 +265,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 
 /* ---------- Cabecera de listados y 404 ---------- */
 .page-head { padding: var(--space-3-5) var(--gutter) 0; max-width: calc(var(--hero-body-max) + 2 * var(--gutter)); }
-.page-head h1 { font-family: var(--font-text); font-weight: 400; font-size: var(--text-hero-h1); line-height: var(--leading-hero); }
+.page-head h1, .page-head-title { font-family: var(--font-text); font-weight: 400; font-size: var(--text-hero-h1); line-height: var(--leading-hero); }
 .page-head .eyebrow { margin-bottom: var(--space-1); }
 .page-dek { margin-top: var(--space-1); max-width: var(--hero-dek-max); font-size: var(--text-hero-dek); line-height: var(--leading-dek); color: var(--text-secondary); }
 .page-head--404 { padding-top: var(--space-7); padding-bottom: var(--space-3); }
@@ -278,6 +286,12 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 .chip-cloud a:hover, .chip-cloud a:focus-visible { border-color: var(--text-tertiary); }
 .chip-cloud .count { color: var(--text-tertiary); margin-left: 0.35rem; font-size: var(--text-xs); }
+
+/* Solo para lectores de pantalla: el contexto que a la vista ya da el diseño ("3" junto a un tema = 3 artículos). */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
 
 /* ---------- Artículo: hero oscuro + franja de imagen + hoja blanca ---------- */
 .article-hero {
