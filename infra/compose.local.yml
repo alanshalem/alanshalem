@@ -1,0 +1,15 @@
+# Copia local de producción: el mismo docker-compose.yml del VPS (mismas imágenes, topes y volúmenes), con dos cambios
+# para tu PC: HTTP en http://localhost:8080 (sin TLS ni dominio) y un proyecto aparte. Desde infra/:
+#
+#   docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env up -d --build
+#
+# Los valores (puerto, contraseña del admin, token del builder) están en local.env.
+
+name: blog-local
+
+services:
+  caddy:
+    # Reemplaza los 80/443 del VPS: solo HTTP, y solo desde esta PC (127.0.0.1). SITE_ADDRESS=:80 (local.env) hace que
+    # Caddy atienda cualquier nombre por HTTP, sin pedir certificados.
+    ports: !override
+      - "127.0.0.1:${LOCAL_PORT}:80"

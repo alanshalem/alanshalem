@@ -1,0 +1,105 @@
+# Desarrollo con un solo comando, sin instalar .NET, Node ni ffmpeg (desde la raíz del repo):
+#
+#   docker compose -f infra/compose.dev.yml up --build
+#
+#   API (dotnet watch)  http://localhost:5090/api/health
+#   Admin (Vite)        http://localhost:5173/admin/      contraseña: admin
+#   Sitio (astro dev)   http://localhost:4321/
+#
+# El código se monta desde tu disco (recarga en vivo); node_modules, bin/obj, NuGet y los datos viven en volúmenes del
+# proyecto blog-dev, así no se pisan con los de Windows. Solo para tu PC: valores de prueba y puertos solo en 127.0.0.1.
+# Puertos ocupados: API_PORT, ADMIN_PORT y WEB_PORT cambian los del lado de tu PC (ver README).
+
+name: blog-dev
+
+# Token API ↔ sitio (Builder__Token allá, BUILDER_TOKEN acá): definido una vez.
+x-builder-token: &builder-token ${BUILDER_TOKEN:-local-only-builder-token-not-a-secret-0000}
+
+# Los tres servicios Node usan la misma imagen (Node + pnpm de package.json) y los mismos volúmenes.
+x-node: &node
+  build:
+    context: ..
+    dockerfile: apps/builder/Dockerfile
+    target: dev
+  image: blog-dev-node
+  volumes:
+    - ..:/repo
+    # Tapan los node_modules de Windows (enlaces y binarios que en Linux no sirven) y el caché de Astro.
+    - node_modules:/repo/node_modules
+    - admin_node_modules:/repo/apps/admin/node_modules
+    - web_node_modules:/repo/apps/web/node_modules
+    - markdown_node_modules:/repo/packages/markdown/node_modules
+    - astro_cache:/repo/apps/web/.astro
+
+services:
+  api:
+    build:
+      context: ../apps/api
+      target: dev
+    image: blog-dev-api
+    ports:
+      - "127.0.0.1:${API_PORT:-5090}:5090"
+      # El del admin también va acá: el admin comparte la red de este contenedor (ver admin).
+      - "127.0.0.1:${ADMIN_PORT:-5173}:5173"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      # Contraseña "admin". Otra: exportá ADMIN_PASSWORD_HASH (README, "Copia local de producción").
+      Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:-pbkdf2-sha256$$600000$$+7ihVRZYczkK6o+cjmJpBA==$$D83+jY2BckGSJHjiSJ8yYV8NHm6Uwc6+hVxfK4rGvzc=}
+      Builder__Token: *builder-token
+      # Datos fuera del código montado: SQLite sobre una carpeta de Windows es lenta y no debe mezclarse con la base de
+      # `dotnet run` (apps/api/src/Blog.Api/data).
+      ConnectionStrings__Blog: Data Source=/data/blog.db
+      Media__Directory: /data/media
+      Video__WorkDirectory: /data/video-work
+      DataProtection__KeysDirectory: /data/keys
+      # bin/ y obj/ de los proyectos van a un volumen, fuera del código montado (ahí están los de Windows).
+      ArtifactsPath: /artifacts
+      # Las carpetas de Windows montadas no avisan los cambios dentro del contenedor: se comparan cada tanto.
+      DOTNET_USE_POLLING_FILE_WATCHER: "1"
+    volumes:
+      - ../apps/api:/repo/apps/api
+      - api_artifacts:/artifacts
+      - nuget:/root/.nuget/packages
+      - api_data:/data
+
+  # Instala las dependencias una vez y termina; admin y sitio arrancan después. Si ya están, tarda segundos.
+  deps:
+    <<: *node
+    # El store va en el mismo volumen que node_modules: pnpm puede enlazar en vez de copiar, y sobrevive entre arranques.
+    command: pnpm install --frozen-lockfile --store-dir /repo/node_modules/.pnpm-store --filter "@blog/admin..." --filter "@blog/web..."
+    environment:
+      CI: "true" # sin terminal: que pnpm no pregunte antes de rehacer node_modules
+    restart: "no"
+
+  admin:
+    <<: *node
+    command: pnpm --filter @blog/admin dev --host 0.0.0.0
+    # vite.config.ts manda /api y /media a localhost:5090. Compartiendo la red de la API, ese localhost es la API.
+    network_mode: service:api
+    depends_on:
+      deps:
+        condition: service_completed_successfully
+
+  web:
+    <<: *node
+    command: pnpm --filter @blog/web dev --host 0.0.0.0
+    ports:
+      - "127.0.0.1:${WEB_PORT:-4321}:4321"
+    environment:
+      API_URL: http://api:5090
+      BUILDER_TOKEN: *builder-token
+    depends_on:
+      deps:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+
+volumes:
+  api_data: # SQLite, media subida, videos en proceso y claves de la cookie
+  api_artifacts:
+  nuget:
+  node_modules:
+  admin_node_modules:
+  web_node_modules:
+  markdown_node_modules:
+  astro_cache:

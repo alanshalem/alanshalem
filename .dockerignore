@@ -1,0 +1,23 @@
+# Contexto de build = raíz del monorepo (imagen de Caddy con el admin, imagen del builder y la base Node de desarrollo).
+# Lista blanca: solo entra lo que los Dockerfiles copian. Así el contexto pesa KB y no cientos de MB, ningún secreto ni
+# dato local (.env, SQLite, media) puede colarse en una imagen, y tocar algo ajeno (docs/, odd/, la API, que tiene su
+# propio contexto) no invalida la caché.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!tooling
+!packages
+!apps/admin
+!apps/web
+!apps/builder
+!infra/caddy/Caddyfile
+
+# Dentro de lo permitido, nada generado en tu PC (node_modules de Windows, builds) ni tests: las imágenes instalan y
+# compilan lo suyo.
+**/node_modules
+**/dist
+**/.astro
+**/test
+**/*.tsbuildinfo

@@ -30,7 +30,7 @@ servidor casi no trabaja en reposo y el sitio sigue vivo aunque la API se caiga.
 | `apps/web` | Astro 7, salida estática. Lee los posts de la API en build time. |
 | `apps/api` | .NET 10, Clean Architecture (Domain / Application / Infrastructure / Api), EF Core + SQLite. |
 | `apps/builder` | Servicio Node sin dependencias: recibe el pedido de build, genera el sitio y cambia `current` de forma atómica. |
-| `infra` | `docker-compose.yml`, `Caddyfile`, Dockerfile de Caddy (que también compila el admin). |
+| `infra` | `docker-compose.yml` (VPS), `compose.local.yml` + `local.env` (copia local), `compose.dev.yml` (desarrollo), `Caddyfile`, Dockerfile de Caddy (que también compila el admin). |
 
 ## Desarrollo local
 
@@ -52,6 +52,55 @@ pnpm dev:admin          # http://localhost:5173/admin/
 
 # Sitio público
 pnpm build:web
+```
+
+## Desarrollo con Docker
+
+Sin instalar .NET, Node ni ffmpeg: solo Docker. Desde la raíz del repo:
+
+```bash
+docker compose -f infra/compose.dev.yml up --build     # Ctrl+C para cortar; `down` para borrar los contenedores
+```
+
+| Qué | URL | Recarga en vivo |
+|---|---|---|
+| Admin (Vite) | http://localhost:5173/admin/ — contraseña `admin` | HMR al guardar |
+| Sitio (`astro dev`) | http://localhost:4321/ | recarga la página |
+| API (`dotnet watch`, Development) | http://localhost:5090/api/health | hot reload / reinicio |
+
+- El código se monta desde tu disco. `node_modules`, `bin/obj`, los paquetes NuGet y los datos (SQLite, media, videos
+  en proceso) viven en volúmenes del proyecto `blog-dev`: no se mezclan con los de Windows ni con la base de
+  `dotnet run`. `docker compose -f infra/compose.dev.yml down -v` los borra (base incluida).
+- El primer arranque baja dependencias (~1 min); los siguientes, ~20 s. Si cambia el `pnpm-lock.yaml`, el servicio
+  `deps` reinstala solo al volver a levantar.
+- Puertos ocupados (por ejemplo, porque también corrés los servidores sin Docker): cambiá los de tu PC con
+  `API_PORT`, `ADMIN_PORT` y `WEB_PORT`, por ejemplo `API_PORT=15090 ADMIN_PORT=15173 WEB_PORT=14321 docker compose -f infra/compose.dev.yml up`.
+  Los enlaces "Ver sitio" del admin siguen apuntando a `localhost:4321`.
+- Otra contraseña: generá un hash (ver abajo) y exportalo antes de levantar:
+  `export ADMIN_PASSWORD_HASH='pbkdf2-sha256$...'`. El token entre la API y el sitio (`BUILDER_TOKEN`) tiene un
+  valor de prueba por defecto; da igual cuál sea mientras tenga 32 caracteres o más.
+
+## Copia local de producción
+
+El mismo `docker-compose.yml` del VPS (mismas imágenes, topes de memoria y volúmenes: Caddy + API + builder, sitio
+estático, `/admin/`, `/media`) con un override para tu PC: HTTP sin TLS en http://localhost:8080 y valores de prueba en
+`infra/local.env` (solo para tu PC; nunca en el VPS). Desde `infra/`:
+
+```bash
+docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env up -d --build
+docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env logs -f builder   # primer build del sitio
+docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env down             # -v borra también los datos
+```
+
+http://localhost:8080/ → `/es/`; el admin en http://localhost:8080/admin/ con la contraseña `admin`. Si el 8080 está
+ocupado: `LOCAL_PORT=18080 docker compose ...` (también ajusta `SITE_URL`). Recién levantado, `/api` puede responder
+503 hasta ~30 s: Caddy espera el primer chequeo de salud de la API.
+
+Para cambiar la contraseña, generá el hash con la imagen de la API (ya construida por el `up --build`) y pegalo en
+`local.env` entre comillas simples:
+
+```bash
+docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env run --rm --no-deps api hash-password
 ```
 
 ## Deploy en el VPS
@@ -114,7 +163,7 @@ Esperá errores de compilación o de integración en el primer arranque; son esp
 
 ## Primer arranque: checklist
 
-1. `pnpm install` y commitear `pnpm-lock.yaml` (los Dockerfiles hoy usan `pnpm install` sin `--frozen-lockfile`).
+1. `pnpm install` y commitear `pnpm-lock.yaml` (los Dockerfiles instalan con `--frozen-lockfile`: sin un lockfile al día, el build falla).
 2. `pnpm typecheck && pnpm test`, y `dotnet test` en `apps/api`. Corregir lo que salga.
 3. Fuentes: Gloock y Hanken Grotesk salen de npm (`pnpm --filter @blog/web fonts`); las Pagella (TeX Gyre Pagella, GUST) ya están versionadas en `apps/web/public/fonts/` (ver `LICENSES.txt`).
 4. Probar `pnpm build:web` con la API corriendo.
