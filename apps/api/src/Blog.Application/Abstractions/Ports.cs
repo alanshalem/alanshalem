@@ -68,7 +68,10 @@ public interface IClock
     DateTime UtcNow { get; }
 }
 
-/// <summary>Avisa al "builder" que hay que regenerar el sitio estático. Nunca debe lanzar: un builder caído no rompe el guardado.</summary>
+/// <summary>
+/// Avisa al "builder" que hay que regenerar el sitio estático. Nunca debe lanzar: un builder caído no rompe el guardado.
+/// Tampoco pierde el pedido: si el builder no lo acepta, queda pendiente y se reintenta (lo resuelve Infrastructure).
+/// </summary>
 public interface ISiteBuildTrigger
 {
     Task RequestBuildAsync(CancellationToken cancellationToken);

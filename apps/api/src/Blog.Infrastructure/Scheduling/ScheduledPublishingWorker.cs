@@ -1,7 +1,6 @@
 using Blog.Application.Abstractions;
 using Blog.Application.Posts;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Blog.Infrastructure.Scheduling;
@@ -12,10 +11,14 @@ namespace Blog.Infrastructure.Scheduling;
 /// cuándo volver a mirar.
 /// </summary>
 internal sealed class ScheduledPublishingWorker(IServiceScopeFactory scopes, ILogger<ScheduledPublishingWorker> logger)
-    : BackgroundService
+    : PeriodicWorker(logger)
 {
     /// <summary>Un post sale a lo sumo esto después de su hora: sobra para un blog, y la consulta sobre los posts es barata.</summary>
     public static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
+
+    protected override TimeSpan Period => Interval;
+
+    protected override string Work => "la revisión de posts programados";
 
     /// <summary>
     /// Una revisión: publica cada vencido en su propio scope (si uno falla, se registra y se sigue con los demás; se
@@ -31,55 +34,39 @@ internal sealed class ScheduledPublishingWorker(IServiceScopeFactory scopes, ILo
         }
 
         var published = 0;
-        foreach (var id in due)
+        try
         {
-            try
+            foreach (var id in due)
             {
-                // Scope propio: un DbContext que quedó con un guardado fallido no arrastra a los posts siguientes.
-                await using var scope = scopes.CreateAsyncScope();
-                if (await scope.ServiceProvider.GetRequiredService<PostService>().PublishIfDueAsync(id, cancellationToken))
+                try
                 {
-                    published++;
-                    logger.LogInformation("Se publicó el post programado {PostId}.", id);
+                    // Scope propio: un DbContext que quedó con un guardado fallido no arrastra a los posts siguientes.
+                    await using var scope = scopes.CreateAsyncScope();
+                    if (await scope.ServiceProvider.GetRequiredService<PostService>().PublishIfDueAsync(id, cancellationToken))
+                    {
+                        published++;
+                        logger.LogInformation("Se publicó el post programado {PostId}.", id);
+                    }
+                }
+                catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    logger.LogError(exception, "No se pudo publicar el post programado {PostId}; se reintenta en la próxima revisión.", id);
                 }
             }
-            catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
-            {
-                logger.LogError(exception, "No se pudo publicar el post programado {PostId}; se reintenta en la próxima revisión.", id);
-            }
         }
-
-        if (published > 0)
+        finally
         {
-            await using var scope = scopes.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<ISiteBuildTrigger>().RequestBuildAsync(cancellationToken);
+            // También si la API se apaga a mitad de la tanda: los ya publicados dejan su rebuild pendiente (el trigger
+            // guarda la marca aunque el token esté cancelado) y se pide al volver a arrancar.
+            if (published > 0)
+            {
+                await using var scope = scopes.CreateAsyncScope();
+                await scope.ServiceProvider.GetRequiredService<ISiteBuildTrigger>().RequestBuildAsync(cancellationToken);
+            }
         }
 
         return published;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(Interval);
-        try
-        {
-            do
-            {
-                try
-                {
-                    await PublishDueAsync(stoppingToken);
-                }
-                catch (Exception exception) when (!stoppingToken.IsCancellationRequested)
-                {
-                    // Por ejemplo, la base no responde. Si la excepción saliera de acá, .NET detendría la API entera.
-                    logger.LogError(exception, "Falló la revisión de posts programados; se reintenta en {Interval}.", Interval);
-                }
-            }
-            while (await timer.WaitForNextTickAsync(stoppingToken));
-        }
-        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-        {
-            // La API se está apagando.
-        }
-    }
+    protected override Task RunOnceAsync(CancellationToken cancellationToken) => PublishDueAsync(cancellationToken);
 }

@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using Blog.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -14,23 +13,35 @@ public sealed class BuilderOptions
     public string Token { get; set; } = string.Empty;
 }
 
+/// <summary>El envío de un pedido de regeneración al builder. No guarda nada: de no perderlo se ocupa <see cref="DurableSiteBuildTrigger"/>.</summary>
+internal interface IBuildRequestSender
+{
+    /// <summary>Nunca lanza: un builder caído, lento o que responde con error es false.</summary>
+    /// <returns>Si el builder aceptó el pedido.</returns>
+    Task<bool> SendAsync(CancellationToken cancellationToken);
+}
+
 /// <summary>
 /// Le pide al builder que regenere el sitio. El builder responde 202 enseguida y construye en segundo plano,
-/// y junta varios pedidos seguidos en una sola construcción. Si no responde, solo se registra un warning:
-/// el contenido ya está guardado y el próximo cambio (o un reintento manual) lo publicará.
+/// y junta varios pedidos seguidos en una sola construcción. Si no responde o responde con error, se registra un
+/// warning y se informa que no lo aceptó: el pedido queda pendiente y se reintenta.
 /// </summary>
 internal sealed class HttpSiteBuildTrigger(
     HttpClient http,
     IOptions<BuilderOptions> options,
-    ILogger<HttpSiteBuildTrigger> logger) : ISiteBuildTrigger
+    ILogger<HttpSiteBuildTrigger> logger) : IBuildRequestSender
 {
-    public async Task RequestBuildAsync(CancellationToken cancellationToken)
+    /// <summary>Corto: guardar un post no debe quedarse esperando a un builder que no responde (se reintenta después).</summary>
+    public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
+
+    public async Task<bool> SendAsync(CancellationToken cancellationToken)
     {
         var settings = options.Value;
         if (string.IsNullOrWhiteSpace(settings.Url))
         {
+            // Sin builder (desarrollo) no hay nadie que pueda aceptarlo nunca: se da por hecho para no reintentar en vano.
             logger.LogWarning("Builder:Url no está configurado; el sitio no se regenera.");
-            return;
+            return true;
         }
 
         try
@@ -43,10 +54,14 @@ internal sealed class HttpSiteBuildTrigger(
             {
                 logger.LogWarning("El builder respondió {StatusCode} al pedir una regeneración.", (int)response.StatusCode);
             }
+
+            return response.IsSuccessStatusCode;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
+            // TaskCanceledException: se pasó del timeout, o la API se está apagando.
             logger.LogWarning(exception, "No se pudo contactar al builder.");
+            return false;
         }
     }
 }

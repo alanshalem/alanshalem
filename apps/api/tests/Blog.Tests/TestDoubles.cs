@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Blog.Application.Abstractions;
 using Blog.Domain;
+using Blog.Infrastructure.Build;
 using Microsoft.Extensions.Logging;
 
 namespace Blog.Tests;
@@ -18,6 +19,25 @@ internal sealed class CountingBuildTrigger : ISiteBuildTrigger
     {
         Requests++;
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// El builder simulado: cuenta los envíos y acepta o rechaza según <see cref="Accepts"/>. Con el token cancelado
+/// nunca acepta, como el envío HTTP real (el pedido no llega a salir).
+/// </summary>
+internal sealed class FakeBuildRequestSender : IBuildRequestSender
+{
+    private int _requests;
+
+    public bool Accepts { get; set; }
+
+    public int Requests => Volatile.Read(ref _requests);
+
+    public Task<bool> SendAsync(CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref _requests);
+        return Task.FromResult(Accepts && !cancellationToken.IsCancellationRequested);
     }
 }
 

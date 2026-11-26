@@ -43,8 +43,12 @@ public static class DependencyInjection
         // Publicación programada: saca PostService (Application) del contenedor, como el worker de videos.
         services.AddHostedService<ScheduledPublishingWorker>();
 
-        // Timeout corto: guardar un post no debe quedarse esperando a un builder que no responde.
-        services.AddHttpClient<ISiteBuildTrigger, HttpSiteBuildTrigger>(client => client.Timeout = TimeSpan.FromSeconds(5));
+        // Regeneración del sitio: todos los casos de uso y la publicación programada piden por el trigger durable (marca
+        // en la base + envío HTTP); el worker reintenta la marca que el builder no aceptó.
+        services.AddScoped<DurableSiteBuildTrigger>();
+        services.AddScoped<ISiteBuildTrigger>(provider => provider.GetRequiredService<DurableSiteBuildTrigger>());
+        services.AddHostedService<SiteRebuildWorker>();
+        services.AddHttpClient<IBuildRequestSender, HttpSiteBuildTrigger>(client => client.Timeout = HttpSiteBuildTrigger.RequestTimeout);
 
         return services;
     }

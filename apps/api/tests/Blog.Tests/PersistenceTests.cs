@@ -7,6 +7,7 @@ using Blog.Application.Settings;
 using Blog.Application.Videos;
 using Blog.Domain;
 using Blog.Infrastructure;
+using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Persistence;
 using Blog.Infrastructure.Scheduling;
 using Blog.Infrastructure.Videos;
@@ -79,6 +80,9 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
 
     /// <summary>El que publica los posts programados, tal como lo registra AddInfrastructure (sin arrancar).</summary>
     public ScheduledPublishingWorker SchedulerWorker => Services.GetServices<IHostedService>().OfType<ScheduledPublishingWorker>().Single();
+
+    /// <summary>El que reintenta el rebuild pendiente, tal como lo registra AddInfrastructure (sin arrancar).</summary>
+    public SiteRebuildWorker RebuildWorker => Services.GetServices<IHostedService>().OfType<SiteRebuildWorker>().Single();
 
     public CountingBuildTrigger Build { get; } = new();
 

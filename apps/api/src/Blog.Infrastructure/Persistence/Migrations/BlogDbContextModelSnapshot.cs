@@ -352,6 +352,25 @@ namespace Blog.Infrastructure.Persistence.Migrations
                     b.ToTable("video_assets", (string)null);
                 });
 
+            modelBuilder.Entity("Blog.Infrastructure.Build.SiteBuildState", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("PendingRequestId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("site_build_state", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1
+                        });
+                });
+
             modelBuilder.Entity("Blog.Domain.HeroImage", b =>
                 {
                     b.HasOne("Blog.Domain.MediaAsset", "Media")
