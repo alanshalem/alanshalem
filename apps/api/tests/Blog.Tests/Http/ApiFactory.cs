@@ -1,9 +1,13 @@
+using System.Net;
 using Blog.Application.Abstractions;
 using Blog.Infrastructure.Security;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Blog.Tests.Http;
 
@@ -21,6 +25,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public const string CsrfHeader = "X-Requested-With";
     public const string CsrfValue = "blog-admin";
 
+    /// <summary>
+    /// Solo en las pruebas: la IP desde la que "llega" la conexión (TestServer no tiene una). La pone un middleware que
+    /// corre antes que todo Program.cs, como si fuera la IP real del socket.
+    /// </summary>
+    public const string RemoteIpHeader = "X-Test-Remote-Ip";
+
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "blog-http-tests-" + Guid.NewGuid().ToString("N"));
     private WebApplicationFactory<Program>? _development;
     private HttpClient? _admin;
@@ -34,6 +44,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     internal CountingBuildTrigger Build { get; } = new();
 
     internal FakeVideoTranscoder Transcoder { get; } = new();
+
+    /// <summary>Todo lo que registra la API (también la de <see cref="Development"/> y las derivadas).</summary>
+    internal CapturingLoggerProvider Logs { get; } = new();
 
     /// <summary>La misma API (misma configuración y carpetas) en Development, donde sirve /media.</summary>
     public WebApplicationFactory<Program> Development =>
@@ -106,12 +119,32 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Builder:Token", BuilderToken);
         builder.UseSetting("Builder:Url", string.Empty);
 
+        builder.ConfigureLogging(logging => logging.AddProvider(Logs));
         builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<ISiteBuildTrigger>(Build);
             services.AddSingleton<IVideoTranscoder>(Transcoder);
+            services.AddSingleton<IStartupFilter, RemoteIpFromHeader>();
         });
     }
+}
+
+/// <summary>Pone como IP de la conexión la de <see cref="ApiFactory.RemoteIpHeader"/>, antes que cualquier middleware de la API.</summary>
+internal sealed class RemoteIpFromHeader : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+    {
+        app.Use((context, nextMiddleware) =>
+        {
+            if (IPAddress.TryParse(context.Request.Headers[ApiFactory.RemoteIpHeader], out var address))
+            {
+                context.Connection.RemoteIpAddress = address;
+            }
+
+            return nextMiddleware(context);
+        });
+        next(app);
+    };
 }
 
 /// <summary>Todas las pruebas HTTP comparten una sola API (arrancarla cuesta) y corren una por vez.</summary>

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
 using Blog.Api.Cli;
 using Blog.Api.Endpoints;
 using Blog.Api.Http;
@@ -13,13 +12,12 @@ using Blog.Application.Videos;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Blog.Infrastructure.Security;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 
 // Modos de línea de comandos (hash-password, healthcheck, backup): corren y terminan sin levantar la API.
-if (await CommandLine.RunAsync(args, Console.In, Console.Out, Console.Error) is { } exitCode)
+var readHiddenKey = Console.IsInputRedirected ? null : new Func<ConsoleKeyInfo>(() => Console.ReadKey(intercept: true));
+if (await CommandLine.RunAsync(args, Console.In, Console.Out, Console.Error, readHiddenKey) is { } exitCode)
 {
     return exitCode;
 }
@@ -33,7 +31,7 @@ builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 
 builder.Services
     .AddOptions<AdminOptions>()
     .Bind(builder.Configuration.GetSection("Admin"))
-    .Validate(options => options.PasswordHash.StartsWith("pbkdf2-sha256$", StringComparison.Ordinal),
+    .Validate(options => Pbkdf2PasswordHasher.IsHash(options.PasswordHash),
         "Admin:PasswordHash falta o no es un hash válido (generalo con el comando hash-password).")
     .ValidateOnStart();
 
@@ -65,14 +63,8 @@ builder.Services.AddOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>().Config
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = LocalizedProblems.Localize);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
-// La API solo es alcanzable desde Caddy (red interna de Docker), así que se confía en sus cabeceras X-Forwarded-*.
-// Sin esto, el rate limit vería siempre la IP de Caddy y bloquearía a todos juntos.
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
-});
+// X-Forwarded-* solo se cree si viene de Caddy (redes de Docker, configurables): la IP del rate limit y de los logs.
+builder.Services.AddTrustedProxies(builder.Configuration);
 
 // ---------- Autenticación: cookie de sesión de un único usuario ----------
 // Las claves que cifran la cookie se guardan en disco: si no, cada redeploy cerraría la sesión.
@@ -82,44 +74,11 @@ if (builder.Configuration["DataProtection:KeysDirectory"] is { Length: > 0 } key
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysDirectory));
 }
 
-builder.Services
-    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.Cookie.Name = "__Host-admin"; // el prefijo __Host- obliga a Secure + Path=/ y prohíbe Domain
-        options.Cookie.HttpOnly = true; // JavaScript no puede leerla (mitiga robo por XSS)
-        options.Cookie.SameSite = SameSiteMode.Strict; // no viaja en peticiones iniciadas desde otros sitios
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.ExpireTimeSpan = TimeSpan.FromHours(12);
-        options.SlidingExpiration = false;
+// Cookie __Host-admin con la época de sesiones: cerrar sesión invalida toda cookie emitida (AdminSession).
+builder.Services.AddAdminSession();
 
-        // Es una API: sin sesión se responde 401/403, no se redirige a una página de login.
-        options.Events.OnRedirectToLogin = context =>
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return Task.CompletedTask;
-        };
-        options.Events.OnRedirectToAccessDenied = context =>
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            return Task.CompletedTask;
-        };
-    });
-builder.Services.AddAuthorization();
-
-// ---------- Anti fuerza bruta en el login: 10 intentos cada 15 minutos por IP ----------
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy("login", httpContext => RateLimitPartition.GetFixedWindowLimiter(
-        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 10,
-            Window = TimeSpan.FromMinutes(15),
-            QueueLimit = 0,
-        }));
-});
+// Anti fuerza bruta: 10 intentos de login cada 15 minutos por IP (LoginRateLimit).
+builder.Services.AddLoginRateLimit();
 
 var app = builder.Build();
 

@@ -526,6 +526,25 @@ public class MigrationTests
         Assert.DoesNotContain("CreditEn", await database.ListAsync("SELECT name FROM pragma_table_info('hero_images')"));
     }
 
+    [Fact]
+    public async Task Upgrading_from_remove_name_en_adds_the_session_epoch_row_at_zero_and_keeps_the_posts()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InScopeAsync(async provider =>
+        {
+            var db = provider.GetRequiredService<BlogDbContext>();
+            await db.GetService<IMigrator>().MigrateAsync("RemoveNameEnAndCreditEn");
+            return true;
+        });
+        var post = await database.WithPostsAsync(posts => posts.CreateAsync(new SavePostRequest("Antes", null, null, "x", null), default));
+
+        await database.InitializeAsync();
+
+        // Una sola fila, en la época 0: las cookies emitidas antes no la traen y no entran (hay que volver a iniciar sesión).
+        Assert.Equal(["1:0"], await database.ListAsync("SELECT Id || ':' || Epoch FROM admin_session"));
+        Assert.Equal(post.Id, (await database.WithPostsAsync(posts => posts.GetAsync(post.Id, default))).Id);
+    }
+
     private static Task<IReadOnlyList<string>> SettingsColumnsAsync(SqliteTestDatabase database) =>
         database.ListAsync("SELECT name FROM pragma_table_info('site_settings')");
 

@@ -363,6 +363,26 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Blog.Infrastructure.Security.AdminSessionState", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Epoch")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("admin_session", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Epoch = 0
+                        });
+                });
+
             modelBuilder.Entity("Blog.Domain.HeroImage", b =>
                 {
                     b.HasOne("Blog.Domain.MediaAsset", "Media")

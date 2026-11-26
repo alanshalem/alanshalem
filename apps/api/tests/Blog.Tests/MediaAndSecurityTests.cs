@@ -42,6 +42,14 @@ public class Pbkdf2PasswordHasherTests
     // Pocas iteraciones: acá se prueba la lógica, no la fuerza (que son 600.000 en producción).
     private const int FastIterations = 1_000;
 
+    [Theory]
+    [InlineData("", false)]
+    [InlineData("bcrypt$10$abc", false)]
+    [InlineData("pbkdf2-sha256", false)]
+    [InlineData("pbkdf2-sha256$1000$c2FsdA==$aGFzaA==", true)]
+    public void IsHash_recognizes_the_stored_format_that_the_api_requires_to_start(string stored, bool expected) =>
+        Assert.Equal(expected, Pbkdf2PasswordHasher.IsHash(stored));
+
     [Fact]
     public void Verify_accepts_the_right_password_and_rejects_a_wrong_one()
     {

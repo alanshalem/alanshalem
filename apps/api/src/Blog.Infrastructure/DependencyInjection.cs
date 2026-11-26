@@ -3,6 +3,7 @@ using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Media;
 using Blog.Infrastructure.Persistence;
 using Blog.Infrastructure.Scheduling;
+using Blog.Infrastructure.Security;
 using Blog.Infrastructure.Videos;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -34,6 +35,9 @@ public static class DependencyInjection
         services.AddScoped<IHeroImageRepository, HeroImageRepository>();
         services.AddScoped<IVideoAssetRepository, VideoAssetRepository>();
         services.AddSingleton<IClock, SystemClock>();
+
+        // Singleton: guarda en memoria la época de las sesiones, que se consulta en cada pedido con sesión.
+        services.AddSingleton<AdminSessionEpoch>();
         services.AddSingleton<IMediaStorage, DiskMediaStorage>();
 
         // Singleton: su semáforo es el que garantiza que se procese una sola imagen a la vez en todo el proceso.

@@ -14,6 +14,9 @@ public static class Pbkdf2PasswordHasher
     private const int SaltSize = 16;
     private const int HashSize = 32;
 
+    /// <summary>Si tiene la forma de un hash de este formato (para validar la configuración al arrancar).</summary>
+    public static bool IsHash(string stored) => stored.StartsWith(Prefix + "$", StringComparison.Ordinal);
+
     public static string Hash(string password, int iterations = DefaultIterations)
     {
         var salt = RandomNumberGenerator.GetBytes(SaltSize);
