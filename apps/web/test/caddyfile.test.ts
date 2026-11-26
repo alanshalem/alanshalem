@@ -143,3 +143,8 @@ test('404 según el idioma de la URL: /en/… → /en/404.html, /es/… → /es/
   assert.ok(notFound.includes('root * /srv/site/current'));
   assert.match(block('handle @notfound {'), /file_server \{\s*precompressed br gzip\s*\}/);
 });
+
+test('/media no sirve la carpeta temporal del restore', () => {
+  // restore.sh prepara los archivos en /media/.restoring antes de cambiarlos de lugar: nunca tiene que verse.
+  assert.match(block('handle_path /media/* {'), /file_server \{\s*hide \.restoring\s*\}/);
+});

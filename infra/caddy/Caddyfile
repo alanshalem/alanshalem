@@ -99,7 +99,10 @@
 		# El RSS lleva el cuerpo de los posts con sus imágenes: los lectores web (Feedly, Inoreader) las cargan desde su
 		# propio origen, y con el same-origin del snippet de seguridad el navegador las bloquearía.
 		header Cross-Origin-Resource-Policy "cross-origin"
-		file_server
+		# restore.sh deja los archivos nuevos en .restoring hasta cambiarlos de lugar: nunca se sirven.
+		file_server {
+			hide .restoring
+		}
 	}
 
 	# ---------- Raíz: idioma preferido del navegador ----------
@@ -137,7 +140,7 @@
 	handle_errors {
 		import security
 		header Cache-Control "no-store"
-		# Página 404 del sitio en el idioma de la URL (L13): Astro genera /es/404.html y /en/404.html (todo en ese idioma)
+		# Página 404 del sitio en el idioma de la URL: Astro genera /es/404.html y /en/404.html (todo en ese idioma)
 		# y /404.html, bilingüe, para lo que no tiene prefijo. Las rewrite de un bloque son excluyentes y Caddy prueba las
 		# de ruta antes que la de `*`: esa es el resto. El código de estado sigue siendo 404.
 		@notfound expression {err.status_code} == 404

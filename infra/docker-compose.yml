@@ -95,10 +95,11 @@ services:
       - site:/srv/site:ro
       - media:/srv/media:ro
     depends_on:
-      # Espera a la API para no responder 503 en /api los primeros segundos, pero required: false — si la API no
-      # arranca, Caddy igual sirve el sitio estático (los visitantes nunca dependen de la API).
+      # Solo que la API haya arrancado, no que esté sana: esperar su healthcheck dejaba el sitio estático caído durante
+      # todo el start_period de una API rota. Mientras la API no responde, /api da error (502/503: el health check de
+      # Caddy la saca) y el sitio se sirve igual. required: false: si la API ni siquiera arranca, Caddy arranca igual.
       api:
-        condition: service_healthy
+        condition: service_started
         required: false
     # Medido con docker stats: ~26 MB sirviendo la copia local.
     mem_limit: 128m
@@ -133,7 +134,7 @@ services:
     pids_limit: 512
     healthcheck:
       <<: *healthcheck
-      # Modo de línea de comando de la propia API (L10): pide /api/health/ready (SQLite responde). La imagen no trae curl.
+      # Modo de línea de comando de la propia API: pide /api/health/ready (SQLite responde). La imagen no trae curl.
       test: ["CMD", "dotnet", "Blog.Api.dll", "healthcheck"]
     volumes:
       - api_data:/data
@@ -177,6 +178,10 @@ services:
     # docker stats: ~52 MB en reposo, ~254 MB en el pico de un build del sitio con un post.
     mem_limit: 1g
     cpus: 1.0
+    # Procesos e hilos, medido con /sys/fs/cgroup/pids.peak durante un `astro build` real de la copia local (un post
+    # con imagen y un video): 29 en el pico, 11-19 en reposo. Node dimensiona sus hilos por el tope de cpus (ve 1 CPU
+    # aunque el host tenga 20), así que un VPS con más núcleos no los multiplica: 128 deja más de 4 veces de margen.
+    pids_limit: 128
 
 volumes:
   api_data: # base SQLite, claves de la cookie de sesión, videos en proceso, temporales y backups en curso

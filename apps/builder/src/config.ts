@@ -17,10 +17,6 @@ export interface BuilderConfig {
 const MIN_TOKEN_LENGTH = 32;
 const DEFAULT_PORT = 4000;
 
-/** URL del propio servicio desde su contenedor, para los scripts que le hablan (healthcheck, pedir un build). */
-export const localUrl = (path: string, env: NodeJS.ProcessEnv = process.env): string =>
-  `http://127.0.0.1:${env.PORT || DEFAULT_PORT}${path}`;
-
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
   if (!value) throw new Error(`Falta la variable de entorno ${name}.`);
@@ -35,6 +31,13 @@ function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): nu
   return value;
 }
 
+/** El puerto del servicio: lo usan el servidor y los scripts que le hablan, así que se valida en un solo lugar. */
+const portOf = (env: NodeJS.ProcessEnv): number => positiveInt(env, 'PORT', DEFAULT_PORT);
+
+/** URL del propio servicio desde su contenedor, para los scripts que le hablan (healthcheck, pedir un build). */
+export const localUrl = (path: string, env: NodeJS.ProcessEnv = process.env): string =>
+  `http://127.0.0.1:${portOf(env)}${path}`;
+
 /** Lee la configuración del entorno. Falla al arrancar si falta algo, no a mitad de un build. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): BuilderConfig {
   const token = required(env, 'BUILDER_TOKEN');
@@ -43,7 +46,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BuilderConfig 
   }
 
   return {
-    port: positiveInt(env, 'PORT', DEFAULT_PORT),
+    port: portOf(env),
     token,
     siteDir: required(env, 'SITE_DIR'),
     webDir: required(env, 'WEB_DIR'),

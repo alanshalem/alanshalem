@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import { brotliDecompressSync, gunzipSync } from 'node:zlib';
 import { isAuthorized } from '../src/auth.ts';
 import { precompressSite } from '../src/compress.ts';
-import { loadConfig } from '../src/config.ts';
+import { loadConfig, localUrl } from '../src/config.ts';
 import { BuildQueue } from '../src/queue.ts';
 import { activateRelease, activeReleaseName, createReleaseDir, pruneReleases } from '../src/releases.ts';
 
@@ -71,6 +71,18 @@ describe('loadConfig', () => {
   it('falla con números inválidos en vez de usar NaN', () => {
     assert.throws(() => loadConfig({ ...base, PORT: 'abc' }), /PORT/);
     assert.throws(() => loadConfig({ ...base, KEEP_RELEASES: '0' }), /KEEP_RELEASES/);
+  });
+});
+
+describe('localUrl', () => {
+  it('usa el PORT del entorno, o el de siempre si no hay', () => {
+    assert.equal(localUrl('/health', { PORT: '4100' }), 'http://127.0.0.1:4100/health');
+    assert.equal(localUrl('/build', {}), 'http://127.0.0.1:4000/build');
+  });
+
+  it('valida PORT igual que loadConfig: un valor inválido falla en vez de armar una URL rota', () => {
+    assert.throws(() => localUrl('/health', { PORT: 'abc' }), /PORT debe ser un entero positivo \(recibido: "abc"\)/);
+    assert.throws(() => localUrl('/health', { PORT: '0' }), /PORT/);
   });
 });
 

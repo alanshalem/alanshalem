@@ -54,6 +54,10 @@ describe('docker-compose.yml (VPS)', () => {
     assert.match(common, /pids_limit: \d+/);
   });
 
+  it('API y builder con su propio tope de procesos, medido (no el común)', () => {
+    for (const name of ['api', 'builder']) assert.match(service(prod, name), /^\s+pids_limit: \d+$/m, name);
+  });
+
   it('cada servicio agrega solo las capacidades que necesita', () => {
     const capAdd = (name: string): string[] => {
       const text = service(prod, name);
@@ -88,7 +92,7 @@ describe('docker-compose.yml (VPS)', () => {
     assert.match(init, /find \/site \\\( ! -user 1000 -o ! -group 1000 \\\) -exec chown -h 1000:1000 \{\} \+/);
   });
 
-  it('healthchecks reales: la API con su modo healthcheck (L10) y el builder con su script, sin curl', () => {
+  it('healthchecks reales: la API con su modo de línea de comando healthcheck y el builder con su script, sin curl', () => {
     assert.match(service(prod, 'api'), /test: \["CMD", "dotnet", "Blog\.Api\.dll", "healthcheck"\]/);
     assert.match(service(prod, 'builder'), /test: \["CMD", "node", "src\/healthcheck\.ts"\]/);
     assert.ok(exists('apps/builder/src/healthcheck.ts'));
@@ -99,9 +103,9 @@ describe('docker-compose.yml (VPS)', () => {
     assert.match(block(prod, 'x-healthcheck'), /start_period: \d+s\n\s+start_interval: 2s/);
   });
 
-  it('el builder espera a la API sana; Caddy también, pero arranca igual si la API no (el sitio no depende de ella)', () => {
+  it('el builder espera a la API sana; Caddy solo a que arranque (una API que no da sano no deja sin sitio)', () => {
     assert.match(block(service(prod, 'builder'), 'depends_on', 4), /api:\n\s+condition: service_healthy$/m);
-    assert.match(block(service(prod, 'caddy'), 'depends_on', 4), /api:\n\s+condition: service_healthy\n\s+required: false/);
+    assert.match(block(service(prod, 'caddy'), 'depends_on', 4), /^\s+api:\n\s+condition: service_started\n\s+required: false$/);
   });
 
   it('logs de la API en JSON', () => {
