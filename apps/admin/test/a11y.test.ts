@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
+import { gridIndex } from '../src/components/rovingGrid.ts';
 import { editorActions, toolbarLabels } from '../src/editor/actions.ts';
 import { rovingIndex } from '../src/editor/roving.ts';
 import { ariaKeyShortcut, rememberKey, tabLeavesEditor, type KeyLike } from '../src/editor/shortcuts.ts';
@@ -77,6 +78,44 @@ describe('barra del editor: una sola parada de Tab (tabindex móvil) con flechas
   });
 });
 
+describe('grilla de miniaturas del hero: una parada de Tab y flechas en dos dimensiones (U7)', () => {
+  // 7 miniaturas en 3 columnas:  0 1 2 / 3 4 5 / 6
+  it('izquierda, derecha, Inicio y Fin: igual que la barra del editor (roving.ts)', () => {
+    for (const [k, from] of [['ArrowRight', 2], ['ArrowRight', 6], ['ArrowLeft', 0], ['Home', 4], ['End', 1]] as const) {
+      assert.equal(gridIndex(key(k), from, 7, 3), rovingIndex(key(k), from, 7), `${k} desde ${from}`);
+    }
+  });
+
+  it('abajo y arriba saltan una fila', () => {
+    assert.equal(gridIndex(key('ArrowDown'), 1, 7, 3), 4);
+    assert.equal(gridIndex(key('ArrowUp'), 4, 7, 3), 1);
+  });
+
+  it('abajo hacia una fila incompleta va a la última miniatura', () => {
+    assert.equal(gridIndex(key('ArrowDown'), 5, 7, 3), 6);
+    assert.equal(gridIndex(key('ArrowDown'), 3, 7, 3), 6);
+  });
+
+  it('en el borde de arriba o de abajo se queda (la tecla igual se consume: no scrollea la página)', () => {
+    assert.equal(gridIndex(key('ArrowUp'), 2, 7, 3), 2);
+    assert.equal(gridIndex(key('ArrowDown'), 6, 7, 3), 6);
+    assert.equal(gridIndex(key('ArrowDown'), 4, 6, 3), 4);
+  });
+
+  it('una sola columna (pantalla angosta): abajo y arriba van de a uno', () => {
+    assert.equal(gridIndex(key('ArrowDown'), 0, 3, 1), 1);
+    assert.equal(gridIndex(key('ArrowUp'), 2, 3, 1), 1);
+    assert.equal(gridIndex(key('ArrowDown'), 0, 3, 0), 1);
+  });
+
+  it('otras teclas, modificadores o sin miniaturas: no se toca', () => {
+    assert.equal(gridIndex(key('Enter'), 1, 7, 3), null);
+    assert.equal(gridIndex(key('ArrowDown', { ctrlKey: true }), 1, 7, 3), null);
+    assert.equal(gridIndex(key('ArrowUp', { altKey: true }), 4, 7, 3), null);
+    assert.equal(gridIndex(key('ArrowDown'), 0, 0, 3), null);
+  });
+});
+
 describe('WCAG 2.1.2: Esc y después Tab sale del editor (aunque el cursor esté en una lista)', () => {
   it('Tab o Shift+Tab justo después de Esc deja el foco salir', () => {
     assert.equal(tabLeavesEditor(key('Tab'), 'Escape'), true);
@@ -136,32 +175,58 @@ describe('WCAG 2.4.2: un título de documento distinto por vista', () => {
   });
 });
 
+/* Contraste calculado con los tokens reales (tokens.css + admin.css). */
+const css = ['../../../packages/tokens/src/tokens.css', '../src/admin.css']
+  .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
+  .join('\n');
+const variables = new Map<string, string>();
+for (const [, name = '', value = ''] of css.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
+  if (!variables.has(name)) variables.set(name, value.trim());
+}
+const resolve = (value: string): string => {
+  const reference = /^var\((--[\w-]+)\)$/.exec(value.trim());
+  return reference?.[1] ? resolve(variables.get(reference[1]) ?? '') : value.trim();
+};
+const luminance = (hex: string): number => {
+  const full = hex.length === 4 ? `#${[...hex.slice(1)].map((c) => c + c).join('')}` : hex;
+  const [r = 0, g = 0, b = 0] = [1, 3, 5].map((i) => {
+    const channel = parseInt(full.slice(i, i + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: string, b: string): number => {
+  const [high, low] = [luminance(resolve(a)), luminance(resolve(b))].sort((x, y) => y - x) as [number, number];
+  return (high + 0.05) / (low + 0.05);
+};
+/** Las declaraciones de una regla de admin.css por su selector exacto (`.hero-tile-mark`). */
+const declarations = (selector: string): Map<string, string> => {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const body = new RegExp(`(?:^|\\n)${escaped} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
+  return new Map([...body.matchAll(/([\w-]+):\s*([^;]+);/g)].map(([, property = '', value = '']) => [property, value.trim()]));
+};
+
+/* WCAG 1.4.3: las marcas de las miniaturas del hero van sobre la foto, así que llevan fondo sólido propio. */
+describe('WCAG 1.4.3: marcas sobre las miniaturas del hero ≥ 4,5:1 (fondo sólido, no la foto)', () => {
+  const base = declarations('.hero-tile-mark');
+
+  it('el fondo de las marcas es un color sólido de los tokens', () => {
+    assert.match(base.get('background') ?? '', /^var\(--[\w-]+\)$/);
+    assert.match(resolve(base.get('background') ?? ''), /^#[0-9a-f]{3,6}$/i);
+  });
+
+  for (const selector of ['.hero-tile-mark', '.hero-tile-mark-warning']) {
+    it(`${selector}: texto contra el fondo de la marca`, () => {
+      const color = declarations(selector).get('color') ?? '';
+      assert.notEqual(color, '', `${selector} sin color`);
+      const ratio = contrast(color, base.get('background') ?? '');
+      assert.ok(ratio >= 4.5, `${ratio.toFixed(2)}:1`);
+    });
+  }
+});
+
 /* WCAG 1.4.11: los bordes de los campos se calculan con los tokens reales (tokens.css + admin.css). */
 describe('WCAG 1.4.11: bordes de input/select/textarea ≥ 3:1', () => {
-  const css = ['../../../packages/tokens/src/tokens.css', '../src/admin.css']
-    .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
-    .join('\n');
-  const variables = new Map<string, string>();
-  for (const [, name = '', value = ''] of css.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-    if (!variables.has(name)) variables.set(name, value.trim());
-  }
-  const resolve = (value: string): string => {
-    const reference = /^var\((--[\w-]+)\)$/.exec(value.trim());
-    return reference?.[1] ? resolve(variables.get(reference[1]) ?? '') : value.trim();
-  };
-  const luminance = (hex: string): number => {
-    const full = hex.length === 4 ? `#${[...hex.slice(1)].map((c) => c + c).join('')}` : hex;
-    const [r = 0, g = 0, b = 0] = [1, 3, 5].map((i) => {
-      const channel = parseInt(full.slice(i, i + 2), 16) / 255;
-      return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  };
-  const contrast = (a: string, b: string): number => {
-    const [high, low] = [luminance(resolve(a)), luminance(resolve(b))].sort((x, y) => y - x) as [number, number];
-    return (high + 0.05) / (low + 0.05);
-  };
-
   it('la regla de los campos usa --field-border', () => {
     const rule = /input:not\(\[type='file'\]\), textarea, select \{[^}]*\}/.exec(css)?.[0] ?? '';
     assert.match(rule, /border: var\(--border-hairline\) solid var\(--field-border\)/);

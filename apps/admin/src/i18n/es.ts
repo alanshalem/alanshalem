@@ -336,7 +336,6 @@ export const es = {
   'hero.empty':
     'Todavía no hay fotos ni videos: la home usa la foto por defecto del sitio si existe; si no, un hero tipográfico ' +
     'oscuro.',
-  'hero.savedTitle': 'N.º {n}',
   'hero.saveChanges': 'Guardar cambios',
   'hero.discard': 'Descartar',
   'hero.delete': 'Eliminar',
@@ -375,6 +374,27 @@ export const es = {
   'hero.notLandscape': 'Formato vertical o cuadrado ({received}): el hero necesita uno horizontal. Ideal: {ideal} (16:9).',
   'hero.tooSmall': 'Tamaño insuficiente ({received}): el mínimo es {min}. Ideal: {ideal} o más.',
   'hero.belowIdeal': 'Mide {received}, menos que lo ideal ({ideal}): puede perder nitidez en pantallas grandes.',
+  // Grilla de miniaturas y panel lateral (U7)
+  'hero.count.photos.one': '{count} foto',
+  'hero.count.photos.other': '{count} fotos',
+  'hero.count.videos.one': '{count} video',
+  'hero.count.videos.other': '{count} videos',
+  'hero.showing': 'se ven {shown}',
+  'hero.filterLabel': 'Filtrar',
+  'hero.filter.all': 'Todas',
+  'hero.filter.photo': 'Fotos',
+  'hero.filter.video': 'Videos',
+  'hero.filter.missingEn': 'Sin inglés',
+  'hero.filterEmpty.photo': 'No hay fotos.',
+  'hero.filterEmpty.video': 'No hay videos.',
+  'hero.filterEmpty.missingEn': 'Todas tienen su texto alternativo en inglés.',
+  'hero.gridHelp': 'Con las flechas te movés entre las miniaturas; Enter abre la edición.',
+  'hero.tileName': '{n}. {alt}',
+  'hero.panelTitle.photo': 'Foto N.º {n}',
+  'hero.panelTitle.video': 'Video N.º {n}',
+  'hero.position': '{position} de {total}',
+  'hero.previous': 'Anterior',
+  'hero.next': 'Siguiente',
 
   // ----- Recorte y fundido de videos -----
   'video.editorTitle': 'Recorte y fundido',

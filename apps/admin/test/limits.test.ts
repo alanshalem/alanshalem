@@ -82,7 +82,7 @@ describe('LIMITS: los mismos números que el dominio de la API', () => {
 
 describe('ningún número de límite suelto fuera de src/limits.ts', () => {
   // Los `maxLength` de los inputs eran literales (200, 120, 400, 300): tienen que salir de LIMITS.
-  for (const file of ['pages/PostEditorPage.tsx', 'components/ImageField.tsx', 'hero/HeroImageCard.tsx', 'pages/SettingsPage.tsx', 'settings/BioField.tsx']) {
+  for (const file of ['pages/PostEditorPage.tsx', 'components/ImageField.tsx', 'hero/HeroImageForm.tsx', 'pages/SettingsPage.tsx', 'settings/BioField.tsx']) {
     it(file, () => {
       const text = readFileSync(new URL(`../src/${file}`, import.meta.url), 'utf8');
       assert.deepEqual(text.match(/maxLength=\{\d+\}/g) ?? [], []);

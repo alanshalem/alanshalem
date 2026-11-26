@@ -189,12 +189,13 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .shell-nav a:hover { color: var(--text-primary); text-decoration: none; }
 .shell-nav a[aria-current='page'] { color: var(--text-primary); border-bottom-color: var(--text-primary); }
 
-/* Idioma de la interfaz (S6): "ES | EN" en un solo bloque de 1px; el elegido, encendido. */
-.lang-switch { display: inline-flex; border: var(--rule); }
-.lang-switch button { min-height: 2rem; padding: 0 var(--space-0-7); border: 0; color: var(--text-tertiary); }
-.lang-switch button + button { border-left: var(--rule); }
-.lang-switch button:hover:not(:disabled) { color: var(--text-primary); }
-.lang-switch button[aria-pressed='true'] { color: var(--text-primary); background: var(--bg-surface-alt); }
+/* Control segmentado: idioma de la interfaz (S6, "ES | EN") y filtros del hero (U7). Un solo bloque de 1px; el
+   elegido, encendido (aria-pressed). */
+.lang-switch, .segmented { display: inline-flex; border: var(--rule); }
+.lang-switch button, .segmented button { min-height: 2rem; padding: 0 var(--space-0-7); border: 0; color: var(--text-tertiary); }
+.lang-switch button + button, .segmented button + button { border-left: var(--rule); }
+.lang-switch button:hover:not(:disabled), .segmented button:hover:not(:disabled) { color: var(--text-primary); }
+.lang-switch button[aria-pressed='true'], .segmented button[aria-pressed='true'] { color: var(--text-primary); background: var(--bg-surface-alt); }
 
 @media (max-width: 600px) {
   .shell-header { flex-wrap: wrap; gap: var(--space-0-9) var(--space-1-25); }
@@ -521,7 +522,8 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 .bio-preview .prose { max-width: none; }
 .bio-preview-empty { font-family: var(--font-ui); font-size: var(--text-xs); color: var(--paper-muted); }
 
-/* Fotos y videos del hero: la guía de tamaño, subir arriba y una fila por ítem (miniatura + campos) con reglas de 1px. */
+/* Fotos y videos del hero: la guía de tamaño, subir arriba, una fila por archivo en curso (miniatura + campos) con
+   reglas de 1px y los guardados en una grilla de miniaturas que abre un panel lateral (U7). */
 .hero-guidance {
   margin-bottom: var(--space-1);
   padding: var(--space-0-7) var(--space-1);
@@ -533,7 +535,6 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 }
 .hero-upload { display: flex; align-items: center; gap: var(--space-0-9) var(--space-1-25); flex-wrap: wrap; }
 .hero-list { list-style: none; padding: 0; margin-top: var(--space-0-9); border-top: var(--rule); }
-.hero-list + .hero-list { margin-top: var(--space-1-75); }
 .hero-card { display: grid; gap: var(--space-1) var(--space-1-5); padding: var(--space-1-25) 0; border-bottom: var(--rule); }
 @media (min-width: 800px) { .hero-card { grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); } }
 .hero-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-0-5); min-width: 0; }
@@ -543,6 +544,64 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 .hero-card-summary { justify-self: start; text-transform: none; letter-spacing: normal; white-space: normal; }
 /* Con el editor de video abierto la tarjeta pasa a una columna: la barra de recorte necesita el ancho. */
 .hero-card:has(> .video-editor) { grid-template-columns: minmax(0, 1fr); }
+
+/* Contador y filtros arriba de la grilla. El filtro elegido suma una raya: no depende solo del fondo (1.4.11). */
+.hero-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-0-7) var(--space-1);
+  margin-top: var(--space-1-75); padding-top: var(--space-1); border-top: var(--rule);
+}
+.hero-count { font-size: var(--text-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.segmented { flex-wrap: wrap; }
+.segmented button[aria-pressed='true'] { box-shadow: inset 0 -2px 0 var(--link-accent); }
+.segmented-count { font-weight: 400; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+.hero-toolbar + .help { margin-top: var(--space-0-5); }
+
+/* Miniaturas: auto-fill de ~160 px (2 columnas a 390 px, 7 a 1440 px). Botones enteros: objetivo grande, foco visible. */
+.hero-grid {
+  list-style: none; padding: 0; margin-top: var(--space-0-9);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 1fr)); gap: var(--space-0-5);
+}
+.hero-tile {
+  position: relative; display: block; width: 100%; min-height: 0; padding: 0;
+  text-transform: none; letter-spacing: normal; background: var(--bg-surface);
+}
+.hero-tile .image-field-preview { aspect-ratio: var(--aspect-lead); border: 0; }
+.hero-tile .image-field-empty { padding: var(--space-0-5); }
+/* Número y marcas sobre la foto: fondo sólido propio, así el contraste no depende de la foto (lo mide un test). */
+.hero-tile-number, .hero-tile-mark {
+  font-size: 0.6875rem; font-weight: 600; line-height: 1.6; padding: 0.05rem 0.4rem;
+}
+.hero-tile-number { position: absolute; top: 0; left: 0; background: var(--bg-page); color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.hero-tile-marks { position: absolute; left: 0; bottom: 0; display: flex; flex-wrap: wrap; gap: 1px; }
+.hero-tile-mark {
+  background: var(--bg-page);
+  color: var(--text-primary);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+.hero-tile-mark-warning {
+  color: var(--link-accent);
+}
+
+/* Panel lateral: <dialog> a la derecha y a todo el alto; en celulares, pantalla completa. Encabezado y Anterior /
+   Siguiente quedan fijos y solo el cuerpo scrollea. Sin huecos del propio <dialog>: un clic adentro nunca cuenta como
+   "clic en el fondo" (eso cierra). */
+.modal.hero-panel {
+  width: min(34rem, 100vw); max-width: none; height: 100dvh; max-height: none;
+  margin: 0 0 0 auto; padding: 0; border-width: 0 0 0 1px; overflow: hidden;
+}
+.modal.hero-panel[open] { display: flex; flex-direction: column; }
+.hero-panel .modal-head { margin: 0; padding: var(--space-0-9) var(--space-1-25); border-bottom: var(--rule); }
+.hero-panel-body { flex: 1; display: grid; gap: var(--space-1-25); align-content: start; padding: var(--space-1-25); overflow: auto; overscroll-behavior: contain; }
+.hero-panel-body .image-field-preview { aspect-ratio: var(--aspect-lead); }
+.hero-panel-body .settings-grid { grid-template-columns: minmax(0, 1fr); }
+.hero-panel-nav {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-0-5);
+  padding: var(--space-0-7) var(--space-1-25); border-top: var(--rule);
+}
+.hero-panel-position { font-size: var(--text-xs); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+button[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
+@media (max-width: 700px) { .modal.hero-panel { width: 100vw; border: 0; } }
 
 /* ----- Editor de recorte y fundido (antes de subir un video) ----- */
 .video-editor { display: grid; gap: var(--space-1-25) var(--space-1-75); padding: var(--space-1); border: var(--rule); min-width: 0; }
