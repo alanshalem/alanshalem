@@ -2,7 +2,7 @@ import { renderMarkdown } from '@blog/markdown';
 import { useDeferredValue, useMemo } from 'react';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { Lang } from '../languages.ts';
-import { LIMITS } from './validate.ts';
+import { LIMITS } from '../limits.ts';
 
 interface Props {
   /** Clave del ajuste; también arma el id del campo (`settings-bio`), al que va el foco si tiene error. */
@@ -38,7 +38,7 @@ export function BioField({ name, label, lang, value, error, hint, placeholder, o
           value={value}
           onChange={(event) => onChange(event.target.value)}
           rows={9}
-          maxLength={LIMITS.bio}
+          maxLength={LIMITS.settings.bio}
           lang={lang}
           spellCheck
           aria-invalid={error ? true : undefined}
@@ -46,7 +46,7 @@ export function BioField({ name, label, lang, value, error, hint, placeholder, o
           placeholder={placeholder}
         />
         <p id={`${id}-count`} className="help">
-          {value.length} / {LIMITS.bio}
+          {value.length} / {LIMITS.settings.bio}
         </p>
         {hint && (
           <p id={`${id}-hint`} className="help">

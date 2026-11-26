@@ -10,6 +10,7 @@ import { OutlinePanel } from '../editor/OutlinePanel.tsx';
 import { documentStats, outlineEntries } from '../editor/preview.ts';
 import { usePostPreview } from '../editor/usePostPreview.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
+import { LIMITS } from '../limits.ts';
 import { DEFAULT_LANG, LANGS, type Lang } from '../languages.ts';
 import { pageTitle } from '../navigation/pageTitle.ts';
 import { useUnsavedGuard } from '../navigation/useUnsavedGuard.ts';
@@ -371,7 +372,7 @@ export function PostEditorPage({ postId, onError }: Props) {
             ref={titleRef}
             value={form.title}
             onChange={(event) => handleTitleChange(event.target.value)}
-            maxLength={200}
+            maxLength={LIMITS.post.title}
             aria-invalid={titleError ? true : undefined}
             aria-describedby={titleError ? 'post-title-error' : undefined}
           />
@@ -389,13 +390,13 @@ export function PostEditorPage({ postId, onError }: Props) {
               setSlugTouched(true);
               update('slug', event.target.value);
             }}
-            maxLength={120}
+            maxLength={LIMITS.post.slug}
             placeholder={t('post.slugPlaceholder')}
           />
         </label>
         <label className="field">
           <span className="label">{t('post.summary')}</span>
-          <textarea ref={summaryRef} value={form.summary} onChange={(event) => update('summary', event.target.value)} rows={2} maxLength={400} />
+          <textarea ref={summaryRef} value={form.summary} onChange={(event) => update('summary', event.target.value)} rows={2} maxLength={LIMITS.post.summary} />
         </label>
         <label className="field">
           <span className="label">{t('post.tags')}</span>
@@ -412,6 +413,7 @@ export function PostEditorPage({ postId, onError }: Props) {
           update('coverUrl', coverUrl);
         }}
         onAltChange={(coverAlt) => update('coverAlt', coverAlt)}
+        altMaxLength={LIMITS.post.coverAlt}
         onUpload={api.uploadImage}
         error={coverError ?? undefined}
         help={t('post.coverHelp')}

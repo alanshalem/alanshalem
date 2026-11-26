@@ -1,5 +1,6 @@
 import type { FadeSeconds, VideoEdit, VideoFade } from '../api/types.ts';
 import type { I18n, MessageKey } from '../i18n/i18n.ts';
+import { LIMITS } from '../limits.ts';
 
 /*
  * Reglas puras del editor de recorte y fundido (L19, S12–S15), espejo de la validación de la API: el tramo, el
@@ -9,7 +10,7 @@ import type { I18n, MessageKey } from '../i18n/i18n.ts';
  */
 
 /** Lo que puede durar el tramo elegido (S12). */
-export const VIDEO_DURATION = { minSeconds: 1, maxSeconds: 15 } as const;
+export const VIDEO_DURATION = { minSeconds: LIMITS.video.minSeconds, maxSeconds: LIMITS.video.maxSeconds } as const;
 
 /** Flechas: una décima; con Shift (o PageUp/PageDown), un segundo. */
 const TIME_STEP = { fine: 0.1, coarse: 1 } as const;
@@ -23,13 +24,23 @@ export const fadeText = (fade: VideoFade, i18n: I18n): { label: string; descript
   description: i18n.t(`fade.${fade}.description`),
 });
 
-export const FADE_DURATIONS: readonly { seconds: FadeSeconds; label: MessageKey }[] = [
-  { seconds: 0.5, label: 'fade.duration.short' },
-  { seconds: 1, label: 'fade.duration.medium' },
-  { seconds: 2, label: 'fade.duration.long' },
-];
+// Un nombre por duración. Con un Record sobre el tipo, una duración nueva en LIMITS sin su nombre no compila.
+const FADE_DURATION_LABELS: Record<FadeSeconds, MessageKey> = {
+  0.5: 'fade.duration.short',
+  1: 'fade.duration.medium',
+  2: 'fade.duration.long',
+};
 
-const DEFAULT_FADE = { fade: 'loop', fadeSeconds: 1 } as const satisfies Pick<VideoEdit, 'fade' | 'fadeSeconds'>;
+/** Las opciones del selector de duración, en el orden de la API (corta, media, larga). */
+export const FADE_DURATIONS: readonly { seconds: FadeSeconds; label: MessageKey }[] = LIMITS.video.fadeSeconds.map((seconds) => ({
+  seconds,
+  label: FADE_DURATION_LABELS[seconds],
+}));
+
+const DEFAULT_FADE = {
+  fade: 'loop',
+  fadeSeconds: LIMITS.video.defaultFadeSeconds,
+} as const satisfies Pick<VideoEdit, 'fade' | 'fadeSeconds'>;
 
 // Al mover el fin o el fundido, la vista previa salta a este margen antes de la transición para mostrarla ya.
 const TRANSITION_LEAD_SECONDS = 1;

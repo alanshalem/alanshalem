@@ -25,7 +25,7 @@ describe('heroGuidance: la guía que ve el usuario', () => {
     assert.deepEqual(HERO_SIZE, {
       ideal: { width: 1920, height: 1080 },
       min: { width: 1280, height: 720 },
-      minAspect: 1.2,
+      minAspect: { numerator: 6, denominator: 5 },
     });
   });
 });

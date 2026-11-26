@@ -35,6 +35,18 @@ Editorial, sobrio, oscuro. Tres ideas que sostienen todo lo demás:
 
 Overlay de imágenes (hero y tiles): degradé vertical de `rgba(10,10,11,.55)` arriba → transparente a 22% → `.1` a 45% → `.94` abajo, para que el texto se lea sobre cualquier foto.
 
+**En este blog (actualizado, plataforma-calidad U1/U6).** Sobre fotos claras ese degradé dejaba el texto en 1–3:1, así que se reemplazó por franjas medidas en `rem` desde cada borde (lo que tapan tiene alto fijo) y un velo que sigue al texto. Los valores viven en `packages/tokens/src/tokens.css` y los verifica `apps/web/test/contrast.test.ts`:
+
+| Token | Valor | Dónde |
+|---|---|---|
+| `overlay-hero` | arriba `.72` → `.62` a 4,5rem → 0 a 12rem; abajo `.94` → `.7` a 12rem → 0 a 20rem | Hero de la home y portada del artículo: franja de cabecera (marca, menú, ES \| EN) y franja inferior (crédito, Reproducir/Pausar) |
+| `overlay-hero-text` | 0 → `.7` en `overlay-hero-text-fade` (8rem) | Velo detrás del bloque de texto del hero, de la portada y de los tiles de temas: sigue al texto (un título de 4 líneas también queda cubierto) |
+| `overlay-tile` | el degradé original de arriba | Tiles de temas, debajo del velo |
+
+Con una foto blanca detrás, `text-primary` llega a 4,5:1 desde `.62` y `text-secondary` desde ~`.70`; por eso crédito, fecha y meta sobre imágenes van en `text-secondary`, nunca en `text-tertiary`. Sin sombras de texto: el contraste lo da el velo. Medido en Chrome: hero y artículo ≥ 5,19:1 en 63 elementos; tiles de temas ≥ 9,1:1 (antes 1,7:1 con un nombre de tema de 3 líneas).
+
+**Acento sobre la hoja blanca.** Dentro de `.paper`, `link-accent` y `link-underline-hover` pasan a `periwinkle-700` (`#3b5bdb`, 5,7:1 sobre blanco) para el foco y el subrayado de hover: los acentos claros del tema oscuro quedaban en 2,1:1 y 1,5:1 (WCAG 1.4.11).
+
 ## 3. Tipografía
 
 | Rol | Familia | Peso | Tamaño | Interlineado |
@@ -89,7 +101,13 @@ Reglas CSS detectadas que lo explican: `cards` = `auto-fill minmax(18rem,1fr)` a
 
 **Header / nav.** Fila flex, `padding: 1.5rem gutter`, transparente sobre el hero. Links Hanken 15.2px peso 500, color `text-primary`, sin subrayado. A la derecha, selector de idioma `EN | ES` separado por una línea vertical; el idioma activo en blanco, el otro atenuado. Por debajo de ~900px los links se reemplazan por un botón ☰ cuadrado con borde `1px rgba(237,237,234,.4)`.
 
+*En este blog:* el selector `ES | EN` va antes del menú en todas las medidas (antes de los links en desktop, antes del ☰ en mobile), en el mismo orden que el HTML, para que Tab recorra en el orden en que se lee (WCAG 2.4.3). El panel del ☰ se cierra con Esc (el foco vuelve al botón), con un clic afuera y cuando el foco sale de él. El link de la sección actual va subrayado: `aria-current="page"` en su página y `"true"` dentro de ella (un artículo marca Artículos). El link RSS se anuncia "RSS: feed de artículos nuevos".
+
 **Hero.** Foto a pantalla completa + overlay. H1 en Pagella, bajada de 2 párrafos (links con subrayado fino), tres links de entrada en Hanken 15.2px ("More about me", "Latest writing", "Simulations") y crédito de foto alineado abajo a la derecha (12px, `text-tertiary`). En mobile el crédito pasa abajo a la izquierda.
+
+*En este blog:* el crédito va en `text-secondary` (ver §2). Si el hero es un video hay un botón Reproducir/Pausar (WCAG 2.2.2) cuadrado como el ☰ (borde 1px translúcido, sin radio, mínimo 44 × 44 px), debajo del crédito: con animaciones activadas el video arranca solo y el botón dice "❚❚ Pausar"; con `prefers-reduced-motion: reduce` o Save-Data se ve el póster y "▶ Reproducir". Los dos textos ocupan la misma celda, así el botón no cambia de ancho al alternar.
+
+**Títulos del cuerpo.** Estándar, como GitHub o Docs: `##` = h2 y `###` = h3; un `#` en el cuerpo también sale como h2 (el h1 es el título del artículo). Lo aplica `POST_BODY_RENDER_OPTIONS` de `@blog/markdown`, el mismo en el sitio y en la vista previa del admin.
 
 **Encabezado de sección.** Flex `space-between`, label a la izquierda (estilo label), link o descripción a la derecha (Hanken 14px, `text-secondary`), regla inferior de 1px `border-subtle`, `padding-bottom: .9rem`.
 

@@ -1,9 +1,11 @@
 import type { SiteSettings } from '../api/types.ts';
 import type { I18n, MessageKey } from '../i18n/i18n.ts';
+import { LIMITS } from '../limits.ts';
 
 /*
  * Validación y normalización del lado del admin para los ajustes del sitio y la portada de un post.
- * Es un espejo de las reglas del dominio de la API (SiteSettingsContent, PostContent y WebUrl, ver L4),
+ * Es un espejo de las reglas del dominio de la API (SiteSettingsContent, PostContent y WebUrl, ver L4; los números,
+ * de src/limits.ts),
  * con los mismos mensajes (en español; en inglés, su traducción): sirve para avisar antes de enviar. La API sigue
  * siendo la autoridad y sus errores (ProblemDetails) se muestran igual. Los textos salen del `I18n` recibido: las
  * reglas siguen puras y se prueban en los dos idiomas.
@@ -12,15 +14,6 @@ import type { I18n, MessageKey } from '../i18n/i18n.ts';
 /** Lo que editan los inputs: todo texto (los `null` de la API se ven como vacío). */
 export type SettingsForm = { [K in keyof SiteSettings]: string };
 export type SettingsErrors = Partial<Record<keyof SiteSettings, string>>;
-
-export const LIMITS = {
-  name: 100,
-  tagline: 200,
-  bio: 2000,
-  email: 254,
-  url: 2048,
-  coverAlt: 300,
-} as const;
 
 const MEDIA_PREFIX = '/media/';
 
@@ -111,27 +104,27 @@ export function validateSettings(form: SettingsForm, i18n: I18n): SettingsValida
 
   const name = form.name.trim();
   if (name === '') errors.name = i18n.t('settings.nameRequired');
-  else tooLong('name', name, LIMITS.name, 'subject.name');
+  else tooLong('name', name, LIMITS.settings.name, 'subject.name');
 
   const tagline = cleanOptional(form.tagline);
-  tooLong('tagline', tagline, LIMITS.tagline, 'subject.tagline');
+  tooLong('tagline', tagline, LIMITS.settings.tagline, 'subject.tagline');
 
   const bio = cleanOptional(form.bio);
-  tooLong('bio', bio, LIMITS.bio, 'subject.bio');
+  tooLong('bio', bio, LIMITS.settings.bio, 'subject.bio');
 
   // Las versiones en inglés tienen los mismos límites que sus pares en español (L4); ninguna es obligatoria.
   const nameEn = cleanOptional(form.nameEn);
-  tooLong('nameEn', nameEn, LIMITS.name, 'subject.nameEn');
+  tooLong('nameEn', nameEn, LIMITS.settings.name, 'subject.nameEn');
 
   const taglineEn = cleanOptional(form.taglineEn);
-  tooLong('taglineEn', taglineEn, LIMITS.tagline, 'subject.taglineEn');
+  tooLong('taglineEn', taglineEn, LIMITS.settings.tagline, 'subject.taglineEn');
 
   const bioEn = cleanOptional(form.bioEn);
-  tooLong('bioEn', bioEn, LIMITS.bio, 'subject.bioEn');
+  tooLong('bioEn', bioEn, LIMITS.settings.bio, 'subject.bioEn');
 
   const email = cleanOptional(form.email);
   if (email !== null) {
-    if (email.length > LIMITS.email) errors.email = tooLongMessage(i18n, 'subject.email', LIMITS.email);
+    if (email.length > LIMITS.settings.email) errors.email = tooLongMessage(i18n, 'subject.email', LIMITS.settings.email);
     else if (!isEmail(email)) errors.email = i18n.t('settings.emailInvalid');
   }
 
@@ -156,8 +149,8 @@ export function validateCover(url: string, alt: string, i18n: I18n): CoverValida
   if (!isImageUrl(coverUrl)) return { ok: false, error: i18n.t('cover.notImage') };
 
   const coverAlt = cleanOptional(alt);
-  if (coverAlt !== null && coverAlt.length > LIMITS.coverAlt) {
-    return { ok: false, error: tooLongMessage(i18n, 'subject.coverAlt', LIMITS.coverAlt) };
+  if (coverAlt !== null && coverAlt.length > LIMITS.post.coverAlt) {
+    return { ok: false, error: tooLongMessage(i18n, 'subject.coverAlt', LIMITS.post.coverAlt) };
   }
   return { ok: true, coverUrl, coverAlt };
 }

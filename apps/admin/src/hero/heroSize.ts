@@ -1,4 +1,5 @@
 import type { I18n } from '../i18n/i18n.ts';
+import { LIMITS } from '../limits.ts';
 import { VIDEO_DURATION } from './videoEdit.ts';
 
 /*
@@ -7,12 +8,9 @@ import { VIDEO_DURATION } from './videoEdit.ts';
  * La duración no es de esta regla: un video largo se recorta en el editor (L19, videoEdit.ts); el tamaño, no.
  */
 
-export const HERO_SIZE = {
-  ideal: { width: 1920, height: 1080 },
-  min: { width: 1280, height: 720 },
-  /** Ancho mínimo como múltiplo del alto: por debajo es vertical o casi cuadrado y el hero lo recortaría mal. */
-  minAspect: 1.2,
-} as const;
+/** Ideal, mínimo y proporción mínima (ancho/alto como fracción): por debajo es vertical o casi cuadrado y el hero lo
+ * recortaría mal. Los números, de src/limits.ts. */
+export const HERO_SIZE = LIMITS.heroFrame;
 
 interface Size {
   width: number;
@@ -40,7 +38,9 @@ const isBelow = (size: Size, limit: Size): boolean => size.width < limit.width |
 export function checkHeroSize(dimensions: MediaDimensions, i18n: I18n): HeroSizeCheck {
   const sizes = { received: formatSize(dimensions), ideal: IDEAL, min: formatSize(HERO_SIZE.min) };
 
-  if (dimensions.width < HERO_SIZE.minAspect * dimensions.height) {
+  const { numerator, denominator } = HERO_SIZE.minAspect;
+  // En enteros, como la API (ancho × 5 < alto × 6): sin redondeos de coma flotante en el borde.
+  if (dimensions.width * denominator < dimensions.height * numerator) {
     return { ok: false, error: i18n.t('hero.notLandscape', sizes) };
   }
   if (isBelow(dimensions, HERO_SIZE.min)) return { ok: false, error: i18n.t('hero.tooSmall', sizes) };

@@ -1,4 +1,5 @@
 import {
+  blockStartLines,
   POST_BODY_RENDER_OPTIONS,
   readingTimeMinutes,
   renderMarkdown,
@@ -9,7 +10,6 @@ import {
 } from '@blog/markdown';
 import type { Lang } from '../languages.ts';
 import { isTopLevelHeading } from './markdownSource.ts';
-import { blockStartLines } from './scrollSync.ts';
 
 /**
  * Las opciones con las que el sitio renderiza el cuerpo de un post (POST_BODY_RENDER_OPTIONS de @blog/markdown, las
@@ -43,7 +43,7 @@ export interface OutlineEntry extends Heading {
 
 /**
  * El renderer no dice de qué línea sale cada título, así que se los empareja por orden con los bloques de título de
- * primer nivel (solo esos tienen ancla), partidos con las mismas reglas que el scroll sincronizado. Si las cuentas no
+ * primer nivel (solo esos tienen ancla), partidos por el mismo recorrido que el render (`blockStartLines`). Si las cuentas no
  * coinciden (un caso raro), mejor sin línea que mandar al editor a otro título.
  */
 export function outlineEntries(markdown: string, headings: readonly Heading[]): OutlineEntry[] {

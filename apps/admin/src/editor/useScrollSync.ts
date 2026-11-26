@@ -1,5 +1,6 @@
+import { blockStartLines } from '@blog/markdown';
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
-import { blockStartLines, pairAnchors, syncedScrollTop, type Anchor } from './scrollSync.ts';
+import { pairAnchors, syncedScrollTop, type Anchor } from './scrollSync.ts';
 import { lineOffsets } from './text.ts';
 import { measureOffsetTops } from './textareaMetrics.ts';
 

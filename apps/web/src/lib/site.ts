@@ -4,7 +4,10 @@
  * Lo que depende del idioma (rutas, textos, fechas) está en lib/i18n.ts.
  */
 export const site = {
-  url: (process.env.SITE_URL ?? 'http://localhost:4321').replace(/\/$/, ''),
+  // La URL la define `site` en astro.config.mjs (desde SITE_URL, con su valor por defecto): Astro la expone como
+  // import.meta.env.SITE y acá solo se lee, para que no haya dos cálculos que puedan diferir (principio 5, L4).
+  // Fuera de Astro (tests de Node) no hay `env`: vacía, y absoluteUrl devuelve la ruta tal cual.
+  url: (import.meta.env?.SITE ?? '').replace(/\/$/, ''),
 } as const;
 
 /** Zona del autor: fechas y años se muestran en ella en los dos idiomas (no en UTC ni en la del servidor de build). */

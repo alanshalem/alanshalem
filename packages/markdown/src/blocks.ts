@@ -27,6 +27,8 @@ export interface BlockContext {
   labels: Labels;
   /** Opción `figures`: imagen sola con título => <figure>. */
   figures: boolean;
+  /** Recibe la línea donde empieza cada bloque de nivel superior (lo usa `blockStartLines`). */
+  onBlockStart?: ((line: number) => void) | undefined;
 }
 
 const MAX_DEPTH = 16;
@@ -108,6 +110,8 @@ export function renderBlocks(lines: string[], ctx: BlockContext): string {
       i += 1;
       continue;
     }
+    // Cada vuelta de acá abajo agrega exactamente un elemento al HTML: en el nivel superior, uno por bloque.
+    if (ctx.depth === 0) ctx.onBlockStart?.(i);
 
     const fence = FENCE_OPEN.exec(line);
     if (fence) {

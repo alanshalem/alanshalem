@@ -1,4 +1,5 @@
 import type { Lang } from '../languages.ts';
+import type { LIMITS } from '../limits.ts';
 
 export type PostStatus = 'draft' | 'published';
 
@@ -134,7 +135,8 @@ export interface VideoSource {
 /** Cómo empalma el video al repetirse en el hero (L19). */
 export type VideoFade = 'loop' | 'black' | 'none';
 
-export type FadeSeconds = 0.5 | 1 | 2;
+/** Las duraciones que acepta la API (VideoEdit.FadeDurations), desde src/limits.ts. */
+export type FadeSeconds = (typeof LIMITS.video.fadeSeconds)[number];
 
 /**
  * Recorte y fundido que aplica la API al procesar (L19): los campos multipart de la subida y el `edit` del

@@ -8,9 +8,9 @@ import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { pageTitle } from '../navigation/pageTitle.ts';
 import { useUnsavedGuard } from '../navigation/useUnsavedGuard.ts';
 import { BioField } from '../settings/BioField.tsx';
+import { LIMITS } from '../limits.ts';
 import {
   emptySettingsForm,
-  LIMITS,
   toSettingsForm,
   validateSettings,
   type SettingsErrors,
@@ -39,10 +39,10 @@ interface TextFieldSpec {
 
 // Los textos en inglés son opcionales (L3, L6): vacíos, el sitio en inglés muestra los de español (`fallbackHint`).
 const identityFields = (t: Translate): TextFieldSpec[] => [
-  { key: 'name', label: t('settings.name'), required: true, maxLength: LIMITS.name, hint: t('settings.nameHint') },
-  { key: 'nameEn', label: t('settings.nameEn'), maxLength: LIMITS.name, hint: t('settings.fallbackHint') },
-  { key: 'tagline', label: t('settings.tagline'), maxLength: LIMITS.tagline, hint: t('settings.taglineHint') },
-  { key: 'taglineEn', label: t('settings.taglineEn'), maxLength: LIMITS.tagline, hint: t('settings.fallbackHint') },
+  { key: 'name', label: t('settings.name'), required: true, maxLength: LIMITS.settings.name, hint: t('settings.nameHint') },
+  { key: 'nameEn', label: t('settings.nameEn'), maxLength: LIMITS.settings.name, hint: t('settings.fallbackHint') },
+  { key: 'tagline', label: t('settings.tagline'), maxLength: LIMITS.settings.tagline, hint: t('settings.taglineHint') },
+  { key: 'taglineEn', label: t('settings.taglineEn'), maxLength: LIMITS.settings.tagline, hint: t('settings.fallbackHint') },
 ];
 
 // GitHub, LinkedIn y X son marcas: no se traducen.

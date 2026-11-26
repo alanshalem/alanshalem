@@ -1,10 +1,27 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { blockStartLines, pairAnchors, syncedScrollTop } from '../src/editor/scrollSync.ts';
+import { blockStartLines } from '@blog/markdown';
+import { pairAnchors, syncedScrollTop } from '../src/editor/scrollSync.ts';
+import { renderPreview } from '../src/editor/preview.ts';
+
+/** Cuántos elementos hay en el primer nivel del HTML (los hijos de .prose), sin la sección de notas al pie. */
+function topLevelElements(html: string): number {
+  const VOID = new Set(['hr', 'br', 'img', 'input', 'source']);
+  let depth = 0;
+  let count = 0;
+  for (const [, closing, tag = ''] of html.matchAll(/<(\/?)([a-z][a-z0-9]*)\b[^>]*>/g)) {
+    if (closing) depth -= 1;
+    else {
+      if (depth === 0) count += 1;
+      if (!VOID.has(tag)) depth += 1;
+    }
+  }
+  return count;
+}
 
 /*
- * Scroll sincronizado (S2): el Markdown se parte en bloques de nivel superior con las mismas reglas que el renderer
- * (cada uno es un elemento hijo de .prose) y la vista previa interpola entre los pares de bloques.
+ * Scroll sincronizado (S2): el Markdown se parte en bloques de nivel superior con `blockStartLines` de @blog/markdown
+ * (el mismo recorrido que el render; cada uno es un elemento hijo de .prose) y la vista previa interpola entre los pares.
  */
 
 describe('blockStartLines: dónde empieza cada bloque de nivel superior', () => {
@@ -34,6 +51,24 @@ describe('blockStartLines: dónde empieza cada bloque de nivel superior', () => 
 
   it('texto vacío: ningún bloque', () => {
     assert.deepEqual(blockStartLines(''), []);
+  });
+
+  // Los casos donde la copia de las expresiones del renderer (principio 2, L4) ya se había separado de blocks.ts.
+  it('un cierre de código con 4 espacios de sangría no cierra (sigue siendo código)', () => {
+    assert.deepEqual(blockStartLines('```\n    ```\nx\n```\n\nfin'), [0, 5]);
+  });
+
+  it('una tabla con distinta cantidad de columnas en el separador es un párrafo y una regla', () => {
+    assert.deepEqual(blockStartLines('a | b\n---\ntexto'), [0, 1, 2]);
+  });
+
+  it('``` con un acento grave en la info no abre código', () => {
+    assert.deepEqual(blockStartLines('``` a`b\n\n# T'), [0, 2]);
+  });
+
+  it('cada bloque es un hijo de la vista previa: misma cuenta que el HTML del renderer', () => {
+    const markdown = '# T\n\n> [!NOTE]\n> caja\n\n![a](/media/a.png "pie")\n\n- a\n\n  b\n\n1. x\n\n| a | b |\n|---|---|\n| 1 | 2 |';
+    assert.equal(blockStartLines(markdown).length, topLevelElements(renderPreview(markdown, 'es').html));
   });
 });
 
