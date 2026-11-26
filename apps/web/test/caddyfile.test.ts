@@ -114,3 +114,14 @@ test('la raíz redirige según el idioma del navegador: inglés → /en/, si no 
   // `redir /es/ 302` NO sirve: Caddy toma /es/ como filtro de ruta y no como destino. Hace falta el comodín.
   assert.match(root, /redir \* \/es\/ 302/);
 });
+
+test('un asset del admin que no existe da 404, no el index.html de la SPA con caché inmutable', () => {
+  // Con `try_files {path} /index.html` para todo, una pestaña vieja que pide /assets/hash-viejo.js tras un deploy
+  // recibía index.html con `immutable` por un año y ese navegador quedaba con el admin roto.
+  const admin = block('handle_path /admin/* {');
+  // `try_files` NO acepta matcher (Caddy toma `@x` como un archivo más y cae igual en index.html): hace falta un
+  // `rewrite` con matcher que excluya /assets/* y lo que sí existe.
+  assert.match(admin, /@spa \{\s*not path \/assets\/\*\s*not file\s*\}/, 'matcher @spa: no es /assets/* y el archivo no existe');
+  assert.match(admin, /^\s*rewrite @spa \/index\.html\s*$/m);
+  assert.doesNotMatch(admin, /^\s*try_files\b/m, 'sin try_files (no admite matcher)');
+});
