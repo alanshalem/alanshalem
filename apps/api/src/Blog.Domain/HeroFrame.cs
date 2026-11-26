@@ -12,8 +12,9 @@ public static class HeroFrame
     public const int IdealWidth = 1920;
     public const int IdealHeight = 1080;
 
-    /// <summary>La guía que ve el admin, igual en cada mensaje. Sale de las constantes: cambiar el ideal cambia el texto.</summary>
-    public static readonly string Guide = $"Ideal: {IdealWidth}×{IdealHeight} o más, horizontal 16:9.";
+    // La guía que ve el admin, igual en cada mensaje (anidada, así se traduce con él). Sale de las constantes: cambiar
+    // el ideal cambia el texto.
+    private static readonly UserMessage Guide = new(MessageKeys.HeroGuide, ("width", IdealWidth), ("height", IdealHeight));
 
     // El ancho tiene que ser al menos 1,2 veces el alto (6/5, en enteros para no comparar con decimales):
     // deja afuera verticales, cuadradas y casi cuadradas, que el recorte del hero dejaría irreconocibles.
@@ -25,18 +26,22 @@ public static class HeroFrame
     {
         if ((long)width * MinAspectDenominator < (long)height * MinAspectNumerator)
         {
-            throw new DomainException($"Mide {width}×{height} y el hero necesita una imagen horizontal: vertical o cuadrada no sirve. {Guide}");
+            throw new DomainException(MessageKeys.HeroNotLandscape, ("width", width), ("height", height), ("guide", Guide));
         }
 
         if (width < MinWidth || height < MinHeight)
         {
-            throw new DomainException($"Mide {width}×{height} y el mínimo es {MinWidth}×{MinHeight}. {Guide}");
+            throw new DomainException(
+                MessageKeys.HeroTooSmall, ("width", width), ("height", height), ("minWidth", MinWidth), ("minHeight", MinHeight), ("guide", Guide));
         }
     }
 
-    /// <summary>Se acepta, pero si es más chica que la ideal se avisa: en pantallas grandes se va a ver menos nítida.</summary>
+    /// <summary>
+    /// Se acepta, pero si es más chica que la ideal se avisa: en pantallas grandes se va a ver menos nítida. El aviso
+    /// viaja como texto dentro del video (no es un error), así que sale en el idioma por defecto.
+    /// </summary>
     public static IReadOnlyList<string> WarningsFor(int width, int height) =>
         width < IdealWidth || height < IdealHeight
-            ? [$"Mide {width}×{height}: se acepta, pero en pantallas grandes se va a ver menos nítida. {Guide}"]
+            ? [new UserMessage(MessageKeys.HeroLowResolution, ("width", width), ("height", height), ("guide", Guide)).ToString()]
             : [];
 }

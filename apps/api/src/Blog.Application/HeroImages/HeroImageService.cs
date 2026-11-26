@@ -28,14 +28,14 @@ public sealed class HeroImageService(
         var image = (request.MediaId, request.VideoId) switch
         {
             ({ } mediaId, null) => HeroImage.CreatePhoto(
-                await media.GetByIdAsync(mediaId, cancellationToken) ?? throw new DomainException("La imagen elegida no existe. Subila de nuevo."),
+                await media.GetByIdAsync(mediaId, cancellationToken) ?? throw new DomainException(MessageKeys.HeroImageNotFound),
                 content,
                 clock.UtcNow),
             (null, { } videoId) => HeroImage.CreateVideo(
-                await videos.GetByIdAsync(videoId, cancellationToken) ?? throw new DomainException("El video elegido no existe. Subilo de nuevo."),
+                await videos.GetByIdAsync(videoId, cancellationToken) ?? throw new DomainException(MessageKeys.HeroVideoNotFound),
                 content,
                 clock.UtcNow),
-            _ => throw new DomainException("Elegí una foto o un video para el hero."),
+            _ => throw new DomainException(MessageKeys.HeroSourceRequired),
         };
 
         heroImages.Add(image);
@@ -62,7 +62,7 @@ public sealed class HeroImageService(
     }
 
     private async Task<HeroImage> FindAsync(Guid id, CancellationToken cancellationToken) =>
-        await heroImages.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("La foto del hero no existe.");
+        await heroImages.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException(MessageKeys.HeroItemNotFound);
 
     private async Task SaveAndRebuildAsync(CancellationToken cancellationToken)
     {

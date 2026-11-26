@@ -90,7 +90,7 @@ internal sealed class PostRepository(BlogDbContext db) : IPostRepository
         {
             // Los chequeos previos (slug por idioma, una versión por idioma) no son atómicos: si dos guardados chocan,
             // los índices únicos tienen la última palabra.
-            throw new ConflictException("Ya existe un post con ese slug en ese idioma, o el post ya tiene esa versión. Recargá y volvé a intentar.");
+            throw new ConflictException(MessageKeys.PostSaveConflict);
         }
     }
 }

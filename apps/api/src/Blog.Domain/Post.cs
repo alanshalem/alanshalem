@@ -64,7 +64,7 @@ public sealed class Post
         var target = Language.Parse(lang);
         if (target == Lang)
         {
-            throw new DomainException($"El post ya está en {Language.NameOf(Lang)}: la versión nueva tiene que ser en el otro idioma.");
+            throw new DomainException(MessageKeys.PostAlreadyInLanguage, ("language", Language.NameOf(Lang)));
         }
 
         return NewDraft(target, TranslationGroupId, CurrentContent(), nowUtc);
@@ -108,12 +108,12 @@ public sealed class Post
     {
         if (Status == PostStatus.Published)
         {
-            throw new DomainException("El post ya está publicado: no se puede programar.");
+            throw new DomainException(MessageKeys.PostScheduleAlreadyPublished);
         }
 
         if (publishAtUtc <= nowUtc)
         {
-            throw new DomainException("La fecha de publicación tiene que ser en el futuro.");
+            throw new DomainException(MessageKeys.PostScheduleInPast);
         }
 
         ScheduledAtUtc = publishAtUtc;

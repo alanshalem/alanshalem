@@ -34,32 +34,31 @@ public sealed record PostContent(
         var cleanTitle = (title ?? string.Empty).Trim();
         if (cleanTitle.Length == 0)
         {
-            throw new DomainException("El título es obligatorio.");
+            throw new DomainException(MessageKeys.PostTitleRequired);
         }
 
         if (cleanTitle.Length > MaxTitleLength)
         {
-            throw new DomainException($"El título no puede superar {MaxTitleLength} caracteres.");
+            throw new DomainException(MessageKeys.PostTitleTooLong, ("max", MaxTitleLength));
         }
 
         // Sin slug explícito se deriva del título.
         var cleanSlug = string.IsNullOrWhiteSpace(slug) ? Domain.Slug.From(cleanTitle) : slug.Trim();
         if (!Domain.Slug.IsValid(cleanSlug))
         {
-            throw new DomainException(
-                $"El slug solo admite minúsculas, números y guiones (máx. {Domain.Slug.MaxLength}). Ejemplo: mi-primer-post.");
+            throw new DomainException(MessageKeys.PostSlugInvalid, ("max", Domain.Slug.MaxLength));
         }
 
         var cleanSummary = (summary ?? string.Empty).Trim();
         if (cleanSummary.Length > MaxSummaryLength)
         {
-            throw new DomainException($"El resumen no puede superar {MaxSummaryLength} caracteres.");
+            throw new DomainException(MessageKeys.PostSummaryTooLong, ("max", MaxSummaryLength));
         }
 
         var cleanBody = body ?? string.Empty;
         if (cleanBody.Length > MaxBodyLength)
         {
-            throw new DomainException($"El contenido no puede superar {MaxBodyLength} caracteres.");
+            throw new DomainException(MessageKeys.PostBodyTooLong, ("max", MaxBodyLength));
         }
 
         var cleanTags = (tags ?? [])
@@ -69,23 +68,21 @@ public sealed record PostContent(
             .ToList();
         if (cleanTags.Count > MaxTags)
         {
-            throw new DomainException($"Máximo {MaxTags} etiquetas.");
+            throw new DomainException(MessageKeys.PostTooManyTags, ("max", MaxTags));
         }
 
         if (cleanTags.Any(tag => tag.Length > MaxTagLength))
         {
-            throw new DomainException($"Cada etiqueta puede tener hasta {MaxTagLength} caracteres.");
+            throw new DomainException(MessageKeys.PostTagTooLong, ("max", MaxTagLength));
         }
 
-        var cleanCoverUrl = OptionalText.Clean(
-            coverUrl, WebUrl.MaxLength, $"La URL de la portada no puede superar {WebUrl.MaxLength} caracteres.");
+        var cleanCoverUrl = OptionalText.Clean(coverUrl, WebUrl.MaxLength, MessageKeys.PostCoverUrlTooLong);
         if (cleanCoverUrl is not null && !WebUrl.IsImageUrl(cleanCoverUrl))
         {
-            throw new DomainException("La portada debe ser una ruta /media/... o una URL http(s).");
+            throw new DomainException(MessageKeys.PostCoverUrlInvalid);
         }
 
-        var cleanCoverAlt = OptionalText.Clean(
-            coverAlt, MaxCoverAltLength, $"El texto alternativo de la portada no puede superar {MaxCoverAltLength} caracteres.");
+        var cleanCoverAlt = OptionalText.Clean(coverAlt, MaxCoverAltLength, MessageKeys.PostCoverAltTooLong);
 
         return new PostContent(cleanTitle, cleanSlug, cleanSummary, cleanBody, cleanTags, cleanCoverUrl, cleanCoverAlt);
     }

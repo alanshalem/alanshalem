@@ -24,14 +24,15 @@ public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? 
     /// <exception cref="DomainException">Si un campo no se puede leer o la edición no es válida para ese video.</exception>
     public VideoEdit ToEdit(double sourceSeconds) => VideoEdit.Create(
         sourceSeconds,
-        Seconds(TrimStart, "El inicio del recorte"),
-        Seconds(TrimEnd, "El fin del recorte"),
+        Seconds(TrimStart, MessageKeys.VideoFieldTrimStart),
+        Seconds(TrimEnd, MessageKeys.VideoFieldTrimEnd),
         ParseFade(Fade),
-        Seconds(FadeSeconds, "La duración del fundido"));
+        Seconds(FadeSeconds, MessageKeys.VideoFieldFadeSeconds));
 
     // Punto decimal siempre (cultura invariante): "2.5" significa lo mismo en cualquier servidor. Se rechazan la coma,
     // NaN e infinito; el signo y los rangos los valida el dominio con su mensaje.
-    private static double? Seconds(string? text, string field)
+    // fieldKey: el nombre del campo, que va anidado en el mensaje (también se traduce).
+    private static double? Seconds(string? text, string fieldKey)
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -40,7 +41,7 @@ public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? 
 
         return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds) && double.IsFinite(seconds)
             ? seconds
-            : throw new DomainException($"{field} no es un número válido: usá segundos con punto decimal (ej. 2.5).");
+            : throw new DomainException(MessageKeys.VideoInvalidNumber, ("field", new UserMessage(fieldKey)));
     }
 
     // Los espacios alrededor se ignoran, igual que en los números (double.TryParse los acepta).
@@ -53,6 +54,6 @@ public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? 
 
         return FadeNames.TryGetValue(text.Trim(), out var fade)
             ? fade
-            : throw new DomainException("Fundido no válido: tiene que ser loop, black o none.");
+            : throw new DomainException(MessageKeys.VideoInvalidFade);
     }
 }

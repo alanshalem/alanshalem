@@ -40,7 +40,7 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
         var post = await FindAsync(id, cancellationToken);
         if (request.Lang is not null && Language.Parse(request.Lang) != post.Lang)
         {
-            throw new DomainException("El idioma de un post no se puede cambiar: creá su versión en el otro idioma.");
+            throw new DomainException(MessageKeys.PostLanguageImmutable);
         }
 
         var content = ToContent(request);
@@ -79,7 +79,7 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
         var versions = await posts.ListVersionsAsync(source.TranslationGroupId, cancellationToken);
         if (versions.Any(version => version.Lang == translation.Lang))
         {
-            throw new ConflictException($"Este post ya tiene su versión en {Language.NameOf(translation.Lang)}.");
+            throw new ConflictException(MessageKeys.PostTranslationExists, ("language", Language.NameOf(translation.Lang)));
         }
 
         // El slug copiado puede ser de otro artículo en el idioma destino (dos posts sin relación con el mismo slug): se
@@ -207,12 +207,12 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
     }
 
     private async Task<Post> FindAsync(Guid id, CancellationToken cancellationToken) =>
-        await posts.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("El post no existe.");
+        await posts.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException(MessageKeys.PostNotFound);
 
     private async Task<PostRevision> FindRevisionAsync(Guid id, Guid revisionId, CancellationToken cancellationToken)
     {
         await FindAsync(id, cancellationToken);
-        return await posts.GetRevisionAsync(id, revisionId, cancellationToken) ?? throw new NotFoundException("La versión no existe.");
+        return await posts.GetRevisionAsync(id, revisionId, cancellationToken) ?? throw new NotFoundException(MessageKeys.PostRevisionNotFound);
     }
 
     // La instantánea del contenido actual como versión siguiente, podando las que pasan de PostRevision.MaxPerPost. Se
@@ -236,7 +236,7 @@ public sealed class PostService(IPostRepository posts, IClock clock, ISiteBuildT
     {
         if (await posts.SlugExistsAsync(lang, slug, excludingId, cancellationToken))
         {
-            throw new ConflictException($"Ya existe un post en {Language.NameOf(lang)} con el slug \"{slug}\".");
+            throw new ConflictException(MessageKeys.PostSlugTaken, ("language", Language.NameOf(lang)), ("slug", slug));
         }
     }
 }

@@ -50,7 +50,9 @@ public static class WebUrl
 /// <summary>Normalización común de los textos opcionales: se recortan y el vacío se guarda como null.</summary>
 internal static class OptionalText
 {
-    public static string? Clean(string? value, int maxLength, string tooLongMessage)
+    /// <param name="tooLongKey">El mensaje si se pasa: su {max} es <paramref name="maxLength"/>.</param>
+    /// <param name="arguments">Otros marcadores de ese mensaje, si tiene.</param>
+    public static string? Clean(string? value, int maxLength, string tooLongKey, params (string Name, object Value)[] arguments)
     {
         var clean = value?.Trim();
         if (string.IsNullOrEmpty(clean))
@@ -60,7 +62,7 @@ internal static class OptionalText
 
         if (clean.Length > maxLength)
         {
-            throw new DomainException(tooLongMessage);
+            throw new DomainException(tooLongKey, [("max", maxLength), .. arguments]);
         }
 
         return clean;

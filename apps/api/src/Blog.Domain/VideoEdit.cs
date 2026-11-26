@@ -39,9 +39,6 @@ public sealed record VideoEdit
 
     private const int Decimals = 3;
 
-    // Coma decimal como se escribe en español, sin depender de la cultura del servidor.
-    private static readonly NumberFormatInfo SpanishNumbers = new() { NumberDecimalSeparator = "," };
-
     // Constructor para EF Core.
     private VideoEdit()
     {
@@ -98,19 +95,19 @@ public sealed record VideoEdit
         var start = Round(trimStart ?? 0);
         if (start < 0)
         {
-            throw new DomainException("El inicio del recorte no puede ser negativo.");
+            throw new DomainException(MessageKeys.VideoTrimStartNegative);
         }
 
         // El fin por defecto se cuenta desde el inicio elegido: pedir solo el inicio da el tramo más largo posible desde ahí.
         var end = Round(trimEnd ?? Math.Min(sourceSeconds, start + MaxSeconds));
         if (end <= start)
         {
-            throw new DomainException("El fin del recorte tiene que ser posterior al inicio.");
+            throw new DomainException(MessageKeys.VideoTrimEndBeforeStart);
         }
 
         if (end > sourceSeconds + ToleranceSeconds)
         {
-            throw new DomainException($"El fin del recorte ({Spanish(end)} s) pasa el final del video, que dura {Spanish(sourceSeconds)} s.");
+            throw new DomainException(MessageKeys.VideoTrimEndPastVideo, ("end", end), ("duration", sourceSeconds));
         }
 
         // Dentro del margen, el fin es el final real: el mismo pedido con 15,02 o 15 produce el mismo video.
@@ -118,19 +115,19 @@ public sealed record VideoEdit
         var trimmed = Round(end - start);
         if (trimmed > MaxSeconds + ToleranceSeconds)
         {
-            throw new DomainException($"El tramo elegido dura {Spanish(trimmed)} s y el máximo es {Spanish(MaxSeconds)} s. Acortalo y volvé a subirlo.");
+            throw new DomainException(MessageKeys.VideoTrimTooLong, ("trimmed", trimmed), ("max", MaxSeconds));
         }
 
         if (trimmed < MinSeconds)
         {
-            throw new DomainException($"El tramo elegido dura {Spanish(trimmed)} s y el mínimo es {Spanish(MinSeconds)} s.");
+            throw new DomainException(MessageKeys.VideoTrimTooShort, ("trimmed", trimmed), ("min", MinSeconds));
         }
 
         var chosenFadeSeconds = fadeSeconds ?? DefaultFadeSeconds;
         if (!FadeDurations.Contains(chosenFadeSeconds))
         {
             throw new DomainException(
-                $"La duración del fundido tiene que ser {string.Join(", ", FadeDurations.SkipLast(1).Select(Spanish))} o {Spanish(FadeDurations[^1])} s.");
+                MessageKeys.VideoFadeDurationInvalid, ("options", FadeDurations.SkipLast(1).ToList()), ("last", FadeDurations[^1]));
         }
 
         var chosenFade = fade ?? DefaultFade;
@@ -138,7 +135,7 @@ public sealed record VideoEdit
         {
             // Entrada y salida (o en loop, el tramo que se funde y el que lo recibe) no pueden superponerse.
             throw new DomainException(
-                $"Un fundido de {Spanish(chosenFadeSeconds)} s necesita un tramo de al menos {Spanish(chosenFadeSeconds * 2)} s y el elegido dura {Spanish(trimmed)} s. Elegí un fundido más corto o un tramo más largo.");
+                MessageKeys.VideoFadeTooLongForTrim, ("fade", chosenFadeSeconds), ("needed", chosenFadeSeconds * 2), ("trimmed", trimmed));
         }
 
         return new VideoEdit
@@ -161,6 +158,4 @@ public sealed record VideoEdit
     private static double Round(double seconds) => Math.Round(seconds, Decimals, MidpointRounding.AwayFromZero);
 
     private static string Invariant(double seconds) => seconds.ToString("0.###", CultureInfo.InvariantCulture);
-
-    private static string Spanish(double seconds) => seconds.ToString("0.##", SpanishNumbers);
 }

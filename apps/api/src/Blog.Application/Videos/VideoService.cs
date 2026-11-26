@@ -27,17 +27,17 @@ public sealed class VideoService(
         {
             if (staged.Length > MaxBytes)
             {
-                throw new DomainException($"El video supera el máximo de {MaxBytes / (1024 * 1024)} MB.");
+                throw new DomainException(MessageKeys.VideoTooLarge, ("max", MaxBytes / (1024 * 1024)));
             }
 
             if (!VideoSniffer.IsSupportedContainer(staged.Head))
             {
-                throw new DomainException("Formato no soportado. Subí un video MP4, MOV, WebM o MKV.");
+                throw new DomainException(MessageKeys.VideoUnsupportedFormat);
             }
 
             // La edición se valida contra la duración real del original, así que primero se lee con ffprobe.
             var probe = await transcoder.ProbeAsync(staged.Path, cancellationToken)
-                ?? throw new DomainException("No se pudo leer el video: el archivo está dañado o no tiene imagen.");
+                ?? throw new DomainException(MessageKeys.VideoUnreadable);
             var validEdit = edit.ToEdit(probe.DurationSeconds);
 
             // Mismo video con la misma edición = mismo hash = mismo asset: si ya está (o se está procesando) se devuelve
@@ -74,7 +74,7 @@ public sealed class VideoService(
     }
 
     public async Task<VideoAssetDto> GetAsync(Guid id, CancellationToken cancellationToken) =>
-        (await videos.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException("El video no existe.")).ToDto();
+        (await videos.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException(MessageKeys.VideoNotFound)).ToDto();
 
     // Uno que falló, así el admin siempre tiene una salida: subirlo de nuevo. Y uno listo al que le falta algún archivo
     // (fuente o póster), igual que con las imágenes: si no, el sitio apuntaría a archivos que no existen. El original

@@ -18,8 +18,6 @@ public sealed class MediaService(IImageProcessor images, IMediaStorage storage, 
     /// </summary>
     public const long MaxPixels = 100_000_000;
 
-    private const string UnreadableMessage = "No se pudo leer la imagen: el archivo está dañado o incompleto.";
-
     public async Task<MediaAssetDto> UploadImageAsync(Stream content, CancellationToken cancellationToken) =>
         (await StoreImageAsync(content, cancellationToken)).ToDto();
 
@@ -44,7 +42,7 @@ public sealed class MediaService(IImageProcessor images, IMediaStorage storage, 
 
         var size = ReadSizeWithinLimit(original);
         var processed = await images.ProcessAsync(original, MediaVariant.For(size.Width, size.IsAnimated), cancellationToken)
-            ?? throw new DomainException(UnreadableMessage);
+            ?? throw new DomainException(MessageKeys.MediaUnreadable);
 
         var asset = existing
             ?? MediaAsset.Create(hash, size.Width, size.Height, processed.Color, processed.Placeholder, clock.UtcNow, size.IsAnimated);
@@ -75,7 +73,7 @@ public sealed class MediaService(IImageProcessor images, IMediaStorage storage, 
             total += read;
             if (total > MaxBytes)
             {
-                throw new DomainException($"La imagen supera el máximo de {MaxBytes / (1024 * 1024)} MB.");
+                throw new DomainException(MessageKeys.MediaTooLarge, ("max", MaxBytes / (1024 * 1024)));
             }
         }
 
@@ -87,16 +85,16 @@ public sealed class MediaService(IImageProcessor images, IMediaStorage storage, 
     {
         if (ImageSniffer.DetectExtension(original) is null)
         {
-            throw new DomainException("Formato no soportado. Subí una imagen PNG, JPG, GIF, WebP o AVIF.");
+            throw new DomainException(MessageKeys.MediaUnsupportedFormat);
         }
     }
 
     private ImageSize ReadSizeWithinLimit(byte[] original)
     {
-        var size = images.ReadSize(original) ?? throw new DomainException(UnreadableMessage);
+        var size = images.ReadSize(original) ?? throw new DomainException(MessageKeys.MediaUnreadable);
         if (size.Pixels > MaxPixels)
         {
-            throw new DomainException($"La imagen supera el máximo de {MaxPixels / 1_000_000} megapíxeles.");
+            throw new DomainException(MessageKeys.MediaTooManyPixels, ("max", MaxPixels / 1_000_000));
         }
 
         return size;

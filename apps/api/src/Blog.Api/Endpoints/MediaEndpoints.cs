@@ -12,7 +12,7 @@ namespace Blog.Api.Endpoints;
 public static class MediaEndpoints
 {
     // Margen para la envoltura multipart (cabeceras y separadores) por encima del máximo del archivo: así un video
-    // apenas más grande que el máximo recibe el mensaje en español del caso de uso, no un 413 genérico.
+    // apenas más grande que el máximo recibe el mensaje propio del caso de uso (en el idioma del admin), no un 413 genérico.
     private const long MultipartMargin = 1024 * 1024;
     private const long VideoRequestLimit = VideoService.MaxBytes + MultipartMargin;
 

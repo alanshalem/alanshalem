@@ -98,40 +98,41 @@ public sealed partial record SiteSettingsContent(
         var cleanName = (name ?? string.Empty).Trim();
         if (cleanName.Length == 0)
         {
-            throw new DomainException("El nombre es obligatorio.");
+            throw new DomainException(MessageKeys.SettingsNameRequired);
         }
 
         if (cleanName.Length > MaxNameLength)
         {
-            throw new DomainException($"El nombre no puede superar {MaxNameLength} caracteres.");
+            throw new DomainException(MessageKeys.SettingsNameTooLong, ("max", MaxNameLength));
         }
 
-        var cleanEmail = OptionalText.Clean(email, MaxEmailLength, $"El email no puede superar {MaxEmailLength} caracteres.");
+        var cleanEmail = OptionalText.Clean(email, MaxEmailLength, MessageKeys.SettingsEmailTooLong);
         if (cleanEmail is not null && (!EmailPattern().IsMatch(cleanEmail) || cleanEmail.Any(char.IsControl)))
         {
-            throw new DomainException("El email no tiene un formato válido.");
+            throw new DomainException(MessageKeys.SettingsEmailInvalid);
         }
 
         return new SiteSettingsContent(
             cleanName,
-            OptionalText.Clean(tagline, MaxTaglineLength, $"La frase no puede superar {MaxTaglineLength} caracteres."),
-            OptionalText.Clean(bio, MaxBioLength, $"La bio no puede superar {MaxBioLength} caracteres."),
+            OptionalText.Clean(tagline, MaxTaglineLength, MessageKeys.SettingsTaglineTooLong),
+            OptionalText.Clean(bio, MaxBioLength, MessageKeys.SettingsBioTooLong),
             cleanEmail,
             HttpLink(githubUrl, "GitHub"),
             HttpLink(linkedinUrl, "LinkedIn"),
             HttpLink(xUrl, "X"),
             // Mismos límites que sus pares en español, pero todos opcionales: el nombre en inglés también cae al español.
-            OptionalText.Clean(nameEn, MaxNameLength, $"El nombre en inglés no puede superar {MaxNameLength} caracteres."),
-            OptionalText.Clean(taglineEn, MaxTaglineLength, $"La frase en inglés no puede superar {MaxTaglineLength} caracteres."),
-            OptionalText.Clean(bioEn, MaxBioLength, $"La bio en inglés no puede superar {MaxBioLength} caracteres."));
+            OptionalText.Clean(nameEn, MaxNameLength, MessageKeys.SettingsNameEnTooLong),
+            OptionalText.Clean(taglineEn, MaxTaglineLength, MessageKeys.SettingsTaglineEnTooLong),
+            OptionalText.Clean(bioEn, MaxBioLength, MessageKeys.SettingsBioEnTooLong));
     }
 
+    // La etiqueta es el nombre de la red (GitHub, LinkedIn, X): igual en los dos idiomas, va tal cual.
     private static string? HttpLink(string? value, string label)
     {
-        var clean = OptionalText.Clean(value, WebUrl.MaxLength, $"El enlace de {label} no puede superar {WebUrl.MaxLength} caracteres.");
+        var clean = OptionalText.Clean(value, WebUrl.MaxLength, MessageKeys.SettingsLinkTooLong, ("label", label));
         if (clean is not null && !WebUrl.IsHttpUrl(clean))
         {
-            throw new DomainException($"El enlace de {label} debe ser una URL http(s).");
+            throw new DomainException(MessageKeys.SettingsLinkInvalid, ("label", label));
         }
 
         return clean;

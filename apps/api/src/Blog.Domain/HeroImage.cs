@@ -50,8 +50,8 @@ public sealed class HeroImage
     public static HeroImage CreateVideo(VideoAsset video, HeroImageContent content, DateTime nowUtc) => video switch
     {
         { Status: VideoStatus.Ready, Poster: { } poster } => New(poster, video, content, nowUtc),
-        { Status: VideoStatus.Processing } => throw new DomainException("El video todavía se está procesando: esperá a que esté listo."),
-        _ => throw new DomainException("El video no se pudo procesar. Subilo de nuevo."),
+        { Status: VideoStatus.Processing } => throw new DomainException(MessageKeys.HeroVideoProcessing),
+        _ => throw new DomainException(MessageKeys.HeroVideoFailed),
     };
 
     public void Update(HeroImageContent content)
@@ -88,13 +88,13 @@ public sealed record HeroImageContent(string Alt, string? Credit, string? AltEn 
     public static HeroImageContent Create(string? alt, string? credit, string? altEn = null, string? creditEn = null)
     {
         // El texto alternativo es obligatorio: es lo único que "ve" un lector de pantalla del hero.
-        var cleanAlt = OptionalText.Clean(alt, MaxAltLength, $"El texto alternativo no puede superar {MaxAltLength} caracteres.")
-            ?? throw new DomainException("El texto alternativo es obligatorio.");
+        var cleanAlt = OptionalText.Clean(alt, MaxAltLength, MessageKeys.HeroAltTooLong)
+            ?? throw new DomainException(MessageKeys.HeroAltRequired);
 
         return new HeroImageContent(
             cleanAlt,
-            OptionalText.Clean(credit, MaxCreditLength, $"El crédito no puede superar {MaxCreditLength} caracteres."),
-            OptionalText.Clean(altEn, MaxAltLength, $"El texto alternativo en inglés no puede superar {MaxAltLength} caracteres."),
-            OptionalText.Clean(creditEn, MaxCreditLength, $"El crédito en inglés no puede superar {MaxCreditLength} caracteres."));
+            OptionalText.Clean(credit, MaxCreditLength, MessageKeys.HeroCreditTooLong),
+            OptionalText.Clean(altEn, MaxAltLength, MessageKeys.HeroAltEnTooLong),
+            OptionalText.Clean(creditEn, MaxCreditLength, MessageKeys.HeroCreditEnTooLong));
     }
 }

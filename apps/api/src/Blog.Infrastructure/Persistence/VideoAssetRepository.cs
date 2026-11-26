@@ -37,7 +37,7 @@ internal sealed class VideoAssetRepository(BlogDbContext db) : IVideoAssetReposi
         catch (DbUpdateException exception) when (SqliteConventions.IsConstraintViolation(exception))
         {
             // La búsqueda previa por hash no es atómica: si dos subidas iguales chocan, el índice único decide.
-            throw new ConflictException("Ese video se acaba de subir desde otro lado. Volvé a intentar.");
+            throw new ConflictException(MessageKeys.VideoUploadConflict);
         }
     }
 }

@@ -21,7 +21,7 @@ public sealed record SavePostRequest(
 /// <summary>Pide la versión del post en otro idioma.</summary>
 public sealed record CreateTranslationRequest(string? Lang);
 
-/// <param name="PublishAt">ISO 8601 con zona horaria (Z o ±hh:mm). Llega como texto para responder 400 en español si no se entiende.</param>
+/// <param name="PublishAt">ISO 8601 con zona horaria (Z o ±hh:mm). Llega como texto para responder 400 con un mensaje propio si no se entiende.</param>
 public sealed record SchedulePostRequest(string? PublishAt)
 {
     /// <summary>La hora pedida en UTC.</summary>
@@ -30,14 +30,14 @@ public sealed record SchedulePostRequest(string? PublishAt)
     {
         if (string.IsNullOrWhiteSpace(PublishAt))
         {
-            throw new DomainException("Indicá la fecha y hora de publicación.");
+            throw new DomainException(MessageKeys.PostPublishAtRequired);
         }
 
         // AdjustToUniversal pasa a UTC usando el desplazamiento del texto; si no hay, el resultado queda Unspecified.
         if (!DateTime.TryParse(PublishAt, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsed)
             || parsed.Kind != DateTimeKind.Utc)
         {
-            throw new DomainException("La fecha de publicación no es válida: usá ISO 8601 con zona horaria (ej. 2026-12-01T09:00:00-03:00).");
+            throw new DomainException(MessageKeys.PostPublishAtInvalid);
         }
 
         return parsed;

@@ -18,14 +18,17 @@ public static class Language
     {
         Spanish => Spanish,
         English => English,
-        _ => throw new DomainException($"El idioma tiene que ser \"{Spanish}\" (español) o \"{English}\" (inglés)."),
+        _ => throw new DomainException(MessageKeys.LanguageInvalid, ("spanish", Spanish), ("english", English)),
     };
 
-    /// <summary>Para los mensajes al admin: "en" -> "inglés".</summary>
-    public static string NameOf(string language) => language switch
+    /// <summary>
+    /// Para los mensajes al admin: "en" -> "inglés" (o "English"). Es un mensaje anidado y no un texto: el nombre del
+    /// idioma también se escribe en el idioma de quien lee.
+    /// </summary>
+    public static UserMessage NameOf(string language) => language switch
     {
-        Spanish => "español",
-        English => "inglés",
+        Spanish => new UserMessage(MessageKeys.LanguageSpanish),
+        English => new UserMessage(MessageKeys.LanguageEnglish),
         _ => throw new ArgumentOutOfRangeException(nameof(language), language, "Idioma sin validar: pasalo antes por Parse."),
     };
 }
