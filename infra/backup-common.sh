@@ -6,21 +6,19 @@
 #   COMPOSE_FILE            archivos de compose: la variable estándar de Docker (por defecto docker-compose.yml)
 #   BACKUP_RCLONE_REMOTE    destino de rclone (ej. secreto:blog); sin él, el backup queda solo en el VPS. Tiene que ser
 #                           un remote `crypt` (rclone config → crypt, sobre el S3/B2/Drive que uses): el backup lleva el
-#                           hash de la contraseña del admin y las claves de sesión, y no deben quedar legibles allá.
+#                           hash de la contraseña del admin y los borradores sin publicar, que no deben quedar legibles allá.
 #   BACKUP_ALLOW_PLAINTEXT  1 para aceptar igual un remote sin cifrar (bajo tu responsabilidad)
 #
 # Estructura de BACKUP_DIR (la misma en el remoto):
 #   daily/<UTC>/blog.db      la base SQLite: copia consistente hecha por la API mientras atiende
-#   daily/<UTC>/keys.tar     claves de Data Protection: sin ellas, las sesiones abiertas del admin dejan de valer
 #   weekly/<UTC>/            lo mismo, una por semana
 #   media/                   imágenes y videos subidos, acumulados. Los nombres salen del hash del contenido y nunca
 #                            cambian: cada día se copian solo los nuevos (una copia entera por snapshot llenaría el
 #                            disco), y sirve para cualquier snapshot porque tiene todo lo que usa cualquiera de sus bases.
-#   pre-restore-<UTC>/       lo que había en el volumen justo antes de un restore (blog.db, a veces blog.db-wal, y
-#                            keys.tar): para deshacerlo con el mismo restore.sh. No se rota: borralo cuando no lo quieras.
+#   pre-restore-<UTC>/       lo que había en el volumen justo antes de un restore (blog.db y a veces blog.db-wal): para deshacerlo con el mismo restore.sh. No se rota: borralo cuando no lo quieras.
 
 set -eu
-# Los backups tienen la base (hash del admin) y las claves de sesión: solo los lee el dueño.
+# Los backups tienen la base (hash del admin, borradores): solo los lee el dueño.
 umask 077
 
 # Las rutas relativas que recibe el script son las de donde se lo llamó; compose, en cambio, corre desde infra/ (donde
@@ -52,7 +50,7 @@ utc_stamp() {
 
 # Corre un script de sh con los volúmenes de la API (/data, /media), como el usuario de la API. $1 = exec: en el
 # contenedor en marcha; run: en uno aparte (con la API parada, o para no depender de ella). La entrada y la salida
-# pasan tal cual (por ahí viajan la base, las claves y la media).
+# pasan tal cual (por ahí viajan la base y la media).
 api_sh() {
 	mode=$1
 	shift

@@ -131,14 +131,14 @@ describe('backup.sh y restore.sh', { skip }, () => {
   });
 
   describe('backup.sh', () => {
-    it('copia base, claves y media (sin los .tmp), y no deja la copia de la base en el volumen', async () => {
+    it('copia la base y la media (sin los .tmp; nunca las claves de sesión), y no deja la copia de la base en el volumen', async () => {
       const result = await sh('backup.sh');
 
       assert.equal(result.code, 0, result.stderr);
       assert.equal(result.stdout, '');
       const [stamp] = await list(join(backups, 'daily'));
       assert.match(stamp!, /^\d{8}T\d{6}Z$/);
-      assert.deepEqual(await list(join(backups, 'daily', stamp!)), ['blog.db', 'keys.tar']);
+      assert.deepEqual(await list(join(backups, 'daily', stamp!)), ['blog.db'], 'sin claves de sesión');
       assert.equal(readDb(join(backups, 'daily', stamp!, 'blog.db')), 'base de prueba');
       assert.deepEqual(await list(join(backups, 'media', 'abc')), ['640.webp']);
       assert.deepEqual(await list(live('backups')), []);
@@ -360,6 +360,10 @@ describe('backup.sh y restore.sh', { skip }, () => {
       await rm(join(root, 'calls'));
       return snapshot;
     };
+    /** Sin claves en el volumen: la API arranca con unas nuevas y ninguna cookie emitida antes del restore vale. */
+    const noKeys = async (): Promise<void> => {
+      await assert.rejects(readdir(live('keys')), { code: 'ENOENT' });
+    };
     const preRestore = async (): Promise<string[]> => (await list(backups)).filter((name) => name.startsWith('pre-restore-'));
 
     it('sin --apply solo revisa (con integrity_check): no para nada ni toca la base', async () => {
@@ -368,7 +372,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       const result = await sh('restore.sh', [snapshot]);
 
       assert.equal(result.code, 0, result.stderr);
-      assert.match(result.stderr, /snapshot válido: base \d+ bytes \(integrity_check ok\), 1 claves, 1 archivos de media/);
+      assert.match(result.stderr, /snapshot válido: base \d+ bytes \(integrity_check ok\), 1 archivos de media/);
       assert.match(result.stderr, /Simulación: no se cambió nada\. Con --apply:/);
       assert.equal(readDb(live('blog.db')), 'base nueva');
       const log = await calls();
@@ -377,7 +381,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.deepEqual(await preRestore(), []);
     });
 
-    it('--apply guarda antes una copia previa, reemplaza base y claves, descarta el -wal y agrega la media que falta', async () => {
+    it('--apply guarda antes una copia previa, reemplaza la base, descarta el -wal y agrega la media que falta', async () => {
       const snapshot = await backupThenChange();
       await writeFile(live('blog.db-wal'), 'wal de la base nueva');
       await rm(join(root, 'media', 'abc', '640.webp'));
@@ -387,8 +391,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.equal(result.code, 0, result.stderr);
       assert.equal(readDb(live('blog.db')), 'base de prueba');
       assert.deepEqual((await list(live(''))).filter((name) => name.startsWith('blog.db')), ['blog.db']);
-      assert.deepEqual(await list(live('keys')), ['key-1.xml']);
-      assert.equal(await readFile(live('keys/key-1.xml'), 'utf8'), '<key/>');
+      await noKeys();
       assert.equal(await readFile(join(root, 'media', 'abc', '640.webp'), 'utf8'), 'imagen');
       assert.deepEqual((await list(live(''))).filter((name) => name.startsWith('.')), [], 'sin temporales en el volumen');
       assert.deepEqual((await list(join(root, 'media'))).filter((name) => name.startsWith('.')), []);
@@ -396,7 +399,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       // La copia previa la hizo la API en marcha (copia consistente) y es un snapshot que restore.sh acepta.
       const [pre] = await preRestore();
       assert.match(pre!, /^pre-restore-\d{8}T\d{6}Z$/);
-      assert.deepEqual(await list(join(backups, pre!)), ['blog.db', 'keys.tar']);
+      assert.deepEqual(await list(join(backups, pre!)), ['blog.db']);
       assert.equal(readDb(join(backups, pre!, 'blog.db')), 'base nueva');
       assert.match(result.stderr, new RegExp(`copia previa: ${backups}/${pre}`));
       assert.deepEqual(await list(live('backups')), []);
@@ -408,6 +411,20 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'en este orden');
     });
 
+    it('--apply no revive sesiones revocadas: ni el snapshot ni el volumen dejan sus claves de sesión', async () => {
+      // Un backup es de antes de un logout: si trajera sus claves (y su época de sesiones), una cookie revocada después
+      // volvería a valer. Con claves nuevas, toda cookie emitida antes del restore deja de valer y el admin entra de nuevo.
+      const snapshot = await backupThenChange();
+      await mkdir(join(snapshot, 'keys'));
+      await writeFile(join(snapshot, 'keys', 'key-0.xml'), '<key-vieja/>');
+
+      const result = await sh('restore.sh', [snapshot, '--apply']);
+
+      assert.equal(result.code, 0, result.stderr);
+      await noKeys();
+      assert.match(result.stderr, /claves de sesión nuevas: el admin tiene que volver a entrar/);
+    });
+
     it('con la API parada, la copia previa es la del volumen tal cual, con su -wal', async () => {
       const snapshot = await backupThenChange();
       await writeFile(live('blog.db-wal'), 'wal sin aplicar');
@@ -416,7 +433,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
 
       assert.equal(result.code, 0, result.stderr);
       const [pre] = await preRestore();
-      assert.deepEqual(await list(join(backups, pre!)), ['blog.db', 'blog.db-wal', 'keys.tar']);
+      assert.deepEqual(await list(join(backups, pre!)), ['blog.db', 'blog.db-wal']);
       assert.equal(readDb(join(backups, pre!, 'blog.db')), 'base nueva');
       assert.equal(await readFile(join(backups, pre!, 'blog.db-wal'), 'utf8'), 'wal sin aplicar');
       assert.doesNotMatch(await calls(), /exec -T api/);
@@ -434,7 +451,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.match(result.stderr, /no hay base en el volumen: no hace falta copia previa/);
       assert.deepEqual(await preRestore(), []);
       assert.equal(readDb(live('blog.db')), 'base de prueba');
-      assert.deepEqual(await list(live('keys')), ['key-1.xml']);
+      await noKeys();
     });
 
     it('si la base llega cortada al volumen, falla antes de parar nada y la base actual queda intacta', async () => {
@@ -473,8 +490,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.match(result.stderr, /container blog-api-1 is unhealthy/);
       assert.match(result.stderr, new RegExp(`el restore falló: se volvió a poner la copia previa ${backups}/${pre}`));
       assert.equal(readDb(live('blog.db')), 'base nueva');
-      assert.deepEqual(await list(live('keys')), ['key-1.xml', 'key-2.xml']);
-      assert.equal(await readFile(live('keys/key-1.xml'), 'utf8'), '<key-nueva/>');
+      await noKeys();
       assert.equal((await calls()).match(/up -d --wait/g)?.length, 2, 'levanta todo de nuevo');
     });
 

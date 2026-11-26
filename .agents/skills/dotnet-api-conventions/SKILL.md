@@ -88,7 +88,8 @@ throw new ConflictException(MessageKeys.PostSlugTaken,                          
   `Http/HealthHttpTests`) and its row here.
 - Admin session (`Security/AdminSession.cs`): cookie `__Host-admin` carries the `session_epoch` claim. Logout with a valid
   session calls `AdminSessionEpoch.RevokeAllAsync` (Infrastructure, persisted in the database, cached in memory): every
-  cookie issued before, even a copied one, is rejected. Revocation **fails closed** if refreshing the cached epoch fails.
+  cookie issued before, even a copied one, is rejected. Revocation **fails closed** if refreshing the cached epoch fails. A restored database brings back an older epoch,
+  so `infra/restore.sh` always starts with a fresh Data Protection key ring (old cookies cannot even be decrypted).
   Failed logins are logged with the client IP only.
 - Trusted proxies (`Security/TrustedProxies.cs`): `X-Forwarded-For`/`-Proto` are believed only from
   `ForwardedHeaders:KnownNetworks` (CIDR list; default the Docker private ranges + loopback). An invalid CIDR stops the

@@ -1,7 +1,10 @@
 #!/bin/sh
-# Backup del blog: base SQLite, claves de sesión y media subida, con rotación de 7 diarios y 4 semanales, y copia
+# Backup del blog: base SQLite y media subida, con rotación de 7 diarios y 4 semanales, y copia
 # remota opcional con rclone. Se puede correr con el sitio atendiendo: la API hace la copia consistente de la base.
 # Configuración y estructura de la carpeta: infra/backup-common.sh. Restaurar: infra/restore.sh.
+#
+# Las claves de sesión (Data Protection) no se copian a propósito: un backup es de antes de un logout, y con sus claves
+# (y la época de sesiones de su base) una cookie revocada después volvería a valer. Restaurar empieza con claves nuevas.
 #
 # En el VPS, una vez por día con cron (crontab -e del usuario que maneja Docker):
 #
@@ -12,7 +15,7 @@
 #   COMPOSE_FILE=docker-compose.yml:compose.local.yml ENV_FILE=local.env BACKUP_DIR=/tmp/blog-backups sh backup.sh
 #
 # Copia remota (BACKUP_RCLONE_REMOTE): tiene que ser un remote `crypt` de rclone, porque el backup lleva el hash de la
-# contraseña del admin y las claves de sesión; uno sin cifrar se rechaza salvo con BACKUP_ALLOW_PLAINTEXT=1. Se sube con
+# contraseña del admin y los borradores sin publicar; uno sin cifrar se rechaza salvo con BACKUP_ALLOW_PLAINTEXT=1. Se sube con
 # `rclone copy`, que nunca borra allá: un `sync` copiaría también los borrados de acá, y una corrida con la carpeta local
 # vacía (disco nuevo, BACKUP_DIR mal escrito) se llevaría todo el historial remoto. Los snapshots viejos se rotan allá en
 # un paso aparte, solo si el set local está completo, con tope de borrados y moviendo lo rotado a deleted/<UTC>/.
@@ -22,8 +25,8 @@
 
 KEEP_DAILY=7
 KEEP_WEEKLY=4
-# Cuántos archivos puede borrar allá la retención, por carpeta y por corrida: un día normal rota un snapshot (blog.db y
-# keys.tar); el doble da margen, y más que eso es señal de que algo anda mal acá.
+# Cuántos archivos puede borrar allá la retención, por carpeta y por corrida: un día normal rota un snapshot (blog.db) y a
+# veces un semanal; más da margen, y más que eso es señal de que algo anda mal acá.
 REMOTE_MAX_DELETE=4
 # Lo que la retención saca del remoto queda en deleted/<UTC>/ y se borra de verdad recién pasado este tiempo.
 REMOTE_KEEP_DELETED=30d
@@ -55,7 +58,7 @@ offsite() {
 	fi
 	remote_type=$(rclone listremotes --long | awk -v name="${BACKUP_RCLONE_REMOTE%%:*}:" '$1 == name { print $2 }')
 	if [ "$remote_type" != crypt ] && [ "${BACKUP_ALLOW_PLAINTEXT:-}" != 1 ]; then
-		die "$BACKUP_RCLONE_REMOTE no es un remote crypt de rclone y el backup lleva el hash del admin y las claves de sesión: creá uno crypt (rclone config) o aceptalo sin cifrar con BACKUP_ALLOW_PLAINTEXT=1. El backup local quedó en $BACKUP_DIR"
+		die "$BACKUP_RCLONE_REMOTE no es un remote crypt de rclone y el backup lleva el hash del admin y los borradores: creá uno crypt (rclone config) o aceptalo sin cifrar con BACKUP_ALLOW_PLAINTEXT=1. El backup local quedó en $BACKUP_DIR"
 	fi
 
 	# --size-only: lo que se sube nunca cambia (snapshots con nombre de fecha, media con nombre de hash), así que el
@@ -106,11 +109,7 @@ api_sh exec '[ ! -d /data/backups ] || find /data/backups -name "blog-*.db" -mti
 api_backup "$work/blog.db"
 verify_db "$work" || die "la base no pasa PRAGMA integrity_check: no se guardó el snapshot"
 
-# 2. Claves de Data Protection.
-api_sh exec 'tar -C /data -cf - keys' >"$work/keys.tar"
-tar -tf "$work/keys.tar" >/dev/null || die "keys.tar llegó dañado"
-
-# 3. Media: lo que falta en el backup o quedó con otro tamaño. Llega a una carpeta temporal y se mueve a su nombre
+# 2. Media: lo que falta en el backup o quedó con otro tamaño. Llega a una carpeta temporal y se mueve a su nombre
 #    final solo si llegó entera: un archivo cortado con su nombre final parecería copiado y nunca se repetiría.
 volume_sizes exec >"$work/media-volume.txt"
 backup_sizes "$BACKUP_DIR/media" >"$work/media-backup.txt"

@@ -1,5 +1,6 @@
 #!/bin/sh
-# Restaura un snapshot de infra/backup.sh: base, claves de sesión y media. Sin --apply solo revisa el snapshot y
+# Restaura un snapshot de infra/backup.sh: base y media, con claves de sesión nuevas (el admin vuelve a entrar: un
+# snapshot es de antes de un logout y no puede revivir una sesión revocada). Sin --apply solo revisa el snapshot y
 # muestra lo que haría (no toca nada). Configuración: infra/backup-common.sh (las mismas variables que el backup).
 #
 #   sh restore.sh /var/backups/blog/daily/20261126T031500Z            revisar
@@ -10,11 +11,12 @@
 # Pasos con --apply. Lo que puede fallar a mitad (traer archivos, que lleguen enteros) se hace antes de parar nada;
 # parado el blog, quedan solo renames dentro de cada volumen y levantarlo:
 #   1. Prepara los volúmenes (init-permisos: los crea si no existen y les pone el dueño correcto).
-#   2. Copia la base, las claves y la media que le falte al volumen a carpetas temporales (.restoring) y comprueba que
+#   2. Copia la base y la media que le falte al volumen a carpetas temporales (.restoring) y comprueba que
 #      llegaron enteras (CRC y tamaño). Hasta acá no se tocó nada.
 #   3. Guarda lo que hay hoy en BACKUP_DIR/pre-restore-<UTC> (con la API en marcha, con su comando backup; parada, el
 #      volumen tal cual). Es un snapshot como cualquier otro: se puede restaurar con este mismo script.
-#   4. Para la API y el builder (Caddy sigue sirviendo el sitio publicado) y cambia base, claves y media por las nuevas.
+#   4. Para la API y el builder (Caddy sigue sirviendo el sitio publicado), cambia base y media por las nuevas y borra
+#      las claves de sesión.
 #   5. Levanta todo, espera a que los healthchecks den sano y pide un build con la base restaurada.
 #   Si algo falla desde el paso 4, vuelve a poner la copia previa, levanta todo y dice dónde quedó.
 
@@ -33,18 +35,18 @@ snapshot=$(absolute "$snapshot")
 
 # ---------- Revisión (siempre) ----------
 is_sqlite "$snapshot/blog.db" || die "$snapshot/blog.db no existe o no es una base SQLite"
-tar -tf "$snapshot/keys.tar" >/dev/null || die "$snapshot/keys.tar no existe o está dañado"
 [ -d "$BACKUP_DIR/media" ] || die "falta $BACKUP_DIR/media"
 verify_db "$snapshot" || die "$snapshot/blog.db no pasa PRAGMA integrity_check"
-log "snapshot válido: base $(wc -c <"$snapshot/blog.db" | tr -d ' ') bytes (integrity_check ok), $(tar -tf "$snapshot/keys.tar" | grep -c '\.xml$') claves, $(backup_sizes "$BACKUP_DIR/media" | wc -l | tr -d ' ') archivos de media en $BACKUP_DIR/media"
+log "snapshot válido: base $(wc -c <"$snapshot/blog.db" | tr -d ' ') bytes (integrity_check ok), $(backup_sizes "$BACKUP_DIR/media" | wc -l | tr -d ' ') archivos de media en $BACKUP_DIR/media"
 
 if [ "$apply" = false ]; then
 	cat >&2 <<EOF
 Simulación: no se cambió nada. Con --apply:
   1. init-permisos prepara los volúmenes
-  2. se copian base, claves y la media que falte a temporales en los volúmenes, y se comprueba que llegaron enteras
+  2. se copian la base y la media que falte a temporales en los volúmenes, y se comprueba que llegaron enteras
   3. se guarda lo que hay hoy en $BACKUP_DIR/pre-restore-<UTC>
-  4. se paran api y builder (Caddy sigue sirviendo el sitio publicado) y se cambia todo por lo restaurado
+  4. se paran api y builder (Caddy sigue sirviendo el sitio publicado) y se cambia todo por lo restaurado, con claves de
+     sesión nuevas: el admin vuelve a entrar
   5. se levanta todo, se espera a los healthchecks y se pide un build del sitio
   Si algo falla desde el paso 4, se vuelve a poner la copia previa y se levanta todo.
 EOF
@@ -63,13 +65,12 @@ push() {
 	}
 }
 
-# Base (con su -wal, si el snapshot lo tiene) y claves del snapshot $1 a /data/.restoring, listas para el cambio.
+# Base (con su -wal, si el snapshot lo tiene) del snapshot $1 a /data/.restoring, listas para el cambio.
 stage_data() {
 	api_sh run 'rm -rf /data/.restoring; mkdir /data/.restoring' || return 1
-	for file in blog.db blog.db-wal keys.tar; do
+	for file in blog.db blog.db-wal; do
 		if [ -f "$1/$file" ]; then push "$1/$file" "/data/.restoring/$file" || return 1; fi
 	done
-	api_sh run 'cd /data/.restoring; if [ -f keys.tar ]; then tar -xf keys.tar; rm keys.tar; fi'
 }
 
 # La media del backup que el volumen no tiene (o tiene con otro tamaño) a /media/.restoring, comprobada por tamaño.
@@ -91,7 +92,7 @@ stage_media() {
 # copia tal cual, con el -wal si lo hay, porque ahí puede haber cambios que todavía no pasaron a la base).
 save_current() {
 	# shellcheck disable=SC2016 # se expande en el contenedor
-	present=$(api_sh run 'cd /data; for f in blog.db blog.db-wal keys; do [ ! -e "$f" ] || echo "$f"; done') || return 1
+	present=$(api_sh run 'cd /data; for f in blog.db blog.db-wal; do [ ! -e "$f" ] || echo "$f"; done') || return 1
 	if ! printf '%s\n' "$present" | grep -qx blog.db; then
 		log "no hay base en el volumen: no hace falta copia previa"
 		saved=true
@@ -112,10 +113,6 @@ save_current() {
 			fi
 		done
 	fi
-	if printf '%s\n' "$present" | grep -qx keys; then
-		api_sh "$1" 'tar -C /data -cf - keys' >"$partial/keys.tar" || return 1
-		tar -tf "$partial/keys.tar" >/dev/null || return 1
-	fi
 	target="$BACKUP_DIR/pre-restore-$(utc_stamp)"
 	mv "$partial" "$target" || return 1
 	pre=$target
@@ -123,16 +120,15 @@ save_current() {
 	log "copia previa: $pre"
 }
 
-# El cambio, con la API parada: renames dentro de cada volumen, nada que pueda llegar a medias. Caddy (otro usuario)
+# El cambio, con la API parada: renames dentro de cada volumen, nada que pueda llegar a medias. Las claves de sesión se
+# borran (la API crea otras al arrancar): ninguna cookie emitida antes vale, tampoco una que un logout ya había revocado
+# y que la época de sesiones de la base restaurada volvería a aceptar. Vale también al volver a la copia previa. Caddy (otro usuario)
 # tiene que poder leer la media: tar la extrae con los permisos del backup (solo el dueño) y acá se le devuelven.
 INSTALL="cd /data
 rm -f blog.db-wal blog.db-shm
 mv .restoring/blog.db blog.db
 if [ -f .restoring/blog.db-wal ]; then mv .restoring/blog.db-wal blog.db-wal; fi
-rm -rf keys.old
-if [ -d keys ]; then mv keys keys.old; fi
-if [ -d .restoring/keys ]; then mv .restoring/keys keys; fi
-rm -rf keys.old .restoring
+rm -rf keys .restoring
 if [ -d /media/.restoring ]; then
 	(set -- /media/.restoring /media; $MOVE_FILES)
 	rm -rf /media/.restoring
@@ -186,7 +182,7 @@ if api_running; then
 	save_current exec || die "no se pudo guardar la copia previa con la API en marcha: no se cambió nada"
 fi
 
-log "4/5 parando api y builder, y cambiando base, claves y media"
+log "4/5 parando api y builder, y cambiando base y media"
 stopped=true
 compose stop api builder
 if [ "$saved" = false ]; then
@@ -194,6 +190,7 @@ if [ "$saved" = false ]; then
 fi
 swapped=true
 api_sh run "$INSTALL"
+log "claves de sesión nuevas: el admin tiene que volver a entrar"
 
 log "5/5 levantando, esperando los healthchecks y pidiendo un build del sitio"
 compose up -d --wait

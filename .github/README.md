@@ -202,11 +202,12 @@ sh restore.sh /var/backups/blog/daily/<UTC> --apply    # restaura, levanta todo,
 
 Lo que se publicó o editó después de ese backup se pierde, salvo en `BACKUP_DIR/pre-restore-<UTC>`: antes de cambiar
 nada, `--apply` guarda ahí lo que había (se restaura con el mismo script; no se rota, borralo cuando no lo quieras).
+Restaurar cierra la sesión del admin (claves de sesión nuevas): un backup es de antes de un logout, y si trajera sus
+claves volvería a valer una cookie que ese logout revocó.
 
 ### Backups
 
-`backup.sh` copia la base (copia consistente hecha por la API mientras atiende), las claves de sesión y la media nueva a
-`BACKUP_DIR` (por defecto `/var/backups/blog`), y rota 7 diarios y 4 semanales. Una vez por día con cron, del usuario que
+`backup.sh` copia la base (copia consistente hecha por la API mientras atiende), y la media nueva a `BACKUP_DIR` (por defecto `/var/backups/blog`), y rota 7 diarios y 4 semanales. Una vez por día con cron, del usuario que
 maneja Docker:
 
 ```cron
@@ -215,7 +216,7 @@ maneja Docker:
 
 - Sin `BACKUP_RCLONE_REMOTE`, el backup queda solo en el VPS: si se pierde el disco, se pierde todo. Configurá una copia
   remota con rclone: un remote **`crypt`** (`rclone config` → crypt) encima del S3, B2, Drive… que uses. El backup tiene
-  la base (con el hash del admin) y las claves de sesión: el script rechaza un remote sin cifrar salvo con
+  la base (con el hash del admin y los borradores): el script rechaza un remote sin cifrar salvo con
   `BACKUP_ALLOW_PLAINTEXT=1`. Sube con `rclone copy` (nunca borra allá por un borrado de acá); la configuración
   completa está al principio de `backup.sh` y `backup-common.sh`.
 - Probá la restauración de vez en cuando: `sh restore.sh <snapshot>` (sin `--apply`) revisa que el snapshot esté sano.

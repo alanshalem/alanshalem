@@ -89,15 +89,17 @@ references into the workflow.
 ## Backups and restore (`infra/backup.sh`, `infra/restore.sh`, shared `infra/backup-common.sh`)
 
 - `backup.sh` (daily by cron, see its header): the database through the API's `backup` mode (consistent SQLite backup
-  while serving), `keys.tar` (Data Protection) and only the new media, into `BACKUP_DIR` (default `/var/backups/blog`);
+  while serving) and only the new media (**never the Data Protection keys**), into `BACKUP_DIR` (default `/var/backups/blog`);
   keeps 7 daily / 4 weekly snapshots, built in a hidden `.partial` folder and renamed at the end; the database arrives
   verified (CRC and size of both sides) and media is compared by name and size (truncated files are caught). Optional off-site copy with `BACKUP_RCLONE_REMOTE`: it must be an rclone **`crypt`** remote
-  (the backup holds the admin hash and session keys; plaintext only with `BACKUP_ALLOW_PLAINTEXT=1`), uploaded with
+  (the backup holds the admin hash and drafts; plaintext only with `BACKUP_ALLOW_PLAINTEXT=1`), uploaded with
   `rclone copy` so an empty local folder can never wipe the remote history.
 - `restore.sh <snapshot>` only checks the snapshot and prints the plan; `--apply` first copies and verifies everything
   into `.restoring` folders, saves the current state to `BACKUP_DIR/pre-restore-<UTC>` (restorable with the same script),
-  then stops api/builder (Caddy keeps serving), swaps database, keys and media, `up -d --wait`, and requests a build
-  (`node src/request-build.ts`); a failure after the stop puts the previous copy back.
+  then stops api/builder (Caddy keeps serving), swaps database and media, **deletes the session keys**, `up -d --wait`, and
+  requests a build (`node src/request-build.ts`); a failure after the stop puts the previous copy back (also with new
+  keys). Why no keys: a snapshot predates a logout, and its keys plus its stored session epoch would make a revoked
+  cookie valid again. Every restore logs the admin out; never add the keys back to the backup.
 - The scripts' headers are the reference for variables and folder layout; the README "Operación" section is the
   runbook. Change the three together.
 - Rollback of a release = restore the backup taken before updating: migrations run at startup and `Down` migrations are
