@@ -29,7 +29,7 @@ Admin ─► API ─► SQLite ; publish ─► durable rebuild request ─► b
 | `packages/tokens` | Design tokens (`tokens.css`, `tokens.json`) and `.prose` styles | CSS |
 | `infra` | `docker-compose.yml` (VPS), `compose.local.yml` + `local.env` (local prod copy), `compose.dev.yml`, `caddy/Caddyfile` | Docker, Caddy 2 |
 | `tooling` | `dev-watch.ts` (polling watcher), `agents/` (skill sync + check), `profile/` (profile README SVG generator) | Node |
-| `docs/design` | `DESIGN-SYSTEM.md`, `tokens.json` | — |
+| `docs/design` | `DESIGN-SYSTEM.md` (tokens live only in `packages/tokens`) | — |
 | `odd/tasks/*.md` | One file per feature: `## Specs` (S#, the user's literal asks), `## Tasks`, `## Log` (L#: decisions, contracts, lessons) | — |
 
 Before changing a feature, read its `odd/tasks/<feature>.md` up to and including `## Log`: specs and logged decisions

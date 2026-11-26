@@ -63,5 +63,5 @@ system with the owner's own texts and photos; never copy third-party text, image
 
 - `text-shadow` to rescue contrast (forbidden; `site-css.test.ts` fails on it) — use the veil.
 - Light-theme accents reused on the white sheet (2.1:1 and 1.5:1 focus/underline) before `periwinkle-700`.
-- Editing `docs/design/tokens.json`: it is the measured reference snapshot and already differs from
-  `packages/tokens/src/tokens.json`, which is the one the apps use (plataforma-calidad principle 7).
+- Keeping a second copy of the tokens: `packages/tokens/src/tokens.css` and `tokens.json` are the only source (a
+  `docs/design/tokens.json` copy drifted and was removed).

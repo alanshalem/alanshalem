@@ -55,7 +55,8 @@ const getApiSettings = oncePerBuild(() =>
 
 - Each inline script is an exported string constant in `src/lib` (`MEDIA_GUARD_SCRIPT` in `lib/media-guard.ts`,
   `HERO_ROTATION_SCRIPT` in `lib/hero-rotation.ts`), rendered with `<script is:inline set:html={...} />`. Constant
-  content keeps a future CSP hash stable.
+  content keeps its CSP hash stable: register every new inline script in `INLINE_SCRIPTS` (`lib/csp.ts`, hashed by
+  `cspHash` into Astro `security.csp`); `test/csp.test.ts` fails if one is missing.
 - Budget: the hero rotation script is capped at 800 bytes by a test; grow only when a feature needs it.
 - Data for scripts goes in `<script type="application/json">` via `jsonForScript`, never interpolated into JS.
 
@@ -65,7 +66,8 @@ const getApiSettings = oncePerBuild(() =>
   element) of any image or video that fails, leaving the dark page background. Mark new media containers with
   `data-media` (constant `MEDIA_CONTAINER_ATTRIBUTE`).
 - Every optional input has a fallback chain ending in something that renders: hero gallery → `public/hero.jpg` →
-  typographic hero; settings → `SITE_NAME`/`SITE_TAGLINE`/`SITE_AUTHOR` env → dictionary defaults.
+  typographic hero; settings come only from the API (a blank name fails the build so the published site stays;
+  only the tagline has a dictionary default).
 - Images only through `ResponsiveImage.astro` / `imageHtml` (AVIF + WebP `<picture>` for uploaded assets, `<img>`
   otherwise). See skill `media-pipeline`.
 
