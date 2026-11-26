@@ -228,3 +228,40 @@ describe('historial de versiones y publicación programada (contrato de 6c40950)
     });
   });
 });
+
+/* Todas las rutas de un post salen de un solo armador (perfil-skills-produccion L8, P3-17): el id siempre codificado. */
+describe('rutas de un post: un solo armador, id codificado', () => {
+  it('cada operación sobre un post usa /api/admin/posts/{id codificado}', async () => {
+    respond = () => json(200, {});
+    const id = 'a/b?c';
+    const base = '/api/admin/posts/a%2Fb%3Fc';
+    await api.getPost(id);
+    await api.updatePost(id, { title: 't', slug: 's', summary: '', body: '', tags: [], coverUrl: null, coverAlt: null });
+    await api.publishPost(id);
+    await api.unpublishPost(id);
+    await api.createTranslation(id, 'en');
+    await api.listRevisions(id);
+    await api.getRevision(id, 'r/1');
+    await api.restoreRevision(id, 'r/1');
+    await api.schedulePost(id, '2030-01-01T10:00:00-03:00');
+    await api.unschedulePost(id);
+    respond = () => new Response(null, { status: 204 });
+    await api.deletePost(id);
+    assert.deepEqual(
+      calls.map((call) => `${call.init.method} ${call.url}`),
+      [
+        `GET ${base}`,
+        `PUT ${base}`,
+        `POST ${base}/publish`,
+        `POST ${base}/unpublish`,
+        `POST ${base}/translations`,
+        `GET ${base}/revisions`,
+        `GET ${base}/revisions/r%2F1`,
+        `POST ${base}/revisions/r%2F1/restore`,
+        `PUT ${base}/schedule`,
+        `DELETE ${base}/schedule`,
+        `DELETE ${base}`,
+      ],
+    );
+  });
+});

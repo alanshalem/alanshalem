@@ -1,7 +1,7 @@
 /*
  * Scroll sincronizado de la vista dividida (S2). El HTML no marca de qué línea sale cada elemento, así que se mapea
- * por índice de bloque: `blockStartLines` de @blog/markdown (el mismo recorrido que el render, sin copias de sus
- * expresiones: principio 2, L4) da dónde empieza cada hijo de .prose y la vista previa interpola entre los pares.
+ * por índice de bloque: `blockStarts` del render de @blog/markdown (el mismo recorrido que la vista previa, sin copias
+ * de sus expresiones: principio 2, L4) da dónde empieza cada hijo de .prose y la vista previa interpola entre los pares.
  * Si las cuentas no coinciden (la vista previa todavía no se actualizó) cae a proporcional: nunca salta a cualquier lado.
  */
 

@@ -1,9 +1,8 @@
 import {
-  blockStartLines,
   POST_BODY_RENDER_OPTIONS,
-  readingTimeMinutes,
+  readingTimeOfText,
   renderMarkdown,
-  toPlainText,
+  wordCount,
   type Heading,
   type RenderOptions,
   type RenderResult,
@@ -18,6 +17,10 @@ import { isTopLevelHeading } from './markdownSource.ts';
  */
 export const previewOptions = (lang: Lang): RenderOptions => ({ ...POST_BODY_RENDER_OPTIONS, lang });
 
+/**
+ * El único render por actualización: además del HTML trae `text` (contador), `headings` + `blockStarts` (esquema) y
+ * `blockStarts` (scroll sincronizado), del mismo recorrido (perfil-skills-produccion L8, P3-14).
+ */
 export const renderPreview = (markdown: string, lang: Lang): RenderResult => renderMarkdown(markdown, previewOptions(lang));
 
 export interface DocumentStats {
@@ -26,13 +29,12 @@ export interface DocumentStats {
   readonly readingMinutes: number;
 }
 
-/** Lo que se lee (sin marcas de Markdown), con la fórmula de minutos del sitio. */
-export function documentStats(markdown: string): DocumentStats {
-  const text = toPlainText(markdown);
+/** Del texto plano de la vista previa (`RenderResult.text`): lo que se lee, con la fórmula de minutos del sitio. */
+export function documentStats(text: string): DocumentStats {
   return {
-    words: text === '' ? 0 : text.split(' ').length,
+    words: wordCount(text),
     characters: [...text].length, // por código Unicode: un emoji o una letra con tilde cuentan uno
-    readingMinutes: readingTimeMinutes(markdown),
+    readingMinutes: readingTimeOfText(text),
   };
 }
 
@@ -43,12 +45,12 @@ export interface OutlineEntry extends Heading {
 
 /**
  * El renderer no dice de qué línea sale cada título, así que se los empareja por orden con los bloques de título de
- * primer nivel (solo esos tienen ancla), partidos por el mismo recorrido que el render (`blockStartLines`). Si las cuentas no
- * coinciden (un caso raro), mejor sin línea que mandar al editor a otro título.
+ * primer nivel (solo esos tienen ancla), partidos por el mismo recorrido que el render (`blockStarts`). Si las cuentas
+ * no coinciden (un caso raro), mejor sin línea que mandar al editor a otro título.
  */
-export function outlineEntries(markdown: string, headings: readonly Heading[]): OutlineEntry[] {
+export function outlineEntries(markdown: string, { headings, blockStarts }: Pick<RenderResult, 'headings' | 'blockStarts'>): OutlineEntry[] {
   const source = markdown.replace(/\r\n?/g, '\n').split('\n');
-  const lines = blockStartLines(markdown).filter((line) => isTopLevelHeading(source[line] ?? ''));
+  const lines = blockStarts.filter((line) => isTopLevelHeading(source[line] ?? ''));
   const paired = lines.length === headings.length;
   return headings.map((heading, i) => ({ ...heading, line: paired ? (lines[i] ?? null) : null }));
 }

@@ -1,3 +1,4 @@
+import type { RenderResult } from '@blog/markdown';
 import {
   useEffect,
   useImperativeHandle,
@@ -39,8 +40,8 @@ interface Props {
   lang: Lang;
   /** Sube la imagen y devuelve su URL. Si no se pasa, el editor no acepta imágenes. */
   onUploadImage?: (file: File) => Promise<string>;
-  /** `value` ya renderizado como en el sitio (usePostPreview). */
-  previewHtml: string;
+  /** `value` ya renderizado como en el sitio (usePostPreview): el HTML y sus bloques, para el scroll sincronizado. */
+  preview: Pick<RenderResult, 'html' | 'blockStarts'>;
   /** La otra versión ya renderizada: con ella aparece "Ver el original al lado" (S5). */
   original: { html: string; lang: Lang } | null;
   stats: DocumentStats;
@@ -68,7 +69,7 @@ const IS_MAC = typeof navigator !== 'undefined' && isMacPlatform(navigator.platf
  * Todo lo que se puede hacer sale del registro de acciones (actions.ts); este componente solo conecta: los
  * comandos de texto pasan por applyEdit (deshacer nativo) y las acciones de interfaz, por `runUi`.
  */
-export function MarkdownEditor({ value, onChange, lang, onUploadImage, previewHtml, original, stats, ref }: Props) {
+export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, original, stats, ref }: Props) {
   const { t, plural } = useUiLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -86,9 +87,9 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, previewHt
   const upload = useImageUpload(textareaRef, lang, onUploadImage);
 
   const showingOriginal = comparing && original !== null;
-  const shown = showingOriginal ? original : { html: previewHtml, lang };
+  const shown = showingOriginal ? original : { html: preview.html, lang };
   const originalLabel = showingOriginal ? t('editor.original', { lang: t(`lang.inSentence.${original.lang}`) }) : null;
-  const onEditorScroll = useScrollSync(textareaRef, previewRef, view === 'split', shown.html);
+  const onEditorScroll = useScrollSync(textareaRef, previewRef, view === 'split', shown.html, preview.blockStarts);
 
   const actions = useMemo(
     () => availableActions(editorActions(lang), { canUpload: upload.canUpload, canCompare: original !== null }),

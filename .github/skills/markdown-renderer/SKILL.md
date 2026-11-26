@@ -8,9 +8,12 @@ description: "Rules of the dependency-free Markdown renderer in packages/markdow
 ## Contract
 
 - Zero runtime dependencies. Public API in `src/index.ts`: `renderMarkdown`, `blockStartLines`,
-  `POST_BODY_RENDER_OPTIONS`, `excerpt`, `readingTimeMinutes`, `toPlainText`, `createSlugger`, `slugify`,
-  `escapeHtml`, `sanitizeUrl`, types `Heading`, `Lang`, `RenderOptions`, `RenderResult`.
-- `renderMarkdown(source, options)` returns `{ html, headings }`; `headings` feed the article TOC (ids are the anchors).
+  `POST_BODY_RENDER_OPTIONS`, `excerpt`, `readingTimeMinutes`, `readingTimeOfText`, `wordCount`, `toPlainText`,
+  `createSlugger`, `slugify`, `escapeHtml`, `sanitizeUrl`, types `Heading`, `Lang`, `RenderOptions`, `RenderResult`.
+- `renderMarkdown(source, options)` returns `{ html, headings, blockStarts, text }` from **one pass**: `headings` feed
+  the article TOC (ids are the anchors); `blockStarts` is the line (from 0) where each top-level block starts (one per
+  top-level HTML element; the footnotes section is not a block); `text` is the plain text of that `html` (what is
+  read, whitespace normalized). New result fields are additive: existing ones never change shape.
 - The same function renders the published page (Astro build) and the admin preview: **the preview is the page**.
 
 ## Security (non-negotiable)
@@ -54,8 +57,14 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
 
 ## Structure helpers
 
-- `blockStartLines(source)` exposes the renderer's own block boundaries (used by the admin scroll sync). Any consumer
-  that needs block structure calls it instead of re-parsing.
+- A consumer that already rendered reads the result instead of re-parsing: the admin's single preview render feeds
+  the preview, the counter (`text`), the outline (`headings` + `blockStarts`) and the scroll sync (`blockStarts`).
+- `blockStartLines(source)` = `renderMarkdown(source).blockStarts` (options never move block boundaries) and
+  `toPlainText(source)` = `renderMarkdown(source).text`; use them only when there is no render result at hand.
+- `wordCount(plainText)` and `readingTimeOfText(plainText, wpm = 200)` (minimum 1) apply the site's formula to a text
+  already computed; `readingTimeMinutes(markdown)` = `readingTimeOfText(toPlainText(markdown))`.
+- `text` follows the render options (smart typography, figure captions, callout labels in `lang`), so it is what the
+  page shows; `toPlainText`/`excerpt`/`readingTimeMinutes` render without options.
 - Block regexes such as `FENCE_OPEN` live in `src/blocks.ts`; keep them there.
 
 ## Tests
@@ -76,4 +85,5 @@ use it renders exactly as before.
 
 - A pasted `#II.` (no space) is a paragraph, not a heading; the post linter flags it rather than the renderer guessing.
 - Copying renderer regexes into the admin (drifted; replaced by `blockStartLines`, `ad9b10d`).
-- Three renders per keystroke in the editor (advisory in editor-pro L9): reuse the main render result when possible.
+- Five Markdown passes per editor update (preview, two plain-text, two `blockStartLines`; ~58 ms on a 100 KB post):
+  replaced by the one render's `blockStarts` and `text` (~17 ms; perfil-skills-produccion L8, P3-14).

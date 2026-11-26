@@ -288,7 +288,7 @@ describe('seguridad', () => {
 
 describe('robustez', () => {
   it('entrada vacía', () => {
-    assert.deepEqual(renderMarkdown(''), { html: '', headings: [] });
+    assert.deepEqual(renderMarkdown(''), { html: '', headings: [], blockStarts: [], text: '' });
   });
 
   it('normaliza saltos de línea de Windows', () => {

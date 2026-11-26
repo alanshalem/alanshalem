@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  blockSpan,
   changeIndent,
   continueMarkdownBlock,
   insertCodeBlock,
   insertHorizontalRule,
   imageMarkdown,
+  insertBlock,
   insertLink,
   insertTable,
   insertText,
@@ -19,6 +21,7 @@ import {
   toggleQuote,
   toggleStrike,
 } from '../src/editor/commands.ts';
+import { renderPreview } from '../src/editor/preview.ts';
 import { commandForKey } from '../src/editor/shortcuts.ts';
 import { applyEditToState } from '../src/editor/text.ts';
 import type { Command, EditorState } from '../src/editor/types.ts';
@@ -262,6 +265,63 @@ describe('bloques', () => {
 
   it('no suma saltos de más si ya hay líneas en blanco', () => {
     assert.equal(run(insertHorizontalRule, 'a\n\n¦'), 'a\n\n---¦');
+  });
+});
+
+/*
+ * Imágenes pegadas o soltadas como bloque propio (perfil-skills-produccion L8, P3-15): antes se insertaban en línea
+ * en el cursor, se pegaban a la palabra siguiente y nunca podían ser una figura.
+ */
+describe('insertBlock: imagen pegada o soltada en un párrafo propio', () => {
+  const image = insertBlock('![x](/m.webp)');
+
+  it('en medio de una frase: línea en blanco antes y después, sin el espacio del borde', () => {
+    const state = { value: 'antes después', start: 6, end: 6 };
+    const edit = image(state);
+    assert.ok(edit);
+    assert.equal(applyEditToState(state, edit).value, 'antes\n\n![x](/m.webp)\n\ndespués');
+    assert.equal(run(image, 'antes ¦después'), 'antes\n\n![x](/m.webp)\n\n¦después');
+  });
+
+  it('sin líneas en blanco de más al principio ni al final del documento', () => {
+    assert.equal(run(image, '¦'), '![x](/m.webp)¦');
+    assert.equal(run(image, '¦texto'), '![x](/m.webp)\n\n¦texto');
+    assert.equal(run(image, 'texto¦'), 'texto\n\n![x](/m.webp)¦');
+  });
+
+  it('reusa las líneas en blanco que ya están y completa las que faltan', () => {
+    assert.equal(run(image, 'a\n\n¦\n\nb'), 'a\n\n![x](/m.webp)¦\n\nb');
+    assert.equal(run(image, 'a\n¦b'), 'a\n\n![x](/m.webp)\n\n¦b');
+    assert.equal(run(image, 'a\n\n![1](/1.webp)\n\n¦b'), 'a\n\n![1](/1.webp)\n\n![x](/m.webp)\n\n¦b');
+  });
+
+  it('reemplaza la selección', () => {
+    assert.equal(run(image, 'a «sel» b'), 'a\n\n![x](/m.webp)\n\n¦b');
+  });
+
+  it('sola en su párrafo, con un título pasa a ser una figura', () => {
+    const titled = run(insertBlock('![x](/m.webp "Pie")'), 'antes ¦después').replace('¦', '');
+    assert.match(renderPreview(titled, 'es').html, /<figure>/);
+  });
+});
+
+describe('blockSpan: sacar un bloque sin dejar líneas en blanco de más (la subida que falla)', () => {
+  const remove = (value: string, block: string): string => {
+    const from = value.indexOf(block);
+    const span = blockSpan(value, from, from + block.length);
+    return value.slice(0, span.from) + value.slice(span.to);
+  };
+
+  it('deshace lo que agregó insertBlock', () => {
+    assert.equal(remove('antes\n\nPH\n\ndespués', 'PH'), 'antes\n\ndespués');
+    assert.equal(remove('PH\n\ndespués', 'PH'), 'después');
+    assert.equal(remove('antes\n\nPH', 'PH'), 'antes');
+    assert.equal(remove('PH', 'PH'), '');
+  });
+
+  it('si mientras tanto se escribió en su línea, saca solo el bloque', () => {
+    assert.equal(remove('antes\nabcPH\n\ndespués', 'PH'), 'antes\nabc\n\ndespués');
+    assert.equal(remove('antes\n\nPHx', 'PH'), 'antes\n\nx');
   });
 });
 

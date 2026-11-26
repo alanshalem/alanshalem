@@ -2,32 +2,18 @@ import { renderBlocks } from './blocks.ts';
 import { createFootnotes, extractFootnoteDefinitions } from './footnotes.ts';
 import type { InlineContext } from './inline.ts';
 import { labelsFor } from './labels.ts';
+import { plainTextOf } from './plainText.ts';
 import { createSlugger } from './slug.ts';
 import type { RenderOptions, RenderResult } from './types.ts';
 
 /**
- * Markdown -> { html, headings }.
+ * Markdown -> { html, headings, blockStarts, text }, en un solo recorrido.
  * Función pura y sin dependencias: corre igual en el navegador (preview del admin)
  * y en Node (build de Astro), por eso lo que se ve en el editor es lo que se publica.
  */
 export function renderMarkdown(source: string, options: RenderOptions = {}): RenderResult {
-  return render(source, options);
-}
-
-/**
- * La línea (desde 0) donde empieza cada bloque de nivel superior, en orden: cada uno es un elemento de primer nivel
- * del HTML (la sección de notas al pie, que va al final, no sale de un bloque). Sale del mismo recorrido que el render,
- * así que no puede separarse de él: el admin la usa para el scroll sincronizado y el esquema de títulos.
- * Las opciones no mueven los bordes de los bloques, por eso no se piden.
- */
-export function blockStartLines(source: string): number[] {
-  const starts: number[] = [];
-  render(source, {}, (line) => starts.push(line));
-  return starts;
-}
-
-function render(source: string, options: RenderOptions, onBlockStart?: (line: number) => void): RenderResult {
   const headings: RenderResult['headings'] = [];
+  const blockStarts: number[] = [];
   const headingOffset = Math.min(5, Math.max(0, options.headingOffset ?? 0));
   const minHeadingLevel = Math.min(6, Math.max(1, options.minHeadingLevel ?? 1));
   const labels = labelsFor(options.lang);
@@ -49,9 +35,18 @@ function render(source: string, options: RenderOptions, onBlockStart?: (line: nu
     inline,
     labels,
     figures: options.figures ?? false,
-    onBlockStart,
+    blockStarts,
   });
   const section = footnotes.renderSection(inline);
+  const html = section ? `${body}\n${section}` : body;
 
-  return { html: section ? `${body}\n${section}` : body, headings };
+  return { html, headings, blockStarts, text: plainTextOf(html) };
+}
+
+/**
+ * `renderMarkdown(source).blockStarts`: las opciones no mueven los bordes de los bloques, por eso no se piden.
+ * Quien además necesita el HTML usa el resultado del render, sin un segundo recorrido.
+ */
+export function blockStartLines(source: string): number[] {
+  return renderMarkdown(source).blockStarts;
 }

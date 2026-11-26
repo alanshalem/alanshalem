@@ -101,8 +101,8 @@ export function PostEditorPage({ postId, onError }: Props) {
   const other = useOtherVersion(post?.translations[0]?.id ?? null, onError);
   const preview = usePostPreview(form.body, lang);
   const original = usePostPreview(other?.body ?? '', other?.lang ?? lang);
-  const stats = useMemo(() => documentStats(preview.markdown), [preview.markdown]);
-  const outline = useMemo(() => outlineEntries(preview.markdown, preview.headings), [preview]);
+  const stats = useMemo(() => documentStats(preview.text), [preview.text]);
+  const outline = useMemo(() => outlineEntries(preview.markdown, preview), [preview]);
   const issues = useMemo(
     () => lintPost({ title: form.title, summary: form.summary, body: preview.markdown }),
     [form.title, form.summary, preview.markdown],
@@ -425,7 +425,7 @@ export function PostEditorPage({ postId, onError }: Props) {
         onChange={(body) => update('body', body)}
         lang={lang}
         onUploadImage={api.uploadImage}
-        previewHtml={preview.html}
+        preview={preview}
         original={other ? { html: original.html, lang: other.lang } : null}
         stats={stats}
       />

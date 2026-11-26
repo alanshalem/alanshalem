@@ -397,6 +397,33 @@ export const insertTable = perLang((lang): Command => {
 export const insertHorizontalRule: Command = (state) =>
   insertAsBlock(state, '---', { from: 3, to: 3 });
 
+/**
+ * `markdown` en un párrafo propio (una imagen pegada o soltada): sin pegarse a la palabra de al lado y, sola en su
+ * párrafo, con un título puede ser una figura. Los espacios del borde se van con el corte; el cursor queda después
+ * del bloque, para seguir escribiendo en el párrafo siguiente.
+ */
+export function insertBlock(markdown: string): Command {
+  return ({ value, start, end }) => {
+    const from = start - (/[ \t]*$/.exec(value.slice(0, start))?.[0].length ?? 0);
+    const to = end + (/^[ \t]*/.exec(value.slice(end))?.[0].length ?? 0);
+    const edit = insertAsBlock({ value, start: from, end: to }, markdown, { from: 0, to: 0 });
+    const after = edit.from + edit.insert.length;
+    return { ...edit, selectStart: after, selectEnd: after };
+  };
+}
+
+/**
+ * El rango que hay que borrar para sacar el bloque [from, to) sin dejar líneas en blanco de más: lo inverso de
+ * insertBlock (una subida que falló). Si mientras tanto se escribió pegado al bloque, solo se va el bloque.
+ */
+export function blockSpan(value: string, from: number, to: number): { from: number; to: number } {
+  const newlinesAfter = /^\n*/.exec(value.slice(to))?.[0].length ?? 0;
+  // El último del documento: también los saltos que lo separaban del anterior.
+  if (to + newlinesAfter === value.length) return { from: from - (/\n*$/.exec(value.slice(0, from))?.[0].length ?? 0), to: value.length };
+  const startsParagraph = from === 0 || value.slice(0, from).endsWith('\n\n');
+  return { from, to: startsParagraph ? to + Math.min(2, newlinesAfter) : to };
+}
+
 /* ----------------- Markdown del sitio: figuras, cajas y notas (S4) ----------------- */
 
 /** Figura = imagen sola en su párrafo y con título (el epígrafe). Queda seleccionada la url, lo primero que falta. */

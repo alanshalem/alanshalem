@@ -92,6 +92,7 @@ function videoForm(file: File, edit: VideoEdit | undefined): FormData {
   return form;
 }
 
+/** La ruta de un post (con el id codificado): de acá salen todas las operaciones sobre uno. */
 const postPath = (id: string): string => `/admin/posts/${encodeURIComponent(id)}`;
 
 export const api = {
@@ -101,16 +102,16 @@ export const api = {
   logout: () => request<void>('POST', '/auth/logout'),
 
   listPosts: () => request<PostSummary[]>('GET', '/admin/posts'),
-  getPost: (id: string) => request<Post>('GET', `/admin/posts/${encodeURIComponent(id)}`),
+  getPost: (id: string) => request<Post>('GET', postPath(id)),
   /** El idioma viaja solo al crear: el de un post existente no se puede cambiar (L4). */
   createPost: (input: PostInput, lang: Lang) => request<Post>('POST', '/admin/posts', { ...input, lang }),
-  updatePost: (id: string, input: PostInput) => request<Post>('PUT', `/admin/posts/${encodeURIComponent(id)}`, input),
-  publishPost: (id: string) => request<Post>('POST', `/admin/posts/${encodeURIComponent(id)}/publish`),
-  unpublishPost: (id: string) => request<Post>('POST', `/admin/posts/${encodeURIComponent(id)}/unpublish`),
-  deletePost: (id: string) => request<void>('DELETE', `/admin/posts/${encodeURIComponent(id)}`),
+  updatePost: (id: string, input: PostInput) => request<Post>('PUT', postPath(id), input),
+  publishPost: (id: string) => request<Post>('POST', `${postPath(id)}/publish`),
+  unpublishPost: (id: string) => request<Post>('POST', `${postPath(id)}/unpublish`),
+  deletePost: (id: string) => request<void>('DELETE', postPath(id)),
   /** Crea el borrador de la versión en otro idioma (201), con el contenido copiado como punto de partida (L3). */
   createTranslation: (id: string, lang: Lang) =>
-    request<Post>('POST', `/admin/posts/${encodeURIComponent(id)}/translations`, { lang }),
+    request<Post>('POST', `${postPath(id)}/translations`, { lang }),
 
   // Historial (S5): una versión por guardado que cambia el contenido; restaurar guarda esa versión como la actual.
   listRevisions: (id: string) => request<PostRevisionSummary[]>('GET', `${postPath(id)}/revisions`),

@@ -40,4 +40,12 @@ export interface RenderOptions {
 export interface RenderResult {
   html: string;
   headings: Heading[];
+  /**
+   * La línea (desde 0) donde empieza cada bloque de nivel superior, en orden: cada uno es un elemento de primer nivel
+   * del HTML (la sección de notas al pie, que va al final, no sale de un bloque). Sale del mismo recorrido que el
+   * render, así que no puede separarse de él: el admin la usa para el scroll sincronizado y el esquema de títulos.
+   */
+  blockStarts: number[];
+  /** El texto plano de `html` (lo que se lee, sin marcas): contador de palabras y minutos de lectura. */
+  text: string;
 }

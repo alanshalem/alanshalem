@@ -112,19 +112,33 @@ describe('vista previa con las mismas opciones que el sitio', () => {
   });
 });
 
+/*
+ * Un solo render por actualización (perfil-skills-produccion L8, P3-14): el contador y el esquema leen el resultado de
+ * la vista previa (`text`, `blockStarts`) en vez de volver a parsear el Markdown.
+ */
 describe('contador', () => {
+  const stats = (markdown: string, lang: 'es' | 'en' = 'es') => documentStats(renderPreview(markdown, lang).text);
+
   it('palabras, caracteres del texto que se lee y minutos con la fórmula del sitio', () => {
-    assert.deepEqual(documentStats('# Título\n\nUna **frase** [con](https://x.com) link.'), { words: 5, characters: 26, readingMinutes: 1 });
-    assert.deepEqual(documentStats(''), { words: 0, characters: 0, readingMinutes: 1 });
-    assert.equal(documentStats(Array(401).fill('palabra').join(' ')).readingMinutes, 3);
+    assert.deepEqual(stats('# Título\n\nUna **frase** [con](https://x.com) link.'), { words: 5, characters: 26, readingMinutes: 1 });
+    assert.deepEqual(stats(''), { words: 0, characters: 0, readingMinutes: 1 });
+    assert.equal(stats(Array(401).fill('palabra').join(' ')).readingMinutes, 3);
+  });
+
+  it('cuenta el texto plano que recibe, sin volver a parsear Markdown', () => {
+    assert.deepEqual(documentStats('**no** se parsea'), { words: 3, characters: 16, readingMinutes: 1 });
+  });
+
+  it('cuenta lo que muestra la vista previa: tipografía del sitio y títulos de cajas en el idioma del post', () => {
+    assert.equal(stats('a... b').characters, 4); // "a… b"
+    assert.deepEqual(stats('> [!NOTE]\n> hola', 'en'), { words: 2, characters: 9, readingMinutes: 1 }); // "Note hola"
   });
 });
 
 describe('esquema de títulos', () => {
   it('cada título con su línea del editor; los del código y los de dentro de una cita (sin ancla) no cuentan', () => {
     const markdown = '# Uno\n\ntexto\n\n```\n# no\n```\n\n## Dos\n> ### Cita\n\n### Tres';
-    const { headings } = renderPreview(markdown, 'es');
-    assert.deepEqual(outlineEntries(markdown, headings), [
+    assert.deepEqual(outlineEntries(markdown, renderPreview(markdown, 'es')), [
       { id: 'uno', text: 'Uno', level: 2, line: 0 },
       { id: 'dos', text: 'Dos', level: 2, line: 8 },
       { id: 'tres', text: 'Tres', level: 3, line: 11 },
@@ -132,7 +146,8 @@ describe('esquema de títulos', () => {
   });
 
   it('si las cuentas no coinciden, sin línea (el esquema solo mueve la vista previa)', () => {
-    const entries = outlineEntries('    # sangrado', [{ id: 'x', text: 'x', level: 2 }, { id: 'y', text: 'y', level: 2 }]);
+    const headings = [{ id: 'x', text: 'x', level: 2 }, { id: 'y', text: 'y', level: 2 }];
+    const entries = outlineEntries('    # sangrado', { headings, blockStarts: [0] });
     assert.deepEqual(entries.map((entry) => entry.line), [null, null]);
   });
 

@@ -1,21 +1,8 @@
 import { renderMarkdown } from './render.ts';
 
-const ENTITIES: Array<[RegExp, string]> = [
-  [/&lt;/g, '<'],
-  [/&gt;/g, '>'],
-  [/&quot;/g, '"'],
-  [/&#39;/g, "'"],
-  [/&amp;/g, '&'], // siempre último, para no des-escapar dos veces
-];
-
-/**
- * Texto plano del documento. Como el renderer escapa todo `<` del contenido,
- * sacar los tags con una regex es seguro acá.
- */
+/** Texto plano del documento (sin opciones de render): `renderMarkdown(markdown).text`. */
 export function toPlainText(markdown: string): string {
-  let text = renderMarkdown(markdown).html.replace(/<[^>]+>/g, ' ');
-  for (const [pattern, replacement] of ENTITIES) text = text.replace(pattern, replacement);
-  return text.replace(/\s+/g, ' ').trim();
+  return renderMarkdown(markdown).text;
 }
 
 /** Extracto para listados y meta description: corta en el límite de una palabra. */
@@ -27,8 +14,20 @@ export function excerpt(markdown: string, maxLength = 160): string {
   return `${(lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s.,;:!?-]+$/, '')}…`;
 }
 
+/** Palabras de un texto plano (el de `toPlainText` o `RenderResult.text`). */
+export function wordCount(plainText: string): number {
+  return plainText.split(/\s+/).filter(Boolean).length;
+}
+
+/**
+ * Minutos de lectura (mínimo 1) a ~200 palabras por minuto de un texto plano ya calculado: quien ya renderizó
+ * (la vista previa del admin) usa la fórmula del sitio sin volver a parsear.
+ */
+export function readingTimeOfText(plainText: string, wordsPerMinute = 200): number {
+  return Math.max(1, Math.ceil(wordCount(plainText) / wordsPerMinute));
+}
+
 /** Minutos de lectura (mínimo 1) a ~200 palabras por minuto. */
 export function readingTimeMinutes(markdown: string, wordsPerMinute = 200): number {
-  const words = toPlainText(markdown).split(' ').filter(Boolean).length;
-  return Math.max(1, Math.ceil(words / wordsPerMinute));
+  return readingTimeOfText(toPlainText(markdown), wordsPerMinute);
 }

@@ -9,7 +9,8 @@ function topLevelElements(html: string): number {
   const VOID = new Set(['hr', 'br', 'img', 'input', 'source']);
   let depth = 0;
   let count = 0;
-  for (const [, closing, tag = ''] of html.matchAll(/<(\/?)([a-z][a-z0-9]*)\b[^>]*>/g)) {
+  const blocks = html.replace(/\n<section class="footnotes"[\s\S]*$/, '');
+  for (const [, closing, tag = ''] of blocks.matchAll(/<(\/?)([a-z][a-z0-9]*)\b[^>]*>/g)) {
     if (closing) depth -= 1;
     else {
       if (depth === 0) count += 1;
@@ -69,6 +70,13 @@ describe('blockStartLines: dónde empieza cada bloque de nivel superior', () => 
   it('cada bloque es un hijo de la vista previa: misma cuenta que el HTML del renderer', () => {
     const markdown = '# T\n\n> [!NOTE]\n> caja\n\n![a](/media/a.png "pie")\n\n- a\n\n  b\n\n1. x\n\n| a | b |\n|---|---|\n| 1 | 2 |';
     assert.equal(blockStartLines(markdown).length, topLevelElements(renderPreview(markdown, 'es').html));
+  });
+
+  it('el scroll usa los bloques del mismo render de la vista previa (sin un segundo recorrido)', () => {
+    const markdown = '# T\n\ntexto[^1]\n\n[^1]: nota\n\n- a\n- b\n\n```\nx\n```';
+    const preview = renderPreview(markdown, 'es');
+    assert.deepEqual(preview.blockStarts, blockStartLines(markdown));
+    assert.equal(preview.blockStarts.length, topLevelElements(preview.html));
   });
 });
 
