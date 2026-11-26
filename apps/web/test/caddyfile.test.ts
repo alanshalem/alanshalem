@@ -32,7 +32,7 @@ test('/api/internal responde 404 dentro de handle /api/*, antes del reverse_prox
 });
 
 test('el admin permite vistas previas blob: y /media se cachea para siempre y permite video', () => {
-  assert.match(block('handle_path /admin/* {'), /img-src 'self' data: blob:; media-src 'self' blob:/);
+  assert.match(block('handle_path /admin/* {'), /img-src 'self' data: blob: https:; media-src 'self' blob:/);
   const media = block('handle_path /media/* {');
   assert.match(media, /max-age=31536000, immutable/);
   assert.match(media, /media-src 'self'/);
@@ -62,7 +62,7 @@ test('admin: se sirve precomprimido (br/gzip hechos al construir la imagen), sin
   // Sin los archivos .br/.gz, `precompressed` no comprime nada: la imagen tiene que generarlos con la misma función
   // que usa el builder para el sitio.
   const dockerfile = readFileSync(new URL('../../../infra/caddy/Dockerfile', import.meta.url), 'utf8');
-  assert.match(dockerfile, /precompressSite\('apps\/admin\/dist'\)/);
+  assert.match(dockerfile, /^RUN node apps\/builder\/src\/precompress\.ts apps\/admin\/dist$/m);
 });
 
 test('las respuestas de error (404 de /media, /_astro o páginas) nunca se cachean y llevan las cabeceras de seguridad', () => {

@@ -9,7 +9,10 @@
 # Para actualizar: elegir un tag nuevo de https://hub.docker.com/r/mwader/static-ffmpeg y poner su digest.
 FROM mwader/static-ffmpeg:9.1@sha256:dd09509d8c2152bfa601c8c20e3dd166bde906d37951b9f7e8bbd922267f5ac9 AS ffmpeg
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS sdk
+# Imágenes base fijadas por digest (bytes exactos, verificados al bajarlas): un rebuild no cambia de versión por su
+# cuenta. Para actualizar: tag nuevo y su digest con `docker buildx imagetools inspect <imagen:tag>`. SDK y runtime van
+# en la misma versión de .NET (10.0.15).
+FROM mcr.microsoft.com/dotnet/sdk:10.0.404@sha256:8c6edfb26c85153f236d26efebd9ad349aec403583f343f201ee67838b23658d AS sdk
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1
 
@@ -47,7 +50,7 @@ RUN --mount=type=cache,id=blog-nuget,target=/root/.nuget/packages \
 
 # Ubuntu (glibc, no Alpine): trae ICU, necesario para normalizar acentos al generar slugs, y lo que necesita la libvips
 # que viene en NetVips.Native.linux-x64.
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.15@sha256:aac50ceef10391e78a899e3d2ccd00bbafa2dcb56ccf4586cbccf00edb84fc21 AS runtime
 COPY --from=ffmpeg /ffmpeg /ffprobe /usr/local/bin/
 WORKDIR /app
 COPY --from=build /app ./

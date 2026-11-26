@@ -4,18 +4,63 @@
 # Recursos pensados para un VPS compartido: cada servicio tiene tope de memoria, el build corre con baja
 # prioridad y los visitantes solo tocan Caddy (archivos estáticos). Los topes de abajo son límites, no consumo medido:
 # medí con `docker stats` después del primer deploy y ajustá.
+#
+# Backups: infra/backup.sh (diario por cron) e infra/restore.sh.
 
 name: blog
 
+# Logs con tope: el driver por defecto (json-file) crece sin límite y termina llenando el disco del VPS. `local`
+# comprime y rota: como mucho 5 archivos de 10 MB por contenedor. `docker compose logs` sigue funcionando igual.
+x-logging: &logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "5"
+
+# Lo común a todos los servicios: logs con tope, ningún proceso puede ganar privilegios (setuid, capacidades de
+# archivo) y sin ninguna capacidad de Linux; cada servicio agrega solo la que necesita con cap_add. pids_limit corta
+# una fuga de procesos o hilos antes de que afecte al resto del VPS (cuenta los hilos: .NET y ffmpeg usan varios).
+x-service: &service
+  logging: *logging
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 256
+
+# Healthcheck: cada 30 s; al arrancar pregunta cada 2 s, así los que esperan `service_healthy` arrancan apenas el
+# servicio está listo y no 30 s después. Los fallos durante start_period no cuentan.
+x-healthcheck: &healthcheck
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 60s
+  start_interval: 2s
+
+# Archivos temporales en el volumen (disco) y no en la RAM del tope del contenedor: los cuerpos de las subidas (hasta
+# 200 MB de video) y las imágenes temporales de libvips (fotos de hasta 100 Mpx).
+x-api-tmp: &api-tmp /data/tmp
+
 services:
   # Los volúmenes nuevos nacen con dueño root; la API (uid 1654) y el builder (uid 1000) necesitan escribir.
-  # Este contenedor corre una vez, arregla los permisos y termina.
+  # Corre en cada `up`, arregla solo lo que tiene otro dueño (no reescribe toda la media cada vez) y termina.
   init-permisos:
-    image: busybox:stable
-    command: >
-      sh -c "mkdir -p /data /media /site &&
-             chown -R 1654:1654 /data /media &&
-             chown -R 1000:1000 /site"
+    <<: *service
+    image: busybox:1.36.1@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
+    command:
+      - sh
+      - -euc
+      - |
+        mkdir -p /data/tmp /data/backups /media /site
+        find /data /media \( ! -user 1654 -o ! -group 1654 \) -exec chown -h 1654:1654 {} +
+        find /site \( ! -user 1000 -o ! -group 1000 \) -exec chown -h 1000:1000 {} +
+    # CHOWN para cambiar el dueño; DAC_OVERRIDE para recorrer carpetas de la API o del builder que root, sin
+    # capacidades, no puede leer.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+    read_only: true
+    pids_limit: 32
     volumes:
       - api_data:/data
       - media:/media
@@ -23,6 +68,7 @@ services:
     restart: "no"
 
   caddy:
+    <<: *service
     build:
       context: ..
       dockerfile: infra/caddy/Dockerfile
@@ -33,22 +79,42 @@ services:
       - "443:443/udp" # HTTP/3
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:?Definí SITE_ADDRESS en .env (tu dominio)}
+      # Opcional: correo para los avisos de Let's Encrypt (vencimientos, problemas con el certificado). Caddy no acepta
+      # `email` vacío, así que el Caddyfile recibe la opción entera o nada.
+      CADDY_ACME_EMAIL: ${ACME_EMAIL:+email ${ACME_EMAIL}}
+    # Root dentro del contenedor, pero sin capacidades salvo la de abrir los puertos 80/443 y con no-new-privileges.
+    # Sin root haría falta mapear puertos altos, y la redirección HTTP→HTTPS de Caddy pasaría a incluir ese puerto.
+    cap_add:
+      - NET_BIND_SERVICE
+    read_only: true
+    tmpfs:
+      - /tmp
     volumes:
       - caddy_data:/data # certificados TLS: persistirlos evita pedir uno nuevo en cada reinicio
       - caddy_config:/config
       - site:/srv/site:ro
       - media:/srv/media:ro
     depends_on:
-      - api
+      # Espera a la API para no responder 503 en /api los primeros segundos, pero required: false — si la API no
+      # arranca, Caddy igual sirve el sitio estático (los visitantes nunca dependen de la API).
+      api:
+        condition: service_healthy
+        required: false
+    # Medido con docker stats: ~26 MB sirviendo la copia local.
     mem_limit: 128m
 
   api:
+    <<: *service
     build:
       context: ../apps/api
     restart: unless-stopped
     # Sin `ports`: solo es alcanzable desde Caddy y el builder, por la red interna de Docker.
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_TEMP: *api-tmp
+      TMPDIR: *api-tmp
+      # Una línea JSON por evento: se puede filtrar con jq y la leen los colectores de logs sin parsers a medida.
+      Logging__Console__FormatterName: json
       Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:?Generá el hash con el comando hash-password (ver README)}
       Builder__Url: http://builder:4000
       Builder__Token: ${BUILDER_TOKEN:?Definí BUILDER_TOKEN en .env (openssl rand -hex 32)}
@@ -58,6 +124,17 @@ services:
       # Originales de video en espera y salidas de ffmpeg: en el volumen persistente y fuera de /media (que se publica).
       # ffmpeg y ffprobe vienen en la imagen, en el PATH.
       Video__WorkDirectory: /data/video-work
+    # Sistema de archivos de solo lectura: la API solo escribe en sus volúmenes (/data, /media) y en /tmp.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    # ffmpeg codifica con varios hilos por etapa y .NET suma los suyos: medido 84 en el pico de un video 720p (17 en
+    # reposo). SVT-AV1 crea hilos según los núcleos del host, no del tope de cpus: margen para un VPS con más núcleos.
+    pids_limit: 512
+    healthcheck:
+      <<: *healthcheck
+      # Modo de línea de comando de la propia API (L10): pide /api/health/ready (SQLite responde). La imagen no trae curl.
+      test: ["CMD", "dotnet", "Blog.Api.dll", "healthcheck"]
     volumes:
       - api_data:/data
       # nocopy: la imagen (Ubuntu) ya trae un /media vacío de root, y Docker copia su dueño al volumen mientras esté
@@ -75,6 +152,7 @@ services:
     cpus: 2.0
 
   builder:
+    <<: *service
     build:
       context: ..
       dockerfile: apps/builder/Dockerfile
@@ -83,23 +161,26 @@ services:
       BUILDER_TOKEN: ${BUILDER_TOKEN}
       API_URL: http://api:8080
       SITE_URL: "${SITE_URL:?Definí SITE_URL en .env, con https:// y sin barra final}"
-      SITE_NAME: ${SITE_NAME:-Mi blog}
-      SITE_TAGLINE: ${SITE_TAGLINE:-Notas sobre software, ideas y cosas que estoy aprendiendo.}
-      SITE_AUTHOR: ${SITE_AUTHOR:-El autor}
+    healthcheck:
+      <<: *healthcheck
+      # GET /health del propio servicio, con Node (la imagen no trae curl).
+      test: ["CMD", "node", "src/healthcheck.ts"]
     volumes:
       - site:/site
     depends_on:
       init-permisos:
         condition: service_completed_successfully
+      # El build lee la API: arrancar antes solo gastaría reintentos.
       api:
-        condition: service_started
-    # Un build de Astro tiene picos de memoria y CPU: se acotan para que no afecten a las otras apps del VPS.
+        condition: service_healthy
+    # Un build de Astro tiene picos de memoria y CPU: se acotan para que no afecten a las otras apps del VPS. Medido con
+    # docker stats: ~52 MB en reposo, ~254 MB en el pico de un build del sitio con un post.
     mem_limit: 1g
     cpus: 1.0
 
 volumes:
-  api_data: # base SQLite + claves de la cookie de sesión
-  media: # imágenes subidas (la API escribe, Caddy sirve)
+  api_data: # base SQLite, claves de la cookie de sesión, videos en proceso, temporales y backups en curso
+  media: # imágenes y videos subidos (la API escribe, Caddy sirve)
   site: # releases/ + symlink current (el builder escribe, Caddy sirve)
   caddy_data:
   caddy_config:

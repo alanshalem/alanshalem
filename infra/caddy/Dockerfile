@@ -2,7 +2,12 @@
 # Contexto de build: la raíz del monorepo (ver docker-compose.yml).
 # Compila el panel de administración y lo mete dentro de la imagen de Caddy junto con el Caddyfile.
 
-FROM node:22-slim AS admin-build
+# Imágenes base fijadas por digest (bytes exactos): un rebuild no cambia de versión por su cuenta. Para actualizar: tag
+# nuevo y su digest con `docker buildx imagetools inspect <imagen:tag>`. Node es el mismo que en apps/builder/Dockerfile
+# (un test de infra/test los compara).
+ARG NODE_IMAGE=node:22.23.5-slim@sha256:be979e5523c76fa4d5ca4ebd3099078f220aa47ec39c48ad5b5df9314debd6eb
+
+FROM ${NODE_IMAGE} AS admin-build
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 RUN corepack enable
 WORKDIR /repo
@@ -25,9 +30,10 @@ RUN pnpm --filter @blog/admin build
 
 # Junto a cada archivo de texto, su .br y .gz (Caddyfile: `precompressed br gzip`): se comprime una vez, al máximo nivel,
 # en vez de en cada petición. La misma función con la que el builder precomprime el sitio.
-COPY apps/builder/src/compress.ts apps/builder/src/
-RUN node --input-type=module -e "import { precompressSite } from './apps/builder/src/compress.ts'; console.log('admin precomprimido:', await precompressSite('apps/admin/dist'), 'archivos')"
+COPY apps/builder/src/compress.ts apps/builder/src/precompress.ts apps/builder/src/
+RUN node apps/builder/src/precompress.ts apps/admin/dist
 
-FROM caddy:2-alpine
+# Caddy 2.11.9 (Alpine).
+FROM caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0
 COPY infra/caddy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=admin-build /repo/apps/admin/dist /srv/admin

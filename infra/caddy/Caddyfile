@@ -3,6 +3,12 @@
 #
 # SITE_ADDRESS = tu dominio (ej: blog.midominio.com). Para probar local: localhost
 
+# Opciones globales. CADDY_ACME_EMAIL trae la opción completa (`email tu@correo`) o nada: docker-compose.yml la arma
+# desde ACME_EMAIL, que es opcional, y Caddy rechaza un `email` sin valor.
+{
+	{$CADDY_ACME_EMAIL}
+}
+
 # Cabeceras de seguridad de toda respuesta. En un snippet porque las rutas de error (handle_errors) no pasan por las
 # directivas del sitio: sin importarlo también ahí, un 404 salía sin nosniff, X-Frame-Options ni HSTS (y con Server).
 (security) {
@@ -13,8 +19,14 @@
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		X-Frame-Options "DENY"
+		# Ninguna ventana de otro origen conserva una referencia a esta (window.opener): corta el tabnabbing y fugas entre sitios.
+		Cross-Origin-Opener-Policy "same-origin"
 		-Server
 	}
+	# Nadie de afuera puede incrustar los recursos del sitio (lecturas por canal lateral tipo Spectre), salvo /media, que
+	# lo pisa. Fuera del bloque de arriba a propósito: un bloque con `-Server` se aplica diferido, al escribir la
+	# respuesta, y le ganaría al de /media.
+	header Cross-Origin-Resource-Policy "same-origin"
 }
 
 {$SITE_ADDRESS:localhost} {
@@ -49,9 +61,12 @@
 	# ---------- Panel de administración (SPA de React ya compilada) ----------
 	handle_path /admin/* {
 		root * /srv/admin
+		# El panel no tiene nada que indexar: ni la pantalla de login aparece en un buscador.
+		header X-Robots-Tag "noindex"
 		# blob: en img-src y media-src: la vista previa local de fotos y el editor de recorte de videos usan URLs de objeto
-		# (el archivo todavía no se subió). Los videos ya procesados vienen de /media ('self').
-		header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+		# (el archivo todavía no se subió). Los videos ya procesados vienen de /media ('self'). https: en img-src, igual que
+		# la CSP del sitio (apps/web/src/lib/csp.ts): la vista previa muestra las imágenes externas del Markdown como el sitio.
+		header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 		# Los assets llevan el hash del contenido en el nombre: para siempre. Todo lo demás (index.html, que apunta a los
 		# assets de turno) se revalida. Los dos con matcher, sin solaparse: Caddy ordena los `header` iguales dejando el
 		# que no tiene matcher al final, y un no-cache suelto pisaba el immutable.
@@ -81,6 +96,9 @@
 		root * /srv/media
 		header Cache-Control "public, max-age=31536000, immutable"
 		header Content-Security-Policy "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox"
+		# El RSS lleva el cuerpo de los posts con sus imágenes: los lectores web (Feedly, Inoreader) las cargan desde su
+		# propio origen, y con el same-origin del snippet de seguridad el navegador las bloquearía.
+		header Cross-Origin-Resource-Policy "cross-origin"
 		file_server
 	}
 
@@ -134,8 +152,9 @@
 		}
 	}
 
+	# Una línea JSON por petición: se filtra con jq y la leen los colectores de logs sin parsers a medida.
 	log {
 		output stdout
-		format console
+		format json
 	}
 }

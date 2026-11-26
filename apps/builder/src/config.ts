@@ -15,6 +15,11 @@ export interface BuilderConfig {
 }
 
 const MIN_TOKEN_LENGTH = 32;
+const DEFAULT_PORT = 4000;
+
+/** URL del propio servicio desde su contenedor, para los scripts que le hablan (healthcheck, pedir un build). */
+export const localUrl = (path: string, env: NodeJS.ProcessEnv = process.env): string =>
+  `http://127.0.0.1:${env.PORT || DEFAULT_PORT}${path}`;
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
@@ -38,7 +43,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BuilderConfig 
   }
 
   return {
-    port: positiveInt(env, 'PORT', 4000),
+    port: positiveInt(env, 'PORT', DEFAULT_PORT),
     token,
     siteDir: required(env, 'SITE_DIR'),
     webDir: required(env, 'WEB_DIR'),

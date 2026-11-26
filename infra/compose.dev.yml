@@ -15,6 +15,13 @@
 
 name: blog-dev
 
+# Logs con tope (dotnet watch, Vite y Astro escriben mucho en un día): los mismos que en producción.
+x-logging: &logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "5"
+
 # Token API ↔ sitio (Builder__Token allá, BUILDER_TOKEN acá): definido una vez.
 x-builder-token: &builder-token ${BUILDER_TOKEN:?Falta BUILDER_TOKEN, levantá con --env-file infra/local.env (ver README)}
 
@@ -26,6 +33,7 @@ x-dev-urls: &dev-urls
 
 # Los tres servicios Node usan la misma imagen (Node + pnpm de package.json) y los mismos volúmenes.
 x-node: &node
+  logging: *logging
   build:
     context: ..
     dockerfile: apps/builder/Dockerfile
@@ -42,6 +50,7 @@ x-node: &node
 
 services:
   api:
+    logging: *logging
     build:
       context: ../apps/api
       target: dev

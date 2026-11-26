@@ -19,3 +19,29 @@ data/
 
 # Capturas de referencia de un sitio de terceros: solo para consulta local, no se versionan
 docs/design/reference/
+
+# Specs y bitácoras del trabajo con agentes (odd/tasks): quedan solo en esta PC, no se publican (decisión L9).
+odd/
+
+# Índices, cachés y salidas de herramientas
+.codegraph/
+TestResults/
+coverage/
+*.log
+
+# Editores
+.vscode/
+.idea/
+
+# Claves privadas y certificados: nunca al repo
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*

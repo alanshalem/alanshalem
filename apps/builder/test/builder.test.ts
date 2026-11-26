@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { access, lstat, mkdir, mkdtemp, readFile, readlink, readdir, rm, writeFile } from 'node:fs/promises';
+import { access, lstat, mkdir, mkdtemp, readFile, readlink, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -11,6 +11,28 @@ import { BuildQueue } from '../src/queue.ts';
 import { activateRelease, activeReleaseName, createReleaseDir, pruneReleases } from '../src/releases.ts';
 
 const TOKEN = 'a'.repeat(40);
+
+/**
+ * Windows solo deja crear symlinks con el modo desarrollador o como administrador (si no, EPERM). Los tests del cambio
+ * atómico necesitan symlinks reales: ahí se saltean con el motivo, y en Linux (Docker, CI, el VPS) corren siempre.
+ */
+async function symlinksUnsupported(): Promise<string | false> {
+  const dir = await mkdtemp(join(tmpdir(), 'blog-symlink-probe-'));
+  try {
+    await mkdir(join(dir, 'target'));
+    await symlink('target', join(dir, 'link'), 'dir');
+    return false;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'EPERM' && process.platform === 'win32') {
+      return 'Windows no permite crear symlinks sin el modo desarrollador (EPERM)';
+    }
+    throw error;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+const needsSymlinks = { skip: await symlinksUnsupported() };
 
 describe('isAuthorized', () => {
   it('acepta el token correcto con esquema Bearer (sin distinguir mayúsculas en el esquema)', () => {
@@ -143,7 +165,7 @@ describe('releases (cambio atómico por symlink)', () => {
     await access(dir);
   });
 
-  it('activateRelease crea `current` con destino RELATIVO', async () => {
+  it('activateRelease crea `current` con destino RELATIVO', needsSymlinks, async () => {
     const dir = await makeRelease('2026-11-25T10:00:00Z', 'v1');
     await activateRelease(siteDir, dir);
 
@@ -152,7 +174,7 @@ describe('releases (cambio atómico por symlink)', () => {
     assert.equal(await readFile(join(siteDir, 'current', 'index.html'), 'utf8'), 'v1');
   });
 
-  it('activar otra versión reemplaza el symlink y no deja temporales', async () => {
+  it('activar otra versión reemplaza el symlink y no deja temporales', needsSymlinks, async () => {
     const first = await makeRelease('2026-11-25T10:00:00Z', 'v1');
     const second = await makeRelease('2026-11-25T11:00:00Z', 'v2');
 
@@ -165,7 +187,7 @@ describe('releases (cambio atómico por symlink)', () => {
     assert.deepEqual(leftovers, []);
   });
 
-  it('mientras se cambia de versión, `current` siempre se puede leer (nunca está roto)', async () => {
+  it('mientras se cambia de versión, `current` siempre se puede leer (nunca está roto)', needsSymlinks, async () => {
     const first = await makeRelease('2026-11-25T10:00:00Z', 'v1');
     const second = await makeRelease('2026-11-25T11:00:00Z', 'v2');
     await activateRelease(siteDir, first);
@@ -187,7 +209,7 @@ describe('releases (cambio atómico por symlink)', () => {
     assert.equal(await activeReleaseName(siteDir), undefined);
   });
 
-  it('pruneReleases conserva las N más nuevas y la activa', async () => {
+  it('pruneReleases conserva las N más nuevas y la activa', needsSymlinks, async () => {
     const dirs = [];
     for (let hour = 1; hour <= 5; hour += 1) dirs.push(await makeRelease(`2026-11-25T0${hour}:00:00Z`, `v${hour}`));
     await activateRelease(siteDir, dirs[0]!); // la activa es la MÁS VIEJA (por ejemplo tras un rollback)

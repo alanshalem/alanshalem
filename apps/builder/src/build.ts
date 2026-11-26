@@ -11,10 +11,13 @@ export interface BuildResult {
   compressedFiles: number;
 }
 
-/** Corre `astro build` con baja prioridad de CPU (nice) para no quitarle recursos a las otras apps del VPS. */
+/**
+ * Corre `astro build` con baja prioridad de CPU (nice) para no quitarle recursos a las otras apps del VPS. El binario
+ * de node_modules directo, sin `pnpm exec`: la imagen de producción no trae gestor de paquetes.
+ */
 function runAstroBuild(config: BuilderConfig, outDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn('nice', ['-n', '10', 'pnpm', 'exec', 'astro', 'build'], {
+    const child = spawn('nice', ['-n', '10', 'node_modules/.bin/astro', 'build'], {
       cwd: config.webDir,
       env: {
         ...process.env,
