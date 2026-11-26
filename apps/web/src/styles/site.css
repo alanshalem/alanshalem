@@ -46,17 +46,19 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 .nav-toggle:hover { border-color: var(--text-primary); }
 .nav-toggle:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
 
-/* Menú desplegable por debajo de 900px: panel cuadrado bajo el botón ☰ */
-.site-nav {
+/* El menú tiene dos lugares en el HTML (Header.astro): la fila de links de escritorio, antes de ES | EN, y el panel
+   del ☰, después. Por debajo de 900px la fila no se ve y el panel cuadrado se despliega bajo el ☰ al abrirlo. */
+.site-nav--bar { display: none; }
+.site-nav--menu {
   display: none; position: absolute; top: calc(100% - 0.75rem); right: var(--gutter);
   min-width: 13rem; flex-direction: column; gap: var(--space-0-7);
   padding: var(--space-1) var(--space-1-25);
   background: var(--bg-page); border: 1px solid var(--border-subtle);
 }
-.nav-toggle[aria-expanded='true'] + .site-nav { display: flex; }
+.nav-toggle[aria-expanded='true'] + .site-nav--menu { display: flex; }
 
-/* Selector de idioma y menú a la derecha, sin `order`: se ven en el orden del HTML (ES | EN, ☰ y su panel; en
-   pantallas anchas ES | EN y los enlaces), así Tab recorre en el mismo orden en que se lee (WCAG 2.4.3). */
+/* A la derecha, sin `order`: se ve en el orden del HTML (links · ES | EN en escritorio; ES | EN · ☰ y su panel en
+   el celular), así Tab recorre en el mismo orden en que se lee (WCAG 2.4.3, L13). */
 .header-tools { display: flex; align-items: center; gap: var(--space-1-5); }
 .lang-switch { display: flex; align-items: center; }
 .lang-switch a {
@@ -71,11 +73,9 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 .site-header--overlay .lang-switch a[aria-current='true'] { text-decoration: underline; text-decoration-thickness: 1px; }
 
 @media (min-width: 900px) {
-  .nav-toggle { display: none; }
-  .site-nav {
-    display: flex; position: static; flex-direction: row; gap: var(--space-1-75);
-    min-width: 0; padding: 0; background: none; border: 0;
-  }
+  .site-nav--bar { display: flex; gap: var(--space-1-75); }
+  /* También con el panel abierto antes de agrandar la ventana: en escritorio los links ya están en la fila. */
+  .nav-toggle, .nav-toggle[aria-expanded='true'] + .site-nav--menu { display: none; }
 }
 
 /* ---------- Medios: imagen real o portada generativa ---------- */

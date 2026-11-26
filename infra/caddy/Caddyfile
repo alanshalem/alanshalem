@@ -119,10 +119,14 @@
 	handle_errors {
 		import security
 		header Cache-Control "no-store"
-		# Página 404 del sitio (Astro la genera como /404.html). El código de estado sigue siendo 404.
+		# Página 404 del sitio en el idioma de la URL (L13): Astro genera /es/404.html y /en/404.html (todo en ese idioma)
+		# y /404.html, bilingüe, para lo que no tiene prefijo. Las rewrite de un bloque son excluyentes y Caddy prueba las
+		# de ruta antes que la de `*`: esa es el resto. El código de estado sigue siendo 404.
 		@notfound expression {err.status_code} == 404
 		handle @notfound {
 			root * /srv/site/current
+			rewrite /es/* /es/404.html
+			rewrite /en/* /en/404.html
 			rewrite * /404.html
 			file_server {
 				precompressed br gzip

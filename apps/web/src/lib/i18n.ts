@@ -43,7 +43,28 @@ export const paths = {
   rss: (lang: Lang): string => `/${lang}/rss.xml`,
   /** Hoja de estilo del feed: lo hace legible al abrirlo en el navegador (lib/feeds.ts). */
   rssStyle: (lang: Lang): string => `/${lang}/rss.css`,
+  /** Página 404 del idioma (L13): un archivo, no una URL del sitio. Caddy la sirve para lo que falte bajo /<lang>/. */
+  notFound: (lang: Lang): string => `/${lang}/404.html`,
 };
+
+/** 404 de las URLs sin prefijo de idioma (bilingüe). Astro la escribe así por ser la página de estado de la raíz. */
+export const NOT_FOUND_PATH = '/404.html';
+
+/** Idioma de una ruta por su primer segmento ("/en/…" → en); sin prefijo de idioma, ninguno. */
+export const langOfPath = (pathname: string): Lang | undefined => {
+  const first = pathname.split('/')[1];
+  return isLang(first) ? first : undefined;
+};
+
+/**
+ * Qué muestra la página 404 según la URL desde la que se generó (L13): bajo /<lang>/, todo en ese idioma; si no
+ * (/404.html, que Caddy usa para cualquier URL sin prefijo), cabecera y pie en el idioma principal y el aviso en los
+ * dos, porque no se sabe en qué idioma lee quien llegó.
+ */
+export function notFoundPage(originPathname: string): { lang: Lang; notices: Lang[] } {
+  const lang = langOfPath(originPathname);
+  return lang ? { lang, notices: [lang] } : { lang: DEFAULT_LANG, notices: [...LANGS] };
+}
 
 /** La página equivalente en cada idioma que la tiene (la propia incluida). Alimenta hreflang y el selector. */
 export type Alternates = Partial<Record<Lang, string>>;

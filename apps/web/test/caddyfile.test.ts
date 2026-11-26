@@ -130,3 +130,16 @@ test('el 404 de /api/internal tampoco se cachea (respond no pasa por handle_erro
   const api = block('handle /api/* {');
   assert.match(api, /^\s*header @internal Cache-Control "no-store"\s*$/m);
 });
+
+test('404 según el idioma de la URL: /en/… → /en/404.html, /es/… → /es/404.html, el resto → /404.html (L13)', async () => {
+  const { LANGS, NOT_FOUND_PATH, paths } = await import('../src/lib/i18n.ts');
+  const notFound = directives(block('handle @notfound {'));
+  // Los destinos salen de las mismas rutas con que el build escribe los archivos (lib/i18n.ts): no pueden divergir.
+  for (const lang of LANGS) assert.ok(notFound.includes(`rewrite /${lang}/* ${paths.notFound(lang)}`), lang);
+  // Las rewrite de un mismo bloque son excluyentes y Caddy prueba las de ruta antes que la de `*`: esta es el resto.
+  assert.ok(notFound.includes(`rewrite * ${NOT_FOUND_PATH}`));
+  assert.equal(notFound.filter((line) => line.startsWith('rewrite ')).length, LANGS.length + 1);
+  // Sigue siendo un 404 servido desde el sitio publicado, precomprimido.
+  assert.ok(notFound.includes('root * /srv/site/current'));
+  assert.match(block('handle @notfound {'), /file_server \{\s*precompressed br gzip\s*\}/);
+});

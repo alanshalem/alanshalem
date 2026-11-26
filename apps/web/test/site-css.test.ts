@@ -57,7 +57,18 @@ test('tiles de temas: velo detrás del texto con el mismo token que el hero (WCA
   assert.match(declarations('.tile'), /overflow:\s*hidden/);
 });
 
-test('cabecera: sin `order` en el selector de idioma, lo que se ve sigue el orden del HTML y del Tab (WCAG 2.4.3)', () => {
-  assert.doesNotMatch(declarations('.lang-switch'), /order:/);
+test('cabecera: sin `order` en ninguna regla, lo que se ve sigue el orden del HTML y del Tab (WCAG 2.4.3)', () => {
+  assert.doesNotMatch(css, /(?:^|[;{\s])order:/m);
   assert.match(css, /\.site-nav a\[aria-current\] \{/);
+});
+
+test('cabecera: links en la fila desde 900px y en el panel del ☰ por debajo (L13)', () => {
+  // Por debajo de 900px: la fila de links no se ve (ni se enfoca) y el panel solo cuando el ☰ está abierto.
+  assert.match(declarations('.site-nav--bar'), /display:\s*none/);
+  assert.match(declarations('.site-nav--menu'), /display:\s*none/);
+  assert.match(declarations(".nav-toggle[aria-expanded='true'] + .site-nav--menu"), /display:\s*flex/);
+  // Desde 900px, al revés: la fila de links y ni ☰ ni panel (aunque haya quedado abierto antes de agrandar la ventana).
+  const wide = /@media \(min-width: 900px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
+  assert.match(wide, /\.site-nav--bar \{[^}]*display:\s*flex/);
+  assert.match(wide, /\.nav-toggle, \.nav-toggle\[aria-expanded='true'\] \+ \.site-nav--menu \{[^}]*display:\s*none/);
 });

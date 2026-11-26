@@ -14,17 +14,32 @@ interface Props {
 const { lang, currentPath, alternates, switchFallback, overlay = false } = Astro.props;
 const settings = await getSettings(lang);
 const t = ui(lang);
-const nav = navLinks(lang);
 const languages = switcherLinks(lang, alternates, switchFallback);
 // El feed no es una sección del sitio: nunca queda marcado.
 const current = (href: string) => (href === paths.rss(lang) ? undefined : navCurrent(currentPath, href));
+// Los enlaces del menú, armados una vez para sus dos lugares (fila de escritorio y panel del ☰).
+const links = navLinks(lang).map((item) => ({
+  label: item.label,
+  href: item.href,
+  'aria-label': item.ariaLabel,
+  type: item.href === paths.rss(lang) ? 'application/rss+xml' : undefined,
+  'aria-current': current(item.href),
+}));
 ---
 
 <header class:list={['site-header', { 'site-header--overlay': overlay }]}>
   <a class="brand" href={paths.home(lang)}>{settings.name}</a>
 
-  {/* En el HTML, en el orden en que se ve (WCAG 2.4.3): ES | EN, después ☰ y su menú, que se despliega debajo. */}
+  {/*
+    En el HTML, en el orden en que se ve (WCAG 2.4.3, L13), sin `order` en el CSS. Escritorio: links · ES | EN.
+    Celular: ES | EN · ☰ y su panel, que se despliega debajo. Como los links van antes de ES | EN en un tamaño y
+    después en el otro, el menú tiene dos lugares que salen de la misma lista y el CSS muestra uno solo por tamaño:
+    el oculto (display: none) no se enfoca ni lo anuncia el lector de pantalla.
+  */}
   <div class="header-tools">
+    <nav class="site-nav site-nav--bar" aria-label={t.mainNav}>
+      {links.map(({ label, ...attributes }) => <a {...attributes}>{label}</a>)}
+    </nav>
     <nav class="lang-switch" aria-label={t.languageNav}>
       {
         languages.map((link) => (
@@ -41,19 +56,8 @@ const current = (href: string) => (href === paths.rss(lang) ? undefined : navCur
       }
     </nav>
     <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label={t.menu}>☰</button>
-    <nav id="site-nav" class="site-nav" aria-label={t.mainNav}>
-      {
-        nav.map((item) => (
-          <a
-            href={item.href}
-            aria-label={item.ariaLabel}
-            type={item.href === paths.rss(lang) ? 'application/rss+xml' : undefined}
-            aria-current={current(item.href)}
-          >
-            {item.label}
-          </a>
-        ))
-      }
+    <nav id="site-nav" class="site-nav site-nav--menu" aria-label={t.mainNav}>
+      {links.map(({ label, ...attributes }) => <a {...attributes}>{label}</a>)}
     </nav>
   </div>
 </header>
@@ -61,7 +65,8 @@ const current = (href: string) => (href === paths.rss(lang) ? undefined : navCur
 <script>
   // Único JavaScript de la cabecera: el menú desplegable de pantallas angostas (patrón disclosure). Se abre y cierra
   // con ☰ y además se cierra con Esc, con un clic afuera y cuando el foco sale de él (P3, L4): abierto, tapaba el
-  // contenido al seguir con Tab o al tocar la página. En pantallas anchas el menú siempre se ve y esto no cambia nada.
+  // contenido al seguir con Tab o al tocar la página. En pantallas anchas ni ☰ ni el panel se ven (los links van en
+  // la fila) y esto no cambia nada.
   const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
   const menu = document.getElementById('site-nav');
   if (toggle && menu) {
