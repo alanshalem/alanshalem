@@ -1,0 +1,58 @@
+# Imágenes del README del perfil (assets/profile/*.svg) y la lista "Latest writing", con datos públicos de GitHub.
+# El generador no tiene dependencias (no hay paso de instalación) y lee la API con el GITHUB_TOKEN de la corrida.
+name: Profile
+
+on:
+  schedule:
+    # Diario, lejos de la hora en punto (las corridas programadas a las :00 son las que más se demoran).
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'tooling/profile/**'
+      - 'packages/tokens/src/tokens.json'
+      - '.github/workflows/profile.yml'
+
+# Solo para commitear las imágenes nuevas; leer datos públicos no pide otro permiso.
+permissions:
+  contents: write
+
+# Una corrida programada y una por push no deben competir por commitear los mismos archivos.
+concurrency:
+  group: profile
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: package.json
+          package-manager-cache: false
+
+      # Nunca commitear imágenes de un generador roto.
+      - name: Test the generator
+        run: node --test tooling/profile/test/*.test.ts
+
+      - name: Render the profile
+        run: node tooling/profile/generate.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BLOG_FEED_URL: ${{ vars.BLOG_FEED_URL }}
+
+      - name: Commit if anything changed
+        run: |
+          git add assets/profile README.md
+          if git diff --cached --quiet; then
+            echo "Profile unchanged, nothing to commit."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(profile): refresh profile images [skip ci]'
+          git push

@@ -7,10 +7,15 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "test": "pnpm -r --if-present test",
+    "test": "pnpm -r --if-present test && pnpm test:profile && pnpm test:agents",
+    "test:profile": "node --test \"tooling/profile/test/*.test.ts\"",
+    "profile": "node tooling/profile/generate.ts",
     "typecheck": "pnpm -r --if-present typecheck",
     "dev:admin": "pnpm --filter @blog/admin dev",
     "build:web": "pnpm --filter @blog/web build",
-    "build:admin": "pnpm --filter @blog/admin build"
+    "build:admin": "pnpm --filter @blog/admin build",
+    "test:agents": "node --test \"tooling/agents/test/*.test.ts\"",
+    "agents:sync": "node tooling/agents/sync.ts",
+    "agents:check": "node tooling/agents/sync.ts --check"
   }
 }
