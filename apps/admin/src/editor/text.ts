@@ -44,3 +44,10 @@ export function spliceKeepingSelection(state: EditorState, from: number, to: num
 }
 
 export const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));
+
+/** Los offsets del texto donde empieza cada línea pedida (más allá del final: el largo del texto). */
+export function lineOffsets(text: string, lines: readonly number[]): number[] {
+  const starts = [0];
+  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1);
+  return lines.map((line) => starts[line] ?? text.length);
+}

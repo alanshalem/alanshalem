@@ -2,7 +2,6 @@ import { useId } from 'react';
 import type { Post } from '../api/types.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { useCreateTranslation } from './useCreateTranslation.ts';
-import { useOtherVersion } from './useOtherVersion.ts';
 import { translationWarnings, versionSlots } from './versions.ts';
 import { VersionLink } from './VersionLink.tsx';
 
@@ -12,6 +11,8 @@ interface Props {
   draft: { title: string; body: string };
   /** Con cambios sin guardar no se crea otra versión: copiaría lo guardado, no lo que se ve. */
   dirty: boolean;
+  /** La otra versión completa (useOtherVersion, en la página: el editor también la muestra al lado); null si no hay. */
+  other: Post | null;
   onError: (error: unknown) => boolean;
 }
 
@@ -19,11 +20,10 @@ interface Props {
  * Idioma de un post existente (solo lectura, L4) y sus otras versiones: enlace a cada una o "Crear versión en …".
  * En la traducción, avisa si sigue sin traducir o si el original cambió después (L3).
  */
-export function PostVersions({ post, draft, dirty, onError }: Props) {
+export function PostVersions({ post, draft, dirty, other, onError }: Props) {
   const id = useId();
   const { t } = useUiLanguage();
   const translation = useCreateTranslation(onError);
-  const other = useOtherVersion(post.translations[0]?.id ?? null, onError);
   const slots = versionSlots(post.translations, post.lang);
   const warnings = other
     ? translationWarnings({ ...draft, createdAt: post.createdAt, contentUpdatedAt: post.contentUpdatedAt }, other).map((warning) => ({

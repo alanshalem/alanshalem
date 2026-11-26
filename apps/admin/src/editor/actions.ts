@@ -3,7 +3,10 @@ import { LANGS, type Lang } from '../languages.ts';
 import {
   changeIndent,
   continueMarkdownBlock,
+  insertCallout,
   insertCodeBlock,
+  insertFigure,
+  insertFootnote,
   insertHorizontalRule,
   insertLink,
   insertTable,
@@ -30,6 +33,7 @@ export type UiAction =
   | 'view.split'
   | 'view.preview'
   | 'view.cycle'
+  | 'compare'
   | 'focus'
   | 'find'
   | 'replace'
@@ -77,10 +81,17 @@ function buildActions(lang: Lang): readonly EditorAction[] {
     { id: 'table', label: 'editor.table', group: 'insert', toolbar: true, run: { edit: insertTable[lang] } },
     { id: 'rule', label: 'editor.rule', group: 'insert', toolbar: true, symbol: '—', run: { edit: insertHorizontalRule } },
     { id: 'image', label: 'image.upload', group: 'insert', toolbar: true, short: 'editor.image', run: { ui: 'image' } },
+    { id: 'figure', label: 'editor.figure', group: 'insert', toolbar: true, short: 'editor.short.figure', run: { edit: insertFigure[lang] } },
+    { id: 'footnote', label: 'editor.footnote', group: 'insert', toolbar: true, symbol: '¹', run: { edit: insertFootnote[lang] } },
+    // En la barra, solo la caja más común; las tres están en la paleta.
+    { id: 'callout.note', label: 'editor.callout.note', group: 'insert', toolbar: true, short: 'editor.short.callout', run: { edit: insertCallout('note')[lang] } },
+    { id: 'callout.tip', label: 'editor.callout.tip', group: 'insert', run: { edit: insertCallout('tip')[lang] } },
+    { id: 'callout.warning', label: 'editor.callout.warning', group: 'insert', run: { edit: insertCallout('warning')[lang] } },
     { id: 'view.editor', label: 'editor.view.editor', group: 'view', toolbar: true, short: 'editor.short.editor', run: { ui: 'view.editor' } },
     { id: 'view.split', label: 'editor.view.split', group: 'view', toolbar: true, short: 'editor.short.split', run: { ui: 'view.split' } },
     { id: 'view.preview', label: 'editor.view.preview', group: 'view', toolbar: true, short: 'common.preview', run: { ui: 'view.preview' } },
     { id: 'view.cycle', label: 'editor.view.cycle', group: 'view', chord: mod('l', true), run: { ui: 'view.cycle' } },
+    { id: 'compare', label: 'editor.compare', group: 'view', toolbar: true, short: 'editor.short.compare', run: { ui: 'compare' } },
     { id: 'focus', label: 'editor.focus', group: 'view', toolbar: true, chord: mod('Enter', true), run: { ui: 'focus' } },
     { id: 'find', label: 'editor.find', group: 'tools', chord: mod('f'), run: { ui: 'find' } },
     { id: 'replace', label: 'editor.replace', group: 'tools', chord: mod('h'), run: { ui: 'replace' } },
@@ -98,6 +109,13 @@ const ACTIONS = Object.fromEntries(LANGS.map((lang) => [lang, buildActions(lang)
 
 /** El registro con los textos de relleno del idioma del post. Siempre la misma instancia por idioma. */
 export const editorActions = (lang: Lang): readonly EditorAction[] => ACTIONS[lang];
+
+/** Lo que depende del contexto: subir imágenes (si hay dónde) y ver el original (si hay otra versión). */
+export const availableActions = (
+  actions: readonly EditorAction[],
+  { canUpload, canCompare }: { canUpload: boolean; canCompare: boolean },
+): readonly EditorAction[] =>
+  actions.filter((action) => (canUpload || action.id !== 'image') && (canCompare || action.id !== 'compare'));
 
 /** La paleta lista todo lo que se puede ejecutar a pedido; las teclas de tipeo y la paleta misma, no. */
 export const inPalette = (action: EditorAction): boolean => action.group !== 'typing' && action.id !== 'palette';

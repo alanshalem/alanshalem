@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import { blockStartLines, pairAnchors, syncedScrollTop, type Anchor } from './scrollSync.ts';
+import { lineOffsets } from './text.ts';
 import { measureOffsetTops } from './textareaMetrics.ts';
-
-/** Los offsets del texto donde empieza cada línea pedida. */
-function lineOffsets(text: string, lines: readonly number[]): number[] {
-  const starts = [0];
-  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1);
-  return lines.map((line) => starts[line] ?? text.length);
-}
 
 function computeAnchors(textarea: HTMLTextAreaElement, preview: HTMLElement): Anchor[] {
   const sourceTops = measureOffsetTops(textarea, lineOffsets(textarea.value, blockStartLines(textarea.value)));

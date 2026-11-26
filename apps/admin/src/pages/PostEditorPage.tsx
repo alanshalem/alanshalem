@@ -1,12 +1,21 @@
 import { slugify } from '@blog/markdown';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { Post, PostInput } from '../api/types.ts';
 import { ImageField } from '../components/ImageField.tsx';
-import { MarkdownEditor } from '../editor/MarkdownEditor.tsx';
+import { MarkdownEditor, type EditorHandle } from '../editor/MarkdownEditor.tsx';
+import { OutlinePanel } from '../editor/OutlinePanel.tsx';
+import { documentStats, outlineEntries } from '../editor/preview.ts';
+import { usePostPreview } from '../editor/usePostPreview.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { DEFAULT_LANG, LANGS, type Lang } from '../languages.ts';
+import { canAutosave, saveStatusText, type SaveState } from '../posts/autosave.ts';
+import { lintPost, type LintTarget } from '../posts/lint.ts';
 import { PostVersions } from '../posts/PostVersions.tsx';
+import { ReviewPanel } from '../posts/ReviewPanel.tsx';
+import { SharePanel } from '../posts/SharePanel.tsx';
+import { useAutosave } from '../posts/useAutosave.ts';
+import { useOtherVersion } from '../posts/useOtherVersion.ts';
 import { statusLabel } from '../posts/versions.ts';
 import { validateCover } from '../settings/validate.ts';
 import { href, navigate } from '../useRoute.ts'; // navigate: solo al eliminar
@@ -65,8 +74,34 @@ export function PostEditorPage({ postId, onError }: Props) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [coverError, setCoverError] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
+  const editorRef = useRef<EditorHandle>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const summaryRef = useRef<HTMLTextAreaElement>(null);
+  // Lo último que se escribió, para saber al volver un guardado si hubo cambios mientras viajaba el pedido.
+  const formRef = useRef(form);
+  formRef.current = form;
+  // Un solo guardado a la vez (automático, botón o Ctrl+S): `busy` llega tarde para un Ctrl+S repetido.
+  const savingRef = useRef(false);
 
-  const dirty = JSON.stringify(form) !== saved;
+  const snapshot = JSON.stringify(form);
+  const dirty = snapshot !== saved;
+  const lang = post?.lang ?? newLang;
+  const isPublished = post?.status === 'published';
+  const other = useOtherVersion(post?.translations[0]?.id ?? null, onError);
+  const preview = usePostPreview(form.body, lang);
+  const original = usePostPreview(other?.body ?? '', other?.lang ?? lang);
+  const stats = useMemo(() => documentStats(preview.markdown), [preview.markdown]);
+  const outline = useMemo(() => outlineEntries(preview.markdown, preview.headings), [preview]);
+  const issues = useMemo(
+    () => lintPost({ title: form.title, summary: form.summary, body: preview.markdown }),
+    [form.title, form.summary, preview.markdown],
+  );
+  const { title, summary, slug, coverUrl, coverAlt } = form;
+  const shareInput = useMemo(
+    () => ({ title, summary, slug, coverUrl, coverAlt, lang, body: preview.markdown, html: preview.html }),
+    [title, summary, slug, coverUrl, coverAlt, lang, preview],
+  );
 
   useEffect(() => {
     if (postId === null) return;
@@ -100,42 +135,64 @@ export function PostEditorPage({ postId, onError }: Props) {
     setForm((current) => ({ ...current, title, slug: slugTouched ? current.slug : slugify(title) }));
   };
 
-  /** Guarda (crea o actualiza) y devuelve el post resultante, o null si falló. */
-  const save = useCallback(async (): Promise<Post | null> => {
-    if (form.title.trim() === '') {
-      setMessage({ kind: 'error', text: t('post.titleRequired') });
+  /**
+   * Guarda (crea o actualiza) y devuelve el post resultante, o null si falló o ya había otro guardado en curso.
+   * `auto` (el guardado automático): sin aviso de "Guardado." y sin reemplazar el formulario por lo que normaliza la
+   * API (recortar un espacio final del título mientras se escribe se comería ese espacio).
+   */
+  const save = useCallback(async ({ auto = false }: { auto?: boolean } = {}): Promise<Post | null> => {
+    if (savingRef.current) return null;
+    const fail = (text: string): null => {
+      setMessage({ kind: 'error', text });
+      setSaveState({ kind: 'error' });
       return null;
-    }
+    };
+    if (form.title.trim() === '') return fail(t('post.titleRequired'));
     const cover = validateCover(form.coverUrl, form.coverAlt, i18n);
     if (!cover.ok) {
       setCoverError(cover.error);
-      setMessage({ kind: 'error', text: cover.error });
-      return null;
+      return fail(cover.error);
     }
     setCoverError(null);
+    savingRef.current = true;
     setBusy(true);
+    setSaveState({ kind: 'saving' });
     setMessage(null);
     try {
       const input = toInput(form, { coverUrl: cover.coverUrl, coverAlt: cover.coverAlt });
       const result = post ? await api.updatePost(post.id, input) : await api.createPost(input, newLang);
       const resultForm = toForm(result);
+      // Lo escrito mientras viajaba el pedido no se pisa: queda como cambio sin guardar.
+      const keepForm = auto || formRef.current !== form;
       setPost(result);
-      setForm(resultForm);
-      setSaved(JSON.stringify(resultForm));
+      if (!keepForm) setForm(resultForm);
+      setSaved(JSON.stringify(keepForm ? form : resultForm));
+      setSaveState({ kind: 'saved', at: new Date() });
       // El post nuevo pasa a tener su propia URL. replaceState (y no navigate) para no disparar
       // hashchange: remontaría la página en medio de un "Publicar" y perdería el mensaje de resultado.
       if (!post) window.history.replaceState(null, '', href.post(result.id));
-      setMessage({ kind: 'ok', text: t('post.saved') });
+      if (!auto) setMessage({ kind: 'ok', text: t('post.saved') });
       return result;
     } catch (caught) {
-      if (!onError(caught)) {
-        setMessage({ kind: 'error', text: caught instanceof Error ? caught.message : t('post.saveError') });
-      }
-      return null;
+      if (onError(caught)) return null;
+      return fail(caught instanceof Error ? caught.message : t('post.saveError'));
     } finally {
+      savingRef.current = false;
       setBusy(false);
     }
   }, [form, post, newLang, onError, i18n, t]);
+
+  useAutosave(
+    canAutosave({ exists: post !== null, published: isPublished, title: form.title, dirty, saving: busy }),
+    snapshot,
+    () => void save({ auto: true }),
+  );
+
+  /** "Ir a" de un aviso del revisor: la línea en el editor o el campo. */
+  const goTo = (target: LintTarget): void => {
+    if ('line' in target) editorRef.current?.goToLine(target.line);
+    else (target.field === 'title' ? titleRef : summaryRef).current?.focus();
+  };
 
   // Ctrl/Cmd+S guarda. El ref evita re-registrar el listener en cada tecla.
   const saveRef = useRef(save);
@@ -193,8 +250,6 @@ export function PostEditorPage({ postId, onError }: Props) {
 
   if (loading) return <p>{t('common.loading')}</p>;
 
-  const isPublished = post?.status === 'published';
-
   return (
     <section className="post-editor">
       <div className="page-head page-head-sticky">
@@ -205,7 +260,9 @@ export function PostEditorPage({ postId, onError }: Props) {
           <h1 className="page-title">{post ? post.title || t('common.untitled') : t('post.new')}</h1>
         </div>
         <div className="actions">
-          <span className="meta">{dirty ? t('common.unsaved') : post ? t('common.allSaved') : ''}</span>
+          <span className="meta" role="status">
+            {saveStatusText({ state: saveState, dirty, exists: post !== null, published: isPublished }, i18n)}
+          </span>
           {post && (
             <span className={`chip chip-${post.status}`}>{statusLabel(post.status, i18n)}</span>
           )}
@@ -230,7 +287,7 @@ export function PostEditorPage({ postId, onError }: Props) {
       )}
 
       {post ? (
-        <PostVersions post={post} draft={form} dirty={dirty} onError={onError} />
+        <PostVersions post={post} draft={form} dirty={dirty} other={other} onError={onError} />
       ) : (
         <div className="post-versions">
           <label className="field post-lang-select">
@@ -249,7 +306,7 @@ export function PostEditorPage({ postId, onError }: Props) {
       <div className="fields">
         <label className="field">
           <span className="label">{t('post.title')}</span>
-          <input value={form.title} onChange={(event) => handleTitleChange(event.target.value)} maxLength={200} />
+          <input ref={titleRef} value={form.title} onChange={(event) => handleTitleChange(event.target.value)} maxLength={200} />
         </label>
         <label className="field">
           <span className="label">{t('post.slug')}</span>
@@ -265,7 +322,7 @@ export function PostEditorPage({ postId, onError }: Props) {
         </label>
         <label className="field">
           <span className="label">{t('post.summary')}</span>
-          <textarea value={form.summary} onChange={(event) => update('summary', event.target.value)} rows={2} maxLength={400} />
+          <textarea ref={summaryRef} value={form.summary} onChange={(event) => update('summary', event.target.value)} rows={2} maxLength={400} />
         </label>
         <label className="field">
           <span className="label">{t('post.tags')}</span>
@@ -288,11 +345,21 @@ export function PostEditorPage({ postId, onError }: Props) {
       />
 
       <MarkdownEditor
+        ref={editorRef}
         value={form.body}
         onChange={(body) => update('body', body)}
-        lang={post?.lang ?? newLang}
+        lang={lang}
         onUploadImage={api.uploadImage}
+        previewHtml={preview.html}
+        original={other ? { html: original.html, lang: other.lang } : null}
+        stats={stats}
       />
+
+      <div className="post-tools">
+        <OutlinePanel entries={outline} onSelect={(entry) => editorRef.current?.goToHeading(entry)} />
+        <ReviewPanel issues={issues} onSelect={goTo} />
+        <SharePanel input={shareInput} />
+      </div>
 
       {post && (
         <div className="danger-zone">

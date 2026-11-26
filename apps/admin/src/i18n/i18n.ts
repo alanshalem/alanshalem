@@ -28,6 +28,8 @@ export interface I18n {
   /** A lo sumo una décima (lo más fino que muestra el admin: segundos de video), sin separador de miles. */
   readonly formatNumber: (value: number, minimumFractionDigits?: 0 | 1) => string;
   readonly formatDate: (iso: string) => string;
+  /** Hora y minutos en la zona del navegador ("14:05" / "2:05 PM"): el "Guardado" del editor. */
+  readonly formatTime: (date: Date) => string;
 }
 
 const DICTIONARIES: Record<Lang, Dictionary> = { es, en };
@@ -45,6 +47,8 @@ function createI18n(lang: Lang): I18n {
       new Intl.NumberFormat(LOCALES[lang], { minimumFractionDigits, maximumFractionDigits: 1, useGrouping: false }),
   );
   const dates = new Intl.DateTimeFormat(LOCALES[lang], { dateStyle: 'medium' });
+  // En la Argentina la hora va de 0 a 23 ("14:05"); ICU usa p. m. por defecto para es-AR.
+  const times = new Intl.DateTimeFormat(LOCALES[lang], { timeStyle: 'short', hourCycle: lang === 'es' ? 'h23' : undefined });
 
   const formatNumber = (value: number, minimumFractionDigits: 0 | 1 = 0): string =>
     numbers[minimumFractionDigits]!.format(value);
@@ -62,6 +66,7 @@ function createI18n(lang: Lang): I18n {
     plural: (count, key, params) => t(`${key}.${count === 1 ? 'one' : 'other'}` as MessageKey, { ...params, count }),
     formatNumber,
     formatDate: (iso) => dates.format(new Date(iso)),
+    formatTime: (date) => times.format(date),
   };
 }
 

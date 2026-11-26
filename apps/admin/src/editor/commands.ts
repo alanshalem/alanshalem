@@ -1,4 +1,5 @@
 import { LANGS, type Lang } from '../languages.ts';
+import { calloutMarker, FOOTNOTE_DEFINITION, FOOTNOTE_REFERENCE, type CalloutKind } from './markdownSource.ts';
 import { clamp, runAfter, runBefore, selectedLinesRange } from './text.ts';
 import type { Command, TextEdit } from './types.ts';
 
@@ -6,11 +7,12 @@ import type { Command, TextEdit } from './types.ts';
  * Textos de relleno que quedan DENTRO del post: van en el idioma del post, no en el de la interfaz (el corrector y
  * quien lee el post usan ese idioma). Los comandos que los usan existen uno por idioma (`insertLink.en`).
  */
-const CONTENT_PLACEHOLDERS: Record<Lang, { text: string; column: string; cell: string; uploading: string }> = {
-  es: { text: 'texto', column: 'Columna', cell: 'Dato', uploading: 'Subiendo…' },
-  en: { text: 'text', column: 'Column', cell: 'Value', uploading: 'Uploading…' },
+const CONTENT_PLACEHOLDERS: Record<Lang, { text: string; column: string; cell: string; uploading: string; alt: string; caption: string }> = {
+  es: { text: 'texto', column: 'Columna', cell: 'Dato', uploading: 'Subiendo…', alt: 'descripción', caption: 'epígrafe' },
+  en: { text: 'text', column: 'Column', cell: 'Value', uploading: 'Uploading…', alt: 'description', caption: 'caption' },
 };
-const URL_PLACEHOLDER = 'url';
+/** El destino de relleno de Ctrl+K: el revisor lo trata como un link vacío. */
+export const URL_PLACEHOLDER = 'url';
 
 const perLang = (make: (lang: Lang) => Command): Record<Lang, Command> =>
   Object.fromEntries(LANGS.map((lang) => [lang, make(lang)])) as Record<Lang, Command>;
@@ -394,3 +396,44 @@ export const insertTable = perLang((lang): Command => {
 
 export const insertHorizontalRule: Command = (state) =>
   insertAsBlock(state, '---', { from: 3, to: 3 });
+
+/* ----------------- Markdown del sitio: figuras, cajas y notas (S4) ----------------- */
+
+/** Figura = imagen sola en su párrafo y con título (el epígrafe). Queda seleccionada la url, lo primero que falta. */
+export const insertFigure = perLang((lang): Command => {
+  const { alt, caption } = CONTENT_PLACEHOLDERS[lang];
+  const urlStart = alt.length + 4; // "![" + alt + "]("
+  return (state) =>
+    insertAsBlock(state, `![${alt}](${URL_PLACEHOLDER} "${caption}")`, { from: urlStart, to: urlStart + URL_PLACEHOLDER.length });
+});
+
+/** Caja destacada con las líneas seleccionadas (o la del cursor) adentro; sin texto, el de relleno seleccionado. */
+export function insertCallout(kind: CalloutKind): Record<Lang, Command> {
+  return perLang((lang) => (state) => {
+    const { lineStart, lineEnd } = selectedLinesRange(state);
+    const selected = state.value.slice(lineStart, lineEnd);
+    const body = (selected.trim() === '' ? CONTENT_PLACEHOLDERS[lang].text : selected).split('\n').map((line) => `> ${line}`).join('\n');
+    const marker = `> ${calloutMarker(kind)}\n`;
+    return insertAsBlock({ ...state, start: lineStart, end: lineEnd }, marker + body, {
+      from: marker.length + 2,
+      to: marker.length + body.length,
+    });
+  });
+}
+
+/**
+ * `[^n]` después de la selección y su definición al final del texto, con el texto de relleno seleccionado para
+ * escribir la nota. `n` sigue al mayor número usado (los ids con nombre no cuentan). Es UNA edición (del cursor al
+ * final) para que Ctrl+Z la deshaga de una vez.
+ */
+export const insertFootnote = perLang((lang): Command => ({ value, end }) => {
+  const used = [...value.matchAll(FOOTNOTE_REFERENCE)].map((match) => Number(match[1])).filter(Number.isInteger);
+  const n = Math.max(0, ...used) + 1;
+  const before = `${value.slice(0, end)}[^${n}]${value.slice(end).trimEnd()}`;
+  // Junto a las otras definiciones si el texto ya termina en una; si no, en un párrafo aparte.
+  const lastLine = before.slice(before.lastIndexOf('\n') + 1);
+  const definition = `${FOOTNOTE_DEFINITION.test(lastLine) ? '\n' : '\n\n'}[^${n}]: `;
+  const insert = before.slice(end) + definition + CONTENT_PLACEHOLDERS[lang].text;
+  const selectEnd = end + insert.length;
+  return { from: end, to: value.length, insert, selectStart: selectEnd - CONTENT_PLACEHOLDERS[lang].text.length, selectEnd };
+});

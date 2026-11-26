@@ -24,10 +24,11 @@ describe('registro de acciones', () => {
     assert.equal(new Set(chords).size, chords.length, chords.join(' '));
   });
 
-  it('la barra tiene todos los comandos de formato de antes, en el mismo orden, más vistas, foco, paleta y ayuda', () => {
+  it('la barra tiene todos los comandos de formato de antes, en el mismo orden, más el Markdown del sitio, vistas, original, foco, paleta y ayuda', () => {
     assert.deepEqual(ids(actions.filter((action) => action.toolbar)), [
       'bold', 'italic', 'strike', 'code', 'heading', 'subheading', 'bulletList', 'numberedList', 'quote',
-      'link', 'codeBlock', 'table', 'rule', 'image', 'view.editor', 'view.split', 'view.preview', 'focus', 'palette', 'help',
+      'link', 'codeBlock', 'table', 'rule', 'image', 'figure', 'footnote', 'callout.note',
+      'view.editor', 'view.split', 'view.preview', 'compare', 'focus', 'palette', 'help',
     ]);
   });
 

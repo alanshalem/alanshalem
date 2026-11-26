@@ -1,26 +1,29 @@
-import { renderMarkdown } from '@blog/markdown';
 import {
-  useDeferredValue,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type ClipboardEvent,
   type DragEvent,
   type KeyboardEvent,
+  type Ref,
 } from 'react';
 import { flushSync } from 'react-dom';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { Lang } from '../languages.ts';
-import { editorActions, inPalette, type EditorAction, type UiAction } from './actions.ts';
+import { availableActions, editorActions, inPalette, type EditorAction, type UiAction } from './actions.ts';
 import { applyEditToTextarea } from './applyEdit.ts';
 import { CommandPalette } from './CommandPalette.tsx';
 import { insertText, pasteUrlAsLink } from './commands.ts';
 import { EditorToolbar } from './EditorToolbar.tsx';
 import { FindPanel } from './FindPanel.tsx';
 import { htmlToMarkdown } from './htmlToMarkdown.ts';
+import type { DocumentStats, OutlineEntry } from './preview.ts';
 import { actionForKey, isMacPlatform } from './shortcuts.ts';
 import { ShortcutsHelp } from './ShortcutsHelp.tsx';
+import { lineOffsets } from './text.ts';
+import { measureOffsetTops, scrollTextareaTo } from './textareaMetrics.ts';
 import type { Command } from './types.ts';
 import { useEditorView } from './useEditorView.ts';
 import { useFind } from './useFind.ts';
@@ -35,6 +38,18 @@ interface Props {
   lang: Lang;
   /** Sube la imagen y devuelve su URL. Si no se pasa, el editor no acepta imágenes. */
   onUploadImage?: (file: File) => Promise<string>;
+  /** `value` ya renderizado como en el sitio (usePostPreview). */
+  previewHtml: string;
+  /** La otra versión ya renderizada: con ella aparece "Ver el original al lado" (S5). */
+  original: { html: string; lang: Lang } | null;
+  stats: DocumentStats;
+  ref?: Ref<EditorHandle>;
+}
+
+/** Lo que la página puede pedirle al editor desde afuera (el revisor y el esquema). */
+export interface EditorHandle {
+  goToLine: (line: number) => void;
+  goToHeading: (entry: OutlineEntry) => void;
 }
 
 type Dialog = 'palette' | 'help';
@@ -45,15 +60,16 @@ const IS_MAC = typeof navigator !== 'undefined' && isMacPlatform(navigator.platf
 /**
  * Editor Markdown nativo: un <textarea> + comandos puros + vista previa.
  *
- * La vista previa usa el MISMO renderer que el build público (@blog/markdown) y los mismos estilos
- * (.paper .prose), así que lo que se ve acá es lo que se publica.
+ * La vista previa usa el MISMO renderer y las mismas opciones que el build público (usePostPreview) y los mismos
+ * estilos (.paper .prose), así que lo que se ve acá es lo que se publica. Con "Ver el original", ese panel muestra la
+ * otra versión (solo lectura) y el scroll sincronizado la empareja bloque a bloque con lo que se escribe.
  * El HTML que se inyecta es seguro: el renderer escapa todo el texto y filtra las URLs.
  *
  * Todo lo que se puede hacer sale del registro de acciones (actions.ts); este componente solo conecta: los
  * comandos de texto pasan por applyEdit (deshacer nativo) y las acciones de interfaz, por `runUi`.
  */
-export function MarkdownEditor({ value, onChange, lang, onUploadImage }: Props) {
-  const { t } = useUiLanguage();
+export function MarkdownEditor({ value, onChange, lang, onUploadImage, previewHtml, original, stats, ref }: Props) {
+  const { t, plural } = useUiLanguage();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,18 +77,20 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage }: Props) 
   // La acción elegida en la paleta corre recién cuando el diálogo se cerró (y el foco volvió al editor).
   const pendingRef = useRef<EditorAction | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  // No se recuerda entre visitas (a diferencia de la vista): solo tiene sentido en una traducción.
+  const [comparing, setComparing] = useState(false);
   const { view, focus, setView, setFocus } = useEditorView();
   const find = useFind(textareaRef, value);
   const upload = useImageUpload(textareaRef, lang, onUploadImage);
 
-  // useDeferredValue: tipear nunca espera al render de la vista previa.
-  const deferredValue = useDeferredValue(value);
-  const previewHtml = useMemo(() => renderMarkdown(deferredValue, { headingOffset: 1 }).html, [deferredValue]);
-  const onEditorScroll = useScrollSync(textareaRef, previewRef, view === 'split', previewHtml);
+  const showingOriginal = comparing && original !== null;
+  const shown = showingOriginal ? original : { html: previewHtml, lang };
+  const originalLabel = showingOriginal ? t('editor.original', { lang: t(`lang.inSentence.${original.lang}`) }) : null;
+  const onEditorScroll = useScrollSync(textareaRef, previewRef, view === 'split', shown.html);
 
   const actions = useMemo(
-    () => editorActions(lang).filter((action) => upload.canUpload || action.id !== 'image'),
-    [lang, upload.canUpload],
+    () => availableActions(editorActions(lang), { canUpload: upload.canUpload, canCompare: original !== null }),
+    [lang, upload.canUpload, original !== null],
   );
 
   const applyCommand = (command: Command): boolean => {
@@ -109,6 +127,11 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage }: Props) 
       case 'view.cycle':
         changeView(nextView(view));
         return true;
+      case 'compare':
+        // El original reemplaza a la vista previa: al activarlo se ve al lado del editor.
+        if (!comparing && view !== 'split') changeView('split');
+        setComparing(!comparing);
+        return true;
       case 'focus':
         setFocus(!focus);
         return true;
@@ -131,6 +154,35 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage }: Props) 
         return true;
     }
   };
+
+  /**
+   * Lleva el cursor al principio de `line` y la deja a la vista (`toTop`: arriba de todo, como el comienzo de una
+   * sección). En la vista dividida la vista previa la sigue: mover el scroll del textarea dispara la sincronización.
+   */
+  const goToLine = (line: number, toTop = false): void => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    showEditor();
+    const [offset = 0] = lineOffsets(textarea.value, [line]);
+    textarea.focus();
+    textarea.setSelectionRange(offset, offset);
+    const top = measureOffsetTops(textarea, [offset])[0] ?? 0;
+    // Menos el relleno superior: el título queda con el mismo aire que el comienzo del texto.
+    if (toTop) textarea.scrollTop = top - parseFloat(getComputedStyle(textarea).paddingTop);
+    else scrollTextareaTo(textarea, top);
+  };
+
+  /** Con la vista previa sola (o sin línea conocida) se mueve la vista previa: no se le cambia la vista a nadie. */
+  const goToHeading = (entry: OutlineEntry): void => {
+    if (entry.line !== null && view !== 'preview') return goToLine(entry.line, true);
+    const preview = previewRef.current;
+    const target = preview?.querySelector(`[id="${CSS.escape(entry.id)}"]`);
+    if (!preview || !target) return;
+    preview.scrollTop += target.getBoundingClientRect().top - preview.getBoundingClientRect().top;
+    preview.focus({ preventScroll: true });
+  };
+
+  useImperativeHandle(ref, () => ({ goToLine: (line) => goToLine(line), goToHeading }));
 
   const runAction = (action: EditorAction): void => {
     if ('edit' in action.run) {
@@ -197,6 +249,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage }: Props) 
 
   const isPressed = (action: EditorAction): boolean | undefined => {
     if (action.id === 'focus') return focus;
+    if (action.id === 'compare') return comparing;
     return action.group === 'view' ? action.id === `view.${view}` : undefined;
   };
 
@@ -250,14 +303,27 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage }: Props) 
             />
           )}
         </div>
-        {/* tabIndex: con la vista previa sola, los atajos tienen que poder llegar desde acá. */}
-        <div ref={previewRef} className="paper editor-preview" aria-label={t('common.preview')} tabIndex={0}>
-          <div className="prose" lang={lang} dangerouslySetInnerHTML={{ __html: previewHtml }} />
+        {/* tabIndex: con la vista previa sola, los atajos tienen que poder llegar desde acá (y se scrollea con teclado). */}
+        <div
+          ref={previewRef}
+          className="paper editor-preview"
+          aria-label={originalLabel ?? t('common.preview')}
+          tabIndex={0}
+        >
+          {originalLabel && <p className="editor-original-label">{originalLabel}</p>}
+          <div className="prose" lang={shown.lang} dangerouslySetInnerHTML={{ __html: shown.html }} />
         </div>
       </div>
 
-      <div className="editor-status" role="status" aria-live="polite">
-        {upload.status ?? (focus ? t('editor.focusHint') : null)}
+      <div className="editor-statusbar">
+        <div className="editor-status" role="status" aria-live="polite">
+          {upload.status ?? (focus ? t('editor.focusHint') : null)}
+        </div>
+        {/* Fuera de la región viva: cambia con cada palabra y anunciarlo sería ruido. */}
+        <p className="editor-stats">
+          {plural(stats.words, 'stats.words')} · {plural(stats.characters, 'stats.characters')} ·{' '}
+          {t('stats.reading', { minutes: stats.readingMinutes })}
+        </p>
       </div>
 
       {dialog === 'palette' && (
