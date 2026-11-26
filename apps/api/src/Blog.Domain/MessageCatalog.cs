@@ -27,8 +27,14 @@ public static partial class MessageCatalog
     public static IReadOnlyDictionary<string, LocalizedText> Entries { get; } = new Dictionary<string, LocalizedText>(StringComparer.Ordinal)
     {
         [MessageKeys.ProblemBadRequest] = new("Datos inválidos", "Invalid data"),
+        [MessageKeys.ProblemUnauthorized] = new("No autorizado", "Unauthorized"),
+        [MessageKeys.ProblemForbidden] = new("Acceso denegado", "Forbidden"),
         [MessageKeys.ProblemNotFound] = new("No encontrado", "Not found"),
+        [MessageKeys.ProblemMethodNotAllowed] = new("Método no permitido", "Method not allowed"),
         [MessageKeys.ProblemConflict] = new("Conflicto", "Conflict"),
+        [MessageKeys.ProblemPayloadTooLarge] = new("Demasiado grande", "Payload too large"),
+        [MessageKeys.ProblemUnsupportedMediaType] = new("Tipo de contenido no soportado", "Unsupported media type"),
+        [MessageKeys.ProblemTooManyRequests] = new("Demasiados pedidos", "Too many requests"),
         [MessageKeys.ProblemInternalError] = new("Error interno", "Internal error"),
         [MessageKeys.ProblemUnavailable] = new("Servicio no disponible", "Service unavailable"),
 
@@ -181,6 +187,21 @@ public static partial class MessageCatalog
         [MessageKeys.VideoFadeTooLongForTrim] = new(
             "Un fundido de {fade} s necesita un tramo de al menos {needed} s y el elegido dura {trimmed} s. Elegí un fundido más corto o un tramo más largo.",
             "A {fade} s fade needs a segment of at least {needed} s and the chosen one lasts {trimmed} s. Choose a shorter fade or a longer segment."),
+
+        [MessageKeys.VideoProcessingFailed] = new(
+            "ffmpeg no pudo convertir el video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.",
+            "ffmpeg couldn't convert the video. Try exporting it again as MP4 and upload it again."),
+        [MessageKeys.VideoProcessingTimedOut] = new(
+            "El video tardó demasiado en procesarse y se canceló.", "The video took too long to process and was cancelled."),
+        [MessageKeys.VideoProcessingInterrupted] = new(
+            "Se interrumpió el procesamiento porque el servidor se reinició. Volvé a subir el video.",
+            "Processing was interrupted because the server restarted. Upload the video again."),
+        [MessageKeys.VideoProcessingUnexpected] = new(
+            "No se pudo procesar el video por un error del servidor. Volvé a subirlo más tarde.",
+            "The video couldn't be processed because of a server error. Upload it again later."),
+        [MessageKeys.VideoPosterFailed] = new(
+            "No se pudo generar la imagen de portada del video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.",
+            "The video's cover image couldn't be generated. Try exporting it again as MP4 and upload it again."),
     };
 
     // Segundos con hasta dos decimales, con el separador de cada idioma y sin depender de la cultura del servidor.

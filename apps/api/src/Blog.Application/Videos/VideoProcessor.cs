@@ -15,11 +15,8 @@ public sealed class VideoProcessor(
     MediaService media,
     IMediaStorage storage)
 {
-    private const string InterruptedMessage = "Se interrumpió el procesamiento porque el servidor se reinició. Volvé a subir el video.";
-    private const string UnexpectedMessage = "No se pudo procesar el video por un error del servidor. Volvé a subirlo más tarde.";
-
     /// <remarks>
-    /// Un error previsto (<see cref="IsExpected"/>) queda como error del video. Uno inesperado también, con un mensaje
+    /// Un error previsto (<see cref="ErrorKeyOf"/>) queda como error del video. Uno inesperado también, con un mensaje
     /// genérico, y además se relanza para que el proceso en segundo plano lo registre con sus detalles. Un apagado del
     /// servidor no se registra como fallo: el video queda en "processing" y lo resuelve el próximo arranque.
     /// </remarks>
@@ -37,7 +34,7 @@ public sealed class VideoProcessor(
         catch (Exception error) when (!IsShutdown(error, cancellationToken))
         {
             await RecordFailureAsync(job.VideoId, error);
-            if (!IsExpected(error))
+            if (ErrorKeyOf(error) == MessageKeys.VideoProcessingUnexpected)
             {
                 throw;
             }
@@ -57,7 +54,7 @@ public sealed class VideoProcessor(
     {
         foreach (var video in await videos.ListProcessingAsync(cancellationToken))
         {
-            video.MarkFailed(InterruptedMessage);
+            video.MarkFailed(MessageKeys.VideoProcessingInterrupted);
         }
 
         await videos.SaveChangesAsync(cancellationToken);
@@ -82,8 +79,17 @@ public sealed class VideoProcessor(
         await videos.SaveChangesAsync(cancellationToken);
     }
 
-    /// <summary>Errores con un mensaje ya escrito para el admin (ffmpeg falló, el póster no se pudo leer); otro es un defecto o una falla del servidor.</summary>
-    private static bool IsExpected(Exception error) => error is VideoProcessingException or DomainException;
+    /// <summary>
+    /// Qué se le dice al admin. ffmpeg trae su motivo; una regla de imagen rota acá solo puede venir del póster (lo
+    /// genera ffmpeg y lo procesa el pipeline de imágenes), y la salida es la misma: volver a exportar el video.
+    /// Cualquier otro error es un defecto o una falla del servidor.
+    /// </summary>
+    private static string ErrorKeyOf(Exception error) => error switch
+    {
+        VideoProcessingException processing => processing.UserMessage.Key,
+        DomainException => MessageKeys.VideoPosterFailed,
+        _ => MessageKeys.VideoProcessingUnexpected,
+    };
 
     private static bool IsShutdown(Exception error, CancellationToken cancellationToken) =>
         error is OperationCanceledException && cancellationToken.IsCancellationRequested;
@@ -104,7 +110,7 @@ public sealed class VideoProcessor(
             var video = await videos.ReloadAsync(videoId, CancellationToken.None);
             if (video is { Status: VideoStatus.Processing })
             {
-                video.MarkFailed(IsExpected(error) ? error.Message : UnexpectedMessage);
+                video.MarkFailed(ErrorKeyOf(error));
                 await videos.SaveChangesAsync(CancellationToken.None);
             }
         }

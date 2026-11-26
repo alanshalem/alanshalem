@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Blog.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Blog.Tests.Http;
 
@@ -72,6 +75,66 @@ public class LocalizedErrorsHttpTests(ApiFactory api)
 
         await AssertProblemAsync(
             response, HttpStatusCode.BadRequest, acceptLanguage is null ? "Datos inválidos" : "Invalid data", detail, "video.trimEndPastVideo");
+    }
+
+    [Theory]
+    [InlineData(null, "ffmpeg no pudo convertir el video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.")]
+    [InlineData(EnglishBrowser, "ffmpeg couldn't convert the video. Try exporting it again as MP4 and upload it again.")]
+    public async Task A_failed_video_shows_its_error_in_the_language_of_the_request(string? acceptLanguage, string error)
+    {
+        // Fábrica propia: procesar videos cambia el contador del ffmpeg simulado que miran otras pruebas.
+        await using var own = new ApiFactory();
+        var admin = await own.AdminClientAsync();
+        var id = await UploadVideoAsync(admin, "FAIL por idioma");
+
+        var video = await WaitUntilFailedAsync(admin, id, acceptLanguage);
+
+        Assert.Equal(error, video.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task A_video_failed_before_the_catalog_shows_its_stored_text_as_is()
+    {
+        await using var own = new ApiFactory();
+        var admin = await own.AdminClientAsync();
+        var id = await UploadVideoAsync(admin, "FAIL de antes");
+        await WaitUntilFailedAsync(admin, id, acceptLanguage: null);
+        await using (var scope = own.Services.CreateAsyncScope())
+        {
+            // Como lo dejaba la versión anterior: el texto en español en la columna, en vez de la clave.
+            var updated = await scope.ServiceProvider.GetRequiredService<BlogDbContext>().Database.ExecuteSqlAsync(
+                $"UPDATE video_assets SET Error = {"Texto viejo guardado en español."} WHERE Id = {id.ToString().ToUpperInvariant()} COLLATE NOCASE");
+            Assert.Equal(1, updated);
+        }
+
+        var video = await WaitUntilFailedAsync(admin, id, EnglishBrowser);
+
+        Assert.Equal("Texto viejo guardado en español.", video.GetProperty("error").GetString());
+    }
+
+    private static async Task<Guid> UploadVideoAsync(HttpClient admin, string content)
+    {
+        using var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(TestVideos.Fake(content)) { Headers = { ContentType = new MediaTypeHeaderValue("video/mp4") } }, "file", "clip.mp4");
+        using var response = await admin.SendAsync(ApiFactory.Mutation(HttpMethod.Post, "/api/admin/media/videos", form));
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+    }
+
+    private static async Task<JsonElement> WaitUntilFailedAsync(HttpClient admin, Guid id, string? acceptLanguage)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (true)
+        {
+            using var response = await admin.SendAsync(WithLanguage(new HttpRequestMessage(HttpMethod.Get, $"/api/admin/media/videos/{id}"), acceptLanguage));
+            var video = await response.Content.ReadFromJsonAsync<JsonElement>();
+            if (video.GetProperty("status").GetString() == "failed")
+            {
+                return video;
+            }
+
+            await Task.Delay(20, timeout.Token);
+        }
     }
 
     private static HttpRequestMessage WithLanguage(HttpRequestMessage request, string? acceptLanguage)

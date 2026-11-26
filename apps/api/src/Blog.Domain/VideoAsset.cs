@@ -17,7 +17,7 @@ public enum VideoStatus
 /// </summary>
 public sealed class VideoAsset
 {
-    /// <summary>El error se le muestra al admin: alcanza con un mensaje corto.</summary>
+    /// <summary>El largo de la columna: entra una clave del catálogo y también los textos que guardaban las filas viejas.</summary>
     public const int MaxErrorLength = 500;
 
     public const string FolderName = "videos";
@@ -51,7 +51,10 @@ public sealed class VideoAsset
 
     public VideoStatus Status { get; private set; }
 
-    /// <summary>Por qué falló el proceso, en palabras para el admin. Null si no falló.</summary>
+    /// <summary>
+    /// Por qué falló el proceso: una clave de <see cref="MessageKeys"/> (o, en filas anteriores al catálogo, el texto en
+    /// español; ver <see cref="StoredMessage"/>). Null si no falló.
+    /// </summary>
     public string? Error { get; private set; }
 
     public Guid? PosterId { get; private set; }
@@ -107,10 +110,17 @@ public sealed class VideoAsset
         Status = VideoStatus.Ready;
     }
 
-    public void MarkFailed(string error)
+    /// <param name="errorKey">Una de <see cref="MessageKeys"/>, sin argumentos: el texto lo elige quien lo muestra.</param>
+    /// <exception cref="ArgumentException">Si no es una clave del catálogo (error de programación).</exception>
+    public void MarkFailed(string errorKey)
     {
+        if (!MessageCatalog.Entries.ContainsKey(errorKey))
+        {
+            throw new ArgumentException($"\"{errorKey}\" no es una clave del catálogo de mensajes.", nameof(errorKey));
+        }
+
         EnsureStatus(VideoStatus.Processing);
-        Error = error.Length > MaxErrorLength ? error[..MaxErrorLength] : error;
+        Error = errorKey;
         Status = VideoStatus.Failed;
     }
 

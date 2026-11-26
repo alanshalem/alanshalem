@@ -24,6 +24,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "blog-http-tests-" + Guid.NewGuid().ToString("N"));
     private WebApplicationFactory<Program>? _development;
     private HttpClient? _admin;
+    private HttpClient? _developmentAdmin;
 
     public string MediaDirectory => Path.Combine(_directory, "media");
 
@@ -43,18 +44,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         (factory ?? this).CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
 
     /// <summary>Un cliente con sesión, compartido: el login tiene rate limit (10 intentos cada 15 minutos por IP).</summary>
-    public async Task<HttpClient> AdminClientAsync()
-    {
-        if (_admin is null)
-        {
-            var client = CreateHttpsClient();
-            using var response = await client.SendAsync(Mutation(HttpMethod.Post, "/api/auth/login", JsonContent(new { password = Password })));
-            response.EnsureSuccessStatusCode();
-            _admin = client;
-        }
+    public async Task<HttpClient> AdminClientAsync() => _admin ??= await LoggedInAsync(CreateHttpsClient());
 
-        return _admin;
-    }
+    /// <summary>Lo mismo que <see cref="AdminClientAsync"/> contra la API en <see cref="Development"/> (tiene su propio límite).</summary>
+    public async Task<HttpClient> DevelopmentAdminClientAsync() => _developmentAdmin ??= await LoggedInAsync(CreateHttpsClient(Development));
 
     /// <summary>Petición que modifica datos, con la cabecera anti-CSRF.</summary>
     public static HttpRequestMessage Mutation(HttpMethod method, string url, HttpContent? content = null) =>
@@ -83,6 +76,13 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 await Task.Delay(100);
             }
         }
+    }
+
+    private static async Task<HttpClient> LoggedInAsync(HttpClient client)
+    {
+        using var response = await client.SendAsync(Mutation(HttpMethod.Post, "/api/auth/login", JsonContent(new { password = Password })));
+        response.EnsureSuccessStatusCode();
+        return client;
     }
 
     public override async ValueTask DisposeAsync()

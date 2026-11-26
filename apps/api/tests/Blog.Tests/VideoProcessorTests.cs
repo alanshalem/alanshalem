@@ -14,7 +14,6 @@ namespace Blog.Tests;
 /// </summary>
 public class VideoProcessorTests
 {
-    private const string UnexpectedMessage = "No se pudo procesar el video por un error del servidor. Volvé a subirlo más tarde.";
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(30);
 
     [Fact]
@@ -29,7 +28,8 @@ public class VideoProcessorTests
 
         Assert.Same(original, thrown);
         var stored = await context.GetAsync(job.VideoId);
-        Assert.Equal((VideoStatus.Failed, UnexpectedMessage), (stored.Status, stored.Error));
+        Assert.Equal((VideoStatus.Failed, MessageKeys.VideoProcessingUnexpected), (stored.Status, stored.Error?.Value));
+        Assert.Equal("No se pudo procesar el video por un error del servidor. Volvé a subirlo más tarde.", stored.Error?.In(Language.Spanish));
         Assert.Null(stored.Poster);
         Assert.Empty(stored.Sources);
         Assert.Empty(context.Database.VideoWorkFiles());
@@ -79,7 +79,21 @@ public class VideoProcessorTests
 
         var stored = await context.GetAsync(job.VideoId);
         Assert.Equal(VideoStatus.Failed, stored.Status);
-        Assert.Equal("ffmpeg no pudo convertir el video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.", stored.Error);
+        Assert.Equal(MessageKeys.VideoProcessingFailed, stored.Error?.Value);
+        Assert.Equal("ffmpeg no pudo convertir el video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.", stored.Error?.In(Language.Spanish));
+    }
+
+    [Fact]
+    public async Task A_poster_the_image_pipeline_rejects_is_stored_as_the_poster_error()
+    {
+        await using var context = await TestContext.CreateAsync();
+        var job = await context.UploadAsync(TestVideos.Fake("POSTER ROTO"));
+
+        await context.ProcessAsync(job, default);
+
+        var stored = await context.GetAsync(job.VideoId);
+        Assert.Equal((VideoStatus.Failed, MessageKeys.VideoPosterFailed), (stored.Status, stored.Error?.Value));
+        Assert.Empty(context.Database.MediaFiles());
     }
 
     [Fact]

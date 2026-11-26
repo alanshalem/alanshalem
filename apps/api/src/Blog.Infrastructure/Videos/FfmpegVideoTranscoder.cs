@@ -56,12 +56,10 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
 
     private const int LoggedErrorLength = 2000;
 
-    private const string FailedMessage = "ffmpeg no pudo convertir el video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.";
-    private const string TimedOutMessage = "El video tardó demasiado en procesarse y se canceló.";
-
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(30);
 
-    // 15 s a 1080p en AV1 preset 4 con 2 hilos tardan alrededor de un minuto; esto solo corta un proceso colgado.
+    // Medido en la verificación del hero: un clip de 15 s a 1080p con estos parámetros tardó 211 s en procesarse
+    // entero (todas sus versiones). El tope es por corrida de ffmpeg y deja margen de sobra: solo corta un proceso colgado.
     private static readonly TimeSpan EncodeTimeout = TimeSpan.FromMinutes(10);
 
     public async Task<VideoProbe?> ProbeAsync(string sourcePath, CancellationToken cancellationToken) =>
@@ -72,7 +70,7 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
     public async Task<TranscodedVideo> TranscodeAsync(
         string sourcePath, IReadOnlyList<VideoVariant> variants, VideoEdit edit, CancellationToken cancellationToken)
     {
-        var stream = await ProbeStreamAsync(sourcePath, cancellationToken) ?? throw new VideoProcessingException(FailedMessage);
+        var stream = await ProbeStreamAsync(sourcePath, cancellationToken) ?? throw new VideoProcessingException(MessageKeys.VideoProcessingFailed);
         var workDirectory = Path.Combine(Path.GetFullPath(options.Value.WorkDirectory), Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(workDirectory);
         try
@@ -220,13 +218,13 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
         catch (TimeoutException exception)
         {
             logger.LogWarning(exception, "ffmpeg superó el tiempo máximo; se canceló el video.");
-            throw new VideoProcessingException(TimedOutMessage);
+            throw new VideoProcessingException(MessageKeys.VideoProcessingTimedOut);
         }
 
         if (result.ExitCode != 0)
         {
             logger.LogWarning("ffmpeg terminó con código {ExitCode}: {Error}", result.ExitCode, Tail(result.Error));
-            throw new VideoProcessingException(FailedMessage);
+            throw new VideoProcessingException(MessageKeys.VideoProcessingFailed);
         }
     }
 

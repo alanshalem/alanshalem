@@ -13,7 +13,7 @@ public static class Language
     public const string Default = Spanish;
 
     /// <summary>" EN " -> "en".</summary>
-    /// <exception cref="DomainException">Si no es es ni en (también si viene vacío).</exception>
+    /// <exception cref="DomainException">Si no es "es" ni "en" (también si viene vacío).</exception>
     public static string Parse(string? value) => value?.Trim().ToLowerInvariant() switch
     {
         Spanish => Spanish,

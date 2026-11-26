@@ -207,10 +207,11 @@ public sealed record EncodedVideo(VideoVariant Variant, byte[] Content);
 public sealed record TranscodedVideo(IReadOnlyList<EncodedVideo> Files, byte[] Poster);
 
 /// <summary>
-/// No se pudo convertir el video (ffmpeg falló o tardó demasiado). El mensaje es para el admin: se guarda como error
-/// del video. Los detalles técnicos los registra el adaptador.
+/// No se pudo convertir el video (ffmpeg falló o tardó demasiado). Su clave es para el admin: se guarda como error del
+/// video. Los detalles técnicos los registra el adaptador.
 /// </summary>
-public sealed class VideoProcessingException(string message) : Exception(message);
+/// <param name="key">Una de <see cref="MessageKeys"/>, sin argumentos.</param>
+public sealed class VideoProcessingException(string key) : UserMessageException(new UserMessage(key));
 
 /// <summary>Lectura y conversión de videos. Lo implementa Infrastructure con ffprobe y ffmpeg.</summary>
 public interface IVideoTranscoder

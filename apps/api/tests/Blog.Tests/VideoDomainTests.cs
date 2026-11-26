@@ -297,13 +297,34 @@ public class VideoAssetTests
         Assert.Equal(sources, ready.Sources);
 
         var failed = VideoAsset.Create(Hash, 1920, 1080, Edit, Now);
-        failed.MarkFailed(new string('e', VideoAsset.MaxErrorLength + 50));
-        Assert.Equal(VideoStatus.Failed, failed.Status);
-        Assert.Equal(VideoAsset.MaxErrorLength, failed.Error!.Length);
+        failed.MarkFailed(MessageKeys.VideoProcessingFailed);
+        // Se guarda la clave del catálogo, no el texto: quien lo muestra lo escribe en el idioma de quien lee.
+        Assert.Equal((VideoStatus.Failed, MessageKeys.VideoProcessingFailed), (failed.Status, failed.Error));
 
         failed.Retry();
         Assert.Equal((VideoStatus.Processing, (string?)null), (failed.Status, failed.Error));
     }
+
+    [Fact]
+    public void MarkFailed_only_takes_a_catalog_key_and_leaves_the_video_processing_otherwise()
+    {
+        var video = VideoAsset.Create(Hash, 1920, 1080, Edit, Now);
+
+        Assert.Throws<ArgumentException>(() => video.MarkFailed("ffmpeg falló"));
+        Assert.Equal((VideoStatus.Processing, (string?)null), (video.Status, video.Error));
+    }
+
+    [Theory]
+    [InlineData(Language.Spanish, "ffmpeg no pudo convertir el video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.")]
+    [InlineData(Language.English, "ffmpeg couldn't convert the video. Try exporting it again as MP4 and upload it again.")]
+    public void A_stored_key_is_written_in_the_language_of_the_reader(string language, string text) =>
+        Assert.Equal(text, new StoredMessage(MessageKeys.VideoProcessingFailed).In(language));
+
+    [Theory]
+    [InlineData(Language.Spanish)]
+    [InlineData(Language.English)]
+    public void A_text_stored_before_the_catalog_is_shown_as_is(string language) =>
+        Assert.Equal("El video tardó demasiado en procesarse y se canceló.", new StoredMessage("El video tardó demasiado en procesarse y se canceló.").In(language));
 
     [Fact]
     public void A_ready_video_cannot_be_marked_again()
@@ -312,7 +333,7 @@ public class VideoAssetTests
         var video = VideoAsset.Create(Hash, 1920, 1080, Edit, Now);
         video.MarkReady(poster, [new(VideoCodec.Av1, 1080, 100)]);
 
-        Assert.Throws<InvalidOperationException>(() => video.MarkFailed("x"));
+        Assert.Throws<InvalidOperationException>(() => video.MarkFailed(MessageKeys.VideoProcessingFailed));
         Assert.Throws<InvalidOperationException>(() => video.MarkReady(poster, [new(VideoCodec.Av1, 1080, 100)]));
     }
 

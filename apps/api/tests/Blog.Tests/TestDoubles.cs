@@ -88,11 +88,13 @@ internal sealed class RecordingVideoQueue : IVideoQueue
 
 /// <summary>
 /// ffmpeg simulado: rápido y determinista. El probe devuelve <see cref="Probe"/>; un original que empieza con
-/// <see cref="FailMarker"/> (después de la cabecera ftyp) hace fallar el proceso. Cuenta cuántos procesos corren a la vez.
+/// <see cref="FailMarker"/> (después de la cabecera ftyp) hace fallar el proceso, y uno que empieza con
+/// <see cref="BrokenPosterMarker"/> devuelve un póster ilegible. Cuenta cuántos procesos corren a la vez.
 /// </summary>
 internal sealed class FakeVideoTranscoder : IVideoTranscoder
 {
     public static readonly byte[] FailMarker = "FAIL"u8.ToArray();
+    public static readonly byte[] BrokenPosterMarker = "POSTER ROTO"u8.ToArray();
 
     private readonly ConcurrentQueue<VideoEdit> _edits = new();
 
@@ -125,12 +127,13 @@ internal sealed class FakeVideoTranscoder : IVideoTranscoder
             var original = await File.ReadAllBytesAsync(sourcePath, cancellationToken);
             if (original.AsSpan(TestVideos.FtypHeader.Length).StartsWith(FailMarker))
             {
-                throw new VideoProcessingException("ffmpeg no pudo convertir el video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.");
+                throw new VideoProcessingException(MessageKeys.VideoProcessingFailed);
             }
 
             using var frame = TestImages.Gradient(1920, 1080);
             var files = variants.Select((variant, index) => new EncodedVideo(variant, new byte[100 + index])).ToList();
-            return new TranscodedVideo(files, TestImages.Jpeg(frame));
+            var brokenPoster = original.AsSpan(TestVideos.FtypHeader.Length).StartsWith(BrokenPosterMarker);
+            return new TranscodedVideo(files, brokenPoster ? [0xFF, 0xD8, 0xFF, 0x00] : TestImages.Jpeg(frame));
         }
         finally
         {

@@ -41,7 +41,7 @@ public class VideoProcessingTests
 
         var failed = await GetAsync(database, ids[0]);
         Assert.Equal(VideoStatus.Failed, failed.Status);
-        Assert.Equal("ffmpeg no pudo convertir el video. Probá exportarlo de nuevo como MP4 y volvé a subirlo.", failed.Error);
+        Assert.Equal(MessageKeys.VideoProcessingFailed, failed.Error?.Value);
         Assert.Null(failed.Poster);
         Assert.Empty(failed.Sources);
 
@@ -91,7 +91,8 @@ public class VideoProcessingTests
 
         var failed = await GetAsync(database, interrupted.Id);
         Assert.Equal(VideoStatus.Failed, failed.Status);
-        Assert.Equal("Se interrumpió el procesamiento porque el servidor se reinició. Volvé a subir el video.", failed.Error);
+        Assert.Equal(MessageKeys.VideoProcessingInterrupted, failed.Error?.Value);
+        Assert.Equal("Se interrumpió el procesamiento porque el servidor se reinició. Volvé a subir el video.", failed.Error?.In(Language.Spanish));
         Assert.Empty(database.VideoWorkFiles());
     }
 

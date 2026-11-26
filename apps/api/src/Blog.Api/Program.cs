@@ -56,7 +56,13 @@ builder.Services.AddScoped<VideoProcessor>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 
-builder.Services.AddProblemDetails();
+// Los mensajes guardados (error de un video) salen en el idioma del pedido, como los errores.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>().Configure<IHttpContextAccessor>((options, http) =>
+    options.SerializerOptions.Converters.Add(new StoredMessageJsonConverter(http)));
+
+// Todo error es un problem details con code, título en el idioma del pedido y Vary (LocalizedProblems).
+builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = LocalizedProblems.Localize);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
 // La API solo es alcanzable desde Caddy (red interna de Docker), así que se confía en sus cabeceras X-Forwarded-*.
@@ -119,6 +125,10 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
+
+// Los 4xx/5xx que el framework (o un middleware de acá) deja sin cuerpo salen como problem details: 401 sin sesión, 403
+// sin cabecera anti-CSRF, 404, 405, 413, 415, 429 del rate limit. Va antes que todos ellos para envolverlos.
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {

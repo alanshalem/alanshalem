@@ -10,13 +10,14 @@ public sealed record VideoEditDto(double TrimStart, double TrimEnd, VideoFade Fa
 
 /// <summary>
 /// Un video del hero. Mientras <see cref="Status"/> es "processing" no tiene póster ni fuentes; el admin consulta
-/// GET /api/admin/media/videos/{id} hasta que pase a "ready" o "failed" (con <see cref="Error"/>).
+/// GET /api/admin/media/videos/{id} hasta que pase a "ready" o "failed" (con <see cref="Error"/>, que la API escribe en
+/// el idioma del pedido).
 /// <see cref="DurationSeconds"/> es la duración final, ya aplicada la edición.
 /// </summary>
 public sealed record VideoAssetDto(
     Guid Id,
     VideoStatus Status,
-    string? Error,
+    StoredMessage? Error,
     int Width,
     int Height,
     double DurationSeconds,
@@ -31,7 +32,7 @@ public static class VideoMapping
     public static VideoAssetDto ToDto(this VideoAsset video) => new(
         video.Id,
         video.Status,
-        video.Error,
+        video.Error is { } error ? new StoredMessage(error) : null,
         video.Width,
         video.Height,
         video.DurationSeconds,

@@ -7,10 +7,16 @@ namespace Blog.Domain;
 /// </summary>
 public static class MessageKeys
 {
-    // ----- Títulos de las respuestas de error (problem details) -----
+    // ----- Títulos de las respuestas de error (problem details), uno por código HTTP -----
     public const string ProblemBadRequest = "problem.badRequest";
+    public const string ProblemUnauthorized = "problem.unauthorized";
+    public const string ProblemForbidden = "problem.forbidden";
     public const string ProblemNotFound = "problem.notFound";
+    public const string ProblemMethodNotAllowed = "problem.methodNotAllowed";
     public const string ProblemConflict = "problem.conflict";
+    public const string ProblemPayloadTooLarge = "problem.payloadTooLarge";
+    public const string ProblemUnsupportedMediaType = "problem.unsupportedMediaType";
+    public const string ProblemTooManyRequests = "problem.tooManyRequests";
     public const string ProblemInternalError = "problem.internalError";
     public const string ProblemUnavailable = "problem.unavailable";
 
@@ -96,4 +102,11 @@ public static class MessageKeys
     public const string VideoTrimTooShort = "video.trimTooShort";
     public const string VideoFadeDurationInvalid = "video.fadeDurationInvalid";
     public const string VideoFadeTooLongForTrim = "video.fadeTooLongForTrim";
+
+    // ----- Por qué falló el proceso de un video (se guardan en la base: VideoAsset.Error) -----
+    public const string VideoProcessingFailed = "video.processingFailed";
+    public const string VideoProcessingTimedOut = "video.processingTimedOut";
+    public const string VideoProcessingInterrupted = "video.processingInterrupted";
+    public const string VideoProcessingUnexpected = "video.processingUnexpected";
+    public const string VideoPosterFailed = "video.posterFailed";
 }

@@ -195,7 +195,7 @@ public class VideoServiceTests
         var retried = await context.UploadAsync(TestVideos.Fake("falló"));
 
         Assert.Equal(failed.Id, retried.Id);
-        Assert.Equal((VideoStatus.Processing, (string?)null), (retried.Status, retried.Error));
+        Assert.Equal((VideoStatus.Processing, (StoredMessage?)null), (retried.Status, retried.Error));
         Assert.Equal(2, context.Queue.Jobs.Count);
         Assert.Equal([context.Queue.Jobs[1].SourcePath], context.Database.VideoWorkFiles());
     }
@@ -228,7 +228,7 @@ public class VideoServiceTests
         var again = await context.UploadAsync(TestVideos.Fake("sin archivos"));
 
         Assert.Equal(ready.Id, again.Id);
-        Assert.Equal((VideoStatus.Processing, (string?)null), (again.Status, again.Error));
+        Assert.Equal((VideoStatus.Processing, (StoredMessage?)null), (again.Status, again.Error));
         Assert.Null(again.Poster);
         Assert.Empty(again.Sources);
         Assert.Equal(2, context.Queue.Jobs.Count);

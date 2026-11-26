@@ -1,29 +1,29 @@
 using Blog.Application;
 using Blog.Domain;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.Net.Http.Headers;
 
 namespace Blog.Api.Http;
 
 /// <summary>
-/// Traduce las excepciones conocidas a respuestas HTTP (ProblemDetails) en el idioma del pedido (<see cref="RequestLanguage"/>).
-/// Además de title y detail suma "code": la clave del mensaje, estable, para que el cliente decida sin leer el texto.
-/// Lo inesperado es 500 sin filtrar detalles.
+/// Traduce las excepciones a respuestas HTTP (ProblemDetails). Las propias traen su mensaje, que va como detail en el
+/// idioma del pedido y como "code" (su clave); un pedido mal formado (JSON inválido, formulario sin archivo, cuerpo
+/// demasiado grande) usa el código que trae; lo inesperado es 500 sin filtrar detalles. Título, code por defecto y Vary
+/// los completa <see cref="LocalizedProblems"/>, igual que en cualquier otro problema.
 /// </summary>
 internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, ILogger<ApiExceptionHandler> logger)
     : IExceptionHandler
 {
-    // La extensión del problem details con la clave del mensaje.
-    private const string CodeExtension = "code";
-
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
-        var (status, titleKey) = exception switch
+        var status = exception switch
         {
-            DomainException => (StatusCodes.Status400BadRequest, MessageKeys.ProblemBadRequest),
-            NotFoundException => (StatusCodes.Status404NotFound, MessageKeys.ProblemNotFound),
-            ConflictException => (StatusCodes.Status409Conflict, MessageKeys.ProblemConflict),
-            _ => (StatusCodes.Status500InternalServerError, MessageKeys.ProblemInternalError),
+            DomainException => StatusCodes.Status400BadRequest,
+            NotFoundException => StatusCodes.Status404NotFound,
+            ConflictException => StatusCodes.Status409Conflict,
+            // En Development el framework lanza los pedidos mal formados (en Production solo pone el código): así los
+            // dos ambientes responden lo mismo.
+            BadHttpRequestException badRequest => badRequest.StatusCode,
+            _ => StatusCodes.Status500InternalServerError,
         };
 
         if (status == StatusCodes.Status500InternalServerError)
@@ -31,24 +31,16 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails,
             logger.LogError(exception, "Error no controlado en {Method} {Path}", httpContext.Request.Method, httpContext.Request.Path);
         }
 
-        // El mensaje de las excepciones propias es seguro de mostrar; el de una inesperada, no (queda solo el título).
-        var detail = status == StatusCodes.Status500InternalServerError ? null : (exception as UserMessageException)?.UserMessage;
-        var language = RequestLanguage.Of(httpContext.Request);
-
         httpContext.Response.StatusCode = status;
-        // La misma URL responde distinto según el idioma pedido: que ningún caché mezcle las dos versiones.
-        httpContext.Response.Headers.Append(HeaderNames.Vary, HeaderNames.AcceptLanguage);
-        return await problemDetails.TryWriteAsync(new ProblemDetailsContext
+        var context = new ProblemDetailsContext { HttpContext = httpContext, Exception = exception, ProblemDetails = { Status = status } };
+
+        // El mensaje de las excepciones propias es seguro de mostrar; el de una inesperada, no (queda solo el título).
+        if (exception is UserMessageException { UserMessage: var message })
         {
-            HttpContext = httpContext,
-            Exception = exception,
-            ProblemDetails =
-            {
-                Status = status,
-                Title = MessageCatalog.Format(new UserMessage(titleKey), language),
-                Detail = detail is null ? null : MessageCatalog.Format(detail, language),
-                Extensions = { [CodeExtension] = detail?.Key ?? titleKey },
-            },
-        });
+            context.ProblemDetails.Detail = MessageCatalog.Format(message, RequestLanguage.Of(httpContext.Request));
+            context.ProblemDetails.Extensions[LocalizedProblems.CodeExtension] = message.Key;
+        }
+
+        return await problemDetails.TryWriteAsync(context);
     }
 }

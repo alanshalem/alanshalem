@@ -388,7 +388,7 @@ public class HeroImageServiceTests
                     video.MarkReady(trackedPoster!, [.. VideoVariant.For(1080).Select(variant => new VideoSource(variant.Codec, variant.Height, 1000))]);
                     break;
                 case VideoStatus.Failed:
-                    video.MarkFailed("ffmpeg falló");
+                    video.MarkFailed(MessageKeys.VideoProcessingFailed);
                     break;
             }
 
