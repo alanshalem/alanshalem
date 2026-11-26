@@ -30,6 +30,7 @@ public static partial class MessageCatalog
         [MessageKeys.ProblemNotFound] = new("No encontrado", "Not found"),
         [MessageKeys.ProblemConflict] = new("Conflicto", "Conflict"),
         [MessageKeys.ProblemInternalError] = new("Error interno", "Internal error"),
+        [MessageKeys.ProblemUnavailable] = new("Servicio no disponible", "Service unavailable"),
 
         [MessageKeys.LanguageInvalid] = new(
             "El idioma tiene que ser \"{spanish}\" (español) o \"{english}\" (inglés).",

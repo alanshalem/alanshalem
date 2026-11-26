@@ -3,6 +3,10 @@
     <ProjectReference Include="..\Blog.Application\Blog.Application.csproj" />
     <ProjectReference Include="..\Blog.Infrastructure\Blog.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Las pruebas llaman a los modos de línea de comandos (Cli/) sin abrir un proceso aparte. -->
+    <InternalsVisibleTo Include="Blog.Tests" />
+  </ItemGroup>
   <PropertyGroup>
     <!-- Menos memoria residente: este proceso comparte VPS con otras apps. -->
     <TieredPGO>false</TieredPGO>

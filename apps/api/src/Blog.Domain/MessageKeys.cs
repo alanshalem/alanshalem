@@ -12,6 +12,7 @@ public static class MessageKeys
     public const string ProblemNotFound = "problem.notFound";
     public const string ProblemConflict = "problem.conflict";
     public const string ProblemInternalError = "problem.internalError";
+    public const string ProblemUnavailable = "problem.unavailable";
 
     // ----- Idiomas -----
     public const string LanguageInvalid = "language.invalid";

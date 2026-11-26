@@ -62,6 +62,29 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     public static HttpContent JsonContent(object value) => System.Net.Http.Json.JsonContent.Create(value);
 
+    /// <summary>
+    /// Rompe la base con la API andando: el archivo pasa a ser basura (como un disco dañado). Solo para una fábrica propia
+    /// de la prueba, nunca para la compartida. Reintenta porque un worker puede tener el archivo abierto un instante.
+    /// </summary>
+    public async Task BreakDatabaseAsync()
+    {
+        var garbage = System.Text.Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("esto no es una base SQLite. ", 200)));
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                File.Delete(OutsideMediaFile + "-wal");
+                File.Delete(OutsideMediaFile + "-shm");
+                await File.WriteAllBytesAsync(OutsideMediaFile, garbage);
+                return;
+            }
+            catch (IOException) when (attempt < 50)
+            {
+                await Task.Delay(100);
+            }
+        }
+    }
+
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();

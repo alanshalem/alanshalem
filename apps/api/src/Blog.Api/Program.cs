@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Blog.Api.Cli;
 using Blog.Api.Endpoints;
 using Blog.Api.Http;
 using Blog.Api.Security;
@@ -12,26 +13,15 @@ using Blog.Application.Videos;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Persistence;
-using Blog.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 
-// Herramienta de línea de comandos para generar el hash de la contraseña del admin:
-//   dotnet run --project src/Blog.Api -- hash-password
-if (args is ["hash-password"])
+// Modos de línea de comandos (hash-password, healthcheck, backup): corren y terminan sin levantar la API.
+if (await CommandLine.RunAsync(args, Console.In, Console.Out, Console.Error) is { } exitCode)
 {
-    Console.Error.Write("Contraseña: ");
-    var password = Console.ReadLine();
-    if (string.IsNullOrEmpty(password))
-    {
-        Console.Error.WriteLine("La contraseña no puede estar vacía.");
-        return 1;
-    }
-
-    Console.WriteLine(Pbkdf2PasswordHasher.Hash(password));
-    return 0;
+    return exitCode;
 }
 
 var builder = WebApplication.CreateBuilder(args);
@@ -158,7 +148,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // ---------- Rutas: cada módulo mapea solo lo suyo; la protección la pone el grupo, una sola vez ----------
-app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
+app.MapHealthEndpoints();
 app.MapAuthEndpoints();
 
 // Admin: requiere la cookie de sesión (y la cabecera anti-CSRF del middleware en lo que modifica datos).

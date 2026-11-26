@@ -12,14 +12,21 @@ namespace Blog.Infrastructure;
 
 public static class DependencyInjection
 {
+    // Relativa a la carpeta de trabajo: en desarrollo, la data/ del proyecto; en el contenedor se configura otra.
+    private const string DefaultConnectionString = "Data Source=data/blog.db";
+
+    /// <summary>La cadena de conexión de la base: la de la API y la del modo backup de la línea de comandos.</summary>
+    public static string ConnectionStringOf(IConfiguration configuration) =>
+        configuration.GetConnectionString("Blog") ?? DefaultConnectionString;
+
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<MediaOptions>(configuration.GetSection("Media"));
         services.Configure<BuilderOptions>(configuration.GetSection("Builder"));
         services.Configure<VideoOptions>(configuration.GetSection("Video"));
 
-        services.AddDbContext<BlogDbContext>(options =>
-            options.UseSqlite(configuration.GetConnectionString("Blog") ?? "Data Source=data/blog.db"));
+        services.AddDbContext<BlogDbContext>(options => options.UseSqlite(ConnectionStringOf(configuration)));
+        services.AddScoped<DatabaseReadiness>();
 
         services.AddScoped<IPostRepository, PostRepository>();
         services.AddScoped<ISiteSettingsRepository, SiteSettingsRepository>();
