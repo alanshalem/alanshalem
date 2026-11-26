@@ -12,7 +12,7 @@ namespace Blog.Infrastructure.Security;
 /// </summary>
 /// <remarks>
 /// Se consulta en cada pedido con sesión, así que vive en memoria y solo se lee de la base la primera vez. Revocar
-/// actualiza la base y la memoria juntas. Alcanza porque la API corre en un único proceso; con varias instancias,
+/// actualiza la base y la memoria juntas; si algo falla a mitad de camino, la memoria queda vacía y se relee. Alcanza porque la API corre en un único proceso; con varias instancias,
 /// cada una tendría que volver a leer la base.
 /// </remarks>
 public sealed class AdminSessionEpoch(IServiceScopeFactory scopes)
@@ -53,6 +53,9 @@ public sealed class AdminSessionEpoch(IServiceScopeFactory scopes)
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            // Falla cerrado: se olvida la época en memoria ANTES de subirla en la base. Si el UPDATE se guarda pero la
+            // relectura falla, la próxima consulta vuelve a la base y ya no acepta las cookies revocadas.
+            Interlocked.Exchange(ref _current, Unknown);
             await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<BlogDbContext>();
             await Singleton(db).ExecuteUpdateAsync(set => set.SetProperty(state => state.Epoch, state => state.Epoch + 1), cancellationToken);
