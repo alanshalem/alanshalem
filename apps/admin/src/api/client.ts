@@ -1,4 +1,4 @@
-import type { Lang } from '../languages.ts';
+import { DEFAULT_LANG, type Lang } from '../languages.ts';
 import { messageFromProblem } from './problem.ts';
 import type {
   HeroImage,
@@ -29,9 +29,19 @@ export class ApiError extends Error {
  */
 const CSRF_HEADERS = { 'X-Requested-With': 'blog-admin' };
 
+/**
+ * Idioma de la interfaz, para que la API responda sus errores en ese idioma (Accept-Language) y no en el del
+ * navegador. Lo actualiza el proveedor de idioma (UiLanguage) cada vez que cambia el selector ES | EN.
+ */
+let apiLanguage: Lang = DEFAULT_LANG;
+
+export function setApiLanguage(lang: Lang): void {
+  apiLanguage = lang;
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const isForm = body instanceof FormData;
-  const headers: Record<string, string> = { ...CSRF_HEADERS };
+  const headers: Record<string, string> = { ...CSRF_HEADERS, 'Accept-Language': apiLanguage };
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
   const response = await fetch(`/api${path}`, {

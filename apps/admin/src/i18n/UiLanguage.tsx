@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { langCode, LANGS, type Lang } from '../languages.ts';
+import { setApiLanguage } from '../api/client.ts';
 import { i18nFor, loadUiLang, saveUiLang, uiLangButtonName, type I18n } from './i18n.ts';
 
 export interface UiLanguage extends I18n {
@@ -19,7 +20,13 @@ export function browserStorage(): Storage | null {
 
 /** Idioma de la interfaz para todo el admin: el elegido (persistido) o el del navegador, y `<html lang>` al día. */
 export function UiLanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>(() => loadUiLang(browserStorage(), navigator.language));
+  // El cliente de la API se sincroniza acá y no en un efecto: los efectos de los hijos (el primer pedido, el chequeo
+  // de sesión) corren antes que los del proveedor y saldrían con el idioma por defecto.
+  const [lang, setLang] = useState<Lang>(() => {
+    const initial = loadUiLang(browserStorage(), navigator.language);
+    setApiLanguage(initial);
+    return initial;
+  });
 
   // Lectores de pantalla y el corrector del navegador leen la interfaz con el idioma correcto.
   useEffect(() => {
@@ -31,6 +38,7 @@ export function UiLanguageProvider({ children }: { children: ReactNode }) {
       ...i18nFor(lang),
       setLang: (next) => {
         saveUiLang(browserStorage(), next);
+        setApiLanguage(next);
         setLang(next);
       },
     }),

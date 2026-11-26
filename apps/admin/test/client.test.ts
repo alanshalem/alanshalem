@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it } from 'node:test';
-import { api, ApiError } from '../src/api/client.ts';
+import { api, ApiError, setApiLanguage } from '../src/api/client.ts';
 
 /* Contrato HTTP de los videos del hero (L13), con un fetch falso: ruta, método, cuerpo y respuesta. */
 
@@ -169,5 +169,19 @@ describe('api.createHeroImage / api.updateHeroImage: textos en inglés (L4)', ()
     await api.updateHeroImage('h1', input);
     assert.equal(calls[1]?.init.method, 'PUT');
     assert.deepEqual(JSON.parse(calls[1]?.init.body as string), input);
+  });
+});
+
+describe('idioma de los mensajes de la API', () => {
+  it('cada pedido manda Accept-Language con el idioma de la interfaz, así los errores llegan en ese idioma', async () => {
+    respond = () => json(200, []);
+    setApiLanguage('en');
+    await api.listPosts();
+    setApiLanguage('es');
+    await api.listPosts();
+    assert.deepEqual(
+      calls.map((call) => (call.init.headers as Record<string, string>)['Accept-Language']),
+      ['en', 'es'],
+    );
   });
 });
