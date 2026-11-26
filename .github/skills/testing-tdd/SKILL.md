@@ -1,6 +1,6 @@
 ---
 name: testing-tdd
-description: "Test-first workflow and test tooling of this repo, covering RED then GREEN then preserve, node --test for TypeScript packages (no test libraries), xUnit for the API with the in-memory ApiFactory HTTP harness and the Ffmpeg trait, cross-language parity tests, CSS and Caddyfile guard tests plus mandatory validation with a real Caddy, scratch data in temp folders and Windows caveats. Use when writing, fixing or running any test, reproducing a bug, or deciding how to prove a change works."
+description: "Test-first workflow and test tooling of this repo, covering RED then GREEN then preserve, node --test for TypeScript packages (no test libraries), xUnit for the API with the in-memory ApiFactory HTTP harness and the Ffmpeg trait, cross-language parity tests, CSS, Caddyfile, compose and backup-script guard tests plus mandatory validation with a real Caddy and Docker, the CI jobs that run all of it, scratch data in temp folders and Windows caveats. Use when writing, fixing or running any test, reproducing a bug or a red CI job, or deciding how to prove a change works."
 ---
 
 # Testing and TDD
@@ -20,13 +20,28 @@ A regression gets a test that fails on the old code first. Example: `apps/web/te
 ## Runners
 
 ```bash
-pnpm test                                   # all Node workspaces (node --test "test/*.test.ts" each)
+pnpm test                                   # every workspace + test:profile + test:agents + test:infra
 pnpm --filter @blog/web test                # one workspace: @blog/markdown, @blog/admin, @blog/web, @blog/builder
-node --test "tooling/agents/test/*.test.ts" # skill sync + validator
+pnpm test:agents                            # skill sync + validator (tooling/agents/test)
+pnpm test:profile                           # profile SVG generator (tooling/profile/test)
+pnpm test:infra                             # compose, Dockerfiles, Caddyfile, backup/restore scripts (infra/test)
 cd apps/api && dotnet test                  # xUnit, all
 cd apps/api && dotnet test --filter "Category!=Ffmpeg"   # skip the slow real-ffmpeg tests
 pnpm typecheck                              # tsc / astro check: run it too, tests run with types stripped
 ```
+
+## CI runs all of it (`.github/workflows/ci.yml`)
+
+| Job | Runs |
+|---|---|
+| `node` | `pnpm install --frozen-lockfile`, `pnpm typecheck`, `pnpm test`, `pnpm --filter @blog/admin build`, `pnpm agents:check` (Node of the production image) |
+| `dotnet` | `dotnet build -warnaserror` + `dotnet test --no-build` inside the `dev` target of `apps/api/Dockerfile` (ffmpeg 9.1: the Ffmpeg tests run) |
+| `infra` | `docker compose config -q` (VPS with placeholder env, local copy, dev) and `caddy validate` with the pinned Caddy |
+| `images` | `docker compose build <service>` for api, builder, caddy + Trivy (CRITICAL/HIGH with a fix fails) |
+| `security` | `pnpm audit --prod --audit-level high`, `dotnet list package --vulnerable --include-transitive`, gitleaks over the full history |
+
+The exact local commands are in `.github/README.md` "Cómo verificar" (the API one copies the code into the container,
+so Windows bind mounts and your `bin/`/`obj/` are not involved). A test that only passes on your machine is not done.
 
 ## node --test conventions (TypeScript, no test dependencies)
 
@@ -59,12 +74,15 @@ pnpm typecheck                              # tsc / astro check: run it too, tes
 | Admin dictionary es ↔ en | `apps/admin/test/i18n.test.ts` |
 | API message catalog es ↔ en | `MessageCatalogTests.cs` |
 | Skill source ↔ generated copies | `tooling/agents/test/sync.test.ts` (and `node tooling/agents/sync.ts --check`) |
+| Node of the builder image ↔ Node of the Caddy image | `infra/test/compose.test.ts` |
 
 ## Infra changes: text test + real run
 
-The Caddyfile test pins intent, but **only a real Caddy proves behavior**: run `caddy validate` (or the Caddy image)
-and hit the routes (`curl -I`) for status and headers. Lesson (`plataforma-calidad.md` L10): `try_files @html …`
-passed the text test but Caddy does not accept a matcher there. Same for compose files: bring the stack up.
+The Caddyfile and compose tests pin intent, but **only a real Caddy and Docker prove behavior**: run `caddy validate`
+(or the Caddy image) and hit the routes (`curl -I`) for status and headers; `docker compose config -q` and bring the
+stack up. Lesson (`plataforma-calidad.md` L10): `try_files @html …` passed the text test but Caddy does not accept a
+matcher there. Shell scripts (`infra/backup.sh`, `restore.sh`) are tested through a fake `docker` on the PATH
+(`infra/test/backup.test.ts`) and once for real against the local production copy.
 
 ## Scratch and side effects
 
@@ -74,7 +92,8 @@ passed the text test but Caddy does not accept a matcher there. Same for compose
 
 ## Windows notes
 
-- Builder tests that create symlinks may fail with EPERM on Windows without Developer Mode (known advisory).
+- Builder tests that create symlinks skip themselves on Windows without Developer Mode (EPERM); the backup-script tests
+  skip on Windows. CI (Linux) runs them: check its result before calling infra work done.
 - Dev servers poll (`tooling/dev-watch.ts`); a stale module in Vite was a lost file event, not a code bug.
 
 See [the test map](references/test-map.md) for which file covers which area.
@@ -84,6 +103,7 @@ See [the test map](references/test-map.md) for which file covers which area.
 - [ ] RED observed and its output noted; GREEN observed; preservation test for touched behavior.
 - [ ] Focused suite first, then the workspace suite and `typecheck`; `dotnet test` for API changes.
 - [ ] Infra/Caddy/compose changes validated by running the real thing.
+- [ ] CI green, or every CI job reproduced locally with the README commands.
 - [ ] Temp data cleaned up; `git status` shows no scratch files.
 
 ## Anti-patterns seen here

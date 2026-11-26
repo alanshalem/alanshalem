@@ -27,7 +27,8 @@ Admin ─► API ─► SQLite ; publish ─► durable rebuild request ─► b
 | `apps/builder` | Dependency-free Node service: runs `astro build`, precompresses, swaps `current` | Node ≥ 22.18 |
 | `packages/markdown` | Own Markdown renderer (no deps, no raw HTML); used by site and admin preview | TypeScript |
 | `packages/tokens` | Design tokens (`tokens.css`, `tokens.json`) and `.prose` styles | CSS |
-| `infra` | `docker-compose.yml` (VPS), `compose.local.yml` + `local.env` (local prod copy), `compose.dev.yml`, `caddy/Caddyfile` | Docker, Caddy 2 |
+| `infra` | `docker-compose.yml` (VPS), `compose.local.yml` + `local.env` (local prod copy), `compose.dev.yml`, `caddy/Caddyfile`, `backup.sh` / `restore.sh`, guard tests in `test/` | Docker, Caddy 2 |
+| `.github` | project `README.md`, `workflows/ci.yml` (CI), `workflows/profile.yml` (profile images), `dependabot.yml` | GitHub Actions |
 | `tooling` | `dev-watch.ts` (polling watcher), `agents/` (skill sync + check), `profile/` (profile README SVG generator) | Node |
 | `docs/design` | `DESIGN-SYSTEM.md` (tokens live only in `packages/tokens`) | — |
 | `odd/tasks/*.md` | One file per feature: `## Specs` (S#, the user's literal asks), `## Tasks`, `## Log` (L#: decisions, contracts, lessons) | — |
@@ -42,10 +43,10 @@ Requirements without Docker: Node ≥ 22.18 (tests run `.ts` directly), pnpm 10,
 
 ```bash
 pnpm install                      # commit pnpm-lock.yaml; Docker builds use --frozen-lockfile
-pnpm test                         # every Node workspace: markdown, web, admin, builder (node --test)
+pnpm test                         # every workspace (markdown, web, admin, builder) + test:profile/agents/infra
 pnpm typecheck                    # tsc / astro check
-node --test "tooling/agents/test/*.test.ts"
-cd apps/api && dotnet test        # add --filter "Category!=Ffmpeg" to skip the real-ffmpeg tests
+pnpm agents:check                 # skill copies in sync
+cd apps/api && dotnet build -warnaserror && dotnet test   # --filter "Category!=Ffmpeg" skips the real-ffmpeg tests
 cd apps/api && dotnet run --project src/Blog.Api   # API on :5090
 pnpm dev:admin                    # http://localhost:5173/admin/ (proxies /api and /media to :5090)
 pnpm --filter @blog/web dev       # http://localhost:4321/ (astro dev; needs API_URL + BUILDER_TOKEN)
@@ -61,6 +62,13 @@ docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env u
 ```
 
 `--env-file` goes on every command of those projects (`up`, `logs`, `down`). Details: skill `docker-and-deploy`.
+
+**How to verify = CI.** `.github/workflows/ci.yml` runs on every push and PR to `master` (read-only, actions pinned by
+SHA): jobs `node` (install, typecheck, `pnpm test`, admin build, `agents:check`), `dotnet` (`-warnaserror` build + all
+tests inside the `dev` target of `apps/api/Dockerfile`, real ffmpeg), `infra` (`docker compose config -q` for the three
+stacks, `caddy validate`), `images` (build the three production images, Trivy) and `security` (gitleaks over the full
+history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to run locally are in `.github/README.md`
+"Cómo verificar"; the VPS runbook (deploy, update, rollback, backups, monitoring) is its "Operación" section.
 
 ## Non-negotiable rules
 
@@ -115,7 +123,8 @@ docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env u
 
 ## Before you finish
 
-- [ ] Failing test first, now green; focused suite, then `pnpm test` / `pnpm typecheck` / `dotnet test` as touched.
+- [ ] Failing test first, now green; focused suite, then `pnpm test` / `pnpm typecheck` / `dotnet test` as touched; the
+      CI jobs you touched reproduced locally (README "Cómo verificar").
 - [ ] Both languages covered (dictionary keys, `En` fields, routes); accessible names and keyboard path checked.
 - [ ] Infra changes run for real (Caddy validated, compose brought up), not only text-tested.
 - [ ] Docs that describe the change updated in the same commit (README, `DESIGN-SYSTEM.md`, skills + `node

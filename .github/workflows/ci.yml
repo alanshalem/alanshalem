@@ -1,0 +1,198 @@
+# Integración continua: los mismos comandos que se corren a mano antes de commitear (README del proyecto, "Cómo
+# verificar"). Un job por tema, en paralelo; ninguno publica nada ni usa secretos del repo.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# Solo leer el código: ningún job escribe en el repo, en issues ni en paquetes.
+permissions:
+  contents: read
+
+# Un push nuevo a la misma rama (o al mismo PR) cancela la corrida anterior, que ya quedó vieja.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: Node (typecheck, tests, admin build, skills)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # corepack baja pnpm en el primer `pnpm`: sin preguntar (no hay terminal), como en las imágenes.
+    env: &corepack-env
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # El Node de las imágenes de producción (apps/builder/Dockerfile, el mismo que infra/caddy/Dockerfile: lo compara
+      # un test de infra/test): una sola versión que actualizar, y CI prueba con la que corre en el VPS.
+      - &node-version
+        name: Node version of the production images
+        id: node
+        run: |
+          version=$(sed -n 's/^ARG NODE_IMAGE=node:\([0-9.]*\)-.*/\1/p' apps/builder/Dockerfile)
+          test -n "$version"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - &setup-node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: ${{ steps.node.outputs.version }}
+          # Sin caché: pnpm todavía no está instalado acá (lo trae corepack en el paso siguiente).
+          package-manager-cache: false
+
+      # pnpm en la versión exacta de "packageManager" (package.json), como en las imágenes.
+      - &pnpm
+        name: pnpm from packageManager
+        run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter @blog/admin build
+      - run: pnpm agents:check
+
+  dotnet:
+    name: .NET API (build with warnings as errors, tests with real ffmpeg)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # El destino `dev` de apps/api/Dockerfile: el SDK y el ffmpeg 9.1 (SVT-AV1 + x264) fijados por digest, los mismos
+      # que la imagen de producción. Así corren también los tests Category=Ffmpeg.
+      - name: API dev image (SDK + ffmpeg)
+        run: docker build --target dev --tag blog-api-dev apps/api
+
+      # El mismo comando que el README da para tu PC: la API montada de solo lectura y copiada adentro sin bin/, obj/ ni la
+      # base de desarrollo (nada escribe en el repo, y en Windows compilar sobre la carpeta montada falla al copiar archivos).
+      # --no-build: se prueban los mismos binarios que compilaron sin warnings.
+      - name: dotnet build -warnaserror && dotnet test
+        run: >-
+          docker run --rm --volume "$PWD/apps/api:/src:ro" blog-api-dev sh -euc
+          'mkdir /tmp/api && tar -C /src --exclude=bin --exclude=obj --exclude=./src/Blog.Api/data -cf - . | tar -C /tmp/api -xf - &&
+          cd /tmp/api && dotnet build -warnaserror && dotnet test --no-build'
+
+  infra:
+    name: Infra (compose files, Caddyfile)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # El compose del VPS exige sus variables: acá van valores de mentira (no hay .env en CI, ni debe haberlo). Solo en
+      # este paso: en los otros dos mandan los de infra/local.env.
+      - name: docker compose config (VPS)
+        working-directory: infra
+        run: docker compose -f docker-compose.yml config -q
+        env: &compose-placeholders
+          SITE_ADDRESS: blog.example.com
+          SITE_URL: https://blog.example.com
+          ADMIN_PASSWORD_HASH: ci-placeholder-not-a-hash
+          BUILDER_TOKEN: ci-placeholder-not-a-token-ci-placeholder
+
+      - name: docker compose config (local production copy)
+        working-directory: infra
+        run: docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env config -q
+
+      - name: docker compose config (dev)
+        working-directory: infra
+        run: docker compose -f compose.dev.yml --env-file local.env config -q
+
+      # Con el Caddy de la imagen (la referencia fijada por digest sale de infra/caddy/Dockerfile, no se repite acá), en
+      # las dos formas en que lo arranca el compose: dominio con correo de ACME (VPS) y :80 sin correo (copia local).
+      - name: caddy validate
+        run: |
+          image=$(sed -n 's/^FROM \(caddy:[^ ]*\).*/\1/p' infra/caddy/Dockerfile)
+          test -n "$image"
+          validate() {
+            docker run --rm --volume "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" "$@" "$image" \
+              caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          }
+          validate --env SITE_ADDRESS=blog.example.com --env 'CADDY_ACME_EMAIL=email ci@example.com'
+          validate --env SITE_ADDRESS=:80
+
+  images:
+    name: Image ${{ matrix.service }} (build, vulnerability scan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [api, builder, caddy]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # Contexto, Dockerfile y destino salen del compose del VPS (una sola definición). Sin push: queda local como
+      # blog-<servicio>, el nombre que le pone compose.
+      - name: docker compose build ${{ matrix.service }}
+        working-directory: infra
+        run: docker compose -f docker-compose.yml build ${{ matrix.service }}
+        env: *compose-placeholders
+
+      # Solo lo grave y con arreglo publicado: lo que no tiene fix no se puede corregir actualizando la imagen
+      # (Dependabot propone las bases nuevas).
+      - name: Trivy (CRITICAL/HIGH with a fix)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: blog-${{ matrix.service }}
+          version: v0.70.0
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          # Excepciones con motivo y vencimiento (ver el archivo): vencidas, el CI vuelve a fallar.
+          trivyignores: .trivyignore
+          exit-code: '1'
+
+  security:
+    name: Security (secrets in history, vulnerable dependencies)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env: *corepack-env
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0 # toda la historia: un secreto borrado en un commit posterior sigue publicado
+          persist-credentials: false
+
+      - *node-version
+      - *setup-node
+      - *pnpm
+
+      # Los tres chequeos corren aunque falle otro (`!cancelled()`): cada uno informa lo suyo.
+      - name: pnpm audit (production dependencies)
+        if: ${{ !cancelled() }}
+        run: pnpm audit --prod --audit-level high
+
+      # `dotnet list package --vulnerable` sale con 0 aunque encuentre algo: se falla si lista algún paquete. Con el SDK
+      # fijado de apps/api/Dockerfile (destino sdk) y la API copiada adentro, como en el job dotnet.
+      - name: dotnet list package --vulnerable --include-transitive
+        if: ${{ !cancelled() }}
+        run: |
+          docker build --target sdk --tag blog-api-sdk apps/api
+          report=$(docker run --rm --volume "$PWD/apps/api:/src:ro" blog-api-sdk sh -euc \
+            'mkdir /tmp/api && tar -C /src --exclude=bin --exclude=obj --exclude=./src/Blog.Api/data -cf - . | tar -C /tmp/api -xf - &&
+             cd /tmp/api && dotnet restore --verbosity quiet >&2 && dotnet list package --vulnerable --include-transitive')
+          echo "$report"
+          if echo "$report" | grep -q 'has the following vulnerable packages'; then
+            exit 1
+          fi
+
+      # La imagen oficial (MIT), fijada por digest: revisa todos los commits, sin token ni licencia (la gitleaks-action
+      # pide licencia según la cuenta y en un push solo revisa los commits nuevos).
+      - name: gitleaks (full history)
+        if: ${{ !cancelled() }}
+        uses: docker://ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+        with:
+          args: git --redact --verbose --no-banner /github/workspace

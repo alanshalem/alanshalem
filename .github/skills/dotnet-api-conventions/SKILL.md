@@ -1,6 +1,6 @@
 ---
 name: dotnet-api-conventions
-description: "Conventions of the .NET 10 API in apps/api (Clean Architecture with Domain, Application, Infrastructure and Api layers, EF Core + SQLite) covering entities and validated content records, DomainException with MessageKeys and the es/en MessageCatalog, ports and repositories, minimal-API endpoint modules, rebuild triggers and the EF Core migrations workflow. Use when adding or changing anything under apps/api, including a field, a validation rule, an error message, an endpoint or a database migration."
+description: "Conventions of the .NET 10 API in apps/api (Clean Architecture with Domain, Application, Infrastructure and Api layers, EF Core + SQLite) covering entities and validated content records, DomainException with MessageKeys and the es/en MessageCatalog, ProblemDetails with a stable code for every error, ports and repositories, minimal-API endpoint modules, health endpoints, the command-line modes (hash-password, healthcheck, backup), the admin session epoch, trusted proxies, rebuild triggers and the EF Core migrations workflow. Use when adding or changing anything under apps/api, including a field, a validation rule, an error message, an endpoint, a CLI mode, authentication or a database migration."
 ---
 
 # .NET API conventions (`apps/api`)
@@ -18,8 +18,10 @@ Blog.Api ──► Blog.Application ──► Blog.Domain
   `NotFoundException` / `ConflictException` in `Errors.cs`.
 - **Infrastructure** (`src/Blog.Infrastructure`): `internal sealed` adapters (repositories, `DiskMediaStorage`,
   `NetVipsImageProcessor`, `FfmpegVideoTranscoder`, workers), all wired in `DependencyInjection.cs`.
-- **Api** (`src/Blog.Api`): `Program.cs` (options validated on start, auth, CSRF middleware, rate limit, groups),
-  `Endpoints/*Endpoints.cs`, `Http/ApiExceptionHandler.cs`, `Http/RequestLanguage.cs`.
+- **Api** (`src/Blog.Api`): `Program.cs` (CLI modes first, options validated on start, auth, CSRF middleware, rate
+  limit, groups), `Endpoints/*Endpoints.cs`, `Cli/` (command-line modes), `Security/` (session, rate limit, trusted
+  proxies, builder token), `Http/` (`ApiExceptionHandler`, `LocalizedProblems`, `RequestLanguage`,
+  `StoredMessageJsonConverter`).
 
 ## Domain model
 
@@ -46,9 +48,17 @@ throw new ConflictException(MessageKeys.PostSlugTaken,                          
   renamed, it is the stable `code` clients switch on) and its entry in `MessageCatalog.cs` with Spanish and English
   texts that have the same `{placeholders}`. `MessageCatalogTests` enforces one entry per key, both languages, same
   placeholders, key shape.
-- `ApiExceptionHandler` maps exception type → status, writes `title`/`detail` in the request language
-  (`RequestLanguage.Of`: first `Accept-Language` preference `en*` → English, else Spanish), adds `code` and
-  `Vary: Accept-Language`. Unexpected exceptions are 500 without details and are logged.
+- **Every error is a ProblemDetails with `code`**, whoever writes it. `ApiExceptionHandler` maps exception type → status
+  and writes `detail` in the request language (`RequestLanguage.Of`: first `Accept-Language` preference `en*` → English,
+  else Spanish) with `code` = the detail's key. `app.UseStatusCodePages()` (registered right after
+  `UseExceptionHandler`) turns the framework's empty 4xx/5xx (401, 403 from the CSRF check, 404, 405, 413, 415, 429)
+  into problem details too. `LocalizedProblems.Localize` (`AddProblemDetails` → `CustomizeProblemDetails`) is the one
+  place that finishes all of them: `title` from a `Problem*` key per status (`MessageKeys.ProblemNotFound`…), `code` =
+  that key unless a more specific one is already there, and `Vary: Accept-Language`. Unexpected exceptions are 500
+  without details and are logged; a `BadHttpRequestException` (malformed request, thrown only in Development) keeps
+  its own status, so both environments answer the same.
+- Messages stored for later (a video's processing error) are a `StoredMessage` holding the **key**, not text; the API
+  writes it in the reader's language (`StoredMessageJsonConverter`). Old rows with Spanish text are shown as they are.
 - Log and exception `Message` text stays Spanish (default language).
 
 ## Use cases
@@ -60,6 +70,31 @@ throw new ConflictException(MessageKeys.PostSlugTaken,                          
   (`SqliteConventions.IsConstraintViolation`).
 - Slow work (video) goes through a queue consumed by one hosted worker; image processing is serialized by a
   singleton semaphore. Keep heavy work out of request threads.
+
+## Health, command-line modes and security plumbing
+
+- `GET /api/health`: the process is alive (Caddy's `health_uri`). `GET /api/health/ready`: also the database answers
+  (`DatabaseReadiness`, a query on a real table: opening a missing file would create an empty database), else 503
+  problem details.
+- The same executable has command-line modes (`Cli/CommandLine.cs`); any other arguments start the API:
+
+  | Mode | Does | Exit code |
+  |---|---|---|
+  | `hash-password` | reads the password without echo (or one line from redirected stdin), prompt on stderr, hash on stdout; ≥ 12 chars (`HashPasswordCommand.MinLength`) | 0 hash printed, 1 too short |
+  | `healthcheck` | `GET http://localhost:8080/api/health/ready`, 3 s timeout (the image has no curl; compose healthcheck) | 0 on 2xx, 1 otherwise |
+  | `backup <dir>` | consistent SQLite backup (`DatabaseBackup`, `BackupDatabase` with busy timeout) to `<dir>/blog-<UTC yyyyMMddTHHmmssZ>.db`, prints the path (`infra/backup.sh` reads it) | 0 written, 1 error or missing argument |
+
+  A new mode gets a test of its output and exit codes (`HashPasswordCommandTests`, `BackupCommandTests`,
+  `Http/HealthHttpTests`) and its row here.
+- Admin session (`Security/AdminSession.cs`): cookie `__Host-admin` carries the `session_epoch` claim. Logout with a valid
+  session calls `AdminSessionEpoch.RevokeAllAsync` (Infrastructure, persisted in the database, cached in memory): every
+  cookie issued before, even a copied one, is rejected. Revocation **fails closed** if refreshing the cached epoch fails.
+  Failed logins are logged with the client IP only.
+- Trusted proxies (`Security/TrustedProxies.cs`): `X-Forwarded-For`/`-Proto` are believed only from
+  `ForwardedHeaders:KnownNetworks` (CIDR list; default the Docker private ranges + loopback). An invalid CIDR stops the
+  API at startup. Without it the login rate limit would see Caddy's IP for everyone.
+- Production logs are JSON lines (`Logging__Console__FormatterName=json`); upload temp files go to `ASPNETCORE_TEMP`
+  (the container filesystem is read-only).
 
 ## Endpoints
 
@@ -94,6 +129,9 @@ dotnet test
 - Required options are validated with `ValidateOnStart` (`Admin:PasswordHash`, `Builder:Token` ≥ 32 chars).
 - Secrets come from env vars / user-secrets; never commit or read them. `dotnet run --project src/Blog.Api --
   hash-password` produces a password hash.
+- CI (`.github/workflows/ci.yml`) builds with `dotnet build -warnaserror` and runs every test, Ffmpeg included, inside the
+  `dev` target of `apps/api/Dockerfile`; it also fails on any `dotnet list package --vulnerable --include-transitive`
+  finding. A new warning breaks CI: fix it, do not suppress it without a comment saying why.
 
 ## Style
 
@@ -106,9 +144,11 @@ dotnet test
 - [ ] Rule and limit in the domain, message key + es/en catalog entry, test for the rule.
 - [ ] Admin `limits.ts` updated if a mirrored constant changed.
 - [ ] New port → interface in `Ports.cs`, adapter `internal sealed` in Infrastructure, registered in DI.
-- [ ] Endpoint maps only its own routes and is covered by an HTTP test (`Http/ApiFactory`).
+- [ ] Endpoint maps only its own routes and is covered by an HTTP test (`Http/ApiFactory`), errors included (status,
+      `code`, language).
 - [ ] Rebuild requested when public output changes.
 - [ ] Migration generated with dotnet-ef, preserves data, tested.
+- [ ] `dotnet build -warnaserror` clean (CI).
 
 ## Anti-patterns seen here
 

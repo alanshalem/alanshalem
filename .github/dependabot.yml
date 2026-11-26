@@ -1,0 +1,77 @@
+# Actualizaciones de dependencias: un PR por ecosistema y semana (menores y parches juntos; una mayor va sola, para
+# revisarla aparte). Cada PR pasa por CI (.github/workflows/ci.yml) antes de entrar.
+# cooldown: una versión recién publicada espera unos días antes del PR, por si resulta rota o maliciosa (ya pasó con
+# acciones y paquetes populares).
+version: 2
+
+updates:
+  # pnpm (workspace entero: el lockfile está en la raíz).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+
+  # Versiones centralizadas en apps/api/Directory.Packages.props.
+  - package-ecosystem: nuget
+    directory: /apps/api
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    groups:
+      nuget-minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(deps)
+
+  # Imágenes base fijadas por digest. Un solo PR para las tres carpetas: Node va en dos Dockerfiles (apps/builder e
+  # infra/caddy) y un test de infra/test exige que sea el mismo.
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/builder
+      - /infra/caddy
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    groups:
+      docker-images:
+        patterns: ['*']
+    commit-message:
+      prefix: build(infra)
+
+  # La imagen de init-permisos (busybox) en el compose del VPS.
+  - package-ecosystem: docker-compose
+    directory: /infra
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: build(infra)
+
+  # Acciones fijadas por SHA (CI y Profile): Dependabot actualiza el SHA y el comentario con la versión.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: build(ci)

@@ -69,6 +69,18 @@ Caddy ─► /srv/site/current (HTML) · /srv/media (uploads) · /srv/admin (SPA
 | Design tokens | `packages/tokens/src/tokens.css` | `apps/web/test/contrast.test.ts` |
 | Dev file watching | `tooling/dev-watch.ts` | used by both Vite configs |
 | Agent skills | `.agents/skills/` | `node tooling/agents/sync.ts --check` |
+| How a change is verified | `.github/workflows/ci.yml` (jobs node, dotnet, infra, images, security) | README "Cómo verificar" lists the same commands |
+| Base images and their versions | the Dockerfiles (pinned by digest) | CI reads Node and Caddy from them; `infra/test/compose.test.ts` |
+
+## CI and dependency updates
+
+`.github/workflows/ci.yml` runs on every push and pull request to `master`, read-only (`contents: read`), with every
+action pinned by SHA: **node** (typecheck, `pnpm test`, admin build, `agents:check`), **dotnet** (`-warnaserror` build and
+all tests in the API dev image, real ffmpeg), **infra** (`docker compose config -q` for the three stacks, `caddy validate`),
+**images** (builds the three production images from the VPS compose and scans them with Trivy) and **security**
+(gitleaks over the full history, `pnpm audit --prod`, vulnerable NuGet packages). `.github/workflows/profile.yml` only
+refreshes the profile images. `.github/dependabot.yml` proposes npm, NuGet, Docker, compose and actions updates weekly.
+A red CI is a failed task, not a flaky one: reproduce it locally with the README commands.
 
 ## Feature logs (`odd/tasks/*.md`)
 
@@ -84,6 +96,7 @@ before touching that feature; later L# entries correct earlier ones (for example
 - [ ] Content changes that affect public pages call `ISiteBuildTrigger.RequestBuildAsync`.
 - [ ] Any fact you need already has an owner in the table above; reuse it instead of re-declaring it.
 - [ ] DTO changes are applied in API, admin types and web lib types together.
+- [ ] A new check, app or image is wired into CI (`ci.yml`) and the README "Cómo verificar" in the same commit.
 
 ## Anti-patterns seen here
 

@@ -58,6 +58,19 @@ Where each area is tested. Add to the existing file of the area before creating 
 | `MessageCatalogTests.cs` | message keys and es/en catalog |
 | `Http/*HttpTests.cs` (`ApiFactory`) | HTTP contract: wiring, auth, CSRF, `/media` traversal (`%2e%2e`), localized errors, history/schedule |
 
+## infra/test
+
+| File | Covers |
+|---|---|
+| `compose.test.ts` | compose services, hardening, healthchecks, capped logs, start order; Dockerfiles (digests, same Node, builder without package managers) |
+| `caddy.test.ts` | production Caddyfile additions (ACME email option, COOP/CORP, admin noindex) |
+| `backup.test.ts` | `backup.sh` / `restore.sh` with a fake `docker` (skipped on Windows) |
+
+## tooling/profile/test
+
+`github.test.ts` (public API reads), `metrics.test.ts` (streaks, languages, rank), `rss.test.ts`, `readme.test.ts` (marked
+section rewrite, latest posts), `profile.test.ts` (rendered SVGs), `theme.test.ts`, `type.test.ts` (text to paths).
+
 ## tooling/agents/test
 
 `skill-spec.test.ts` (Agent Skills rules), `sync.test.ts` (copies, stale removal, `--check`, this repo in sync).
