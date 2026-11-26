@@ -185,3 +185,46 @@ describe('idioma de los mensajes de la API', () => {
     );
   });
 });
+
+describe('historial de versiones y publicación programada (contrato de 6c40950)', () => {
+  const post = { id: 'p1', status: 'draft', scheduledAt: '2026-12-01T12:00:00Z' };
+
+  it('lista, abre y restaura versiones con GET/GET/POST bajo /revisions', async () => {
+    respond = () => json(200, []);
+    await api.listRevisions('p1');
+    await api.getRevision('p1', 'r2');
+    respond = () => json(200, post);
+    assert.deepEqual(await api.restoreRevision('p1', 'r2'), post);
+    assert.deepEqual(
+      calls.map((call) => [call.init.method, call.url]),
+      [
+        ['GET', '/api/admin/posts/p1/revisions'],
+        ['GET', '/api/admin/posts/p1/revisions/r2'],
+        ['POST', '/api/admin/posts/p1/revisions/r2/restore'],
+      ],
+    );
+    assert.equal(calls[2]?.init.body, undefined);
+  });
+
+  it('programar: PUT /schedule con { publishAt } (ISO con desplazamiento); cancelar: DELETE /schedule', async () => {
+    respond = () => json(200, post);
+    await api.schedulePost('p1', '2026-12-01T09:00:00-03:00');
+    await api.unschedulePost('p1');
+    assert.equal(calls[0]?.init.method, 'PUT');
+    assert.equal(calls[0]?.url, '/api/admin/posts/p1/schedule');
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { publishAt: '2026-12-01T09:00:00-03:00' });
+    assert.equal(calls[1]?.init.method, 'DELETE');
+    assert.equal(calls[1]?.url, '/api/admin/posts/p1/schedule');
+  });
+
+  it('un 400 de la API llega con su mensaje tal cual (el `detail` ya viene en el idioma pedido)', async () => {
+    respond = () =>
+      json(400, { title: 'Bad request', detail: 'The publication date has to be in the future.', code: 'post.scheduleInPast' });
+    await assert.rejects(api.schedulePost('p1', '2020-01-01T00:00:00Z'), (error: unknown) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 400);
+      assert.equal(error.message, 'The publication date has to be in the future.');
+      return true;
+    });
+  });
+});

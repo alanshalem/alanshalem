@@ -591,3 +591,39 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }
+
+/* ==========================================================================
+   Programar publicación e historial de versiones (S5)
+   ========================================================================== */
+.chip-scheduled { color: var(--link-accent); border-color: color-mix(in srgb, var(--link-accent) 55%, transparent); }
+/* En pantallas angostas la fecha baja debajo del título del panel en vez de desbordar (WCAG 1.4.10). */
+.post-schedule .tool-panel-summary { flex-wrap: wrap; padding-block: var(--space-0-25); }
+.post-schedule .chip-scheduled { white-space: normal; }
+.post-schedule, .post-history { margin-block: var(--space-1-5); }
+.schedule { display: grid; gap: var(--space-0-7); }
+.schedule-at { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-0-5) var(--space-1); }
+.schedule-fields { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-0-7) var(--space-1); }
+.schedule-fields .field { flex: 0 1 12rem; }
+
+.history { display: grid; gap: var(--space-1) var(--space-1-5); margin-top: var(--space-0-7); }
+@media (min-width: 900px) { .history { grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); align-items: start; } }
+.history-list { max-height: 32rem; overflow: auto; border: var(--rule); }
+.history-item-text { display: grid; gap: 0.1rem; min-width: 0; overflow-wrap: anywhere; }
+/* La versión elegida: barra a la izquierda y fondo, no solo color de texto. */
+.history-item[aria-current='true'] { background: var(--bg-surface-alt); box-shadow: inset 2px 0 0 var(--text-primary); }
+.history-compare { display: grid; gap: var(--space-0-7); min-width: 0; }
+.history-heading { font-family: var(--font-display); font-size: var(--text-title-md); }
+.history-restore { justify-self: start; }
+
+.diff { display: grid; gap: var(--space-0-7); }
+.diff-legend { display: flex; flex-wrap: wrap; gap: var(--space-0-5) var(--space-1); font-size: var(--text-xs); }
+.diff-fields { display: grid; gap: var(--space-0-7); margin: 0; }
+.diff-fields dd { margin: var(--space-0-25) 0 0; }
+.diff-body { max-height: 36rem; overflow: auto; border: var(--rule); font-family: var(--font-mono); font-size: 13px; }
+.diff-line { display: block; padding: 0 var(--space-0-5); white-space: pre-wrap; overflow-wrap: anywhere; text-decoration: none; }
+.diff-sign { display: inline-block; width: 1.5ch; font-weight: 700; }
+/* Fondo tenue y borde: el texto queda con el color normal (contraste) y el signo dice qué es (WCAG 1.4.1). */
+.diff-removed { background: color-mix(in srgb, var(--danger) 14%, transparent); box-shadow: inset 2px 0 0 var(--danger); }
+.diff-added { background: color-mix(in srgb, var(--ok) 14%, transparent); box-shadow: inset 2px 0 0 var(--ok); }
+.diff-legend .diff-line { display: inline-block; }
+.diff-skipped { padding: var(--space-0-25) var(--space-0-5); border-block: var(--rule); font-family: var(--font-ui); font-size: var(--text-xs); color: var(--text-tertiary); }

@@ -30,6 +30,8 @@ export interface I18n {
   readonly formatDate: (iso: string) => string;
   /** Hora y minutos en la zona del navegador ("14:05" / "2:05 PM"): el "Guardado" del editor. */
   readonly formatTime: (date: Date) => string;
+  /** Fecha y hora en la zona del navegador ("1 dic 2026, 09:00"): versiones del historial y publicación programada. */
+  readonly formatDateTime: (iso: string) => string;
 }
 
 const DICTIONARIES: Record<Lang, Dictionary> = { es, en };
@@ -67,6 +69,8 @@ function createI18n(lang: Lang): I18n {
     formatNumber,
     formatDate: (iso) => dates.format(new Date(iso)),
     formatTime: (date) => times.format(date),
+    // Fecha y hora por separado: juntas, es-AR cambia la fecha a "1 de dic de 2026" y no coincidiría con la de la lista.
+    formatDateTime: (iso) => `${dates.format(new Date(iso))}, ${times.format(new Date(iso))}`,
   };
 }
 

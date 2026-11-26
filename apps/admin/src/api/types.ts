@@ -27,6 +27,8 @@ export interface PostSummary {
    */
   contentUpdatedAt: string;
   publishedAt: string | null;
+  /** Cuándo lo publica solo el servidor (UTC); solo en borradores: publicar o cancelar lo borra. */
+  scheduledAt: string | null;
   /** Portada opcional: ruta `/media/...` (subida) o URL `http(s)`. */
   coverUrl: string | null;
   coverAlt: string | null;
@@ -57,6 +59,24 @@ export interface PostInput {
   tags: string[];
   coverUrl: string | null;
   coverAlt: string | null;
+}
+
+/** Una versión en la lista del historial (`PostRevisionSummaryDto`): sin el cuerpo, que se pide al abrirla. */
+export interface PostRevisionSummary {
+  id: string;
+  /** 1, 2, 3…: el orden de guardado (la lista llega de la más nueva a la más vieja). */
+  number: number;
+  createdAt: string;
+  title: string;
+  /** Caracteres del cuerpo: una pista del tamaño sin traerlo. */
+  bodyLength: number;
+}
+
+/** Una versión completa (`PostRevisionDto`): la instantánea del contenido, con la misma forma que lo que se guarda. */
+export interface PostRevision extends PostInput {
+  id: string;
+  number: number;
+  createdAt: string;
 }
 
 /**

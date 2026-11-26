@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { PostSummary } from '../api/types.ts';
 import { Banner } from '../components/Banner.tsx';
 import { PageHead } from '../components/PageHead.tsx';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { pageTitle } from '../navigation/pageTitle.ts';
+import { scheduledAt, scheduledLabel } from '../posts/schedule.ts';
 import { useCreateTranslation } from '../posts/useCreateTranslation.ts';
 import { groupPosts, versionLabel, versionSlots } from '../posts/versions.ts';
 import { VersionLink } from '../posts/VersionLink.tsx';
@@ -13,6 +14,18 @@ import { href } from '../useRoute.ts';
 interface Props {
   /** Devuelve true si el error era una sesión vencida (y ya se manejó). */
   onError: (error: unknown) => boolean;
+}
+
+/** "Programado · 1 dic 2026, 09:00" junto al chip de esa versión, si es un borrador programado. */
+function ScheduledChip({ version }: { version: PostSummary }) {
+  const i18n = useUiLanguage();
+  const at = scheduledAt(version);
+  if (at === null) return null;
+  return (
+    <time className="chip chip-scheduled" dateTime={at}>
+      {scheduledLabel(at, i18n)}
+    </time>
+  );
 }
 
 export function PostsPage({ onError }: Props) {
@@ -78,7 +91,10 @@ export function PostsPage({ onError }: Props) {
                 <span className="post-langs">
                   {versionSlots(group.versions).map(({ lang, version }) =>
                     version ? (
-                      <VersionLink key={lang} version={version} />
+                      <Fragment key={lang}>
+                        <VersionLink version={version} />
+                        <ScheduledChip version={version} />
+                      </Fragment>
                     ) : (
                       <button
                         key={lang}

@@ -14,9 +14,11 @@ import { DEFAULT_LANG, LANGS, type Lang } from '../languages.ts';
 import { pageTitle } from '../navigation/pageTitle.ts';
 import { useUnsavedGuard } from '../navigation/useUnsavedGuard.ts';
 import { canAutosave, saveStatusText, type SaveState } from '../posts/autosave.ts';
+import { HistoryPanel } from '../posts/HistoryPanel.tsx';
 import { lintPost, type LintTarget } from '../posts/lint.ts';
 import { PostVersions } from '../posts/PostVersions.tsx';
 import { ReviewPanel } from '../posts/ReviewPanel.tsx';
+import { SchedulePanel } from '../posts/SchedulePanel.tsx';
 import { SharePanel } from '../posts/SharePanel.tsx';
 import { useAutosave } from '../posts/useAutosave.ts';
 import { useOtherVersion } from '../posts/useOtherVersion.ts';
@@ -109,18 +111,23 @@ export function PostEditorPage({ postId, onError }: Props) {
     () => ({ title, summary, slug, coverUrl, coverAlt, lang, body: preview.markdown, html: preview.html }),
     [title, summary, slug, coverUrl, coverAlt, lang, preview],
   );
+  // El historial compara contra lo que se guardaría ahora (la normalización de la portada la hace la comparación).
+  const current = useMemo(() => toInput(form, { coverUrl: form.coverUrl, coverAlt: form.coverAlt }), [form]);
+
+  /** El post como lo devuelve la API, en el editor: al cargarlo y al restaurar una versión. */
+  const showPost = (loaded: Post): void => {
+    const loadedForm = toForm(loaded);
+    setPost(loaded);
+    setForm(loadedForm);
+    setSaved(JSON.stringify(loadedForm));
+    setSlugTouched(true); // un post existente conserva su slug aunque cambie el título
+  };
 
   useEffect(() => {
     if (postId === null) return;
     api
       .getPost(postId)
-      .then((loaded) => {
-        const loadedForm = toForm(loaded);
-        setPost(loaded);
-        setForm(loadedForm);
-        setSaved(JSON.stringify(loadedForm));
-        setSlugTouched(true); // un post existente conserva su slug aunque cambie el título
-      })
+      .then(showPost)
       .catch((caught: unknown) => {
         if (!onError(caught)) setMessage({ kind: 'error', text: t('post.loadError') });
       })
@@ -203,6 +210,51 @@ export function PostEditorPage({ postId, onError }: Props) {
   };
 
   useSaveShortcut(save);
+
+  /**
+   * Restaurar, programar y cancelar cambian el post fuera del formulario: de a una y sin un guardado (tampoco el
+   * automático) en medio, que podría pisar lo restaurado o devolver una programación vieja. Los errores se lanzan:
+   * los muestra el panel que la pidió, junto al botón.
+   */
+  const runExclusive = async (action: () => Promise<Post>): Promise<Post | null> => {
+    if (savingRef.current) return null;
+    savingRef.current = true;
+    setBusy(true);
+    try {
+      return await action();
+    } finally {
+      savingRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const handleRestore = async (revisionId: string): Promise<Post | null> => {
+    if (!post) return null;
+    const restored = await runExclusive(() => api.restoreRevision(post.id, revisionId));
+    if (restored) {
+      showPost(restored);
+      setTitleError(null);
+      setCoverError(null);
+      setSaveState({ kind: 'saved', at: new Date() });
+    }
+    return restored;
+  };
+
+  /** Como "Publicar": lo pendiente se guarda antes, así se publica lo que se ve. */
+  const handleSchedule = async (publishAt: string): Promise<Post | null> => {
+    const latest = dirty ? await save() : post;
+    if (!latest) return null;
+    const scheduled = await runExclusive(() => api.schedulePost(latest.id, publishAt));
+    if (scheduled) setPost(scheduled);
+    return scheduled;
+  };
+
+  const handleUnschedule = async (): Promise<Post | null> => {
+    if (!post) return null;
+    const unscheduled = await runExclusive(() => api.unschedulePost(post.id));
+    if (unscheduled) setPost(unscheduled);
+    return unscheduled;
+  };
 
   const handlePublish = async (): Promise<void> => {
     const current = await save();
@@ -297,6 +349,18 @@ export function PostEditorPage({ postId, onError }: Props) {
         </div>
       )}
 
+      {post && !isPublished && (
+        <div className="post-schedule">
+          <SchedulePanel
+            post={post}
+            busy={busy}
+            onSchedule={handleSchedule}
+            onUnschedule={handleUnschedule}
+            onError={onError}
+          />
+        </div>
+      )}
+
       <div className="fields">
         <div className="field">
           <label className="label" htmlFor="post-title">
@@ -369,6 +433,19 @@ export function PostEditorPage({ postId, onError }: Props) {
         <ReviewPanel issues={issues} onSelect={goTo} />
         <SharePanel input={shareInput} />
       </div>
+
+      {post && (
+        <div className="post-history">
+          <HistoryPanel
+            post={post}
+            current={current}
+            dirty={dirty}
+            busy={busy}
+            onRestore={handleRestore}
+            onError={onError}
+          />
+        </div>
+      )}
 
       {post && (
         <div className="danger-zone">

@@ -7,6 +7,8 @@ import type {
   MediaAsset,
   Post,
   PostInput,
+  PostRevision,
+  PostRevisionSummary,
   PostSummary,
   SiteSettings,
   VideoAsset,
@@ -90,6 +92,8 @@ function videoForm(file: File, edit: VideoEdit | undefined): FormData {
   return form;
 }
 
+const postPath = (id: string): string => `/admin/posts/${encodeURIComponent(id)}`;
+
 export const api = {
   /** 200 si hay sesión, ApiError(401) si no. */
   me: () => request<{ authenticated: true }>('GET', '/auth/me'),
@@ -107,6 +111,16 @@ export const api = {
   /** Crea el borrador de la versión en otro idioma (201), con el contenido copiado como punto de partida (L3). */
   createTranslation: (id: string, lang: Lang) =>
     request<Post>('POST', `/admin/posts/${encodeURIComponent(id)}/translations`, { lang }),
+
+  // Historial (S5): una versión por guardado que cambia el contenido; restaurar guarda esa versión como la actual.
+  listRevisions: (id: string) => request<PostRevisionSummary[]>('GET', `${postPath(id)}/revisions`),
+  getRevision: (id: string, revisionId: string) =>
+    request<PostRevision>('GET', `${postPath(id)}/revisions/${encodeURIComponent(revisionId)}`),
+  restoreRevision: (id: string, revisionId: string) =>
+    request<Post>('POST', `${postPath(id)}/revisions/${encodeURIComponent(revisionId)}/restore`),
+  /** Solo borradores y en el futuro; `publishAt` en ISO 8601 con desplazamiento (la API rechaza una hora sin zona). */
+  schedulePost: (id: string, publishAt: string) => request<Post>('PUT', `${postPath(id)}/schedule`, { publishAt }),
+  unschedulePost: (id: string) => request<Post>('DELETE', `${postPath(id)}/schedule`),
 
   getSettings: () => request<SiteSettings>('GET', '/admin/settings'),
   /** Guarda los ajustes; la API pide un rebuild del sitio (nombre, bio y links están en todas las páginas). */

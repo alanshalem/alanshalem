@@ -18,6 +18,7 @@ const summary = (id: string, overrides: Partial<PostSummary> = {}): PostSummary 
   updatedAt: '2026-11-25T10:00:00Z',
   contentUpdatedAt: '2026-11-25T10:00:00Z',
   publishedAt: null,
+  scheduledAt: null,
   coverUrl: null,
   coverAlt: null,
   lang: 'es',
