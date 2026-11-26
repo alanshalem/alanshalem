@@ -40,10 +40,6 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("CreditEn")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
                     b.Property<Guid>("MediaAssetId")
                         .HasColumnType("TEXT");
 
@@ -259,10 +255,6 @@ namespace Blog.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("NameEn")
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 

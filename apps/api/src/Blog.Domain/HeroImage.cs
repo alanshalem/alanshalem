@@ -24,7 +24,6 @@ public sealed class HeroImage
     /// <summary>Versión en inglés de <see cref="Alt"/>. Null = el sitio en inglés usa la de español.</summary>
     public string? AltEn { get; private set; }
 
-    public string? CreditEn { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
     /// <summary>
@@ -59,7 +58,6 @@ public sealed class HeroImage
         Alt = content.Alt;
         Credit = content.Credit;
         AltEn = content.AltEn;
-        CreditEn = content.CreditEn;
     }
 
     private static HeroImage New(MediaAsset media, VideoAsset? video, HeroImageContent content, DateTime nowUtc)
@@ -79,13 +77,14 @@ public sealed class HeroImage
 }
 
 /// <summary>Lo editable de un ítem del hero, ya validado y normalizado. Si existe una instancia, es válida.</summary>
-public sealed record HeroImageContent(string Alt, string? Credit, string? AltEn = null, string? CreditEn = null)
+/// <remarks>El crédito es uno solo en los dos idiomas (L13): solo el texto alternativo tiene versión en inglés.</remarks>
+public sealed record HeroImageContent(string Alt, string? Credit, string? AltEn = null)
 {
     public const int MaxAltLength = 300;
     public const int MaxCreditLength = 200;
 
     /// <param name="altEn">Opcional aunque el de español no: si falta, el sitio en inglés usa el de español.</param>
-    public static HeroImageContent Create(string? alt, string? credit, string? altEn = null, string? creditEn = null)
+    public static HeroImageContent Create(string? alt, string? credit, string? altEn = null)
     {
         // El texto alternativo es obligatorio: es lo único que "ve" un lector de pantalla del hero.
         var cleanAlt = OptionalText.Clean(alt, MaxAltLength, MessageKeys.HeroAltTooLong)
@@ -94,7 +93,6 @@ public sealed record HeroImageContent(string Alt, string? Credit, string? AltEn 
         return new HeroImageContent(
             cleanAlt,
             OptionalText.Clean(credit, MaxCreditLength, MessageKeys.HeroCreditTooLong),
-            OptionalText.Clean(altEn, MaxAltLength, MessageKeys.HeroAltEnTooLong),
-            OptionalText.Clean(creditEn, MaxCreditLength, MessageKeys.HeroCreditEnTooLong));
+            OptionalText.Clean(altEn, MaxAltLength, MessageKeys.HeroAltEnTooLong));
     }
 }

@@ -103,16 +103,16 @@ describe('api.getVideo', () => {
 describe('api.createHeroImage', () => {
   it('video listo: envía { videoId, alt, credit }', async () => {
     respond = () => json(201, {});
-    await api.createHeroImage({ videoId: 'v1' }, { alt: 'Olas', credit: null, altEn: null, creditEn: null });
+    await api.createHeroImage({ videoId: 'v1' }, { alt: 'Olas', credit: null, altEn: null });
     assert.equal(calls[0]?.url, '/api/admin/hero-images');
     assert.equal(calls[0]?.init.method, 'POST');
-    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { videoId: 'v1', alt: 'Olas', credit: null, altEn: null, creditEn: null });
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { videoId: 'v1', alt: 'Olas', credit: null, altEn: null });
   });
 
   it('foto: sigue enviando { mediaId, alt, credit }', async () => {
     respond = () => json(201, {});
-    await api.createHeroImage({ mediaId: 'm1' }, { alt: 'Luna', credit: 'Foto: Alan', altEn: null, creditEn: null });
-    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { mediaId: 'm1', alt: 'Luna', credit: 'Foto: Alan', altEn: null, creditEn: null });
+    await api.createHeroImage({ mediaId: 'm1' }, { alt: 'Luna', credit: 'Foto: Alan', altEn: null });
+    assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { mediaId: 'm1', alt: 'Luna', credit: 'Foto: Alan', altEn: null });
   });
 });
 
@@ -161,9 +161,9 @@ describe('api.createTranslation', () => {
 });
 
 describe('api.createHeroImage / api.updateHeroImage: textos en inglés (L4)', () => {
-  it('envía altEn y creditEn junto a los de español', async () => {
+  it('envía altEn junto a los de español; el crédito es uno solo (L13)', async () => {
     respond = () => json(201, {});
-    const input = { alt: 'Luna', credit: null, altEn: 'Moon', creditEn: 'Photo: Alan' };
+    const input = { alt: 'Luna', credit: 'Foto: Alan', altEn: 'Moon' };
     await api.createHeroImage({ mediaId: 'm1' }, input);
     assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { mediaId: 'm1', ...input });
     await api.updateHeroImage('h1', input);

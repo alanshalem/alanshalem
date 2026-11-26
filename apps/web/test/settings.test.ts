@@ -93,18 +93,21 @@ describe('toSiteSettings por idioma: taglineEn / bioEn en /en/, con respaldo en 
   });
 });
 
-describe('toSiteSettings: nameEn en /en/, con respaldo en el nombre en español (S7, L6)', () => {
-  it('en usa nameEn para el nombre y el autor del pie', () => {
-    const s = toSiteSettings({ name: 'Blog de Ana', nameEn: "Ana's blog" }, env, 'en');
-    assert.equal(s.name, "Ana's blog");
-    assert.equal(s.author, "Ana's blog");
+describe('toSiteSettings: el nombre es uno solo en los dos idiomas (S7, L12)', () => {
+  it('/en/ usa el mismo nombre y autor del pie que /es/ (marca, H1, pie, <title>, og:site_name y RSS)', () => {
+    const en = toSiteSettings({ name: ' Blog de Ana ' }, env, 'en');
+    const es = toSiteSettings({ name: ' Blog de Ana ' }, env, 'es');
+    assert.deepEqual([en.name, en.author], ['Blog de Ana', 'Blog de Ana']);
+    assert.deepEqual([es.name, es.author], [en.name, en.author]);
   });
-  it('es ignora nameEn', () => {
-    assert.equal(toSiteSettings({ name: 'Blog de Ana', nameEn: "Ana's blog" }, env, 'es').name, 'Blog de Ana');
+  it('un nameEn que todavía mande una API vieja no cambia nada', () => {
+    const legacy = { name: 'Blog de Ana', nameEn: "Ana's blog" };
+    assert.equal(toSiteSettings(legacy, env, 'en').name, 'Blog de Ana');
+    assert.equal(toSiteSettings(legacy, env, 'en').author, 'Blog de Ana');
   });
-  it('en sin nameEn (nulo o en blanco) usa name, y después SITE_NAME', () => {
-    assert.equal(toSiteSettings({ name: 'Blog de Ana', nameEn: ' ' }, env, 'en').name, 'Blog de Ana');
-    assert.equal(toSiteSettings({ nameEn: null }, env, 'en').name, 'Nombre env');
+  it('en sin name usa SITE_NAME, igual que es', () => {
+    assert.equal(toSiteSettings({ name: ' ' }, env, 'en').name, 'Nombre env');
+    assert.equal(toSiteSettings({}, env, 'es').name, 'Nombre env');
   });
   it('los respaldos visibles sin API ni entorno van en el idioma de la página', () => {
     const s = toSiteSettings({}, {}, 'en');

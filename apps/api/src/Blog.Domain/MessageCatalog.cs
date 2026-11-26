@@ -96,8 +96,6 @@ public static partial class MessageCatalog
             "El enlace de {label} no puede superar {max} caracteres.", "The {label} link can't be longer than {max} characters."),
         [MessageKeys.SettingsLinkInvalid] = new(
             "El enlace de {label} debe ser una URL http(s).", "The {label} link must be an http(s) URL."),
-        [MessageKeys.SettingsNameEnTooLong] = new(
-            "El nombre en inglés no puede superar {max} caracteres.", "The English name can't be longer than {max} characters."),
         [MessageKeys.SettingsTaglineEnTooLong] = new(
             "La frase en inglés no puede superar {max} caracteres.", "The English tagline can't be longer than {max} characters."),
         [MessageKeys.SettingsBioEnTooLong] = new(
@@ -125,8 +123,6 @@ public static partial class MessageCatalog
         [MessageKeys.HeroAltEnTooLong] = new(
             "El texto alternativo en inglés no puede superar {max} caracteres.",
             "The English alt text can't be longer than {max} characters."),
-        [MessageKeys.HeroCreditEnTooLong] = new(
-            "El crédito en inglés no puede superar {max} caracteres.", "The English credit can't be longer than {max} characters."),
         [MessageKeys.HeroVideoProcessing] = new(
             "El video todavía se está procesando: esperá a que esté listo.", "The video is still being processed: wait until it's ready."),
         [MessageKeys.HeroVideoFailed] = new(

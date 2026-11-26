@@ -11,11 +11,10 @@ public sealed record SaveSiteSettingsRequest(
     string? GithubUrl,
     string? LinkedinUrl,
     string? XUrl,
-    string? NameEn = null,
     string? TaglineEn = null,
     string? BioEn = null);
 
-/// <param name="NameEn">Null = el sitio en inglés usa el de español (igual TaglineEn y BioEn).</param>
+/// <param name="TaglineEn">Null = el sitio en inglés usa el de español (igual BioEn). El nombre es uno solo.</param>
 public sealed record SiteSettingsDto(
     string Name,
     string? Tagline,
@@ -24,7 +23,6 @@ public sealed record SiteSettingsDto(
     string? GithubUrl,
     string? LinkedinUrl,
     string? XUrl,
-    string? NameEn,
     string? TaglineEn,
     string? BioEn);
 
@@ -38,7 +36,6 @@ public static class SiteSettingsMapping
         settings.GithubUrl,
         settings.LinkedinUrl,
         settings.XUrl,
-        settings.NameEn,
         settings.TaglineEn,
         settings.BioEn);
 
@@ -50,7 +47,6 @@ public static class SiteSettingsMapping
         content.GithubUrl,
         content.LinkedinUrl,
         content.XUrl,
-        content.NameEn,
         content.TaglineEn,
         content.BioEn);
 }

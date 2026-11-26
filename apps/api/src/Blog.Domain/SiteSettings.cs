@@ -6,7 +6,7 @@ namespace Blog.Domain;
 /// Datos del autor y del sitio que se editan desde el admin (nombre, bio, enlaces). Las fotos del hero son
 /// una galería aparte (<see cref="HeroImage"/>).
 /// Hay una sola fila: siempre con <see cref="SingletonId"/>. Los textos sin sufijo son los de español; los En son su
-/// versión en inglés y, si faltan (null), el sitio en inglés usa el de español.
+/// versión en inglés y, si faltan (null), el sitio en inglés usa el de español. El nombre es uno solo en los dos (L12).
 /// </summary>
 public sealed class SiteSettings
 {
@@ -29,7 +29,6 @@ public sealed class SiteSettings
     public string? GithubUrl { get; private set; }
     public string? LinkedinUrl { get; private set; }
     public string? XUrl { get; private set; }
-    public string? NameEn { get; private set; }
     public string? TaglineEn { get; private set; }
     public string? BioEn { get; private set; }
 
@@ -51,7 +50,6 @@ public sealed class SiteSettings
         GithubUrl = content.GithubUrl;
         LinkedinUrl = content.LinkedinUrl;
         XUrl = content.XUrl;
-        NameEn = content.NameEn;
         TaglineEn = content.TaglineEn;
         BioEn = content.BioEn;
     }
@@ -66,7 +64,6 @@ public sealed partial record SiteSettingsContent(
     string? GithubUrl,
     string? LinkedinUrl,
     string? XUrl,
-    string? NameEn = null,
     string? TaglineEn = null,
     string? BioEn = null)
 {
@@ -91,7 +88,6 @@ public sealed partial record SiteSettingsContent(
         string? githubUrl,
         string? linkedinUrl,
         string? xUrl,
-        string? nameEn = null,
         string? taglineEn = null,
         string? bioEn = null)
     {
@@ -120,8 +116,7 @@ public sealed partial record SiteSettingsContent(
             HttpLink(githubUrl, "GitHub"),
             HttpLink(linkedinUrl, "LinkedIn"),
             HttpLink(xUrl, "X"),
-            // Mismos límites que sus pares en español, pero todos opcionales: el nombre en inglés también cae al español.
-            OptionalText.Clean(nameEn, MaxNameLength, MessageKeys.SettingsNameEnTooLong),
+            // Mismos límites que sus pares en español, pero opcionales. El nombre es uno solo en los dos idiomas (L12).
             OptionalText.Clean(taglineEn, MaxTaglineLength, MessageKeys.SettingsTaglineEnTooLong),
             OptionalText.Clean(bioEn, MaxBioLength, MessageKeys.SettingsBioEnTooLong));
     }

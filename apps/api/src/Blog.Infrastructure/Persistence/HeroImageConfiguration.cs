@@ -28,7 +28,6 @@ internal sealed class HeroImageConfiguration : IEntityTypeConfiguration<HeroImag
         builder.Property(image => image.Alt).IsRequired().HasMaxLength(HeroImageContent.MaxAltLength);
         builder.Property(image => image.Credit).HasMaxLength(HeroImageContent.MaxCreditLength);
         builder.Property(image => image.AltEn).HasMaxLength(HeroImageContent.MaxAltLength);
-        builder.Property(image => image.CreditEn).HasMaxLength(HeroImageContent.MaxCreditLength);
         builder.Property(image => image.CreatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
     }
 }

@@ -21,7 +21,6 @@ public sealed class SiteSettingsService(ISiteSettingsRepository settings, ISiteB
             request.GithubUrl,
             request.LinkedinUrl,
             request.XUrl,
-            request.NameEn,
             request.TaglineEn,
             request.BioEn);
 

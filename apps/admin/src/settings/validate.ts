@@ -21,7 +21,6 @@ export const emptySettingsForm = (): SettingsForm => ({
   name: '',
   tagline: '',
   bio: '',
-  nameEn: '',
   taglineEn: '',
   bioEn: '',
   email: '',
@@ -73,7 +72,6 @@ export const toSettingsForm = (settings: SiteSettings): SettingsForm => ({
   name: settings.name,
   tagline: settings.tagline ?? '',
   bio: settings.bio ?? '',
-  nameEn: settings.nameEn ?? '',
   taglineEn: settings.taglineEn ?? '',
   bioEn: settings.bioEn ?? '',
   email: settings.email ?? '',
@@ -112,10 +110,8 @@ export function validateSettings(form: SettingsForm, i18n: I18n): SettingsValida
   const bio = cleanOptional(form.bio);
   tooLong('bio', bio, LIMITS.settings.bio, 'subject.bio');
 
-  // Las versiones en inglés tienen los mismos límites que sus pares en español (L4); ninguna es obligatoria.
-  const nameEn = cleanOptional(form.nameEn);
-  tooLong('nameEn', nameEn, LIMITS.settings.name, 'subject.nameEn');
-
+  // Las versiones en inglés tienen los mismos límites que sus pares en español (L4); ninguna es obligatoria. El
+  // nombre es uno solo en los dos idiomas (L12).
   const taglineEn = cleanOptional(form.taglineEn);
   tooLong('taglineEn', taglineEn, LIMITS.settings.tagline, 'subject.taglineEn');
 
@@ -133,7 +129,7 @@ export function validateSettings(form: SettingsForm, i18n: I18n): SettingsValida
   const xUrl = httpLink('xUrl', 'X');
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, input: { name, tagline, bio, nameEn, taglineEn, bioEn, email, githubUrl, linkedinUrl, xUrl } };
+  return { ok: true, input: { name, tagline, bio, taglineEn, bioEn, email, githubUrl, linkedinUrl, xUrl } };
 }
 
 export type CoverValidation = { ok: true; coverUrl: string | null; coverAlt: string | null } | { ok: false; error: string };

@@ -100,11 +100,13 @@ public class HttpApiTests(ApiFactory api)
         var buildsBefore = api.Build.Requests;
 
         using var created = await admin.SendAsync(ApiFactory.Mutation(
-            HttpMethod.Post, "/api/admin/hero-images", ApiFactory.JsonContent(new { mediaId, alt = "Nebulosa", credit = "Foto: Ana", altEn = "Nebula" })));
+            HttpMethod.Post, "/api/admin/hero-images",
+            // El crédito es uno solo en los dos idiomas (L13): un cliente viejo que todavía manda creditEn no se rompe.
+            ApiFactory.JsonContent(new { mediaId, alt = "Nebulosa", credit = "Foto: Ana", altEn = "Nebula", creditEn = "Photo: Ana" })));
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var image = await created.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Nebula", image.GetProperty("altEn").GetString());
-        Assert.Equal(JsonValueKind.Null, image.GetProperty("creditEn").ValueKind);
+        Assert.Equal(("Nebula", "Foto: Ana"), (image.GetProperty("altEn").GetString(), image.GetProperty("credit").GetString()));
+        Assert.False(image.TryGetProperty("creditEn", out _));
         var id = image.GetProperty("id").GetGuid();
         Assert.Equal($"/api/admin/hero-images/{id}", created.Headers.Location?.OriginalString);
         Assert.Equal(mediaId, image.GetProperty("media").GetProperty("id").GetGuid());
@@ -230,21 +232,27 @@ public class HttpApiTests(ApiFactory api)
     }
 
     [Fact]
-    public async Task Settings_take_and_return_the_english_name_tagline_and_bio()
+    public async Task Settings_take_and_return_the_english_tagline_and_bio_and_ignore_an_old_english_name()
     {
         var admin = await api.AdminClientAsync();
 
+        // El nombre es uno solo en los dos idiomas (L12): un cliente viejo que todavía manda nameEn no se rompe.
         using var saved = await admin.SendAsync(ApiFactory.Mutation(HttpMethod.Put, "/api/admin/settings", ApiFactory.JsonContent(
             new { name = "Alan", nameEn = "Alan S.", taglineEn = "Notes on software", bioEn = " " })));
+        var savedBody = await saved.Content.ReadFromJsonAsync<JsonElement>();
+        var adminSettings = await admin.GetFromJsonAsync<JsonElement>("/api/admin/settings");
         using var client = api.CreateHttpsClient();
         var internalSettings = await (await client.SendAsync(WithBearer("/api/internal/settings", ApiFactory.BuilderToken)))
             .Content.ReadFromJsonAsync<JsonElement>();
 
         Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
         Assert.Equal(
-            ("Alan S.", "Notes on software", JsonValueKind.Null),
-            (internalSettings.GetProperty("nameEn").GetString(), internalSettings.GetProperty("taglineEn").GetString(),
+            ("Alan", "Notes on software", JsonValueKind.Null),
+            (internalSettings.GetProperty("name").GetString(), internalSettings.GetProperty("taglineEn").GetString(),
                 internalSettings.GetProperty("bioEn").ValueKind));
+        Assert.All(
+            new[] { savedBody, adminSettings, internalSettings },
+            settings => Assert.False(settings.TryGetProperty("nameEn", out _)));
     }
 
     [Theory]

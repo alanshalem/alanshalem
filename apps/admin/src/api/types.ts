@@ -90,8 +90,7 @@ export interface SiteSettings {
   tagline: string | null;
   /** Markdown corto; el sitio lo renderiza con @blog/markdown. */
   bio: string | null;
-  /** Versiones en inglés de `name`, `tagline` y `bio`; `null` = el sitio en inglés usa las de español (L3, L6). */
-  nameEn: string | null;
+  /** Versiones en inglés de `tagline` y `bio`; `null` = el sitio en inglés usa las de español (L3, L6). El nombre es uno solo (L12). */
   taglineEn: string | null;
   bioEn: string | null;
   email: string | null;
@@ -179,9 +178,8 @@ export interface HeroImage {
   video: VideoAsset | null;
   alt: string;
   credit: string | null;
-  /** Versiones en inglés; `null` = el sitio en inglés usa las de español (L3). */
+  /** Versión en inglés de `alt`; `null` = el sitio en inglés usa la de español (L3). El crédito es uno solo (L13). */
   altEn: string | null;
-  creditEn: string | null;
   createdAt: string;
 }
 
@@ -193,5 +191,4 @@ export interface HeroImageInput {
   alt: string;
   credit: string | null;
   altEn: string | null;
-  creditEn: string | null;
 }

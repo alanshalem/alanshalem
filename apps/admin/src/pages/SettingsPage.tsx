@@ -35,12 +35,14 @@ interface TextFieldSpec {
   hint?: string;
   maxLength?: number;
   required?: boolean;
+  /** Ocupa toda la fila de la grilla (el nombre: no tiene par en inglés). */
+  wide?: boolean;
 }
 
 // Los textos en inglés son opcionales (L3, L6): vacíos, el sitio en inglés muestra los de español (`fallbackHint`).
+// El nombre es uno solo en los dos idiomas (L12).
 const identityFields = (t: Translate): TextFieldSpec[] => [
-  { key: 'name', label: t('settings.name'), required: true, maxLength: LIMITS.settings.name, hint: t('settings.nameHint') },
-  { key: 'nameEn', label: t('settings.nameEn'), maxLength: LIMITS.settings.name, hint: t('settings.fallbackHint') },
+  { key: 'name', label: t('settings.name'), required: true, maxLength: LIMITS.settings.name, hint: t('settings.nameHint'), wide: true },
   { key: 'tagline', label: t('settings.tagline'), maxLength: LIMITS.settings.tagline, hint: t('settings.taglineHint') },
   { key: 'taglineEn', label: t('settings.taglineEn'), maxLength: LIMITS.settings.tagline, hint: t('settings.fallbackHint') },
 ];
@@ -139,7 +141,7 @@ export function SettingsPage({ onError }: Props) {
     const error = errors[spec.key];
     const describedBy = [error ? `${id}-error` : null, spec.hint ? `${id}-hint` : null].filter(Boolean).join(' ') || undefined;
     return (
-      <div className="field" key={spec.key}>
+      <div className={spec.wide ? 'field field-wide' : 'field'} key={spec.key}>
         <label className="label" htmlFor={id}>
           {spec.label}
           {spec.required && <span aria-hidden="true"> *</span>}

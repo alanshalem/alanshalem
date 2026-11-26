@@ -52,21 +52,25 @@ describe('resolveHero (S1): galería → public/hero.jpg → hero tipográfico',
   });
 });
 
-describe('localizeHeroImage: altEn / creditEn en /en/, con respaldo en español (L4)', () => {
-  it('en usa los textos en inglés', () => {
-    const image = localizeHeroImage(heroImage(1, { altEn: 'Photo 1', creditEn: 'Credit 1' }), 'en');
+describe('localizeHeroImage: altEn en /en/, con respaldo en español (L4); el crédito es uno solo (L13)', () => {
+  it('en usa el texto alternativo en inglés y el mismo crédito', () => {
+    const image = localizeHeroImage(heroImage(1, { altEn: 'Photo 1' }), 'en');
     assert.equal(image.alt, 'Photo 1');
-    assert.equal(image.credit, 'Credit 1');
+    assert.equal(image.credit, 'Crédito 1');
     assert.equal(toHeroSlide(image).img.alt, 'Photo 1');
+    assert.equal(toHeroSlide(image).credit, 'Crédito 1');
   });
-  it('en sin textos en inglés (ausentes, nulos o en blanco) usa los de español', () => {
+  it('en sin texto alternativo en inglés (ausente, nulo o en blanco) usa el de español', () => {
     assert.equal(localizeHeroImage(heroImage(1), 'en').alt, 'Foto 1');
-    const blank = localizeHeroImage(heroImage(1, { altEn: ' ', creditEn: null }), 'en');
-    assert.equal(blank.alt, 'Foto 1');
-    assert.equal(blank.credit, 'Crédito 1');
+    assert.equal(localizeHeroImage(heroImage(1, { altEn: null }), 'en').alt, 'Foto 1');
+    assert.equal(localizeHeroImage(heroImage(1, { altEn: ' ' }), 'en').alt, 'Foto 1');
   });
-  it('es ignora los textos en inglés', () => {
-    const image = localizeHeroImage(heroImage(1, { altEn: 'Photo 1', creditEn: 'Credit 1' }), 'es');
+  it('un creditEn que todavía mande una API vieja no cambia el crédito', () => {
+    const legacy = { ...heroImage(1), creditEn: 'Credit 1' };
+    assert.equal(localizeHeroImage(legacy, 'en').credit, 'Crédito 1');
+  });
+  it('es ignora el texto en inglés', () => {
+    const image = localizeHeroImage(heroImage(1, { altEn: 'Photo 1' }), 'es');
     assert.equal(image.alt, 'Foto 1');
     assert.equal(image.credit, 'Crédito 1');
   });

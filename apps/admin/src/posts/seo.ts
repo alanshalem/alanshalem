@@ -26,9 +26,9 @@ export function truncate(text: string, max: number): string {
   return `${(space > 0 ? cut.slice(0, space) : text.slice(0, max)).trimEnd()}…`;
 }
 
-/** En inglés, `nameEn` si tiene texto; si no, el nombre en español (apps/web/src/lib/settings.ts). */
-export function siteNameFor(settings: Pick<SiteSettings, 'name' | 'nameEn'>, lang: Lang): string {
-  return (lang === 'en' ? settings.nameEn?.trim() : '') || settings.name.trim();
+/** El nombre del sitio es uno solo en los dos idiomas (L12; apps/web/src/lib/settings.ts). */
+export function siteNameFor(settings: Pick<SiteSettings, 'name'>): string {
+  return settings.name.trim();
 }
 
 export interface ShareInput {

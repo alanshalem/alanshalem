@@ -8,8 +8,7 @@ export interface ApiSettings {
   tagline: string | null;
   /** Markdown corto: se renderiza con @blog/markdown. */
   bio: string | null;
-  /** Versiones en inglés (L4, L6); nulas → se usa el español. */
-  nameEn?: string | null;
+  /** Versiones en inglés (L4, L6); nulas → se usa el español. El nombre es uno solo en los dos idiomas (L12). */
   taglineEn?: string | null;
   bioEn?: string | null;
   email: string | null;
@@ -52,15 +51,15 @@ const emailAddress = (value: string | null | undefined): string | null => {
 /**
  * Ajustes efectivos de un idioma: manda la API; SITE_NAME / SITE_TAGLINE / SITE_AUTHOR solo cubren lo que llega vacío,
  * y si tampoco están, los respaldos del diccionario en el idioma de la página.
- * En inglés, nombre, bajada y bio usan nameEn / taglineEn / bioEn y, si faltan, los de español (L3, L6): mejor un
- * texto en español que ninguno. El autor (pie "© año …") es el nombre de los ajustes.
+ * En inglés, bajada y bio usan taglineEn / bioEn y, si faltan, los de español (L3, L6): mejor un texto en español
+ * que ninguno. El nombre es uno solo en los dos idiomas (L12); el autor (pie "© año …") es ese nombre.
  */
 export function toSiteSettings(api: Partial<ApiSettings>, env: Env, lang: Lang = DEFAULT_LANG): SiteSettings {
   // Campo en español con su par `En`: en inglés gana el par si trae texto.
   const localized = (es: string | null | undefined, english: string | null | undefined): string | null =>
     (lang === 'en' ? text(english) : null) ?? text(es);
   const t = ui(lang);
-  const name = localized(api.name, api.nameEn);
+  const name = text(api.name);
   return {
     name: name ?? text(env.SITE_NAME) ?? t.defaultName,
     tagline: localized(api.tagline, api.taglineEn) ?? text(env.SITE_TAGLINE) ?? t.defaultTagline,

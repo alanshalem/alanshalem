@@ -12,7 +12,7 @@ interface Props {
 /** Cómo se ve el post al compartirlo (X, LinkedIn, WhatsApp) y en Google (S3). Solo presenta: la lógica está en seo.ts. */
 export function SharePanel({ input }: Props) {
   const { t } = useUiLanguage();
-  const siteName = useSiteName(input.lang);
+  const siteName = useSiteName();
   // En producción el sitio y el admin comparten dominio (SITE_URL = "/"); en desarrollo, el de Astro.
   const origin = new URL(SITE_URL, window.location.href).origin;
   const preview = useMemo(() => sharePreview({ ...input, siteName, origin }), [input, siteName, origin]);

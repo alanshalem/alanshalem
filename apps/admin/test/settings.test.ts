@@ -95,7 +95,6 @@ describe('validateSettings', () => {
         name: 'Alan',
         tagline: 'Notas',
         bio: 'Hola **mundo**',
-        nameEn: null,
         taglineEn: null,
         bioEn: null,
         email: 'yo@ejemplo.com',
@@ -156,30 +155,28 @@ describe('validateSettings', () => {
   });
 });
 
-describe('validateSettings: textos en inglés (L4, L6: nameEn, taglineEn y bioEn, mismos límites que sus pares)', () => {
+describe('validateSettings: textos en inglés (L4, L6: taglineEn y bioEn, mismos límites que sus pares)', () => {
   it('recorta; vacíos viajan como null (el sitio en inglés usa el texto en español)', () => {
-    const result = validateSettings(form({ nameEn: '  Alan S.  ', taglineEn: '  Notes  ', bioEn: '   ' }), es);
-    assert.equal(result.ok && result.input.nameEn, 'Alan S.');
+    const result = validateSettings(form({ taglineEn: '  Notes  ', bioEn: '   ' }), es);
     assert.equal(result.ok && result.input.taglineEn, 'Notes');
     assert.equal(result.ok && result.input.bioEn, null);
   });
 
-  it('el nombre en inglés no es obligatorio aunque el nombre sí (vacío o solo espacios = null)', () => {
-    for (const nameEn of ['', '   ']) {
-      const result = validateSettings(form({ nameEn }), es);
-      assert.equal(result.ok && result.input.nameEn, null);
-    }
+  it('el nombre es uno solo en los dos idiomas (L12): ni campo ni dato nameEn', () => {
+    assert.deepEqual(Object.keys(emptySettingsForm()).filter((key) => key.startsWith('name')), ['name']);
+    const result = validateSettings(form({ name: ' Alan ' }), es);
+    assert.deepEqual(result.ok && Object.keys(result.input).filter((key) => key.startsWith('name')), ['name']);
+    assert.equal(result.ok && result.input.name, 'Alan');
   });
 
   it('justo en el límite pasa', () => {
-    const result = validateSettings(form({ nameEn: 'a'.repeat(100), taglineEn: 'a'.repeat(200), bioEn: 'a'.repeat(2000) }), es);
+    const result = validateSettings(form({ taglineEn: 'a'.repeat(200), bioEn: 'a'.repeat(2000) }), es);
     assert.equal(result.ok, true);
   });
 
   it('un carácter de más: error en cada campo en inglés', () => {
-    const result = validateSettings(form({ nameEn: 'a'.repeat(101), taglineEn: 'a'.repeat(201), bioEn: 'a'.repeat(2001) }), es);
+    const result = validateSettings(form({ taglineEn: 'a'.repeat(201), bioEn: 'a'.repeat(2001) }), es);
     assert.deepEqual(!result.ok && result.errors, {
-      nameEn: 'El nombre en inglés no puede superar 100 caracteres.',
       taglineEn: 'La frase en inglés no puede superar 200 caracteres.',
       bioEn: 'La bio en inglés no puede superar 2000 caracteres.',
     });
@@ -219,7 +216,6 @@ describe('toSettingsForm', () => {
       name: 'Mi blog',
       tagline: null,
       bio: 'Bio',
-      nameEn: null,
       taglineEn: null,
       bioEn: 'Bio in English',
       email: null,
@@ -241,7 +237,6 @@ describe('toSettingsForm', () => {
       name: 'Alan',
       tagline: 'Notas',
       bio: null,
-      nameEn: 'Alan S.',
       taglineEn: 'Notes',
       bioEn: null,
       email: 'yo@ejemplo.com',

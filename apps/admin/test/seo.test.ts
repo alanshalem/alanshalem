@@ -63,9 +63,11 @@ describe('sharePreview', () => {
     assert.equal(truncate('uno dos tres cuatro', 10), 'uno dos…');
   });
 
-  it('siteNameFor: en inglés usa nameEn si está, si no el de español (como el sitio)', () => {
-    assert.equal(siteNameFor({ name: 'Blog', nameEn: ' ' }, 'en'), 'Blog');
-    assert.equal(siteNameFor({ name: 'Blog', nameEn: 'The blog' }, 'en'), 'The blog');
-    assert.equal(siteNameFor({ name: 'Blog', nameEn: 'The blog' }, 'es'), 'Blog');
+  it('siteNameFor: el nombre es uno solo en los dos idiomas (L12, como el sitio)', () => {
+    assert.equal(siteNameFor({ name: ' Blog ' }), 'Blog');
+    // Un nameEn que todavía mande una API vieja no cambia nada: el post en inglés lleva el mismo nombre.
+    const legacy = { name: 'Blog', nameEn: 'The blog' };
+    assert.equal(siteNameFor(legacy), 'Blog');
+    assert.equal(sharePreview(input({ lang: 'en', siteName: siteNameFor(legacy) })).searchTitle, 'Mi post · Blog');
   });
 });

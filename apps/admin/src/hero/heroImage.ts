@@ -9,12 +9,11 @@ import { cleanOptional, tooLongMessage } from '../settings/validate.ts';
  * La API sigue siendo la autoridad y sus errores (ProblemDetails) se muestran igual. Los textos, del `I18n` recibido.
  */
 
-/** Los textos en inglés tienen los mismos límites que su par en español (L4). */
+/** El texto alternativo en inglés tiene el mismo límite que su par en español (L4); el crédito es uno solo (L13). */
 export const HERO_IMAGE_LIMITS = {
   alt: LIMITS.heroImage.alt,
   credit: LIMITS.heroImage.credit,
   altEn: LIMITS.heroImage.alt,
-  creditEn: LIMITS.heroImage.credit,
 } as const satisfies Record<keyof HeroImageInput, number>;
 
 /** Lo que editan los inputs de la tarjeta: todo texto (los `null` de la API se ven como vacío). */
@@ -27,13 +26,12 @@ export const toHeroImageFields = (saved?: HeroImageInput): HeroImageFields => ({
   alt: saved?.alt ?? '',
   credit: saved?.credit ?? '',
   altEn: saved?.altEn ?? '',
-  creditEn: saved?.creditEn ?? '',
 });
 
 /** Valida todos los campos a la vez (para marcarlos juntos) y devuelve el cuerpo listo para el POST/PUT. */
 export function validateHeroImage(fields: HeroImageFields, i18n: I18n): HeroImageValidation {
   const errors: HeroImageErrors = {};
-  const optional = (key: 'credit' | 'altEn' | 'creditEn', subject: MessageKey): string | null => {
+  const optional = (key: 'credit' | 'altEn', subject: MessageKey): string | null => {
     const value = cleanOptional(fields[key]);
     if (value !== null && value.length > HERO_IMAGE_LIMITS[key]) {
       errors[key] = tooLongMessage(i18n, subject, HERO_IMAGE_LIMITS[key]);
@@ -46,10 +44,9 @@ export function validateHeroImage(fields: HeroImageFields, i18n: I18n): HeroImag
   else if (alt.length > HERO_IMAGE_LIMITS.alt) errors.alt = tooLongMessage(i18n, 'subject.alt', HERO_IMAGE_LIMITS.alt);
   const credit = optional('credit', 'subject.credit');
   const altEn = optional('altEn', 'subject.altEn');
-  const creditEn = optional('creditEn', 'subject.creditEn');
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, input: { alt, credit, altEn, creditEn } };
+  return { ok: true, input: { alt, credit, altEn } };
 }
 
 /**

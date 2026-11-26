@@ -208,8 +208,10 @@ public class MigrationTests
         Assert.Contains("ScheduledAtUtc", postColumns);
         Assert.Contains("post_revisions", tables);
         Assert.Superset(new HashSet<string> { "TaglineEn", "BioEn" }, (await SettingsColumnsAsync(database)).ToHashSet());
-        Assert.Superset(
-            new HashSet<string> { "AltEn", "CreditEn" }, (await database.ListAsync("SELECT name FROM pragma_table_info('hero_images')")).ToHashSet());
+        Assert.DoesNotContain("NameEn", await SettingsColumnsAsync(database));
+        var heroColumns = await database.ListAsync("SELECT name FROM pragma_table_info('hero_images')");
+        Assert.Contains("AltEn", heroColumns);
+        Assert.DoesNotContain("CreditEn", heroColumns);
         Assert.DoesNotContain(await SettingsColumnsAsync(database), column => column.StartsWith("HeroImage", StringComparison.Ordinal));
 
         var applied = await database.ListAsync("SELECT MigrationId FROM __EFMigrationsHistory");
@@ -220,6 +222,7 @@ public class MigrationTests
         Assert.Contains(applied, id => id.EndsWith("_AddTranslations", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddPostRevisionsAndScheduling", StringComparison.Ordinal));
         Assert.Contains(applied, id => id.EndsWith("_AddPostContentUpdatedAt", StringComparison.Ordinal));
+        Assert.Contains(applied, id => id.EndsWith("_RemoveNameEnAndCreditEn", StringComparison.Ordinal));
         Assert.Contains("ContentUpdatedAtUtc", postColumns);
 
         await database.InScopeAsync<bool>(async provider =>
@@ -276,7 +279,7 @@ public class MigrationTests
         Assert.Equal("/media/2026/11/a.png", post.CoverUrl);
         Assert.Equal(new DateTime(2026, 11, 21, 10, 0, 0, DateTimeKind.Utc), post.PublishedAt);
         Assert.Equal(
-            new SiteSettingsDto("Alan", "Frase", "Bio", "alan@example.com", "https://github.com/alan", null, null, null, null, null),
+            new SiteSettingsDto("Alan", "Frase", "Bio", "alan@example.com", "https://github.com/alan", null, null, null, null),
             await database.WithSettingsAsync(settings => settings.GetAsync(default)));
         Assert.DoesNotContain(await SettingsColumnsAsync(database), column => column.StartsWith("HeroImage", StringComparison.Ordinal));
         Assert.Empty(await database.ListAsync("SELECT Id FROM hero_images"));
@@ -395,10 +398,10 @@ public class MigrationTests
         Assert.Empty(first.Translations);
         Assert.Empty(second.Translations);
         Assert.Equal(
-            new SiteSettingsDto("Alan", "Frase", "Bio", null, null, null, null, null, null, null),
+            new SiteSettingsDto("Alan", "Frase", "Bio", null, null, null, null, null, null),
             await database.WithSettingsAsync(settings => settings.GetAsync(default)));
         var hero = Assert.Single(await database.WithHeroImagesAsync(heroes => heroes.ListAsync(default)));
-        Assert.Equal((heroId, "Nebulosa", "Foto: Ana", null, null), (hero.Id, hero.Alt, hero.Credit, hero.AltEn, hero.CreditEn));
+        Assert.Equal((heroId, "Nebulosa", "Foto: Ana", (string?)null), (hero.Id, hero.Alt, hero.Credit, hero.AltEn));
 
         // Un post existente ya puede sumar su versión en inglés con el mismo slug.
         var english = await database.WithPostsAsync(posts => posts.CreateTranslationAsync(firstId, new CreateTranslationRequest("en"), default));
@@ -478,6 +481,49 @@ public class MigrationTests
             (first.UpdatedAt, first.ContentUpdatedAt));
         Assert.Equal(new DateTime(2026, 11, 23, 10, 0, 0, DateTimeKind.Utc), second.ContentUpdatedAt);
         Assert.Equal(DateTimeKind.Utc, first.ContentUpdatedAt.Kind);
+    }
+
+    [Fact]
+    public async Task Upgrading_from_pending_site_rebuild_keeps_settings_and_hero_and_drops_the_english_name_and_credit()
+    {
+        await using var database = new SqliteTestDatabase();
+        await database.InScopeAsync(async provider =>
+        {
+            var db = provider.GetRequiredService<BlogDbContext>();
+            await db.GetService<IMigrator>().MigrateAsync("AddPendingSiteRebuild");
+            return true;
+        });
+        // El nombre y el crédito son uno solo en los dos idiomas (L12, L13): NameEn y CreditEn se van, aunque tuvieran
+        // texto; lo demás queda igual.
+        var assetId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e51");
+        var heroId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e52");
+        await database.ExecuteAsync($"""
+            INSERT INTO site_settings (Id, Name, Tagline, Bio, Email, GithubUrl, LinkedinUrl, XUrl, NameEn, TaglineEn, BioEn)
+            VALUES (1, 'Alan Shalem', 'Frase', 'Bio', 'alan@example.com', 'https://github.com/alan', 'https://www.linkedin.com/in/alan',
+                    'https://x.com/alan', 'Alan S.', 'Tagline', 'Bio in English');
+            INSERT INTO media_assets (Id, Hash, Width, Height, IsAnimated, Color, Placeholder, CreatedAtUtc)
+            VALUES ('{assetId.ToString().ToUpperInvariant()}', '{new string('c', MediaAsset.HashLength)}', 1920, 1080, 0, '#102030',
+                    'data:image/webp;base64,UklGRg==', '2026-11-25 10:00:00');
+            INSERT INTO hero_images (Id, MediaAssetId, VideoAssetId, Alt, Credit, AltEn, CreditEn, CreatedAtUtc)
+            VALUES ('{heroId.ToString().ToUpperInvariant()}', '{assetId.ToString().ToUpperInvariant()}', NULL, 'Nebulosa', 'Foto: Ana',
+                    'Nebula', 'Photo: Ana', '2026-11-25 11:00:00');
+            """);
+
+        await database.InitializeAsync();
+
+        var settings = await database.WithSettingsAsync(service => service.GetAsync(default));
+        Assert.Equal(
+            ("Alan Shalem", "Frase", "Bio", "Tagline", "Bio in English"),
+            (settings.Name, settings.Tagline, settings.Bio, settings.TaglineEn, settings.BioEn));
+        Assert.Equal(
+            ("alan@example.com", "https://github.com/alan", "https://www.linkedin.com/in/alan", "https://x.com/alan"),
+            (settings.Email, settings.GithubUrl, settings.LinkedinUrl, settings.XUrl));
+        Assert.DoesNotContain("NameEn", await SettingsColumnsAsync(database));
+        Assert.Equal(["Alan Shalem"], await database.ListAsync("SELECT Name FROM site_settings"));
+        var hero = Assert.Single(await database.WithHeroImagesAsync(heroes => heroes.ListAsync(default)));
+        Assert.Equal((heroId, assetId, "Nebulosa", "Foto: Ana", "Nebula"), (hero.Id, hero.Media.Id, hero.Alt, hero.Credit, hero.AltEn));
+        Assert.Equal(new DateTime(2026, 11, 25, 11, 0, 0, DateTimeKind.Utc), hero.CreatedAt);
+        Assert.DoesNotContain("CreditEn", await database.ListAsync("SELECT name FROM pragma_table_info('hero_images')"));
     }
 
     private static Task<IReadOnlyList<string>> SettingsColumnsAsync(SqliteTestDatabase database) =>
@@ -673,23 +719,19 @@ public class SiteSettingsPersistenceTests
     }
 
     [Fact]
-    public async Task The_english_name_tagline_and_bio_round_trip_and_a_rejected_one_leaves_them_unchanged()
+    public async Task The_english_tagline_and_bio_round_trip_with_the_single_name_and_a_rejected_one_leaves_them_unchanged()
     {
         await using var database = new SqliteTestDatabase();
         await database.InitializeAsync();
-        var request = SiteSettingsServiceTests.FullRequest() with
-        {
-            NameEn = " Alan S. ", TaglineEn = " I write about .NET ", BioEn = "Hi, I'm **Alan**.",
-        };
+        var request = SiteSettingsServiceTests.FullRequest() with { TaglineEn = " I write about .NET ", BioEn = "Hi, I'm **Alan**." };
 
         var saved = await database.WithSettingsAsync(settings => settings.SaveAsync(request, default));
-        var tooLongName = await Assert.ThrowsAsync<DomainException>(() => database.WithSettingsAsync(settings =>
-            settings.SaveAsync(request with { NameEn = new string('a', SiteSettingsContent.MaxNameLength + 1) }, default)));
-        await Assert.ThrowsAsync<DomainException>(() => database.WithSettingsAsync(settings =>
+        var tooLongBio = await Assert.ThrowsAsync<DomainException>(() => database.WithSettingsAsync(settings =>
             settings.SaveAsync(request with { BioEn = new string('a', SiteSettingsContent.MaxBioLength + 1) }, default)));
 
-        Assert.Equal(("Alan S.", "I write about .NET", "Hi, I'm **Alan**."), (saved.NameEn, saved.TaglineEn, saved.BioEn));
-        Assert.Equal("El nombre en inglés no puede superar 100 caracteres.", tooLongName.Message);
+        // El nombre es uno solo en los dos idiomas (L12).
+        Assert.Equal(("Alan Shalem", "I write about .NET", "Hi, I'm **Alan**."), (saved.Name, saved.TaglineEn, saved.BioEn));
+        Assert.Equal("La bio en inglés no puede superar 2000 caracteres.", tooLongBio.Message);
         Assert.Equal(saved, await database.WithSettingsAsync(settings => settings.GetAsync(default)));
         Assert.Equal(1, database.Build.Requests);
     }

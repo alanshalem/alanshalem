@@ -509,7 +509,10 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 .settings-section { margin-bottom: var(--space-3); }
 .settings-section > .section-head { margin-bottom: var(--space-1-5); }
 .settings-grid { display: grid; gap: var(--space-1-25) var(--space-1-75); }
-@media (min-width: 800px) { .settings-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 800px) {
+  .settings-grid { grid-template-columns: 1fr 1fr; }
+  .settings-grid > .field-wide { grid-column: 1 / -1; }
+}
 
 .bio-editor { display: grid; gap: var(--space-1-25) var(--space-1-75); margin-top: var(--space-1-75); }
 @media (min-width: 1000px) { .bio-editor { grid-template-columns: 1fr 1fr; } }

@@ -50,7 +50,6 @@ public static class MessageKeys
     public const string SettingsEmailInvalid = "settings.emailInvalid";
     public const string SettingsLinkTooLong = "settings.linkTooLong";
     public const string SettingsLinkInvalid = "settings.linkInvalid";
-    public const string SettingsNameEnTooLong = "settings.nameEnTooLong";
     public const string SettingsTaglineEnTooLong = "settings.taglineEnTooLong";
     public const string SettingsBioEnTooLong = "settings.bioEnTooLong";
     public const string SettingsSaveConflict = "settings.saveConflict";
@@ -64,7 +63,6 @@ public static class MessageKeys
     public const string HeroAltTooLong = "hero.altTooLong";
     public const string HeroCreditTooLong = "hero.creditTooLong";
     public const string HeroAltEnTooLong = "hero.altEnTooLong";
-    public const string HeroCreditEnTooLong = "hero.creditEnTooLong";
     public const string HeroVideoProcessing = "hero.videoProcessing";
     public const string HeroVideoFailed = "hero.videoFailed";
     public const string HeroImageNotFound = "hero.imageNotFound";

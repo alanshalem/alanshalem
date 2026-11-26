@@ -39,7 +39,6 @@ const heroImage = (id: string, createdAt: string): HeroImage => ({
   alt: id,
   credit: null,
   altEn: null,
-  creditEn: null,
   createdAt,
 });
 
@@ -49,11 +48,11 @@ describe('validateHeroImage', () => {
   it('recorta; el crédito vacío viaja como null', () => {
     assert.deepEqual(validateHeroImage(fields({ alt: '  Nebulosa de Orión  ', credit: '   ' }), es), {
       ok: true,
-      input: { alt: 'Nebulosa de Orión', credit: null, altEn: null, creditEn: null },
+      input: { alt: 'Nebulosa de Orión', credit: null, altEn: null },
     });
     assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', credit: ' Foto: Alan ' }), es), {
       ok: true,
-      input: { alt: 'Luna', credit: 'Foto: Alan', altEn: null, creditEn: null },
+      input: { alt: 'Luna', credit: 'Foto: Alan', altEn: null },
     });
   });
 
@@ -69,7 +68,6 @@ describe('validateHeroImage', () => {
         alt: 'a'.repeat(HERO_IMAGE_LIMITS.alt),
         credit: 'c'.repeat(HERO_IMAGE_LIMITS.credit),
         altEn: 'a'.repeat(HERO_IMAGE_LIMITS.altEn),
-        creditEn: 'c'.repeat(HERO_IMAGE_LIMITS.creditEn),
       }),
       es,
     );
@@ -86,24 +84,25 @@ describe('validateHeroImage', () => {
     });
   });
 
-  it('los límites son los de L10; los textos en inglés, los mismos que su par (L4)', () => {
-    assert.deepEqual(HERO_IMAGE_LIMITS, { alt: 300, credit: 200, altEn: 300, creditEn: 200 });
+  it('los límites son los de L10; el texto alternativo en inglés, el mismo que su par (L4); el crédito es uno solo (L13)', () => {
+    assert.deepEqual(HERO_IMAGE_LIMITS, { alt: 300, credit: 200, altEn: 300 });
   });
 
-  it('textos en inglés opcionales: recortados, vacíos = null (el sitio en inglés usa los de español)', () => {
-    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: ' Moon ', creditEn: '  ' }), es), {
+  it('texto alternativo en inglés opcional: recortado, vacío = null (el sitio en inglés usa el de español)', () => {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: ' Moon ' }), es), {
       ok: true,
-      input: { alt: 'Luna', credit: null, altEn: 'Moon', creditEn: null },
+      input: { alt: 'Luna', credit: null, altEn: 'Moon' },
+    });
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: '  ' }), es), {
+      ok: true,
+      input: { alt: 'Luna', credit: null, altEn: null },
     });
   });
 
-  it('textos en inglés: un carácter de más, con su propio mensaje', () => {
-    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: 'a'.repeat(301), creditEn: 'c'.repeat(201) }), es), {
+  it('texto alternativo en inglés: un carácter de más, con su propio mensaje', () => {
+    assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: 'a'.repeat(301) }), es), {
       ok: false,
-      errors: {
-        altEn: 'El texto alternativo en inglés no puede superar 300 caracteres.',
-        creditEn: 'El crédito en inglés no puede superar 200 caracteres.',
-      },
+      errors: { altEn: 'El texto alternativo en inglés no puede superar 300 caracteres.' },
     });
   });
 });
@@ -123,11 +122,11 @@ describe('validateHeroImage en inglés', () => {
 
 describe('toHeroImageFields: lo guardado como texto de los inputs', () => {
   it('sin ítem guardado: todo vacío', () => {
-    assert.deepEqual(toHeroImageFields(), { alt: '', credit: '', altEn: '', creditEn: '' });
+    assert.deepEqual(toHeroImageFields(), { alt: '', credit: '', altEn: '' });
   });
   it('los null pasan a vacío; ida y vuelta igual', () => {
-    const saved = { alt: 'Luna', credit: null, altEn: 'Moon', creditEn: null };
-    assert.deepEqual(toHeroImageFields(saved), { alt: 'Luna', credit: '', altEn: 'Moon', creditEn: '' });
+    const saved = { alt: 'Luna', credit: null, altEn: 'Moon' };
+    assert.deepEqual(toHeroImageFields(saved), { alt: 'Luna', credit: '', altEn: 'Moon' });
     assert.deepEqual(validateHeroImage(toHeroImageFields(saved), es), { ok: true, input: saved });
   });
 });

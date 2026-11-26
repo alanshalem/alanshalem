@@ -187,56 +187,47 @@ public class TranslationSlugSuffixTests
 public class EnglishTextsDomainTests
 {
     [Fact]
-    public void Settings_trim_the_english_name_tagline_and_bio_and_turn_blanks_into_null()
+    public void Settings_trim_the_english_tagline_and_bio_and_turn_blanks_into_null()
     {
-        var filled = SiteSettingsContent.Create(
-            "Alan", null, null, null, null, null, null, nameEn: " Alan S. ", taglineEn: " Notes ", bioEn: " **Hi** ");
-        var blank = SiteSettingsContent.Create("Alan", null, null, null, null, null, null, nameEn: "   ", taglineEn: "  ", bioEn: "");
+        var filled = SiteSettingsContent.Create("Alan", null, null, null, null, null, null, taglineEn: " Notes ", bioEn: " **Hi** ");
+        var blank = SiteSettingsContent.Create("Alan", null, null, null, null, null, null, taglineEn: "  ", bioEn: "");
 
-        Assert.Equal(("Alan S.", "Notes", "**Hi**"), (filled.NameEn, filled.TaglineEn, filled.BioEn));
-        Assert.Equal((null, null, null), (blank.NameEn, blank.TaglineEn, blank.BioEn));
+        Assert.Equal(("Alan", "Notes", "**Hi**"), (filled.Name, filled.TaglineEn, filled.BioEn));
+        Assert.Equal(((string?)null, (string?)null), (blank.TaglineEn, blank.BioEn));
     }
 
     [Fact]
-    public void Settings_reject_an_english_name_tagline_or_bio_over_the_same_limits()
+    public void Settings_reject_an_english_tagline_or_bio_over_the_same_limits()
     {
-        var name = Assert.Throws<DomainException>(() => SiteSettingsContent.Create(
-            "Alan", null, null, null, null, null, null, nameEn: new string('a', SiteSettingsContent.MaxNameLength + 1)));
         var tagline = Assert.Throws<DomainException>(() => SiteSettingsContent.Create(
             "Alan", null, null, null, null, null, null, taglineEn: new string('a', SiteSettingsContent.MaxTaglineLength + 1)));
         var bio = Assert.Throws<DomainException>(() => SiteSettingsContent.Create(
             "Alan", null, null, null, null, null, null, bioEn: new string('a', SiteSettingsContent.MaxBioLength + 1)));
         var atLimit = SiteSettingsContent.Create(
             "Alan", null, null, null, null, null, null,
-            new string('a', SiteSettingsContent.MaxNameLength),
             new string('a', SiteSettingsContent.MaxTaglineLength),
             new string('a', SiteSettingsContent.MaxBioLength));
 
-        Assert.Equal("El nombre en inglés no puede superar 100 caracteres.", name.Message);
         Assert.Equal("La frase en inglés no puede superar 200 caracteres.", tagline.Message);
         Assert.Equal("La bio en inglés no puede superar 2000 caracteres.", bio.Message);
-        Assert.Equal((100, 200, 2000), (atLimit.NameEn!.Length, atLimit.TaglineEn!.Length, atLimit.BioEn!.Length));
+        Assert.Equal((200, 2000), (atLimit.TaglineEn!.Length, atLimit.BioEn!.Length));
     }
 
     [Fact]
-    public void Hero_content_trims_the_english_alt_and_credit_and_turns_blanks_into_null()
+    public void Hero_content_trims_the_english_alt_and_turns_a_blank_one_into_null()
     {
-        Assert.Equal(new HeroImageContent("Nebulosa", null, "Nebula", "Photo: Ana"), HeroImageContent.Create("Nebulosa", null, " Nebula ", " Photo: Ana "));
-        Assert.Equal(new HeroImageContent("Nebulosa", null), HeroImageContent.Create("Nebulosa", null, "  ", ""));
+        Assert.Equal(new HeroImageContent("Nebulosa", "Foto: Ana", "Nebula"), HeroImageContent.Create("Nebulosa", " Foto: Ana ", " Nebula "));
+        Assert.Equal(new HeroImageContent("Nebulosa", null), HeroImageContent.Create("Nebulosa", null, "  "));
     }
 
     [Fact]
-    public void Hero_content_rejects_an_english_alt_or_credit_that_is_too_long()
+    public void Hero_content_rejects_an_english_alt_that_is_too_long()
     {
         var alt = Assert.Throws<DomainException>(() =>
             HeroImageContent.Create("Alt", null, new string('a', HeroImageContent.MaxAltLength + 1)));
-        var credit = Assert.Throws<DomainException>(() =>
-            HeroImageContent.Create("Alt", null, null, new string('c', HeroImageContent.MaxCreditLength + 1)));
-        var atLimit = HeroImageContent.Create(
-            "Alt", null, new string('a', HeroImageContent.MaxAltLength), new string('c', HeroImageContent.MaxCreditLength));
+        var atLimit = HeroImageContent.Create("Alt", null, new string('a', HeroImageContent.MaxAltLength));
 
         Assert.Equal("El texto alternativo en inglés no puede superar 300 caracteres.", alt.Message);
-        Assert.Equal("El crédito en inglés no puede superar 200 caracteres.", credit.Message);
-        Assert.Equal((300, 200), (atLimit.AltEn!.Length, atLimit.CreditEn!.Length));
+        Assert.Equal(300, atLimit.AltEn!.Length);
     }
 }

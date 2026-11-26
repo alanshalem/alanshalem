@@ -31,16 +31,15 @@ interface Props {
   remove: { label: string; tone: 'ghost' | 'danger'; onClick: () => Promise<void> | void };
 }
 
-// Los ejemplos de los campos en inglés están en inglés: muestran qué escribir ahí, en cualquier idioma de la interfaz.
+// El ejemplo del campo en inglés está en inglés: muestran qué escribir ahí, en cualquier idioma de la interfaz.
 const FIELDS: readonly { key: keyof HeroImageInput; label: MessageKey; placeholder: MessageKey }[] = [
   { key: 'alt', label: 'image.alt', placeholder: 'hero.altPlaceholder' },
   { key: 'credit', label: 'hero.credit', placeholder: 'hero.creditPlaceholder' },
   { key: 'altEn', label: 'hero.altEn', placeholder: 'hero.altEnPlaceholder' },
-  { key: 'creditEn', label: 'hero.creditEn', placeholder: 'hero.creditEnPlaceholder' },
 ];
 
 /**
- * Un ítem del hero (foto o video): miniatura, texto alternativo y crédito, en español y en inglés. La misma tarjeta
+ * Un ítem del hero (foto o video): miniatura, texto alternativo (en español y en inglés) y crédito. La misma tarjeta
  * sirve para un archivo recién subido (POST) y para un ítem guardado (PUT), así el formulario no se duplica. Cada
  * tarjeta es su propio <form>: Enter guarda ese ítem y nada más.
  */
