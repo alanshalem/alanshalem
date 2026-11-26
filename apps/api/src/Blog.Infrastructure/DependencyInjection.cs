@@ -48,7 +48,7 @@ public static class DependencyInjection
         services.AddScoped<DurableSiteBuildTrigger>();
         services.AddScoped<ISiteBuildTrigger>(provider => provider.GetRequiredService<DurableSiteBuildTrigger>());
         services.AddHostedService<SiteRebuildWorker>();
-        services.AddHttpClient<IBuildRequestSender, HttpSiteBuildTrigger>(client => client.Timeout = HttpSiteBuildTrigger.RequestTimeout);
+        services.AddHttpClient<IBuildRequestSender, HttpBuildRequestSender>(client => client.Timeout = HttpBuildRequestSender.RequestTimeout);
 
         return services;
     }

@@ -1,9 +1,13 @@
+using System.Data.Common;
 using System.Net;
 using Blog.Application.Abstractions;
 using Blog.Application.Posts;
 using Blog.Domain;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Build;
+using Blog.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -111,9 +115,9 @@ public class SiteRebuildTests
     {
         var sender = new FakeBuildRequestSender { Accepts = true };
         using var stopping = new CancellationTokenSource();
-        // Se "apaga" la API justo después de publicar el primero: el segundo ya no llega a publicarse.
-        await using var database = await CreateDatabaseAsync(
-            sender, services => services.AddSingleton<ILoggerProvider>(new CancelOnLogProvider(stopping, "Se publicó el post programado")));
+        // Se "apaga" la API apenas la base confirma la primera publicación: el segundo ya no llega a publicarse.
+        await using var database = await CreateDatabaseAsync(sender, services =>
+            services.ConfigureDbContext<BlogDbContext>(options => options.AddInterceptors(new CancelAfterPublishedSave(stopping))));
         var first = await CreateScheduledAsync(database, "Uno", "2026-11-25T13:00:00Z");
         var second = await CreateScheduledAsync(database, "Dos", "2026-11-25T13:30:00Z");
         database.Clock.UtcNow = database.Clock.UtcNow.AddHours(3);
@@ -126,6 +130,73 @@ public class SiteRebuildTests
     }
 
     [Fact]
+    public async Task A_failed_mark_write_is_logged_and_the_request_is_still_sent()
+    {
+        var sender = new FakeBuildRequestSender { Accepts = false };
+        await using var database = await CreateDatabaseAsync(sender);
+
+        // La base falla al dejar la marca: el pedido sale igual y nada se propaga (guardar un post no se rompe por esto).
+        await WithBuildStateFailingAsync(database, () => RequestBuildAsync(database));
+
+        // El costo aceptado (ver MarkPendingAsync): sin marca, un rechazo del builder no queda para reintentar.
+        Assert.Equal((1, "clear"), (sender.Requests, await StateAsync(database)));
+        Assert.IsAssignableFrom<DbException>(Assert.Single(TriggerLogs(database, LogLevel.Error)).Exception);
+        await database.RebuildWorker.RetryPendingAsync(default);
+        Assert.Equal(1, sender.Requests);
+    }
+
+    [Fact]
+    public async Task An_accepted_request_whose_mark_cannot_be_cleared_stays_pending_and_is_sent_again()
+    {
+        var sender = new FakeBuildRequestSender { Accepts = true };
+        await using var database = await CreateDatabaseAsync(sender);
+
+        // El builder acepta, pero la base deja de responder justo antes de borrar la marca.
+        sender.Respond(async _ =>
+        {
+            await database.ExecuteAsync(DisableBuildState);
+            return true;
+        });
+        await RequestBuildAsync(database);
+        await database.ExecuteAsync(EnableBuildState);
+
+        Assert.Equal((1, "pending"), (sender.Requests, await StateAsync(database)));
+        Assert.IsAssignableFrom<DbException>(Assert.Single(TriggerLogs(database, LogLevel.Warning)).Exception);
+
+        // A lo sumo una regeneración de más, nunca una de menos: la vuelta siguiente la manda y ahora sí se borra.
+        await database.RebuildWorker.RetryPendingAsync(default);
+        Assert.Equal((2, "clear"), (sender.Requests, await StateAsync(database)));
+    }
+
+    [Fact]
+    public async Task The_ok_of_an_older_request_does_not_clear_a_newer_pending_one()
+    {
+        var sender = new FakeBuildRequestSender();
+        await using var database = await CreateDatabaseAsync(sender);
+        var olderInFlight = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var olderAnswer = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        sender.Respond(async _ =>
+        {
+            olderInFlight.SetResult();
+            return await olderAnswer.Task;
+        });
+        sender.Respond(_ => Task.FromResult(false)); // el más nuevo: el builder lo rechaza
+
+        var older = RequestBuildAsync(database);
+        await olderInFlight.Task.WaitAsync(WaitLimit);
+        await RequestBuildAsync(database); // reemplaza la marca mientras el anterior sigue en vuelo
+        olderAnswer.SetResult(true); // recién ahora llega el OK del anterior
+        await older.WaitAsync(WaitLimit);
+
+        Assert.Equal((2, "pending"), (sender.Requests, await StateAsync(database)));
+
+        // Solo el OK del pedido que está pendiente lo borra.
+        sender.Accepts = true;
+        await database.RebuildWorker.RetryPendingAsync(default);
+        Assert.Equal((3, "clear"), (sender.Requests, await StateAsync(database)));
+    }
+
+    [Fact]
     public async Task Infrastructure_registers_the_durable_trigger_for_every_use_case()
     {
         var configuration = new ConfigurationBuilder()
@@ -135,7 +206,7 @@ public class SiteRebuildTests
         await using var scope = provider.CreateAsyncScope();
 
         Assert.IsType<DurableSiteBuildTrigger>(scope.ServiceProvider.GetRequiredService<ISiteBuildTrigger>());
-        Assert.IsType<HttpSiteBuildTrigger>(scope.ServiceProvider.GetRequiredService<IBuildRequestSender>());
+        Assert.IsType<HttpBuildRequestSender>(scope.ServiceProvider.GetRequiredService<IBuildRequestSender>());
     }
 
     [Theory]
@@ -169,17 +240,17 @@ public class SiteRebuildTests
     public async Task Without_a_builder_url_there_is_nothing_to_retry()
     {
         var handler = new StubHandler(_ => throw new InvalidOperationException("no debería llamarse"));
-        var sender = new HttpSiteBuildTrigger(
-            new HttpClient(handler), Options.Create(new BuilderOptions { Url = "" }), NullLogger<HttpSiteBuildTrigger>.Instance);
+        var sender = new HttpBuildRequestSender(
+            new HttpClient(handler), Options.Create(new BuilderOptions { Url = "" }), NullLogger<HttpBuildRequestSender>.Instance);
 
         Assert.True(await sender.SendAsync(default));
         Assert.Null(handler.LastUri);
     }
 
-    private static HttpSiteBuildTrigger Sender(StubHandler handler, TimeSpan? timeout = null) => new(
+    private static HttpBuildRequestSender Sender(StubHandler handler, TimeSpan? timeout = null) => new(
         new HttpClient(handler) { Timeout = timeout ?? TimeSpan.FromSeconds(5) },
         Options.Create(new BuilderOptions { Url = "http://builder:4000/", Token = "secreto" }),
-        NullLogger<HttpSiteBuildTrigger>.Instance);
+        NullLogger<HttpBuildRequestSender>.Instance);
 
     /// <summary>La base real con el trigger de producción y el envío al builder simulado.</summary>
     private static async Task<SqliteTestDatabase> CreateDatabaseAsync(FakeBuildRequestSender sender, Action<IServiceCollection>? configure = null)
@@ -201,6 +272,26 @@ public class SiteRebuildTests
             await provider.GetRequiredService<ISiteBuildTrigger>().RequestBuildAsync(cancellationToken);
             return true;
         });
+
+    // Sin la tabla, toda lectura o escritura del estado falla con una DbException real de SQLite.
+    private const string DisableBuildState = "ALTER TABLE site_build_state RENAME TO site_build_state_off";
+    private const string EnableBuildState = "ALTER TABLE site_build_state_off RENAME TO site_build_state";
+
+    private static async Task WithBuildStateFailingAsync(SqliteTestDatabase database, Func<Task> action)
+    {
+        await database.ExecuteAsync(DisableBuildState);
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            await database.ExecuteAsync(EnableBuildState);
+        }
+    }
+
+    private static IEnumerable<LogEntry> TriggerLogs(SqliteTestDatabase database, LogLevel level) =>
+        database.Logs.Entries.Where(entry => entry.Category == typeof(DurableSiteBuildTrigger).FullName && entry.Level == level);
 
     private static async Task<string> StateAsync(SqliteTestDatabase database) =>
         Assert.Single(await database.ListAsync("SELECT CASE WHEN PendingRequestId IS NULL THEN 'clear' ELSE 'pending' END FROM site_build_state"));
@@ -236,30 +327,21 @@ public class SiteRebuildTests
         }
     }
 
-    /// <summary>Cancela el token cuando se registra un mensaje que contiene el texto: un apagado en un punto exacto.</summary>
-    private sealed class CancelOnLogProvider(CancellationTokenSource source, string text) : ILoggerProvider
+    /// <summary>
+    /// Cancela el token en cuanto la base confirma el guardado de un post publicado: un apagado en un punto exacto,
+    /// tomado del guardado y no de lo que diga el log.
+    /// </summary>
+    private sealed class CancelAfterPublishedSave(CancellationTokenSource source) : SaveChangesInterceptor
     {
-        public ILogger CreateLogger(string categoryName) => new CancelOnLog(source, text);
-
-        public void Dispose()
+        public override ValueTask<int> SavedChangesAsync(
+            SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
         {
-        }
-
-        private sealed class CancelOnLog(CancellationTokenSource source, string text) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state)
-                where TState : notnull => null;
-
-            public bool IsEnabled(LogLevel logLevel) => true;
-
-            public void Log<TState>(
-                LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+            if (eventData.Context?.ChangeTracker.Entries<Post>().Any(entry => entry.Entity.Status == PostStatus.Published) == true)
             {
-                if (formatter(state, exception).Contains(text, StringComparison.Ordinal))
-                {
-                    source.Cancel();
-                }
+                source.Cancel();
             }
+
+            return ValueTask.FromResult(result);
         }
     }
 }

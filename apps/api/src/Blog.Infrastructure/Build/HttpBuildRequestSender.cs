@@ -26,10 +26,10 @@ internal interface IBuildRequestSender
 /// y junta varios pedidos seguidos en una sola construcción. Si no responde o responde con error, se registra un
 /// warning y se informa que no lo aceptó: el pedido queda pendiente y se reintenta.
 /// </summary>
-internal sealed class HttpSiteBuildTrigger(
+internal sealed class HttpBuildRequestSender(
     HttpClient http,
     IOptions<BuilderOptions> options,
-    ILogger<HttpSiteBuildTrigger> logger) : IBuildRequestSender
+    ILogger<HttpBuildRequestSender> logger) : IBuildRequestSender
 {
     /// <summary>Corto: guardar un post no debe quedarse esperando a un builder que no responde (se reintenta después).</summary>
     public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);

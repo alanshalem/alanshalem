@@ -1,4 +1,3 @@
-using Blog.Api.Security;
 using Blog.Application.Media;
 using Blog.Application.Videos;
 using Blog.Domain;
@@ -54,13 +53,15 @@ public static class MediaEndpoints
         return admin;
     }
 
-    /// <summary>Todas las imágenes subidas, para que el builder arme el srcset de cualquier /media/... del sitio.</summary>
-    public static IEndpointRouteBuilder MapInternalMediaEndpoints(this IEndpointRouteBuilder app)
+    /// <summary>
+    /// Todas las imágenes subidas, para que el builder arme el srcset de cualquier /media/... del sitio. Dentro del
+    /// grupo /api/internal (token del builder).
+    /// </summary>
+    public static RouteGroupBuilder MapInternalMediaEndpoints(this RouteGroupBuilder builderOnly)
     {
-        app.MapGet("/api/internal/media", (MediaService media, CancellationToken ct) => media.ListAsync(ct))
-            .AddEndpointFilter<BuilderTokenFilter>();
+        builderOnly.MapGet("/media", (MediaService media, CancellationToken ct) => media.ListAsync(ct));
 
-        return app;
+        return builderOnly;
     }
 
     /// <summary>

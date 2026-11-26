@@ -157,9 +157,23 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// ---------- Rutas: cada módulo mapea solo lo suyo; la protección la pone el grupo, una sola vez ----------
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 app.MapAuthEndpoints();
-app.MapPostEndpoints();
+
+// Admin: requiere la cookie de sesión (y la cabecera anti-CSRF del middleware en lo que modifica datos).
+var admin = app.MapGroup("/api/admin").RequireAuthorization();
+admin.MapAdminPostEndpoints();
+admin.MapAdminMediaEndpoints();
+admin.MapAdminSettingsEndpoints();
+admin.MapAdminHeroImageEndpoints();
+
+// Interno: lo consume el builder de Astro, con su token. Caddy no lo expone hacia afuera.
+var builderOnly = app.MapGroup("/api/internal").AddEndpointFilter<BuilderTokenFilter>();
+builderOnly.MapInternalPostEndpoints();
+builderOnly.MapInternalSettingsEndpoints();
+builderOnly.MapInternalMediaEndpoints();
+builderOnly.MapInternalHeroImageEndpoints();
 
 await DatabaseInitializer.InitializeAsync(app.Services);
 await app.RunAsync();

@@ -1,15 +1,12 @@
-using Blog.Api.Security;
 using Blog.Application.Posts;
 
 namespace Blog.Api.Endpoints;
 
 public static class PostEndpoints
 {
-    public static IEndpointRouteBuilder MapPostEndpoints(this IEndpointRouteBuilder app)
+    /// <summary>Posts, historial y programación dentro del grupo /api/admin (cookie de sesión + cabecera anti-CSRF).</summary>
+    public static RouteGroupBuilder MapAdminPostEndpoints(this RouteGroupBuilder admin)
     {
-        // ----- Admin: requiere la cookie de sesión -----
-        var admin = app.MapGroup("/api/admin").RequireAuthorization();
-
         var posts = admin.MapGroup("/posts");
         posts.MapGet("/", (PostService service, CancellationToken ct) => service.ListAsync(ct));
         posts.MapGet("/{id:guid}", (Guid id, PostService service, CancellationToken ct) => service.GetAsync(id, ct));
@@ -56,17 +53,14 @@ public static class PostEndpoints
         posts.MapDelete("/{id:guid}/schedule", (Guid id, PostService service, CancellationToken ct) =>
             service.UnscheduleAsync(id, ct));
 
-        admin.MapAdminMediaEndpoints();
-        admin.MapAdminSettingsEndpoints();
-        admin.MapAdminHeroImageEndpoints();
+        return admin;
+    }
 
-        // ----- Interno: lo consume el builder de Astro, con token. Caddy no lo expone hacia afuera. -----
-        app.MapGet("/api/internal/posts", (PostService service, CancellationToken ct) => service.ListPublishedAsync(ct))
-            .AddEndpointFilter<BuilderTokenFilter>();
-        app.MapInternalSettingsEndpoints();
-        app.MapInternalMediaEndpoints();
-        app.MapInternalHeroImageEndpoints();
+    /// <summary>Los posts publicados que lee el builder, dentro del grupo /api/internal (token del builder).</summary>
+    public static RouteGroupBuilder MapInternalPostEndpoints(this RouteGroupBuilder builderOnly)
+    {
+        builderOnly.MapGet("/posts", (PostService service, CancellationToken ct) => service.ListPublishedAsync(ct));
 
-        return app;
+        return builderOnly;
     }
 }

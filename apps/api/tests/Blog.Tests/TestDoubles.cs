@@ -24,20 +24,27 @@ internal sealed class CountingBuildTrigger : ISiteBuildTrigger
 
 /// <summary>
 /// El builder simulado: cuenta los envíos y acepta o rechaza según <see cref="Accepts"/>. Con el token cancelado
-/// nunca acepta, como el envío HTTP real (el pedido no llega a salir).
+/// nunca acepta, como el envío HTTP real (el pedido no llega a salir). Un envío con respuesta encolada en
+/// <see cref="Respond"/> la usa en su lugar: así una prueba decide qué pasa mientras un pedido está en vuelo.
 /// </summary>
 internal sealed class FakeBuildRequestSender : IBuildRequestSender
 {
+    private readonly ConcurrentQueue<Func<CancellationToken, Task<bool>>> _scripted = new();
     private int _requests;
 
     public bool Accepts { get; set; }
 
     public int Requests => Volatile.Read(ref _requests);
 
+    /// <summary>La respuesta del próximo envío (en orden de llegada); sin ninguna encolada, rige <see cref="Accepts"/>.</summary>
+    public void Respond(Func<CancellationToken, Task<bool>> response) => _scripted.Enqueue(response);
+
     public Task<bool> SendAsync(CancellationToken cancellationToken)
     {
         Interlocked.Increment(ref _requests);
-        return Task.FromResult(Accepts && !cancellationToken.IsCancellationRequested);
+        return _scripted.TryDequeue(out var response)
+            ? response(cancellationToken)
+            : Task.FromResult(Accepts && !cancellationToken.IsCancellationRequested);
     }
 }
 

@@ -1,4 +1,3 @@
-using Blog.Api.Security;
 using Blog.Application.Settings;
 
 namespace Blog.Api.Endpoints;
@@ -18,12 +17,11 @@ public static class SettingsEndpoints
         return admin;
     }
 
-    /// <summary>Lo que lee el builder de Astro, con el mismo token que /api/internal/posts.</summary>
-    public static IEndpointRouteBuilder MapInternalSettingsEndpoints(this IEndpointRouteBuilder app)
+    /// <summary>Lo que lee el builder de Astro, dentro del grupo /api/internal (token del builder).</summary>
+    public static RouteGroupBuilder MapInternalSettingsEndpoints(this RouteGroupBuilder builderOnly)
     {
-        app.MapGet("/api/internal/settings", (SiteSettingsService service, CancellationToken ct) => service.GetAsync(ct))
-            .AddEndpointFilter<BuilderTokenFilter>();
+        builderOnly.MapGet("/settings", (SiteSettingsService service, CancellationToken ct) => service.GetAsync(ct));
 
-        return app;
+        return builderOnly;
     }
 }

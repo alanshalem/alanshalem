@@ -1,4 +1,3 @@
-using Blog.Api.Security;
 using Blog.Application.HeroImages;
 
 namespace Blog.Api.Endpoints;
@@ -32,13 +31,12 @@ public static class HeroImageEndpoints
 
     /// <summary>
     /// Lo que lee el builder, ordenado por fecha de alta: la primera es la de &lt;noscript&gt; y og:image. Solo fotos
-    /// y videos listos.
+    /// y videos listos. Dentro del grupo /api/internal (token del builder).
     /// </summary>
-    public static IEndpointRouteBuilder MapInternalHeroImageEndpoints(this IEndpointRouteBuilder app)
+    public static RouteGroupBuilder MapInternalHeroImageEndpoints(this RouteGroupBuilder builderOnly)
     {
-        app.MapGet("/api/internal/hero-images", (HeroImageService service, CancellationToken ct) => service.ListForSiteAsync(ct))
-            .AddEndpointFilter<BuilderTokenFilter>();
+        builderOnly.MapGet("/hero-images", (HeroImageService service, CancellationToken ct) => service.ListForSiteAsync(ct));
 
-        return app;
+        return builderOnly;
     }
 }
