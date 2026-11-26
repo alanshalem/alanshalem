@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import * as postsModule from '../src/lib/posts.ts';
 import { alternatesByGroup, postPath, postsIn, tagsOf, toBlogPost, type ApiPost } from '../src/lib/posts.ts';
 
 const apiPost = (overrides: Partial<ApiPost> = {}): ApiPost => ({
@@ -55,6 +56,27 @@ describe('toBlogPost: extensiones de Markdown del cuerpo en el idioma del post (
   });
   it('el título del cuerpo sigue bajando un nivel (el <h1> es el título del post)', () => {
     assert.match(toBlogPost(apiPost({ body: '# Uno' })).html, /^<h2 id="uno">Uno<\/h2>$/);
+  });
+});
+
+describe('toBlogPost: títulos estándar del cuerpo (plataforma-calidad L5 "## sección, ### subsección")', () => {
+  const body = '# Intro\n\n## Sección\n\n### Subsección\n\n#### Detalle';
+
+  it('## es h2, ### es h3 y un # del cuerpo es una sección (h2): el título del post es el único h1', () => {
+    const { html } = toBlogPost(apiPost({ body }));
+    assert.equal(
+      html,
+      '<h2 id="intro">Intro</h2>\n<h2 id="seccion">Sección</h2>\n<h3 id="subseccion">Subsección</h3>\n<h4 id="detalle">Detalle</h4>',
+    );
+    assert.doesNotMatch(html, /<h1/);
+  });
+
+  it('el índice lateral lista las secciones (h2) y subsecciones (h3), no lo más hondo', () => {
+    const toc = postsModule.tocEntries(toBlogPost(apiPost({ body })).headings);
+    assert.deepEqual(
+      toc.map(({ level, id }) => [level, id]),
+      [[2, 'intro'], [2, 'seccion'], [3, 'subseccion']],
+    );
   });
 });
 

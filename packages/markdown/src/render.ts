@@ -13,6 +13,7 @@ import type { RenderOptions, RenderResult } from './types.ts';
 export function renderMarkdown(source: string, options: RenderOptions = {}): RenderResult {
   const headings: RenderResult['headings'] = [];
   const headingOffset = Math.min(5, Math.max(0, options.headingOffset ?? 0));
+  const minHeadingLevel = Math.min(6, Math.max(1, options.minHeadingLevel ?? 1));
   const labels = labelsFor(options.lang);
 
   const { lines, definitions } = extractFootnoteDefinitions(source.replace(/\r\n?/g, '\n').split('\n'));
@@ -26,6 +27,7 @@ export function renderMarkdown(source: string, options: RenderOptions = {}): Ren
     headings,
     slugger: createSlugger(),
     headingOffset,
+    minHeadingLevel,
     depth: 0,
     tight: false,
     inline,

@@ -66,12 +66,12 @@ describe('código', () => {
   it('bloque con lenguaje', () => {
     assert.equal(
       html('```ts\nconst a = 1 < 2;\n```'),
-      '<pre><code class="language-ts">const a = 1 &lt; 2;</code></pre>',
+      '<pre tabindex="0"><code class="language-ts">const a = 1 &lt; 2;</code></pre>',
     );
   });
 
   it('bloque sin lenguaje y sin cierre llega hasta el final', () => {
-    assert.equal(html('```\nlinea1\nlinea2'), '<pre><code>linea1\nlinea2</code></pre>');
+    assert.equal(html('```\nlinea1\nlinea2'), '<pre tabindex="0"><code>linea1\nlinea2</code></pre>');
   });
 
   it('un lenguaje raro no se inyecta en el atributo class', () => {
@@ -80,11 +80,11 @@ describe('código', () => {
   });
 
   it('el contenido de un bloque no se interpreta como Markdown', () => {
-    assert.equal(html('```\n# no es titulo\n- ni lista\n```'), '<pre><code># no es titulo\n- ni lista</code></pre>');
+    assert.equal(html('```\n# no es titulo\n- ni lista\n```'), '<pre tabindex="0"><code># no es titulo\n- ni lista</code></pre>');
   });
 
   it('un cierre más largo que la apertura también cierra', () => {
-    assert.equal(html('```\na\n`````\nafuera'), '<pre><code>a</code></pre>\n<p>afuera</p>');
+    assert.equal(html('```\na\n`````\nafuera'), '<pre tabindex="0"><code>a</code></pre>\n<p>afuera</p>');
   });
 });
 
@@ -156,7 +156,7 @@ describe('listas', () => {
 
   it('un código dentro de un ítem', () => {
     const out = html('- paso\n\n  ```sh\n  ls\n  ```');
-    assert.ok(out.includes('<pre><code class="language-sh">ls</code></pre>'));
+    assert.ok(out.includes('<pre tabindex="0"><code class="language-sh">ls</code></pre>'));
   });
 
   it('una lista numerada que no empieza en 1 no interrumpe un párrafo', () => {
@@ -188,7 +188,7 @@ describe('citas, reglas y tablas', () => {
     const out = html('| a | b | c |\n|:--|:-:|--:|\n| 1 | 2 | 3 |');
     assert.ok(out.includes('<th>a</th><th class="align-center">b</th><th class="align-right">c</th>'));
     assert.ok(out.includes('<td>1</td><td class="align-center">2</td><td class="align-right">3</td>'));
-    assert.ok(out.startsWith('<div class="table-wrap"><table>'));
+    assert.ok(out.startsWith('<div class="table-wrap" tabindex="0" role="region" aria-label="Tabla"><table>'));
   });
 
   it('tabla: completa filas cortas, descarta celdas sobrantes y respeta \\|', () => {

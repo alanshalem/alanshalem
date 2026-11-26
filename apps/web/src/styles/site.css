@@ -92,9 +92,22 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   .media--hero > svg { position: absolute; top: var(--space-5); height: auto; aspect-ratio: 16 / 10; }
 }
 
-/* Overlay degradé: el texto se lee sobre cualquier foto */
-.media--hero::after, .hero-bg::after, .tile .media::after {
-  content: ''; position: absolute; inset: 0; background: var(--overlay-hero); pointer-events: none;
+/* Overlay degradé: el texto se lee sobre cualquier foto. Hero y portada: franjas de cabecera y de texto (tokens.css). */
+.media--hero::after, .hero-bg::after, .tile .media::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
+.media--hero::after, .hero-bg::after { background: var(--overlay-hero); }
+.tile .media::after { background: var(--overlay-tile); }
+
+/* Velo detrás del bloque de texto del hero y de la portada (WCAG 1.4.3): va pegado al texto, así cubre un título largo
+   igual que uno corto, y se funde hacia arriba. Ocupa todo el ancho del hero (el texto tiene max-width) y el hero lo recorta.
+   El bloque arma su propio contexto de apilado (z-index 0): el velo queda arriba de la foto aunque en el HTML la foto venga
+   después (galería de la home) y abajo del texto. Sigue hasta el borde de abajo del hero (sin costura con el margen
+   inferior); lo que en mobile va debajo del bloque (crédito, botón) es `position: relative` para pintarse encima. */
+.hero--photo, .article-hero { overflow: hidden; }
+.hero--photo .hero-body, .article-hero-body { position: relative; z-index: 0; }
+.hero--photo .hero-body::before, .article-hero-body::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  top: calc(-1 * var(--overlay-hero-text-fade)); bottom: -100vh; left: calc(-1 * var(--gutter)); width: 100vw;
+  background: var(--overlay-hero-text);
 }
 
 /* ---------- Hero de la home ---------- */
@@ -128,10 +141,11 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   font-family: var(--font-ui); font-size: var(--text-ui); line-height: var(--leading-body);
 }
 
-/* Crédito de la foto: debajo del texto, a la izquierda; abajo a la derecha en desktop (como en la referencia) */
+/* Crédito de la foto: debajo del texto, a la izquierda; abajo a la derecha en desktop (como en la referencia).
+   En gris secundario y no terciario: sobre una foto clara el terciario no llega a 4,5:1 ni con el overlay (WCAG 1.4.3). */
 .hero-credit {
-  margin-top: var(--space-2-5); max-width: 24rem;
-  font-family: var(--font-ui); font-size: var(--text-2xs); line-height: 1.5; color: var(--text-tertiary);
+  position: relative; margin-top: var(--space-2-5); max-width: 24rem;
+  font-family: var(--font-ui); font-size: var(--text-2xs); line-height: 1.5; color: var(--text-secondary);
 }
 /* Fotos de la galería sin crédito: el script deja la línea vacía. */
 .hero-credit:empty { display: none; }
@@ -141,7 +155,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
    derecha en desktop, con el crédito encima. 44 × 44 px como mínimo (WCAG 2.5.8). */
 .hero-media { display: contents; }
 .hero-toggle {
-  display: inline-grid; place-items: center; align-self: flex-start;
+  position: relative; display: inline-grid; place-items: center; align-self: flex-start;
   min-width: 2.75rem; min-height: 2.75rem; margin-top: var(--space-1-5); padding: 0 var(--space-1); cursor: pointer;
   background: none; color: var(--text-primary);
   font-family: var(--font-ui); font-size: var(--text-ui); font-weight: 500; line-height: 1;
@@ -279,7 +293,10 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   font-size: clamp(2.5rem, 6vw, 5rem); line-height: var(--leading-hero); overflow-wrap: break-word;
 }
 .article-dek { max-width: var(--hero-dek-max); font-size: var(--text-hero-dek); line-height: var(--leading-dek); color: var(--text-secondary); }
-.article-hero .eyebrow { color: var(--text-secondary); }
+/* Sobre la portada (WCAG 1.4.3): los temas van arriba del título, donde el overlay es más liviano, en text-primary como el
+   menú; la fecha, en gris secundario como el crédito del hero (el terciario no llega a 4,5:1 sobre una foto clara). */
+.article-hero .eyebrow { color: var(--text-primary); }
+.article-hero .meta { color: var(--text-secondary); }
 
 .image-strip {
   display: flex; flex-wrap: wrap; gap: var(--space-0-25) var(--space-1); align-items: baseline;

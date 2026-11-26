@@ -29,6 +29,7 @@
   --white: #fff;
   --periwinkle-300: #9db2ff;
   --periwinkle-200: #c4d0ff;
+  --periwinkle-700: #3b5bdb; /* acento sobre blanco: 5,7:1 sobre la hoja (los dos de arriba no llegan a 3:1) */
   --dataviz-green: #a9c98a;
   --dataviz-blue: #8fa7d9;
   --dataviz-orange: #e08f6a;
@@ -99,7 +100,20 @@
   --border-subtle: var(--ink-700);
   --link-accent: var(--periwinkle-300);
   --link-underline-hover: var(--periwinkle-200);
-  --overlay-hero: linear-gradient(
+  /* Overlay del hero y de la portada del artículo (WCAG 1.4.3, plataforma-calidad L4 P1-1). Con una foto blanca detrás,
+     text-primary llega a 4,5:1 desde una opacidad de 0,62 y text-secondary desde ~0,70 (apps/web/test/contrast.test.ts).
+     Las paradas van en rem desde cada borde porque lo que tapan tiene alto fijo y no escala con la pantalla:
+     - --overlay-hero, sobre la foto: arriba la cabecera (marca, menú, ES | EN); abajo el margen inferior y lo que en
+       mobile queda debajo del texto (crédito, Reproducir/Pausar). En un hero bajo las franjas se suman: solo oscurece.
+     - --overlay-hero-text, detrás del bloque de texto (site.css): sigue al texto, así un título de 4 líneas también
+       queda cubierto; se funde en los 8rem de arriba y deja la foto limpia entre la cabecera y el texto. */
+  --overlay-hero:
+    linear-gradient(rgba(10, 10, 11, 0.72) 0, rgba(10, 10, 11, 0.62) 4.5rem, rgba(10, 10, 11, 0) 12rem),
+    linear-gradient(to top, rgba(10, 10, 11, 0.94) 0, rgba(10, 10, 11, 0.7) 12rem, rgba(10, 10, 11, 0) 20rem);
+  --overlay-hero-text-fade: 8rem;
+  --overlay-hero-text: linear-gradient(rgba(10, 10, 11, 0) 0, rgba(10, 10, 11, 0.7) var(--overlay-hero-text-fade));
+  /* Tiles de temas: el degradé original del sistema de diseño (texto chico abajo, sin cabecera encima). */
+  --overlay-tile: linear-gradient(
     rgba(10, 10, 11, 0.55) 0%,
     rgba(10, 10, 11, 0) 22%,
     rgba(10, 10, 11, 0.1) 45%,
@@ -166,6 +180,10 @@ a:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
   --paper-code-bg: #f9f9f9;
   --code-block-bg: #24292e;
   --code-block-fg: #e1e4e8;
+  /* Foco y subrayado de hover sobre la hoja: el acento claro del tema oscuro queda en 2,1:1 y 1,5:1 contra el blanco;
+     éste llega a 5,7:1 (WCAG 1.4.11, plataforma-calidad L4 P2-2). Todas las reglas que los usan lo toman de acá. */
+  --link-accent: var(--periwinkle-700);
+  --link-underline-hover: var(--periwinkle-700);
 
   background: var(--paper-bg);
   color: var(--paper-text);

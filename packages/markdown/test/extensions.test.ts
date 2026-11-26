@@ -58,7 +58,7 @@ describe('notas al pie', () => {
   });
 
   it('dentro de un bloque de código nada es nota', () => {
-    assert.equal(html('```\na[^1]\n[^1]: no\n```'), '<pre><code>a[^1]\n[^1]: no</code></pre>');
+    assert.equal(html('```\na[^1]\n[^1]: no\n```'), '<pre tabindex="0"><code>a[^1]\n[^1]: no</code></pre>');
   });
 
   it('el texto de la nota admite formato en línea', () => {
@@ -107,7 +107,7 @@ describe('cajas destacadas', () => {
   it('admite contenido anidado (listas, código, varios párrafos)', () => {
     const out = html('> [!TIP]\n> - uno\n> - dos\n>\n> ```js\n> a()\n> ```\n>\n> Fin');
     assert.ok(out.includes('<ul>\n<li>uno</li>\n<li>dos</li>\n</ul>'));
-    assert.ok(out.includes('<pre><code class="language-js">a()</code></pre>'));
+    assert.ok(out.includes('<pre tabindex="0"><code class="language-js">a()</code></pre>'));
     assert.ok(out.endsWith('<p>Fin</p>\n</aside>'));
   });
 
@@ -192,7 +192,7 @@ describe('tipografía inteligente', () => {
 
   it('nunca dentro de código', () => {
     assert.equal(smart('`"a" -- b...`'), '<p><code>&quot;a&quot; -- b...</code></p>');
-    assert.equal(smart('```\n"a" -- b\n```'), '<pre><code>&quot;a&quot; -- b</code></pre>');
+    assert.equal(smart('```\n"a" -- b\n```'), '<pre tabindex="0"><code>&quot;a&quot; -- b</code></pre>');
   });
 
   it('nunca en URLs ni en atributos', () => {

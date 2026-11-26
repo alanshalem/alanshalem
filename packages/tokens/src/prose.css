@@ -46,6 +46,11 @@
 }
 .prose pre code { font: inherit; background: none; border: 0; padding: 0; }
 
+/* Bloques de código y tablas hacen scroll horizontal: el renderer los deja enfocables (tabindex="0") para recorrerlos
+   con las flechas (WCAG 2.1.1); el foco se ve como el de los links (WCAG 2.4.7). Sobre la hoja, --link-accent es el
+   acento oscuro de .paper (≥ 3:1 sobre blanco). */
+.prose pre:focus-visible, .prose .table-wrap:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 2px; }
+
 /* Tablas: el renderer las envuelve en .table-wrap para poder hacer scroll horizontal en mobile */
 .prose .table-wrap { overflow-x: auto; }
 .prose table { border-collapse: collapse; width: 100%; font-size: 0.95em; }

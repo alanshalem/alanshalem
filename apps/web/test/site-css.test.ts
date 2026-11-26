@@ -22,6 +22,14 @@ test('sobre el hero, el idioma no actual del selector ES/EN se lee como el menú
   assert.doesNotMatch(css, /text-shadow/);
 });
 
+test('sobre las fotos del hero y de la portada, crédito, fecha y temas no usan el gris terciario (WCAG 1.4.3, L4 P1-1)', () => {
+  // text-tertiary necesita un overlay de ~0,91 sobre una foto blanca; text-secondary se lee desde ~0,70 (contrast.test.ts).
+  assert.match(declarations('.hero-credit'), /color:\s*var\(--text-secondary\)/);
+  assert.match(declarations('.article-hero .meta'), /color:\s*var\(--text-secondary\)/);
+  // Los temas van arriba del título, donde el overlay es más liviano: en text-primary, como el menú sobre el hero.
+  assert.match(declarations('.article-hero .eyebrow'), /color:\s*var\(--text-primary\)/);
+});
+
 test('botón Reproducir/Pausar del hero: accesible y oculto hasta que el script lo muestra (S1, L3)', () => {
   // Sin JS (o en una foto) queda `hidden`; su `display` propio no puede ganarle al atributo.
   assert.match(declarations('.hero-toggle[hidden]'), /display:\s*none/);

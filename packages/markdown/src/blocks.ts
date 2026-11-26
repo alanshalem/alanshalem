@@ -17,6 +17,8 @@ export interface BlockContext {
   headings: Heading[];
   slugger: (text: string) => string;
   headingOffset: number;
+  /** Nivel mínimo de un encabezado (opción `minHeadingLevel`, ya limitada a 1..6). */
+  minHeadingLevel: number;
   /** Profundidad de anidamiento: protege contra entradas que intenten desbordar la pila. */
   depth: number;
   /** En listas "apretadas" los párrafos de los ítems no llevan <p>. */
@@ -177,13 +179,14 @@ function parseFence(lines: string[], start: number, open: RegExpExecArray): { ht
   }
 
   const classAttr = SAFE_LANGUAGE.test(language) ? ` class="language-${escapeHtml(language)}"` : '';
-  return { html: `<pre><code${classAttr}>${escapeHtml(code.join('\n'))}</code></pre>`, next: i };
+  // Una línea larga hace scroll horizontal: tabindex para poder recorrerla con el teclado (WCAG 2.1.1).
+  return { html: `<pre tabindex="0"><code${classAttr}>${escapeHtml(code.join('\n'))}</code></pre>`, next: i };
 }
 
 /* ---------------------------- Encabezados ---------------------------- */
 
 function renderHeading(match: RegExpExecArray, ctx: BlockContext): string {
-  const level = Math.min(6, (match[1] ?? '#').length + ctx.headingOffset);
+  const level = Math.min(6, Math.max(ctx.minHeadingLevel, (match[1] ?? '#').length + ctx.headingOffset));
   // Se quitan los # de cierre ("## Título ##"); un "#" suelto cuenta como título vacío.
   const raw = (match[2] ?? '').replace(/[ \t]+#+[ \t]*$/, '').replace(/^#+[ \t]*$/, '').trim();
 
@@ -412,6 +415,8 @@ function parseTable(lines: string[], start: number, ctx: BlockContext): { html: 
   }
 
   const body = rows.length > 0 ? `\n<tbody>\n${rows.join('\n')}\n</tbody>` : '';
-  const html = `<div class="table-wrap"><table>\n<thead>\n${head}\n</thead>${body}\n</table></div>`;
+  // El envoltorio hace scroll horizontal en mobile: enfocable y con nombre para el teclado y el lector (WCAG 2.1.1).
+  const wrap = `<div class="table-wrap" tabindex="0" role="region" aria-label="${escapeHtml(ctx.labels.table)}">`;
+  const html = `${wrap}<table>\n<thead>\n${head}\n</thead>${body}\n</table></div>`;
   return { html, next: i };
 }

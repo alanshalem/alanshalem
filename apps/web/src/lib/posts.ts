@@ -1,4 +1,4 @@
-import { excerpt, readingTimeMinutes, renderMarkdown, slugify, type Heading } from '@blog/markdown';
+import { excerpt, POST_BODY_RENDER_OPTIONS, readingTimeMinutes, renderMarkdown, slugify, type Heading } from '@blog/markdown';
 import { getInternal, oncePerBuild } from './api.ts';
 import { resolveCover, type Cover } from './cover.ts';
 import { isLang, paths, type Alternates, type Lang } from './i18n.ts';
@@ -45,12 +45,11 @@ export interface BlogPost {
   cover: Cover;
 }
 
-/**
- * Cómo se renderiza el cuerpo de un post en el sitio. El título del post ya es el <h1>: el "#" del cuerpo pasa a <h2>.
- * Figuras y tipografía inteligente son opcionales en @blog/markdown solo para no cambiar la salida de otros usos; el
- * sitio las quiere siempre (editor-pro L4). El idioma lo agrega cada post: títulos de cajas y notas en su idioma.
- */
-const BODY_RENDER_OPTIONS = { headingOffset: 1, smartTypography: true, figures: true } as const;
+/** El índice lateral lista secciones (h2) y subsecciones (h3): más profundidad ensucia más de lo que ayuda. */
+const TOC_MAX_LEVEL = 3;
+
+/** Los títulos del cuerpo que entran al índice lateral, en orden. */
+export const tocEntries = (headings: readonly Heading[]): Heading[] => headings.filter((heading) => heading.level <= TOC_MAX_LEVEL);
 
 /** Ruta pública de un post: su idioma define el prefijo y el segmento (/es/articulos/, /en/articles/). */
 export const postPath = (post: Pick<BlogPost, 'lang' | 'slug'>): string => paths.post(post.lang, post.slug);
@@ -66,7 +65,9 @@ export function toBlogPost(apiPost: ApiPost): BlogPost {
   const { lang } = apiPost;
   // Publicarlo bajo otro idioma lo mostraría con la interfaz equivocada: mejor que el build falle y quede el sitio anterior.
   if (!isLang(lang)) throw new Error(`El post "${apiPost.slug}" tiene un idioma "${lang}" que el sitio no publica.`);
-  const { html, headings } = renderMarkdown(apiPost.body, { ...BODY_RENDER_OPTIONS, lang });
+  // Las mismas opciones que la vista previa del admin (@blog/markdown): "## sección, ### subsección" y el título del post
+  // como único <h1>, figuras y tipografía inteligente; el idioma pone los títulos de cajas y notas en el del post.
+  const { html, headings } = renderMarkdown(apiPost.body, { ...POST_BODY_RENDER_OPTIONS, lang });
   const tags = apiPost.tags.map((name) => ({ name, slug: slugify(name) }));
   const cover = resolveCover({
     slug: apiPost.slug,

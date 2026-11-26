@@ -5,7 +5,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { absoluteImageUrl } from '../../../lib/cover.ts';
 import { formatDate, interpolate, paths, segments, ui, type Alternates } from '../../../lib/i18n.ts';
 import { getMediaIndex } from '../../../lib/media.ts';
-import { alternatesByGroup, getPosts, postPath, postsIn, type BlogPost } from '../../../lib/posts.ts';
+import { alternatesByGroup, getPosts, postPath, postsIn, tocEntries, type BlogPost } from '../../../lib/posts.ts';
 import { responsiveProseHtml } from '../../../lib/responsive-image.ts';
 import { absoluteUrl } from '../../../lib/site.ts';
 
@@ -35,8 +35,7 @@ interface Props {
 const { post, alternates, readNext } = Astro.props;
 const { lang } = post;
 const t = ui(lang);
-// El índice lateral lista solo h2 y h3: más profundidad ensucia más de lo que ayuda.
-const toc = post.headings.filter((heading) => heading.level <= 3);
+const toc = tocEntries(post.headings);
 const image = post.cover.kind === 'image' ? post.cover : null;
 // Solo en la página: el feed RSS conserva las <img> simples que entienden todos los lectores.
 const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());

@@ -8,14 +8,16 @@ export type CalloutKind = (typeof CALLOUT_KINDS)[number];
 export interface Labels extends Record<CalloutKind, string> {
   footnotes: string;
   backToText: string;
+  /** Nombre accesible de la región con scroll que envuelve cada tabla. */
+  table: string;
 }
 
 const DEFAULT_LANG: Lang = 'es';
 
 // Una sola tabla: agregar un idioma o un tipo de caja es agregar una fila o una clave acá.
 const LABELS: Record<Lang, Labels> = {
-  es: { note: 'Nota', tip: 'Puntos clave', warning: 'Advertencia', footnotes: 'Notas al pie', backToText: 'Volver al texto' },
-  en: { note: 'Note', tip: 'Key takeaways', warning: 'Warning', footnotes: 'Footnotes', backToText: 'Back to text' },
+  es: { note: 'Nota', tip: 'Puntos clave', warning: 'Advertencia', footnotes: 'Notas al pie', backToText: 'Volver al texto', table: 'Tabla' },
+  en: { note: 'Note', tip: 'Key takeaways', warning: 'Warning', footnotes: 'Footnotes', backToText: 'Back to text', table: 'Table' },
 };
 
 /** Los textos del idioma pedido; un idioma desconocido (p. ej. desde JS sin tipos) cae al español. */
