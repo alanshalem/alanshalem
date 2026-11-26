@@ -3,7 +3,9 @@
 #
 # SITE_ADDRESS = tu dominio (ej: blog.midominio.com). Para probar local: localhost
 
-{$SITE_ADDRESS:localhost} {
+# Cabeceras de seguridad de toda respuesta. En un snippet porque las rutas de error (handle_errors) no pasan por las
+# directivas del sitio: sin importarlo también ahí, un 404 salía sin nosniff, X-Frame-Options ni HSTS (y con Server).
+(security) {
 	header {
 		# Sin includeSubDomains a propósito: este VPS va a alojar otras apps y no quiero forzar HTTPS en sus subdominios por accidente.
 		Strict-Transport-Security "max-age=31536000"
@@ -13,6 +15,10 @@
 		X-Frame-Options "DENY"
 		-Server
 	}
+}
+
+{$SITE_ADDRESS:localhost} {
+	import security
 
 	# ---------- API ----------
 	# Sin request_body max_size a propósito: Caddy no limita ni bufferiza el cuerpo (lo pasa en streaming) y el único
@@ -22,27 +28,41 @@
 		# respond corre antes que reverse_proxy (afuera, Caddy evalúa handle primero y la regla nunca se aplicaba).
 		@internal path /api/internal /api/internal/*
 		respond @internal 404
+		# Lo del panel es privado y cambia con cada guardado: ni el navegador ni un proxy intermedio lo guardan. Lo pone Caddy,
+		# que decide la caché de todas las rutas del sitio en este archivo. `>` (diferido) reemplaza el Cache-Control que
+		# mande la API en vez de sumar un segundo valor.
+		@admin path /api/admin/*
+		header @admin >Cache-Control "no-store"
 		encode zstd gzip
 		reverse_proxy api:8080 {
-			# Si la API se cae, Caddy deja de mandarle tráfico y responde 503 en vez de colgarse.
+			# Si la API se cae, Caddy deja de mandarle tráfico y responde 503 en vez de colgarse. Cada 2 s: tras arrancar o
+			# un deploy (el primer chequeo suele caer mientras .NET arranca), /api vuelve a los pocos segundos y no a los 30.
+			# 3 fallos seguidos para sacarla: un chequeo lento suelto no la deja afuera.
 			health_uri /api/health
-			health_interval 30s
+			health_interval 2s
+			health_fails 3
 		}
 	}
 
 	# ---------- Panel de administración (SPA de React ya compilada) ----------
 	handle_path /admin/* {
 		root * /srv/admin
-		encode zstd gzip
 		# blob: en img-src y media-src: la vista previa local de fotos y el editor de recorte de videos usan URLs de objeto
 		# (el archivo todavía no se subió). Los videos ya procesados vienen de /media ('self').
 		header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-		header Cache-Control "no-cache"
+		# Los assets llevan el hash del contenido en el nombre: para siempre. Todo lo demás (index.html, que apunta a los
+		# assets de turno) se revalida. Los dos con matcher, sin solaparse: Caddy ordena los `header` iguales dejando el
+		# que no tiene matcher al final, y un no-cache suelto pisaba el immutable.
 		@hashed path /assets/*
 		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@html not path /assets/*
+		header @html Cache-Control "no-cache"
 		# Una SPA: cualquier ruta que no sea un archivo devuelve index.html
 		try_files {path} /index.html
-		file_server
+		# Los .br y .gz se generan al construir la imagen (infra/caddy/Dockerfile), como hace el builder con el sitio.
+		file_server {
+			precompressed br gzip
+		}
 	}
 
 	# ---------- Imágenes y videos subidos ----------
@@ -85,8 +105,12 @@
 		}
 	}
 
-	# Página 404 del sitio (Astro la genera como /404.html). El código de estado sigue siendo 404.
+	# Errores: nunca se cachean (un 404 de /media o /_astro heredaba el immutable de un año, y el archivo que falta
+	# puede aparecer después) y llevan las mismas cabeceras de seguridad. Vale también para los 502/503 de la API.
 	handle_errors {
+		import security
+		header Cache-Control "no-store"
+		# Página 404 del sitio (Astro la genera como /404.html). El código de estado sigue siendo 404.
 		@notfound expression {err.status_code} == 404
 		handle @notfound {
 			root * /srv/site/current

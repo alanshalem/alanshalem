@@ -9,5 +9,8 @@
     <ServerGarbageCollector>false</ServerGarbageCollector>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <UserSecretsId>66891b4d-dd09-4d5b-8fcb-b3af1627a333</UserSecretsId>
+    <!-- data/ es la base SQLite, la media y los videos en proceso de `dotnet run`: datos, no código. Fuera de los
+         archivos del proyecto, `dotnet watch` no reinicia la API cada vez que la base escribe, y nada de ahí se publica. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);data/**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>

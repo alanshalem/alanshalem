@@ -8,8 +8,8 @@ Blog propio con editor Markdown, pensado para un VPS chico compartido con otras 
 Visitante ──► Caddy ──► archivos estáticos (HTML precomprimido en br/gzip)
                  │
                  ├─ /media/*   imágenes y videos subidos (cache inmutable, Range)
-                 ├─ /admin/*   SPA de administración (React)
-                 └─ /api/*     API .NET  (/api/internal está bloqueado desde afuera)
+                 ├─ /admin/*   SPA de administración (React, precomprimida; assets con hash inmutables)
+                 └─ /api/*     API .NET  (/api/internal está bloqueado desde afuera; /api/admin/* sin caché)
 
 Admin ──► API ──► SQLite
               └─ al publicar ──► Builder ──► astro build ──► releases/<timestamp>/ ──► symlink `current` (swap atómico)
@@ -59,8 +59,12 @@ pnpm build:web
 Sin instalar .NET, Node ni ffmpeg: solo Docker. Desde la raíz del repo:
 
 ```bash
-docker compose -f infra/compose.dev.yml up --build     # Ctrl+C para cortar; `down` para borrar los contenedores
+docker compose -f infra/compose.dev.yml --env-file infra/local.env up --build   # Ctrl+C para cortar; `down` borra los contenedores
 ```
+
+`--env-file infra/local.env` trae la contraseña del admin y el token de prueba: el mismo archivo que usa la copia local
+de producción, así se cambian en un solo lugar. Va en todos los comandos de este compose (`up`, `logs`, `down`), como
+en la copia local; sin él, compose dice qué variable falta y no hace nada.
 
 | Qué | URL | Recarga en vivo |
 |---|---|---|
@@ -70,15 +74,18 @@ docker compose -f infra/compose.dev.yml up --build     # Ctrl+C para cortar; `do
 
 - El código se monta desde tu disco. `node_modules`, `bin/obj`, los paquetes NuGet y los datos (SQLite, media, videos
   en proceso) viven en volúmenes del proyecto `blog-dev`: no se mezclan con los de Windows ni con la base de
-  `dotnet run`. `docker compose -f infra/compose.dev.yml down -v` los borra (base incluida).
+  `dotnet run`. `docker compose -f infra/compose.dev.yml --env-file infra/local.env down -v` los borra (base incluida).
 - El primer arranque baja dependencias (~1 min); los siguientes, ~20 s. Si cambia el `pnpm-lock.yaml`, el servicio
   `deps` reinstala solo al volver a levantar.
 - Puertos ocupados (por ejemplo, porque también corrés los servidores sin Docker): cambiá los de tu PC con
-  `API_PORT`, `ADMIN_PORT` y `WEB_PORT`, por ejemplo `API_PORT=15090 ADMIN_PORT=15173 WEB_PORT=14321 docker compose -f infra/compose.dev.yml up`.
-  Los enlaces "Ver sitio" del admin siguen apuntando a `localhost:4321`.
-- Otra contraseña: generá un hash (ver abajo) y exportalo antes de levantar:
-  `export ADMIN_PASSWORD_HASH='pbkdf2-sha256$...'`. El token entre la API y el sitio (`BUILDER_TOKEN`) tiene un
-  valor de prueba por defecto; da igual cuál sea mientras tenga 32 caracteres o más.
+  `API_PORT`, `ADMIN_PORT` y `WEB_PORT`, por ejemplo
+  `API_PORT=15090 ADMIN_PORT=15173 WEB_PORT=14321 docker compose -f infra/compose.dev.yml --env-file infra/local.env up`.
+  Los enlaces "Ver sitio" del admin siguen a `WEB_PORT`. El admin llega a la API por la red de compose (`API_URL`).
+- Otra contraseña: generá un hash (ver abajo) y pegalo en `infra/local.env` (vale para el desarrollo y para la copia
+  local). El token entre la API y el sitio (`BUILDER_TOKEN`) es de prueba; da igual cuál sea mientras tenga 32
+  caracteres o más.
+- Sin Docker, `pnpm dev:admin` usa `http://localhost:5090` (API) y `http://localhost:4321/` (sitio); `API_URL` y
+  `SITE_URL` los cambian.
 
 ## Copia local de producción
 
@@ -93,8 +100,8 @@ docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env d
 ```
 
 http://localhost:8080/ → `/es/`; el admin en http://localhost:8080/admin/ con la contraseña `admin`. Si el 8080 está
-ocupado: `LOCAL_PORT=18080 docker compose ...` (también ajusta `SITE_URL`). Recién levantado, `/api` puede responder
-503 hasta ~30 s: Caddy espera el primer chequeo de salud de la API.
+ocupado: `LOCAL_PORT=18080 docker compose ...` (también ajusta `SITE_URL`). Recién levantado, `/api` responde 502
+durante el segundo o dos que tarda en arrancar la API; Caddy la chequea cada 2 s.
 
 Para cambiar la contraseña, generá el hash con la imagen de la API (ya construida por el `up --build`) y pegalo en
 `local.env` entre comillas simples:

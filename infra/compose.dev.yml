@@ -1,6 +1,6 @@
 # Desarrollo con un solo comando, sin instalar .NET, Node ni ffmpeg (desde la raíz del repo):
 #
-#   docker compose -f infra/compose.dev.yml up --build
+#   docker compose -f infra/compose.dev.yml --env-file infra/local.env up --build
 #
 #   API (dotnet watch)  http://localhost:5090/api/health
 #   Admin (Vite)        http://localhost:5173/admin/      contraseña: admin
@@ -9,11 +9,20 @@
 # El código se monta desde tu disco (recarga en vivo); node_modules, bin/obj, NuGet y los datos viven en volúmenes del
 # proyecto blog-dev, así no se pisan con los de Windows. Solo para tu PC: valores de prueba y puertos solo en 127.0.0.1.
 # Puertos ocupados: API_PORT, ADMIN_PORT y WEB_PORT cambian los del lado de tu PC (ver README).
+#
+# La contraseña del admin y el token salen de infra/local.env, el mismo archivo que usa la copia local de producción:
+# se cambian en un solo lugar. Sin --env-file, compose avisa qué falta en vez de arrancar con otros valores.
 
 name: blog-dev
 
 # Token API ↔ sitio (Builder__Token allá, BUILDER_TOKEN acá): definido una vez.
-x-builder-token: &builder-token ${BUILDER_TOKEN:-local-only-builder-token-not-a-secret-0000}
+x-builder-token: &builder-token ${BUILDER_TOKEN:?Falta BUILDER_TOKEN, levantá con --env-file infra/local.env (ver README)}
+
+# Dónde encuentran admin y sitio a la API (por la red de compose) y dónde ve tu navegador el sitio (los enlaces
+# "Ver sitio" del admin y las URL absolutas de astro dev): siguen a WEB_PORT si lo cambiás.
+x-dev-urls: &dev-urls
+  API_URL: http://api:5090
+  SITE_URL: http://localhost:${WEB_PORT:-4321}
 
 # Los tres servicios Node usan la misma imagen (Node + pnpm de package.json) y los mismos volúmenes.
 x-node: &node
@@ -39,12 +48,10 @@ services:
     image: blog-dev-api
     ports:
       - "127.0.0.1:${API_PORT:-5090}:5090"
-      # El del admin también va acá: el admin comparte la red de este contenedor (ver admin).
-      - "127.0.0.1:${ADMIN_PORT:-5173}:5173"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      # Contraseña "admin". Otra: exportá ADMIN_PASSWORD_HASH (README, "Copia local de producción").
-      Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:-pbkdf2-sha256$$600000$$+7ihVRZYczkK6o+cjmJpBA==$$D83+jY2BckGSJHjiSJ8yYV8NHm6Uwc6+hVxfK4rGvzc=}
+      # Contraseña "admin" (local.env). Otra: README, "Copia local de producción".
+      Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:?Falta ADMIN_PASSWORD_HASH, levantá con --env-file infra/local.env (ver README)}
       Builder__Token: *builder-token
       # Datos fuera del código montado: SQLite sobre una carpeta de Windows es lenta y no debe mezclarse con la base de
       # `dotnet run` (apps/api/src/Blog.Api/data).
@@ -65,7 +72,9 @@ services:
   # Instala las dependencias una vez y termina; admin y sitio arrancan después. Si ya están, tarda segundos.
   deps:
     <<: *node
-    # El store va en el mismo volumen que node_modules: pnpm puede enlazar en vez de copiar, y sobrevive entre arranques.
+    # El store va en el volumen del node_modules raíz, donde pnpm arma su carpeta .pnpm con todos los paquetes: mismo disco,
+    # así enlaza (hardlink) en vez de copiar, y sobrevive entre arranques. Los node_modules de cada app solo tienen
+    # symlinks hacia esa carpeta.
     command: pnpm install --frozen-lockfile --store-dir /repo/node_modules/.pnpm-store --filter "@blog/admin..." --filter "@blog/web..."
     environment:
       CI: "true" # sin terminal: que pnpm no pregunte antes de rehacer node_modules
@@ -74,11 +83,14 @@ services:
   admin:
     <<: *node
     command: pnpm --filter @blog/admin dev --host 0.0.0.0
-    # vite.config.ts manda /api y /media a localhost:5090. Compartiendo la red de la API, ese localhost es la API.
-    network_mode: service:api
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-5173}:5173"
+    environment: *dev-urls
     depends_on:
       deps:
         condition: service_completed_successfully
+      api:
+        condition: service_started
 
   web:
     <<: *node
@@ -86,7 +98,7 @@ services:
     ports:
       - "127.0.0.1:${WEB_PORT:-4321}:4321"
     environment:
-      API_URL: http://api:5090
+      <<: *dev-urls
       BUILDER_TOKEN: *builder-token
     depends_on:
       deps:

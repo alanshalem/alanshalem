@@ -23,6 +23,11 @@ COPY packages packages
 COPY apps/admin apps/admin
 RUN pnpm --filter @blog/admin build
 
+# Junto a cada archivo de texto, su .br y .gz (Caddyfile: `precompressed br gzip`): se comprime una vez, al máximo nivel,
+# en vez de en cada petición. La misma función con la que el builder precomprime el sitio.
+COPY apps/builder/src/compress.ts apps/builder/src/
+RUN node --input-type=module -e "import { precompressSite } from './apps/builder/src/compress.ts'; console.log('admin precomprimido:', await precompressSite('apps/admin/dist'), 'archivos')"
+
 FROM caddy:2-alpine
 COPY infra/caddy/Caddyfile /etc/caddy/Caddyfile
 COPY --from=admin-build /repo/apps/admin/dist /srv/admin

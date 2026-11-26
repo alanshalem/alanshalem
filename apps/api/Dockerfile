@@ -39,8 +39,11 @@ RUN --mount=type=cache,id=blog-nuget,target=/root/.nuget/packages \
     dotnet restore src/Blog.Api/Blog.Api.csproj -r linux-x64
 
 COPY src/ src/
+# Sin --no-restore a propósito: la capa de restore puede seguir cacheada aunque BuildKit haya purgado la caché de NuGet
+# (`docker builder prune`), y entonces faltan los paquetes. Con la caché intacta, este restore no hace nada (segundos);
+# si se purgó, vuelve a bajar lo que falta en vez de fallar hasta un `--no-cache`.
 RUN --mount=type=cache,id=blog-nuget,target=/root/.nuget/packages \
-    dotnet publish src/Blog.Api/Blog.Api.csproj -c Release -o /app --no-restore -r linux-x64 --self-contained false -p:UseAppHost=false
+    dotnet publish src/Blog.Api/Blog.Api.csproj -c Release -o /app -r linux-x64 --self-contained false -p:UseAppHost=false
 
 # Ubuntu (glibc, no Alpine): trae ICU, necesario para normalizar acentos al generar slugs, y lo que necesita la libvips
 # que viene en NetVips.Native.linux-x64.

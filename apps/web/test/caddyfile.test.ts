@@ -39,6 +39,64 @@ test('el admin permite vistas previas blob: y /media se cachea para siempre y pe
   assert.doesNotMatch(media, /\bencode\b/, 'AVIF, WebP y MP4 ya vienen comprimidos y Range necesita bytes exactos');
 });
 
+/** Líneas que son directivas (sin comentarios), para no confundir una explicación con la regla. */
+const directives = (text: string): string[] =>
+  text.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !line.startsWith('#'));
+
+test('admin: los assets con hash se cachean para siempre y el resto (index.html de la SPA) se revalida', () => {
+  const admin = directives(block('handle_path /admin/* {'));
+  assert.ok(admin.includes('@hashed path /assets/*'));
+  assert.ok(admin.includes('header @hashed Cache-Control "public, max-age=31536000, immutable"'));
+  // Caddy ordena los `header` iguales poniendo el de ruta específica primero y el que no tiene matcher al final: un
+  // `header Cache-Control "no-cache"` suelto pisaba el immutable de /assets/* (auditoría P2-1). Los dos llevan matcher
+  // y los matchers no se solapan, así el orden deja de importar.
+  assert.ok(admin.includes('@html not path /assets/*'));
+  assert.ok(admin.includes('header @html Cache-Control "no-cache"'));
+  assert.deepEqual(admin.filter((line) => /^header Cache-Control\b/.test(line)), [], 'ningún Cache-Control sin matcher en el admin');
+});
+
+test('admin: se sirve precomprimido (br/gzip hechos al construir la imagen), sin comprimir en cada petición', () => {
+  const admin = block('handle_path /admin/* {');
+  assert.match(admin, /file_server \{\s*precompressed br gzip\s*\}/);
+  assert.ok(!directives(admin).some((line) => line.startsWith('encode')), 'con los .br/.gz ya hechos, encode sobra');
+  // Sin los archivos .br/.gz, `precompressed` no comprime nada: la imagen tiene que generarlos con la misma función
+  // que usa el builder para el sitio.
+  const dockerfile = readFileSync(new URL('../../../infra/caddy/Dockerfile', import.meta.url), 'utf8');
+  assert.match(dockerfile, /precompressSite\('apps\/admin\/dist'\)/);
+});
+
+test('las respuestas de error (404 de /media, /_astro o páginas) nunca se cachean y llevan las cabeceras de seguridad', () => {
+  const errors = block('handle_errors {');
+  // Al nivel del bloque, no solo dentro de @notfound: también los 502/503 de la API.
+  const topLevel = directives(errors.replace(block('handle @notfound {'), ''));
+  assert.ok(topLevel.includes('header Cache-Control "no-store"'), 'un 404 heredaba el immutable de /media o /_astro');
+  // Las rutas de error no pasan por las directivas del sitio: las cabeceras de seguridad salen de un snippet que
+  // importan los dos.
+  assert.ok(topLevel.includes('import security'));
+  assert.match(caddy, /^\{\$SITE_ADDRESS:localhost\} \{\n\timport security$/m, 'el sitio importa el snippet como primera directiva');
+  const security = block('(security) {');
+  for (const header of ['Strict-Transport-Security', 'X-Content-Type-Options', 'X-Frame-Options', '-Server']) {
+    assert.ok(security.includes(header), header);
+  }
+});
+
+test('/api/admin/* nunca se guarda en ninguna caché, aunque la API mande su propio Cache-Control', () => {
+  const api = directives(block('handle /api/* {'));
+  assert.ok(api.includes('@admin path /api/admin/*'));
+  // `>` = diferido: reemplaza lo que venga de la API en vez de sumar un segundo Cache-Control.
+  assert.ok(api.includes('header @admin >Cache-Control "no-store"'));
+});
+
+test('chequeo de salud de la API: usable a los pocos segundos de arrancar y sin oscilar por un chequeo fallido', () => {
+  const proxy = directives(block('reverse_proxy api:8080 {'));
+  const value = (name: string): string | undefined => proxy.find((line) => line.startsWith(`${name} `))?.split(/\s+/)[1];
+  assert.equal(value('health_uri'), '/api/health');
+  // Con 30 s, si el primer chequeo caía mientras la API arrancaba, /api respondía 503 durante ~30 s.
+  assert.equal(value('health_interval'), '2s');
+  // Hacen falta 3 fallos seguidos (~6 s) para sacarla: una respuesta lenta suelta no la saca de servicio.
+  assert.equal(value('health_fails'), '3');
+});
+
 test('la raíz redirige según el idioma del navegador: inglés → /en/, si no → /es/', () => {
   const root = block('handle @root {');
   assert.match(caddy, /@root path \/\s*$/m, 'el matcher @root tiene que ser exactamente la raíz');

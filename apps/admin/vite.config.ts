@@ -30,8 +30,13 @@ function devFonts(): Plugin {
   };
 }
 
-/** Servidor de desarrollo del sitio público (`astro dev`). En producción el sitio comparte dominio con el admin. */
-const DEV_SITE_URL = 'http://localhost:4321/';
+/**
+ * Solo para `vite dev`, con los mismos nombres que usa el sitio (astro.config.mjs): API_URL, a dónde reenviar /api y
+ * /media; SITE_URL, el servidor de `astro dev` para los enlaces "Ver sitio" (en producción el sitio comparte dominio
+ * con el admin). Sin variables, los servidores locales de siempre; Docker (compose.dev.yml) los apunta a sus servicios.
+ */
+const API_URL = process.env.API_URL ?? 'http://localhost:5090';
+const DEV_SITE_URL = (process.env.SITE_URL ?? 'http://localhost:4321').replace(/\/?$/, '/');
 
 // El admin se sirve bajo /admin/ (Caddy) y habla con la API en /api (mismo origen: sin CORS).
 export default defineConfig(({ command }) => ({
@@ -45,8 +50,8 @@ export default defineConfig(({ command }) => ({
     // claro en vez de mudarse en silencio a otro puerto: el navegador y el proxy esperan el 5173.
     strictPort: true,
     watch: reliableDevWatch,
-    // En desarrollo, Vite reenvía /api a la API .NET local.
-    proxy: { '/api': 'http://localhost:5090', '/media': 'http://localhost:5090' },
+    // En desarrollo, Vite reenvía /api y /media a la API .NET.
+    proxy: { '/api': API_URL, '/media': API_URL },
   },
   build: {
     outDir: 'dist',
