@@ -37,7 +37,28 @@ export function formatChord(chord: Chord, mac: boolean): string {
   return parts.join(mac ? '' : '+');
 }
 
+/** El atajo en el formato de `aria-keyshortcuts` ("Control+Shift+X"): el lector de pantalla lo dice aparte del nombre. */
+export const ariaKeyShortcut = (chord: Chord, mac: boolean): string =>
+  [chord.mod ? (mac ? 'Meta' : 'Control') : '', chord.shift ? 'Shift' : '', chord.key.length === 1 ? chord.key.toUpperCase() : chord.key]
+    .filter(Boolean)
+    .join('+');
+
 export const isMacPlatform = (platform: string): boolean => /mac|iphone|ipad/i.test(platform);
+
+/** Ctrl/Cmd+S: guarda en el editor de posts y en los ajustes (useSaveShortcut). */
+export const SAVE_CHORD: Chord = { key: 's', mod: true };
+
+/**
+ * Tab anida un ítem de lista, así que en una lista el foco no podría salir del textarea con el teclado (WCAG 2.1.2).
+ * Esc y después Tab (o Shift+Tab) lo deja salir siempre; `previousKey` es la tecla anterior en el textarea.
+ */
+export const tabLeavesEditor = (event: KeyLike, previousKey: string | null): boolean =>
+  event.key === 'Tab' && previousKey === 'Escape' && !event.ctrlKey && !event.metaKey && !event.altKey;
+
+const MODIFIER_KEYS: ReadonlySet<string> = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'CapsLock']);
+
+/** La "tecla anterior" de tabLeavesEditor: apretar Shift para hacer Shift+Tab no borra el Esc que vino antes. */
+export const rememberKey = (previous: string | null, key: string): string | null => (MODIFIER_KEYS.has(key) ? previous : key);
 
 /** La acción del registro que dispara esta tecla (la primera, aunque los atajos son únicos por test). */
 export const actionForKey = (event: KeyLike, actions: readonly EditorAction[]): EditorAction | undefined =>

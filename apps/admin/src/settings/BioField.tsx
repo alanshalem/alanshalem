@@ -29,7 +29,7 @@ export function BioField({ name, label, lang, value, error, hint, placeholder, o
   return (
     <div className="bio-editor">
       <div className="field">
-        <label className="label" htmlFor={id}>
+        <label className="label" id={`${id}-label`} htmlFor={id}>
           {label}
         </label>
         <textarea
@@ -63,7 +63,8 @@ export function BioField({ name, label, lang, value, error, hint, placeholder, o
         <span className="label" id={`${id}-preview`}>
           {t('common.preview')}
         </span>
-        <div className="paper bio-preview" aria-labelledby={`${id}-preview`}>
+        {/* Región con nombre propio ("Vista previa Bio en inglés"): hay una por idioma y no se confunden. */}
+        <div className="paper bio-preview" role="region" aria-labelledby={`${id}-preview ${id}-label`}>
           {value.trim() === '' ? (
             <p className="bio-preview-empty">{t('settings.bioEmpty')}</p>
           ) : (

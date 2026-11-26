@@ -7,7 +7,7 @@ interface Props {
   onSelect: (entry: OutlineEntry) => void;
 }
 
-// El `#` del cuerpo sale como <h2> (el título del post es el <h1>): ese nivel va sin sangría.
+// Las secciones (`##`, y un `#` del cuerpo) salen como <h2> (el título del post es el <h1>): ese nivel va sin sangría.
 const TOP_LEVEL = 2;
 
 /** Esquema de títulos (S3): cada uno lleva el editor y la vista previa a su sección. */

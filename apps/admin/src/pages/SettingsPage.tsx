@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client.ts';
+import { Banner, type Notice } from '../components/Banner.tsx';
+import { PageHead } from '../components/PageHead.tsx';
 import { HeroGallery } from '../hero/HeroGallery.tsx';
 import type { Translate } from '../i18n/i18n.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
+import { pageTitle } from '../navigation/pageTitle.ts';
+import { useUnsavedGuard } from '../navigation/useUnsavedGuard.ts';
 import { BioField } from '../settings/BioField.tsx';
 import {
   emptySettingsForm,
@@ -12,6 +16,7 @@ import {
   type SettingsErrors,
   type SettingsForm,
 } from '../settings/validate.ts';
+import { useSaveShortcut } from '../useSaveShortcut.ts';
 
 interface Props {
   /** Devuelve true si el error era una sesión vencida (y ya se manejó). */
@@ -60,9 +65,10 @@ export function SettingsPage({ onError }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<SettingsErrors>({});
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<Notice | null>(null);
 
   const dirty = JSON.stringify(form) !== saved;
+  useUnsavedGuard(dirty);
 
   useEffect(() => {
     api
@@ -81,13 +87,6 @@ export function SettingsPage({ onError }: Props) {
       .finally(() => setLoading(false));
     // Sin `t`: cambiar el idioma de la interfaz no vuelve a cargar los ajustes (pisaría lo que se está editando).
   }, [onError]);
-
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent): void => event.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
 
   const update = (key: keyof SettingsForm, value: string): void => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -126,19 +125,7 @@ export function SettingsPage({ onError }: Props) {
     }
   }, [form, onError, i18n, t]);
 
-  // Ctrl/Cmd+S guarda, igual que en el editor de posts.
-  const saveRef = useRef(save);
-  saveRef.current = save;
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-        event.preventDefault();
-        void saveRef.current();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  useSaveShortcut(save); // igual que en el editor de posts
 
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
@@ -185,27 +172,21 @@ export function SettingsPage({ onError }: Props) {
 
   return (
     <div className="settings">
-      <div className="page-head page-head-sticky">
-        <div>
-          <p className="eyebrow">{t('settings.eyebrow')}</p>
-          <h1 className="page-title">{t('nav.settings')}</h1>
-        </div>
+      <PageHead
+        sticky
+        heading={t('nav.settings')}
+        documentTitle={pageTitle({ name: 'settings' }, t)}
+        above={<p className="eyebrow">{t('settings.eyebrow')}</p>}
+      >
         <div className="actions">
           <span className="meta">{dirty ? t('common.unsaved') : t('common.allSaved')}</span>
           <button type="submit" form={FORM_ID} className="primary" disabled={busy || !dirty}>
             {busy ? t('common.saving') : t('common.save')}
           </button>
         </div>
-      </div>
+      </PageHead>
 
-      {message && (
-        <p
-          className={message.kind === 'error' ? 'banner banner-error' : 'banner banner-ok'}
-          role={message.kind === 'error' ? 'alert' : 'status'}
-        >
-          {message.text}
-        </p>
-      )}
+      <Banner notice={message} />
 
       {/* noValidate: la validación propia marca todos los campos a la vez y con los mismos mensajes que la API. */}
       <form id={FORM_ID} onSubmit={handleSubmit} noValidate>

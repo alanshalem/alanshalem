@@ -22,6 +22,7 @@ export type LintRule =
   | 'summaryEmpty'
   | 'summaryTooLong'
   | 'headingSpace'
+  | 'headingOne'
   | 'headingSkip'
   | 'imageAlt'
   | 'linkEmpty'
@@ -72,6 +73,8 @@ function lineIssues({ index, text }: ProseLine): LintIssue[] {
   const issues: LintIssue[] = [];
   const glued = HEADING_WITHOUT_SPACE.exec(text)?.[1];
   if (glued) issues.push({ rule: 'headingSpace', target: at, params: { text: glued } });
+  // L5: `#` es el título del post (h1); en el cuerpo se publica como `##`, pero conviene escribirlo así.
+  if (headingLevel(text) === 1) issues.push({ rule: 'headingOne', target: at, params: {} });
 
   const callout = CALLOUT_LINE.exec(text)?.[1];
   if (callout && !KNOWN_CALLOUTS.has(callout.toUpperCase())) {
@@ -91,14 +94,18 @@ function lineIssues({ index, text }: ProseLine): LintIssue[] {
   return issues;
 }
 
-/** Títulos que saltan niveles respecto del anterior (`##` → `####`). El primero puede ser cualquiera. */
+/**
+ * Títulos que saltan niveles respecto del anterior (`##` → `####`). Se parte del título del post (nivel 1, L5): las
+ * secciones empiezan en `##`, así que un primer `###` también salta. Un `#` cuenta como `##` (así se publica).
+ */
 function headingSkips(lines: readonly ProseLine[]): LintIssue[] {
   const issues: LintIssue[] = [];
-  let previous: number | null = null;
+  let previous = 1;
   for (const { index, text } of lines) {
-    const level = headingLevel(text);
-    if (level === null) continue;
-    if (previous !== null && level > previous + 1) {
+    const source = headingLevel(text);
+    if (source === null) continue;
+    const level = Math.max(2, source);
+    if (level > previous + 1) {
       issues.push({ rule: 'headingSkip', target: { line: index }, params: { from: previous, to: level } });
     }
     previous = level;

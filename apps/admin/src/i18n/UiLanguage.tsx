@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { langCode, LANGS, type Lang } from '../languages.ts';
-import { i18nFor, loadUiLang, saveUiLang, type I18n } from './i18n.ts';
+import { i18nFor, loadUiLang, saveUiLang, uiLangButtonName, type I18n } from './i18n.ts';
 
 export interface UiLanguage extends I18n {
   setLang: (lang: Lang) => void;
@@ -47,7 +47,7 @@ export function useUiLanguage(): UiLanguage {
   return value;
 }
 
-/** Selector "ES | EN" (header y login): botones con aria-pressed, cada uno nombrado en el idioma actual. */
+/** Selector "ES | EN" (header y login): botones con aria-pressed, nombrados "ES – Español" (uiLangButtonName). */
 export function UiLanguageSwitch() {
   const { lang: current, setLang, t } = useUiLanguage();
   return (
@@ -57,7 +57,7 @@ export function UiLanguageSwitch() {
           key={lang}
           type="button"
           aria-pressed={lang === current}
-          aria-label={t(`lang.label.${lang}`)}
+          aria-label={uiLangButtonName(lang, t)}
           onClick={() => setLang(lang)}
         >
           {langCode(lang)}

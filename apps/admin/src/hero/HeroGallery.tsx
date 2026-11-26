@@ -1,9 +1,10 @@
 import { useRef } from 'react';
 import type { HeroImage } from '../api/types.ts';
-import { IMAGE_ACCEPT } from '../components/ImageField.tsx';
+import { Banner } from '../components/Banner.tsx';
 import { ImagePreview } from '../components/ImagePreview.tsx';
 import type { I18n, MessageKey } from '../i18n/i18n.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
+import { IMAGE_ACCEPT } from '../media.ts';
 import { HeroImageCard } from './HeroImageCard.tsx';
 import { thumbnailUrl } from './heroImage.ts';
 import { heroGuidance } from './heroSize.ts';
@@ -161,9 +162,7 @@ export function HeroGallery({ onError }: Props) {
       {gallery.loading ? (
         <p className="help">{t('common.loading')}</p>
       ) : gallery.loadError ? (
-        <p className="banner banner-error" role="alert">
-          {gallery.loadError}
-        </p>
+        <Banner notice={{ kind: 'error', text: gallery.loadError }} />
       ) : gallery.images.length === 0 ? (
         <p className="help hero-empty">{t('hero.empty')}</p>
       ) : (

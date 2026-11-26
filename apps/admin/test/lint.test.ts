@@ -12,7 +12,7 @@ const rules = (issues: readonly LintIssue[]) => issues.map((issue) => issue.rule
 
 describe('revisor: cuerpo', () => {
   it('un post sin problemas no tiene avisos', () => {
-    const body = '# Uno\n\n## Dos\n\nTexto[^1] con [link](https://x.com) y ![foto](/a.webp).\n\n> [!TIP]\n> ok\n\n[^1]: nota';
+    const body = '## Uno\n\n### Dos\n\nTexto[^1] con [link](https://x.com) y ![foto](/a.webp).\n\n> [!TIP]\n> ok\n\n[^1]: nota';
     assert.deepEqual(lintBody(body), []);
   });
 
@@ -26,6 +26,21 @@ describe('revisor: cuerpo', () => {
   it('salto de nivel entre títulos seguidos (el primero puede ser cualquiera)', () => {
     assert.deepEqual(lintBody('## Uno\n\n#### Tres\n\n## Dos\n\n### Ok'), [
       { rule: 'headingSkip', target: { line: 2 }, params: { from: 2, to: 4 } },
+    ]);
+  });
+
+  // L5: el título del post es el h1; las secciones empiezan en ## (h2). Un # suelto se publica como h2.
+  it('los niveles empiezan en ##: un primer ### salta desde el título del post (nivel 1)', () => {
+    assert.deepEqual(lintBody('### Sub\n\ntexto'), [
+      { rule: 'headingSkip', target: { line: 0 }, params: { from: 1, to: 3 } },
+    ]);
+    assert.deepEqual(lintBody('## Sección\n\n### Sub'), []);
+  });
+
+  it('un # en el cuerpo: "Usá ## para secciones" (y cuenta como ##, sin saltos falsos)', () => {
+    assert.deepEqual(lintBody('texto\n\n# Sección\n\n### Sub\n\n> # En cita'), [
+      { rule: 'headingOne', target: { line: 2 }, params: {} },
+      { rule: 'headingOne', target: { line: 6 }, params: {} },
     ]);
   });
 
@@ -96,6 +111,9 @@ describe('revisor: mensajes en los dos idiomas', () => {
       where: 'Line 1',
       message: '“#II.” isn’t a heading: add a space after #.',
     });
+    const [one] = lintBody('# Sección');
+    assert.equal(describeIssue(one!, i18nFor('es')).message, 'Usá ## para secciones: el # es el título del post (un # en el texto se publica como ##).');
+    assert.equal(describeIssue(one!, i18nFor('en')).message, 'Use ## for sections: # is the post title (a # in the text is published as ##).');
     const [summary] = lintPost({ title: 'T', summary: '', body: '' });
     assert.equal(describeIssue(summary!, i18nFor('en')).where, 'Summary');
   });

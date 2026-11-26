@@ -1,4 +1,4 @@
-import { DEFAULT_LANG, LANGS, type Lang } from '../languages.ts';
+import { DEFAULT_LANG, langCode, LANGS, type Lang } from '../languages.ts';
 import { en } from './en.ts';
 import { es, type Dictionary, type MessageKey } from './es.ts';
 
@@ -102,3 +102,9 @@ export function saveUiLang(storage: Pick<Storage, 'setItem'> | null, lang: Lang)
     /* cuota llena o almacenamiento bloqueado */
   }
 }
+
+/**
+ * Nombre de un botón del selector de idioma: primero lo que se ve ("ES") y después el idioma completo, para que
+ * quien usa control por voz pueda decir "ES" y quien escucha sepa cuál es (WCAG 2.5.3).
+ */
+export const uiLangButtonName = (lang: Lang, t: Translate): string => `${langCode(lang)} – ${t(`lang.label.${lang}`)}`;

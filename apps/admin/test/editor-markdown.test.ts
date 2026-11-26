@@ -100,10 +100,13 @@ describe('registro: las acciones nuevas llegan a la barra y a la paleta', () => 
 });
 
 describe('vista previa con las mismas opciones que el sitio', () => {
-  it('idioma del post, tipografía inteligente, figuras y # como <h2>', () => {
-    assert.deepEqual(previewOptions('en'), { headingOffset: 1, lang: 'en', smartTypography: true, figures: true });
-    const html = renderPreview('# Hola\n\n"citas" -- y...\n\n> [!NOTE]\n> x', 'en').html;
+  it('idioma del post, tipografía inteligente, figuras y títulos estándar (L5)', () => {
+    assert.deepEqual(previewOptions('en'), { minHeadingLevel: 2, lang: 'en', smartTypography: true, figures: true });
+    const html = renderPreview('# Hola\n\n## Sección\n\n### Sub\n\n"citas" -- y...\n\n> [!NOTE]\n> x', 'en').html;
+    // ## = h2, ### = h3 (lo que dicen los botones H2/H3) y un # del cuerpo también es sección: el h1 es el título.
     assert.match(html, /<h2 id="hola">Hola<\/h2>/);
+    assert.match(html, /<h2 id="seccion">Sección<\/h2>/);
+    assert.match(html, /<h3 id="sub">Sub<\/h3>/);
     assert.match(html, /“citas”/);
     assert.match(html, /Note/); // título de la caja en el idioma del post
   });
@@ -123,8 +126,8 @@ describe('esquema de títulos', () => {
     const { headings } = renderPreview(markdown, 'es');
     assert.deepEqual(outlineEntries(markdown, headings), [
       { id: 'uno', text: 'Uno', level: 2, line: 0 },
-      { id: 'dos', text: 'Dos', level: 3, line: 8 },
-      { id: 'tres', text: 'Tres', level: 4, line: 11 },
+      { id: 'dos', text: 'Dos', level: 2, line: 8 },
+      { id: 'tres', text: 'Tres', level: 3, line: 11 },
     ]);
   });
 

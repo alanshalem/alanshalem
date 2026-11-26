@@ -1,13 +1,22 @@
-import { readingTimeMinutes, renderMarkdown, toPlainText, type Heading, type RenderOptions, type RenderResult } from '@blog/markdown';
+import {
+  POST_BODY_RENDER_OPTIONS,
+  readingTimeMinutes,
+  renderMarkdown,
+  toPlainText,
+  type Heading,
+  type RenderOptions,
+  type RenderResult,
+} from '@blog/markdown';
 import type { Lang } from '../languages.ts';
 import { isTopLevelHeading } from './markdownSource.ts';
 import { blockStartLines } from './scrollSync.ts';
 
 /**
- * Las opciones con las que el sitio renderiza el cuerpo de un post (apps/web/src/lib/posts.ts, BODY_RENDER_OPTIONS
- * + el idioma del post): con las mismas, la vista previa es lo que se publica (comillas, figuras, títulos de cajas).
+ * Las opciones con las que el sitio renderiza el cuerpo de un post (POST_BODY_RENDER_OPTIONS de @blog/markdown, las
+ * mismas que usa el build + el idioma del post): la vista previa es lo que se publica (## = h2, ### = h3, comillas,
+ * figuras, títulos de cajas).
  */
-export const previewOptions = (lang: Lang): RenderOptions => ({ headingOffset: 1, lang, smartTypography: true, figures: true });
+export const previewOptions = (lang: Lang): RenderOptions => ({ ...POST_BODY_RENDER_OPTIONS, lang });
 
 export const renderPreview = (markdown: string, lang: Lang): RenderResult => renderMarkdown(markdown, previewOptions(lang));
 

@@ -1,4 +1,4 @@
-import type { MessageKey } from '../i18n/i18n.ts';
+import type { MessageKey, Translate } from '../i18n/i18n.ts';
 import { LANGS, type Lang } from '../languages.ts';
 import {
   changeIndent,
@@ -116,6 +116,18 @@ export const availableActions = (
   { canUpload, canCompare }: { canUpload: boolean; canCompare: boolean },
 ): readonly EditorAction[] =>
   actions.filter((action) => (canUpload || action.id !== 'image') && (canCompare || action.id !== 'compare'));
+
+/**
+ * La cara de un botón de la barra y su nombre accesible. El nombre empieza con lo que se ve (WCAG 2.5.3: quien usa
+ * control por voz dice "H2" o "1.") y sigue con la descripción; si la descripción ya empieza con la cara
+ * ("Figura" → "Figura con epígrafe"), no se repite.
+ */
+export function toolbarLabels(action: EditorAction, t: Translate): { face: string; name: string } {
+  const full = t(action.label);
+  const face = action.symbol ?? t(action.short ?? action.label);
+  const name = full.startsWith(face) ? full : `${face} – ${full}`;
+  return { face, name };
+}
 
 /** La paleta lista todo lo que se puede ejecutar a pedido; las teclas de tipeo y la paleta misma, no. */
 export const inPalette = (action: EditorAction): boolean => action.group !== 'typing' && action.id !== 'palette';

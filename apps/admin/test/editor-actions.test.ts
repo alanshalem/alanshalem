@@ -46,6 +46,18 @@ describe('registro de acciones', () => {
     );
   });
 
+  // L5: los botones H2/H3 escriben lo que dicen (## = h2, ### = h3 en el sitio y en la vista previa).
+  it('H2 escribe "## " y H3 "### "', () => {
+    const run = (id: string): string => {
+      const action = actions.find((candidate) => candidate.id === id)!;
+      assert.ok('edit' in action.run);
+      const edit = action.run.edit({ value: 'Idea', start: 0, end: 0 })!;
+      return applyEditToState({ value: 'Idea', start: 0, end: 0 }, edit).value;
+    };
+    assert.equal(run('heading'), '## Idea');
+    assert.equal(run('subheading'), '### Idea');
+  });
+
   it('una instancia por idioma (estable como dependencia de hooks)', () => {
     assert.equal(editorActions('en'), editorActions('en'));
   });

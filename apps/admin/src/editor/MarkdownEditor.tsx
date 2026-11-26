@@ -12,6 +12,7 @@ import {
 import { flushSync } from 'react-dom';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { Lang } from '../languages.ts';
+import { IMAGE_ACCEPT } from '../media.ts';
 import { availableActions, editorActions, inPalette, type EditorAction, type UiAction } from './actions.ts';
 import { applyEditToTextarea } from './applyEdit.ts';
 import { CommandPalette } from './CommandPalette.tsx';
@@ -20,7 +21,7 @@ import { EditorToolbar } from './EditorToolbar.tsx';
 import { FindPanel } from './FindPanel.tsx';
 import { htmlToMarkdown } from './htmlToMarkdown.ts';
 import type { DocumentStats, OutlineEntry } from './preview.ts';
-import { actionForKey, isMacPlatform } from './shortcuts.ts';
+import { actionForKey, isMacPlatform, rememberKey, tabLeavesEditor } from './shortcuts.ts';
 import { ShortcutsHelp } from './ShortcutsHelp.tsx';
 import { lineOffsets } from './text.ts';
 import { measureOffsetTops, scrollTextareaTo } from './textareaMetrics.ts';
@@ -54,7 +55,6 @@ export interface EditorHandle {
 
 type Dialog = 'palette' | 'help';
 
-const IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/gif,image/avif';
 const IS_MAC = typeof navigator !== 'undefined' && isMacPlatform(navigator.platform);
 
 /**
@@ -74,6 +74,8 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, previewHt
   const previewRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const plainPasteRef = useRef(false);
+  // La tecla anterior en el textarea: Esc y después Tab saca el foco aunque el cursor esté en una lista (2.1.2).
+  const previousKeyRef = useRef<string | null>(null);
   // La acción elegida en la paleta corre recién cuando el diálogo se cerró (y el foco volvió al editor).
   const pendingRef = useRef<EditorAction | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
@@ -216,6 +218,9 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, previewHt
   // Atajos de texto solo dentro del textarea (Tab en el buscador no tiene que anidar una lista).
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.nativeEvent.isComposing) return; // no interferir con teclados IME
+    const previousKey = previousKeyRef.current;
+    previousKeyRef.current = rememberKey(previousKey, event.nativeEvent.key);
+    if (tabLeavesEditor(event.nativeEvent, previousKey)) return; // Tab nativo: el foco sale del editor
     const action = actionForKey(event.nativeEvent, actions);
     plainPasteRef.current = action?.id === 'plainPaste';
     if (action && 'edit' in action.run && applyCommand(action.run.edit)) event.preventDefault();
@@ -260,7 +265,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, previewHt
         <input
           ref={fileInputRef}
           type="file"
-          accept={IMAGE_TYPES}
+          accept={IMAGE_ACCEPT}
           multiple
           hidden
           onChange={(event) => {
@@ -303,10 +308,12 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, previewHt
             />
           )}
         </div>
-        {/* tabIndex: con la vista previa sola, los atajos tienen que poder llegar desde acá (y se scrollea con teclado). */}
+        {/* tabIndex: con la vista previa sola, los atajos tienen que poder llegar desde acá (y se scrollea con teclado).
+            role="region": un aria-label en un div sin rol no se anuncia; como región, se encuentra y se nombra. */}
         <div
           ref={previewRef}
           className="paper editor-preview"
+          role="region"
           aria-label={originalLabel ?? t('common.preview')}
           tabIndex={0}
         >

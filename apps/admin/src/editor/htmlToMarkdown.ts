@@ -130,6 +130,13 @@ const LINE_START_NUMBER = /^(\d+)([.)])(?=\s)/;
 // Un bloque que es una lista (el texto que empieza igual ya salió escapado): se pega al ítem sin línea en blanco.
 const LIST_BLOCK = /^(?:-|\d+\.) /;
 
+/**
+ * El nivel de un `<hN>` pegado, en Markdown del sitio (L5): el h1 es el título del post, así que el "Título 1" de un
+ * Doc entra como sección (`##`), igual que el h2; h3 es subsección y de h4 en adelante, todo `####` (más hondo no
+ * se distingue en el artículo).
+ */
+const headingMarker = (level: number): string => '#'.repeat(Math.min(4, Math.max(2, level)));
+
 const escapeText = (text: string): string =>
   text.replace(INLINE_SPECIAL, (special) => special.replace(/./g, (char) => `\\${char}`));
 
@@ -191,7 +198,7 @@ class Converter {
     if (heading) {
       this.formatted = true;
       const text = this.paragraph(element.children, ' ');
-      return text ? [`${'#'.repeat(Number(heading[1]))} ${text}`] : [];
+      return text ? [`${headingMarker(Number(heading[1]))} ${text}`] : [];
     }
     switch (tag) {
       case 'hr':

@@ -9,7 +9,11 @@ interface Props {
   post: Post;
   /** Lo que se está editando: "Sin traducir" se actualiza mientras se escribe. */
   draft: { title: string; body: string };
-  /** Con cambios sin guardar no se crea otra versión: copiaría lo guardado, no lo que se ve. */
+  /**
+   * Con cambios sin guardar, la versión nueva copiaría lo guardado y no lo que se ve: se avisa debajo y, al crearla, se
+   * pregunta antes de salir (useCreateTranslation). El botón no se deshabilita: un botón deshabilitado no explica por
+   * qué ni se alcanza con Tab.
+   */
   dirty: boolean;
   /** La otra versión completa (useOtherVersion, en la página: el editor también la muestra al lado); null si no hay. */
   other: Post | null;
@@ -52,7 +56,7 @@ export function PostVersions({ post, draft, dirty, other, onError }: Props) {
                 ) : (
                   <button
                     type="button"
-                    disabled={translation.creating || dirty}
+                    disabled={translation.creating}
                     onClick={() => void translation.create(post.id, lang)}
                   >
                     {translation.creating

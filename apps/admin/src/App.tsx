@@ -6,7 +6,7 @@ import { PostEditorPage } from './pages/PostEditorPage.tsx';
 import { PostsPage } from './pages/PostsPage.tsx';
 import { SettingsPage } from './pages/SettingsPage.tsx';
 import { SITE_URL } from './siteUrl.ts';
-import { href, useRoute } from './useRoute.ts';
+import { confirmNavigation, href, markViewChange, useRoute } from './useRoute.ts';
 
 type Session = 'loading' | 'anonymous' | 'authenticated';
 
@@ -23,6 +23,7 @@ export function App() {
   }, []);
 
   const handleLogout = useCallback(async () => {
+    if (!confirmNavigation(null)) return; // cambios sin guardar: se pregunta antes de cerrar la sesión
     await api.logout().catch(() => undefined);
     setSession('anonymous');
   }, []);
@@ -37,7 +38,13 @@ export function App() {
   }, []);
 
   if (session === 'loading') return <p className="center-note">{t('common.loading')}</p>;
-  if (session === 'anonymous') return <LoginPage onLoggedIn={() => setSession('authenticated')} />;
+  if (session === 'anonymous') {
+    const onLoggedIn = (): void => {
+      markViewChange(); // el formulario desaparece: el foco va al título de la vista que se abre
+      setSession('authenticated');
+    };
+    return <LoginPage onLoggedIn={onLoggedIn} />;
+  }
 
   const section = route.name === 'settings' ? 'settings' : 'posts';
 
@@ -57,8 +64,10 @@ export function App() {
           <a href={href.settings} aria-current={section === 'settings' ? 'page' : undefined}>
             {t('nav.settings')}
           </a>
+          {/* Se abre en otra pestaña: la flecha lo muestra y el texto oculto lo dice (el nombre empieza igual). */}
           <a href={SITE_URL} target="_blank" rel="noopener">
-            {t('nav.viewSite')}
+            {t('nav.viewSite')} <span aria-hidden="true">↗</span>
+            <span className="visually-hidden"> {t('nav.newTab')}</span>
           </a>
         </nav>
         <UiLanguageSwitch />

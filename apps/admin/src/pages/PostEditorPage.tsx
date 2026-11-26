@@ -2,13 +2,17 @@ import { slugify } from '@blog/markdown';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { Post, PostInput } from '../api/types.ts';
+import { Banner, type Notice } from '../components/Banner.tsx';
 import { ImageField } from '../components/ImageField.tsx';
+import { PageHead } from '../components/PageHead.tsx';
 import { MarkdownEditor, type EditorHandle } from '../editor/MarkdownEditor.tsx';
 import { OutlinePanel } from '../editor/OutlinePanel.tsx';
 import { documentStats, outlineEntries } from '../editor/preview.ts';
 import { usePostPreview } from '../editor/usePostPreview.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { DEFAULT_LANG, LANGS, type Lang } from '../languages.ts';
+import { pageTitle } from '../navigation/pageTitle.ts';
+import { useUnsavedGuard } from '../navigation/useUnsavedGuard.ts';
 import { canAutosave, saveStatusText, type SaveState } from '../posts/autosave.ts';
 import { lintPost, type LintTarget } from '../posts/lint.ts';
 import { PostVersions } from '../posts/PostVersions.tsx';
@@ -19,6 +23,7 @@ import { useOtherVersion } from '../posts/useOtherVersion.ts';
 import { statusLabel } from '../posts/versions.ts';
 import { validateCover } from '../settings/validate.ts';
 import { href, navigate } from '../useRoute.ts'; // navigate: solo al eliminar
+import { useSaveShortcut } from '../useSaveShortcut.ts';
 
 interface Props {
   /** `null` = post nuevo. */
@@ -72,7 +77,9 @@ export function PostEditorPage({ postId, onError }: Props) {
   const [newLang, setNewLang] = useState<Lang>(DEFAULT_LANG);
   const [loading, setLoading] = useState(postId !== null);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [message, setMessage] = useState<Notice | null>(null);
+  // Título vacío al guardar: el campo queda marcado (aria-invalid + el error asociado) y recibe el foco (P2-7).
+  const [titleError, setTitleError] = useState<string | null>(null);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const editorRef = useRef<EditorHandle>(null);
@@ -121,17 +128,14 @@ export function PostEditorPage({ postId, onError }: Props) {
     // Sin `t`: cambiar el idioma de la interfaz no vuelve a cargar el post (pisaría lo que se está editando).
   }, [postId, onError]);
 
-  // Aviso del navegador si se intenta cerrar la pestaña con cambios sin guardar.
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (event: BeforeUnloadEvent): void => event.preventDefault();
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [dirty]);
+  // Avisa antes de perder cambios: otra vista, Salir, crear otra versión o cerrar la pestaña. El guardado automático
+  // actualiza `saved`, así que un borrador que ya se guardó solo no pregunta.
+  useUnsavedGuard(dirty);
 
   const update = <K extends keyof Form>(key: K, value: Form[K]): void => setForm((current) => ({ ...current, [key]: value }));
 
   const handleTitleChange = (title: string): void => {
+    setTitleError(null);
     setForm((current) => ({ ...current, title, slug: slugTouched ? current.slug : slugify(title) }));
   };
 
@@ -147,7 +151,11 @@ export function PostEditorPage({ postId, onError }: Props) {
       setSaveState({ kind: 'error' });
       return null;
     };
-    if (form.title.trim() === '') return fail(t('post.titleRequired'));
+    if (form.title.trim() === '') {
+      setTitleError(t('post.titleRequired'));
+      titleRef.current?.focus();
+      return fail(t('post.titleRequired'));
+    }
     const cover = validateCover(form.coverUrl, form.coverAlt, i18n);
     if (!cover.ok) {
       setCoverError(cover.error);
@@ -194,19 +202,7 @@ export function PostEditorPage({ postId, onError }: Props) {
     else (target.field === 'title' ? titleRef : summaryRef).current?.focus();
   };
 
-  // Ctrl/Cmd+S guarda. El ref evita re-registrar el listener en cada tecla.
-  const saveRef = useRef(save);
-  saveRef.current = save;
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-        event.preventDefault();
-        void saveRef.current();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  useSaveShortcut(save);
 
   const handlePublish = async (): Promise<void> => {
     const current = await save();
@@ -240,8 +236,7 @@ export function PostEditorPage({ postId, onError }: Props) {
     setBusy(true);
     try {
       await api.deletePost(post.id);
-      setSaved(JSON.stringify(form)); // evita el aviso de cambios sin guardar al salir
-      navigate(href.posts);
+      navigate(href.posts, { confirmed: true }); // ya no hay nada que guardar: sin aviso de cambios
     } catch (caught) {
       if (!onError(caught)) setMessage({ kind: 'error', text: t('post.deleteError') });
       setBusy(false);
@@ -252,13 +247,16 @@ export function PostEditorPage({ postId, onError }: Props) {
 
   return (
     <section className="post-editor">
-      <div className="page-head page-head-sticky">
-        <div>
+      <PageHead
+        sticky
+        heading={post ? post.title || t('common.untitled') : t('post.new')}
+        documentTitle={pageTitle(post ? { name: 'edit', title: post.title } : { name: 'new' }, t)}
+        above={
           <a className="back-link" href={href.posts}>
             ← {t('nav.posts')}
           </a>
-          <h1 className="page-title">{post ? post.title || t('common.untitled') : t('post.new')}</h1>
-        </div>
+        }
+      >
         <div className="actions">
           <span className="meta" role="status">
             {saveStatusText({ state: saveState, dirty, exists: post !== null, published: isPublished }, i18n)}
@@ -278,13 +276,9 @@ export function PostEditorPage({ postId, onError }: Props) {
             {isPublished ? t('post.republish') : t('post.publish')}
           </button>
         </div>
-      </div>
+      </PageHead>
 
-      {message && (
-        <p className={message.kind === 'error' ? 'banner banner-error' : 'banner banner-ok'} role={message.kind === 'error' ? 'alert' : 'status'}>
-          {message.text}
-        </p>
-      )}
+      <Banner notice={message} />
 
       {post ? (
         <PostVersions post={post} draft={form} dirty={dirty} other={other} onError={onError} />
@@ -304,10 +298,25 @@ export function PostEditorPage({ postId, onError }: Props) {
       )}
 
       <div className="fields">
-        <label className="field">
-          <span className="label">{t('post.title')}</span>
-          <input ref={titleRef} value={form.title} onChange={(event) => handleTitleChange(event.target.value)} maxLength={200} />
-        </label>
+        <div className="field">
+          <label className="label" htmlFor="post-title">
+            {t('post.title')}
+          </label>
+          <input
+            id="post-title"
+            ref={titleRef}
+            value={form.title}
+            onChange={(event) => handleTitleChange(event.target.value)}
+            maxLength={200}
+            aria-invalid={titleError ? true : undefined}
+            aria-describedby={titleError ? 'post-title-error' : undefined}
+          />
+          {titleError && (
+            <p id="post-title-error" className="field-error">
+              {titleError}
+            </p>
+          )}
+        </div>
         <label className="field">
           <span className="label">{t('post.slug')}</span>
           <input

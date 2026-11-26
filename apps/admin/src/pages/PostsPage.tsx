@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client.ts';
 import type { PostSummary } from '../api/types.ts';
+import { Banner } from '../components/Banner.tsx';
+import { PageHead } from '../components/PageHead.tsx';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
+import { pageTitle } from '../navigation/pageTitle.ts';
 import { useCreateTranslation } from '../posts/useCreateTranslation.ts';
 import { groupPosts, versionLabel, versionSlots } from '../posts/versions.ts';
 import { VersionLink } from '../posts/VersionLink.tsx';
@@ -35,21 +38,17 @@ export function PostsPage({ onError }: Props) {
 
   return (
     <section>
-      <div className="page-head">
-        <div>
-          <p className="eyebrow">{t('posts.eyebrow')}</p>
-          <h1 className="page-title">{t('nav.posts')}</h1>
-        </div>
+      <PageHead
+        heading={t('nav.posts')}
+        documentTitle={pageTitle({ name: 'posts' }, t)}
+        above={<p className="eyebrow">{t('posts.eyebrow')}</p>}
+      >
         <a className="primary button-link" href={href.newPost}>
           {t('post.new')}
         </a>
-      </div>
+      </PageHead>
 
-      {problem && (
-        <p className="banner banner-error" role="alert">
-          {problem}
-        </p>
-      )}
+      <Banner notice={problem ? { kind: 'error', text: problem } : null} />
       {posts === null && !loadFailed && <p className="center-note">{t('common.loading')}</p>}
       {posts?.length === 0 && (
         <div className="empty-state">

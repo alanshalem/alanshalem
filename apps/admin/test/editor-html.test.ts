@@ -9,7 +9,15 @@ const B = '\\';
 
 describe('htmlToMarkdown: bloques', () => {
   it('párrafos, títulos y separador', () => {
-    assert.equal(md('<h1>T</h1><p>Uno</p><hr><h3>S</h3><p>Dos</p>'), '# T\n\nUno\n\n---\n\n### S\n\nDos');
+    assert.equal(md('<h1>T</h1><p>Uno</p><hr><h3>S</h3><p>Dos</p>'), '## T\n\nUno\n\n---\n\n### S\n\nDos');
+  });
+
+  // L5: el h1 es el título del post; lo que se pega (un Doc con su "Título 1") entra como sección.
+  it('títulos: h1 y h2 → ##, h3 → ###, h4 a h6 → ####', () => {
+    assert.equal(
+      md('<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>'),
+      '## a\n\n## b\n\n### c\n\n#### d\n\n#### e\n\n#### f',
+    );
   });
 
   it('<br> es un salto de línea forzado dentro del párrafo', () => {

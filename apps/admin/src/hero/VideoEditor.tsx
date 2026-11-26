@@ -1,9 +1,10 @@
 import { useId } from 'react';
 import type { VideoEdit } from '../api/types.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
+import { usePrefersReducedMotion } from '../usePrefersReducedMotion.ts';
 import { FadePicker } from './FadePicker.tsx';
 import { TrimTimeline } from './TrimTimeline.tsx';
-import { usePrefersReducedMotion, useRangePreview } from './useRangePreview.ts';
+import { useRangePreview } from './useRangePreview.ts';
 import { useVideoEditor } from './useVideoEditor.ts';
 import { fadeExplanation } from './videoEdit.ts';
 

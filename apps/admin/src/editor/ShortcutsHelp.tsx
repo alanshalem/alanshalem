@@ -36,6 +36,8 @@ export function ShortcutsHelp({ actions, mac, onClose }: Props) {
           </section>
         ))}
       </div>
+      {/* Tab anida listas: cómo salir del editor con el teclado (WCAG 2.1.2). */}
+      <p className="help shortcuts-note">{t('editor.tabHint')}</p>
     </Modal>
   );
 }

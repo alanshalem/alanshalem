@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
+import { IMAGE_ACCEPT } from '../media.ts';
 import { isImageUrl } from '../settings/validate.ts';
 import { ImagePreview } from './ImagePreview.tsx';
 
@@ -18,9 +19,6 @@ interface Props {
   /** Explicación debajo del bloque. */
   help?: ReactNode;
 }
-
-/** Formatos que acepta la subida de media (input `accept`). */
-export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif';
 
 /**
  * Bloque de imagen reutilizable (portada del post): subir un archivo o pegar una URL,

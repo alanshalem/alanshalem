@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { VideoEdit } from '../api/types.ts';
 import { previewFrame, previewLoopStart, type PreviewFrame } from './videoEdit.ts';
 
@@ -7,17 +7,6 @@ const END_TOLERANCE_SECONDS = 0.05;
 // Desfase tolerado entre los dos videos del loop: más se nota; resincronizar por menos trabaría la reproducción.
 const SYNC_TOLERANCE_SECONDS = 0.25;
 const STILL: PreviewFrame = { curtainOpacity: 0, overlay: null };
-
-const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
-const subscribeToMotion = (onChange: () => void): (() => void) => {
-  const query = window.matchMedia(REDUCED_MOTION);
-  query.addEventListener('change', onChange);
-  return () => query.removeEventListener('change', onChange);
-};
-
-/** Si el sistema pide reducir el movimiento (se actualiza si el usuario lo cambia con la página abierta). */
-export const usePrefersReducedMotion = (): boolean =>
-  useSyncExternalStore(subscribeToMotion, () => window.matchMedia(REDUCED_MOTION).matches);
 
 const play = (video: HTMLVideoElement): void => {
   // El navegador puede negar la reproducción (pestaña en segundo plano, ahorro de energía): queda en pausa.

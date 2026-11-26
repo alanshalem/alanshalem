@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api/client.ts';
 import { UiLanguageSwitch, useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { MessageKey } from '../i18n/i18n.ts';
+import { pageTitle } from '../navigation/pageTitle.ts';
+import { useDocumentTitle } from '../navigation/usePageHeading.ts';
 import { SITE_URL } from '../siteUrl.ts';
 
 interface Props {
@@ -14,6 +16,7 @@ export function LoginPage({ onLoggedIn }: Props) {
   // La clave y no el texto: si se cambia de idioma con el error a la vista, el error también cambia.
   const [error, setError] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
+  useDocumentTitle(pageTitle({ name: 'login' }, t));
 
   const handleSubmit = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
