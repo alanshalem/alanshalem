@@ -27,6 +27,8 @@
 		# /api/internal lo lee el builder por la red interna de Docker: hacia afuera no existe. Va dentro del handle: ahí
 		# respond corre antes que reverse_proxy (afuera, Caddy evalúa handle primero y la regla nunca se aplicaba).
 		@internal path /api/internal /api/internal/*
+		# `respond` no pasa por handle_errors: el no-store va acá (si no, este 404 quedaría sin Cache-Control).
+		header @internal Cache-Control "no-store"
 		respond @internal 404
 		# Lo del panel es privado y cambia con cada guardado: ni el navegador ni un proxy intermedio lo guardan. Lo pone Caddy,
 		# que decide la caché de todas las rutas del sitio en este archivo. `>` (diferido) reemplaza el Cache-Control que

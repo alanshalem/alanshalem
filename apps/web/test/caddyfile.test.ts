@@ -125,3 +125,8 @@ test('un asset del admin que no existe da 404, no el index.html de la SPA con ca
   assert.match(admin, /^\s*rewrite @spa \/index\.html\s*$/m);
   assert.doesNotMatch(admin, /^\s*try_files\b/m, 'sin try_files (no admite matcher)');
 });
+
+test('el 404 de /api/internal tampoco se cachea (respond no pasa por handle_errors)', () => {
+  const api = block('handle /api/* {');
+  assert.match(api, /^\s*header @internal Cache-Control "no-store"\s*$/m);
+});
