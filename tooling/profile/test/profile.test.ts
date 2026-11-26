@@ -49,7 +49,7 @@ describe('renderProfile', () => {
 
   it('la cabecera se anima al entrar y respeta prefers-reduced-motion', () => {
     assert.match(files['header.svg']!, /animation:/);
-    assert.match(descOf(files['header.svg']!), /Alan Shalem.*Full Stack Developer from Argentina/);
+    assert.match(descOf(files['header.svg']!), /Alan Shalem.*Engineer from Argentina/);
   });
 
   it('cada tarjeta de datos describe sus valores en <desc> (el texto está dibujado como trazos)', () => {

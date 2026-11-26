@@ -6,8 +6,8 @@
 export const person = {
   greeting: "Hey there, I'm",
   name: 'Alan Shalem',
-  role: 'Full Stack Developer from Argentina',
-  bio: 'Developer / Electronic Engineering · Avid reader · Melomaniac',
+  role: 'Engineer from Argentina',
+  bio: 'Developer / Electronic Engineering',
 } as const;
 
 export interface Tech {

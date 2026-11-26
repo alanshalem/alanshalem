@@ -17,5 +17,8 @@
     "test:agents": "node --test \"tooling/agents/test/*.test.ts\"",
     "agents:sync": "node tooling/agents/sync.ts",
     "agents:check": "node tooling/agents/sync.ts --check"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
   }
 }

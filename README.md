@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/profile/header.svg" width="100%" alt="Hey there, I'm Alan Shalem. Full Stack Developer from Argentina. Developer / Electronic Engineering · Avid reader · Melomaniac.">
+  <img src="assets/profile/header.svg" width="100%" alt="Hey there, I'm Alan Shalem. Engineer from Argentina. Developer / Electronic Engineering.">
 </div>
 
 ### About me
@@ -41,7 +41,3 @@
 - LinkedIn — [linkedin.com/in/alanshalem](https://www.linkedin.com/in/alanshalem)
 - GitHub — [github.com/alanshalem](https://github.com/alanshalem)
 - X — [@alanshalem_](https://x.com/alanshalem_)
-
----
-
-<sub>Every image above is an SVG drawn by [`tooling/profile`](tooling/profile/generate.ts) from public GitHub data and refreshed daily by a GitHub Action: no third-party image services. Code is [MIT](LICENSE); posts, photos and videos are all rights reserved. The blog's own docs live in [`.github/README.md`](.github/README.md).</sub>
