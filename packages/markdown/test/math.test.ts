@@ -156,3 +156,71 @@ describe('without the math option, $ renders exactly as before', () => {
     assert.deepEqual(renderMarkdown(md, { ...POST_BODY_RENDER_OPTIONS, math: fakeMath }), plain);
   });
 });
+
+/*
+ * Plain paths (heading ids, the TOC's headings[].text, image alt, `text`) never see a formula's slot: they carry the
+ * formula's TeX source, without its `$` delimiters (like `text`); the HTML carries the rendered formula.
+ */
+describe('formulas in plain paths', () => {
+  const noSlot = (value: unknown): void => assert.doesNotMatch(JSON.stringify(value), /<\$\d+>/);
+
+  it('a heading: the rendered formula in the HTML, its TeX in the id, the TOC text and the plain text', () => {
+    const result = renderMarkdown('## Energía $E=mc^2$', { ...POST_BODY_RENDER_OPTIONS, ...MATH });
+    assert.equal(result.html, `<h2 id="energia-e-mc-2">Energía ${inline('E=mc^2')}</h2>`);
+    assert.deepEqual(result.headings, [{ level: 2, id: 'energia-e-mc-2', text: 'Energía E=mc^2' }]);
+    assert.equal(result.text, 'Energía E=mc^2');
+    noSlot(result);
+  });
+
+  it('the TeX is kept verbatim (no mark stripping inside it); code spans, prices and \\$ are not formulas', () => {
+    const { headings } = renderMarkdown('## Tamaño $N_{\\text{ef}}$, `$x$` y \\$5 *ya*', MATH);
+    assert.equal(headings[0]?.text, 'Tamaño N_{\\text{ef}}, $x$ y $5 ya');
+    assert.equal(renderMarkdown('## Cuesta $5 y $10', MATH).headings[0]?.text, 'Cuesta $5 y $10');
+  });
+
+  it('an image alt carries the TeX; a figure caption renders the formula', () => {
+    assert.equal(html('![una $x$ imagen](/a.png)'), '<p><img src="/a.png" alt="una x imagen" loading="lazy" decoding="async"></p>');
+    const result = renderMarkdown('![a $x$](/a.png "pie con $y$")', { ...POST_BODY_RENDER_OPTIONS, ...MATH });
+    assert.equal(
+      result.html,
+      `<figure><img src="/a.png" alt="a x" loading="lazy" decoding="async"><figcaption>pie con ${inline('y')}</figcaption></figure>`,
+    );
+    assert.equal(result.text, 'pie con y');
+    noSlot(result);
+  });
+
+  it('a table cell renders the formula; the plain text carries its TeX', () => {
+    const result = renderMarkdown('| a $x$ | b |\n|---|---|\n| $z$ | 2 |', MATH);
+    assert.match(result.html, new RegExp(`<th>a ${inline('x')}</th>`));
+    assert.match(result.html, new RegExp(`<td>${inline('z')}</td>`));
+    assert.equal(result.text, 'a x b z 2');
+    noSlot(result);
+  });
+
+  it('without the option, headings and alt keep the $ text exactly as before', () => {
+    assert.equal(renderMarkdown('## Energía $E=mc^2$').headings[0]?.text, 'Energía $E=mc^2$');
+    assert.equal(html('![una $x$ imagen](/a.png)', {}), '<p><img src="/a.png" alt="una $x$ imagen" loading="lazy" decoding="async"></p>');
+  });
+});
+
+describe('long runs without spaces stay fast (no quadratic pass over the HTML)', () => {
+  const TOKEN = 'A'.repeat(50_000); // like base64 pasted in a code block
+
+  for (const [name, md] of [
+    ['without formulas', `\`\`\`\n${TOKEN}\n\`\`\``],
+    ['with a formula elsewhere', `\`\`\`\n${TOKEN}\n\`\`\`\n\n($x$), ${TOKEN}`],
+  ] as const) {
+    it(name, () => {
+      const started = performance.now();
+      const result = renderMarkdown(md, MATH);
+      const elapsed = performance.now() - started;
+      assert.ok(elapsed < 300, `took ${Math.round(elapsed)} ms`);
+      assert.ok(result.html.includes(TOKEN));
+    });
+  }
+
+  it('the text written against a formula is still glued to it', () => {
+    assert.equal(html('a ($x$), b $y$z c'), `<p>a ${glued(`(${inline('x')}),`)} b ${glued(`${inline('y')}z`)} c</p>`);
+    assert.equal(html('x$a$y$b$w'), `<p>${glued(`x${inline('a')}y`)}${glued(`${inline('b')}w`)}</p>`);
+  });
+});

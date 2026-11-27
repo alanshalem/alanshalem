@@ -224,7 +224,7 @@ function renderHeading(match: RegExpExecArray, ctx: BlockContext): string {
   // Only document-level headings get an anchor and go into the table of contents.
   if (ctx.depth > 0) return `<h${level}>${renderInline(raw, ctx.inline)}</h${level}>`;
 
-  const text = plainInline(raw);
+  const text = plainInline(raw, ctx.inline.math !== null);
   const id = ctx.slugger(text);
   ctx.headings.push({ level, id, text });
   return `<h${level} id="${id}">${renderInline(raw, ctx.inline)}</h${level}>`;

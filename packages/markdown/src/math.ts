@@ -25,8 +25,29 @@ export interface Formulas {
 }
 
 const SLOT = /<\$(\d+)>/g;
-// A slot with the text written against it on each side (up to a space or a tag): `(`, `),`, `.`, quotes.
-const SLOT_IN_WORD = /([^\s<>]*)(<\$\d+>)([^\s<>]*)/g;
+/** A character of the text written against a formula: anything up to a space or a tag. */
+const isGlued = (char: string | undefined): boolean => char !== undefined && !/[\s<>]/.test(char);
+
+/**
+ * Each slot with the text written against it on each side (`(`, `),`, `.`, quotes) wrapped in a no-wrap span. It
+ * looks only around the slots, and never back past the previous match, so each character is visited at most twice:
+ * a long run without spaces (base64 in a code block) costs linear time, not quadratic.
+ */
+function glueSlots(html: string): string {
+  const slot = new RegExp(SLOT.source, 'g');
+  let out = '';
+  let done = 0;
+  for (let match = slot.exec(html); match; match = slot.exec(html)) {
+    let start = match.index;
+    while (start > done && isGlued(html[start - 1])) start -= 1;
+    let end = slot.lastIndex;
+    while (isGlued(html[end])) end += 1;
+    const word = html.slice(start, end);
+    out += html.slice(done, start) + (word.length > match[0].length ? `<span class="math-nowrap">${word}</span>` : word);
+    done = slot.lastIndex = end;
+  }
+  return out + html.slice(done);
+}
 
 export function createFormulas(render: MathRenderer): Formulas {
   const formulas: Array<{ tex: string; display: boolean }> = [];
@@ -45,15 +66,15 @@ export function createFormulas(render: MathRenderer): Formulas {
     // A long display formula scrolls inside its box, not the page: tabindex makes it keyboard scrollable (WCAG 2.1.1),
     // like <pre>. A line may break before or after an inline <math> (an atomic inline), even right after `(`: the text
     // written against a formula goes in a no-wrap span with it.
+    // Without formulas there is no slot: the HTML is returned as is, without a pass over it.
     html: (withSlots) =>
-      fill(
-        withSlots.replace(SLOT_IN_WORD, (match, before: string, slot: string, after: string) =>
-          before || after ? `<span class="math-nowrap">${before}${slot}${after}</span>` : match,
-        ),
-        (tex, display) =>
-          display ? `<div class="math-display" tabindex="0">${render(tex, true)}</div>` : render(tex, false),
-      ),
-    textHtml: (withSlots) => fill(withSlots, (tex, display) => (display ? ` ${escapeHtml(tex)} ` : escapeHtml(tex))),
+      formulas.length === 0
+        ? withSlots
+        : fill(glueSlots(withSlots), (tex, display) =>
+            display ? `<div class="math-display" tabindex="0">${render(tex, true)}</div>` : render(tex, false),
+          ),
+    textHtml: (withSlots) =>
+      formulas.length === 0 ? withSlots : fill(withSlots, (tex, display) => (display ? ` ${escapeHtml(tex)} ` : escapeHtml(tex))),
   };
 }
 

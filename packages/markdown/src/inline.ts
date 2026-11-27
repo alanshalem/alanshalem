@@ -70,17 +70,59 @@ export function renderInline(source: string, ctx: InlineContext, insideLink = fa
   return html;
 }
 
-/** Text without Markdown marks (for heading ids, image alt text and excerpts). */
-export function plainInline(source: string): string {
+/**
+ * Text without Markdown marks (for heading ids, image alt text and excerpts). With `math` (the option is on), each
+ * formula found by the same rule as the render (`findMath`) gives its TeX source verbatim, like `RenderResult.text`:
+ * no `$` delimiters and no mark stripping inside it.
+ */
+export function plainInline(source: string, math = false): string {
+  const parts = math ? splitFormulas(source) : [source];
+  return parts
+    .map((part) => (typeof part === 'string' ? stripMarks(part) : part.tex))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** The source split into text and formulas (`$tex$`), skipping code spans, autolinks, links and bare URLs. */
+function splitFormulas(source: string): Array<string | { tex: string }> {
+  const parts: Array<string | { tex: string }> = [];
+  let text = 0;
+  let i = 0;
+  while (i < source.length) {
+    if (source[i] === '\\') {
+      i += 2;
+      continue;
+    }
+    const skipped = skipLiteralSpan(source, i);
+    if (skipped > i) {
+      i = skipped;
+      continue;
+    }
+    if (source[i] !== '$') {
+      i += 1;
+      continue;
+    }
+    const formula = findMath(source, i);
+    if (!formula) {
+      i += dollarRun(source, i);
+      continue;
+    }
+    parts.push(source.slice(text, i), { tex: formula.tex });
+    i = text = formula.end;
+  }
+  parts.push(source.slice(text));
+  return parts;
+}
+
+function stripMarks(source: string): string {
   return source
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<((?:https?:\/\/|mailto:)[^\s<>]+)>/g, '$1')
     .replace(/\[\^[^\]\s]+\]/g, '') // a footnote number is not part of the title
     .replace(/\\([!-/:-@[-`{-~])/g, '$1')
-    .replace(/[`*_~]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/[`*_~]/g, '');
 }
 
 function parseSpecial(source: string, i: number, ctx: InlineContext, insideLink: boolean): Parsed | null {
@@ -325,7 +367,8 @@ function parseLinkOrImage(source: string, start: number, isImage: boolean, ctx: 
   const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
 
   if (isImage) {
-    return { html: url ? renderImage(url, label, titleAttr) : escapeHtml(plainInline(label)), end };
+    const math = ctx.math !== null;
+    return { html: url ? renderImage(url, label, math, titleAttr) : escapeHtml(plainInline(label, math)), end };
   }
 
   const inner = renderInline(label, ctx, true);
@@ -345,11 +388,11 @@ export function renderFigure(source: string, ctx: InlineContext): string | null 
   if (!target || target.end !== source.length || caption === '') return null;
   const url = sanitizeUrl(target.destination);
   if (!url) return null;
-  return `<figure>${renderImage(url, target.label)}<figcaption>${renderInline(caption, ctx)}</figcaption></figure>`;
+  return `<figure>${renderImage(url, target.label, ctx.math !== null)}<figcaption>${renderInline(caption, ctx)}</figcaption></figure>`;
 }
 
-function renderImage(url: string, label: string, titleAttr = ''): string {
-  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(plainInline(label))}"${titleAttr} loading="lazy" decoding="async">`;
+function renderImage(url: string, label: string, math: boolean, titleAttr = ''): string {
+  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(plainInline(label, math))}"${titleAttr} loading="lazy" decoding="async">`;
 }
 
 function renderAnchor(url: string, innerHtml: string, titleAttr = ''): string {
