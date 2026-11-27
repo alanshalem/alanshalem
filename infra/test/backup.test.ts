@@ -36,7 +36,7 @@ stop)
 	fi
 	exit 0 ;;
 esac
-case " $* " in *' -euc '*) ;; *) exit 0 ;; esac      # stop, init-permisos, request-build: solo se registran
+case " $* " in *' -euc '*) ;; *) exit 0 ;; esac      # stop, init-permissions, request-build: solo se registran
 for last; do :; done                    # el script es el último argumento
 mapped=$(printf %s "$last" | sed "s#/data#$FAKE_ROOT/data#g; s#/media#$FAKE_ROOT/media#g")
 run() { PATH="$FAKE_ROOT/bin:$PATH" sh -euc "$mapped"; }
@@ -383,7 +383,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.equal(readDb(live('blog.db')), 'base nueva');
       const log = await calls();
       assert.match(log, /PRAGMA integrity_check/);
-      assert.doesNotMatch(log, /init-permisos|stop|up -d|exec -T api|api -euc/);
+      assert.doesNotMatch(log, /init-permissions|stop|up -d|exec -T api|api -euc/);
       assert.deepEqual(await preRestore(), []);
     });
 
@@ -411,7 +411,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.deepEqual(await list(live('backups')), []);
 
       const log = await calls();
-      const order = ['run --rm init-permisos', 'exec -T api sh -euc dotnet Blog.Api.dll backup', 'stop api builder', 'up -d --wait', 'exec -T builder node src/request-build.ts'];
+      const order = ['run --rm init-permissions', 'exec -T api sh -euc dotnet Blog.Api.dll backup', 'stop api builder', 'up -d --wait', 'exec -T builder node src/request-build.ts'];
       const positions = order.map((step) => log.indexOf(step));
       for (const [index, step] of order.entries()) assert.ok(positions[index]! >= 0, step);
       assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'en este orden');
@@ -540,7 +540,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.equal(result.code, 1);
       assert.match(result.stderr, /blog\.db no pasa PRAGMA integrity_check/);
       assert.equal(readDb(live('blog.db')), 'base nueva');
-      assert.doesNotMatch(await calls(), /init-permisos|stop api builder/);
+      assert.doesNotMatch(await calls(), /init-permissions|stop api builder/);
     });
 
     it('sin snapshot explica el uso; con uno inválido no hace nada', async () => {

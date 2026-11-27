@@ -41,10 +41,13 @@ x-healthcheck: &healthcheck
 # 200 MB de video) y las imágenes temporales de libvips (fotos de hasta 100 Mpx).
 x-api-tmp: &api-tmp /data/tmp
 
+# API <-> builder token (Builder__Token, BUILDER_TOKEN): written and required once, as in compose.dev.yml.
+x-builder-token: &builder-token ${BUILDER_TOKEN:?Definí BUILDER_TOKEN en .env (openssl rand -hex 32)}
+
 services:
   # Los volúmenes nuevos nacen con dueño root; la API (uid 1654) y el builder (uid 1000) necesitan escribir.
   # Corre en cada `up`, arregla solo lo que tiene otro dueño (no reescribe toda la media cada vez) y termina.
-  init-permisos:
+  init-permissions:
     <<: *service
     image: busybox:1.36.1@sha256:73aaf090f3d85aa34ee199857f03fa3a95c8ede2ffd4cc2cdb5b94e566b11662
     command:
@@ -118,7 +121,7 @@ services:
       Logging__Console__FormatterName: json
       Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:?Generá el hash con el comando hash-password (ver README)}
       Builder__Url: http://builder:4000
-      Builder__Token: ${BUILDER_TOKEN:?Definí BUILDER_TOKEN en .env (openssl rand -hex 32)}
+      Builder__Token: *builder-token
       ConnectionStrings__Blog: Data Source=/data/blog.db
       Media__Directory: /media
       DataProtection__KeysDirectory: /data/keys
@@ -139,10 +142,10 @@ services:
     volumes:
       - api_data:/data
       # nocopy: la imagen (Ubuntu) ya trae un /media vacío de root, y Docker copia su dueño al volumen mientras esté
-      # vacío: deshacía el chown de init-permisos y la primera subida fallaba con "Permission denied".
+      # vacío: deshacía el chown de init-permissions y la primera subida fallaba con "Permission denied".
       - media:/media:nocopy
     depends_on:
-      init-permisos:
+      init-permissions:
         condition: service_completed_successfully
     # Medido con `docker stats` (ffmpeg 9.1, SVT-AV1 4.3), peor caso: video de 15 s a 1080p con ruido fuerte. En reposo
     # ~85 MB. Codificando: ffmpeg llega a ~1,1 GB de RSS en la versión AV1 1080p (las otras, 0,4-0,8 GB) y el
@@ -159,7 +162,7 @@ services:
       dockerfile: apps/builder/Dockerfile
     restart: unless-stopped
     environment:
-      BUILDER_TOKEN: ${BUILDER_TOKEN}
+      BUILDER_TOKEN: *builder-token
       API_URL: http://api:8080
       SITE_URL: "${SITE_URL:?Definí SITE_URL en .env, con https:// y sin barra final}"
     healthcheck:
@@ -169,7 +172,7 @@ services:
     volumes:
       - site:/site
     depends_on:
-      init-permisos:
+      init-permissions:
         condition: service_completed_successfully
       # El build lee la API: arrancar antes solo gastaría reintentos.
       api:

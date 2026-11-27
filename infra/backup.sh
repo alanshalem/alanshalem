@@ -31,6 +31,14 @@ REMOTE_MAX_DELETE=2
 # Lo que la retención saca del remoto queda en deleted/<UTC>/ y se borra de verdad recién pasado este tiempo.
 REMOTE_KEEP_DELETED=30d
 
+# Nombres de los snapshots de la carpeta $1, del más viejo al más nuevo (son fechas UTC: el orden alfabético es el
+# cronológico). Sin los ocultos: un snapshot a medias (.<UTC>.partial) no cuenta.
+snapshots() {
+	for path in "$1"/*; do
+		if [ -d "$path" ]; then printf '%s\n' "${path##*/}"; fi
+	done | LC_ALL=C sort
+}
+
 # Borra los snapshots de $1 salvo los $2 más nuevos.
 prune() {
 	snapshots "$1" | LC_ALL=C sort -r | tail -n +"$(($2 + 1))" | while read -r old; do

@@ -61,10 +61,6 @@ api_sh() {
 	fi
 }
 
-api_running() {
-	[ -n "$(compose ps --status running -q api)" ]
-}
-
 # "CRC bytes" de una salida de `cksum`, sin el nombre ni espacios de más: así se comparan el de acá y el del contenedor.
 # `cksum` es POSIX (está en el VPS, en la imagen de la API y en busybox) y alcanza para lo que se busca: notar que un
 # stream llegó cortado o distinto, no defenderse de alguien que lo altere.
@@ -117,18 +113,6 @@ verify_db() {
 				process.exit(1);
 			}
 		" "$d/blog.db"'
-}
-
-# Nombres de los snapshots de la carpeta $1, del más viejo al más nuevo (son fechas UTC: el orden alfabético es el
-# cronológico). Sin los ocultos: un snapshot a medias (.<UTC>.partial) no cuenta.
-snapshots() {
-	for path in "$1"/*; do
-		if [ -d "$path" ]; then printf '%s\n' "${path##*/}"; fi
-	done | LC_ALL=C sort
-}
-
-is_sqlite() {
-	[ "$(dd if="$1" bs=15 count=1 2>/dev/null)" = "SQLite format 3" ]
 }
 
 # Lista "<ruta> <bytes>" de los archivos de la carpeta $1, ordenada para `comm`: comparar nombre y tamaño encuentra lo

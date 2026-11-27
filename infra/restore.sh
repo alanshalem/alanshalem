@@ -10,7 +10,7 @@
 #
 # Pasos con --apply. Lo que puede fallar a mitad (traer archivos, que lleguen enteros) se hace antes de parar nada;
 # parado el blog, quedan solo renames dentro de cada volumen y levantarlo:
-#   1. Prepara los volúmenes (init-permisos: los crea si no existen y les pone el dueño correcto).
+#   1. Prepara los volúmenes (init-permissions: los crea si no existen y les pone el dueño correcto).
 #   2. Copia la base y la media que le falte al volumen a carpetas temporales (.restoring) y comprueba que
 #      llegaron enteras (CRC y tamaño). Hasta acá no se tocó nada.
 #   3. Guarda lo que hay hoy en BACKUP_DIR/pre-restore-<UTC> (con la API en marcha, con su comando backup; parada, el
@@ -22,6 +22,14 @@
 
 # shellcheck source=infra/backup-common.sh
 . "$(dirname "$0")/backup-common.sh"
+
+is_sqlite() {
+	[ "$(dd if="$1" bs=15 count=1 2>/dev/null)" = "SQLite format 3" ]
+}
+
+api_running() {
+	[ -n "$(compose ps --status running -q api)" ]
+}
 
 snapshot=${1:-}
 [ -n "$snapshot" ] || {
@@ -42,7 +50,7 @@ log "snapshot válido: base $(wc -c <"$snapshot/blog.db" | tr -d ' ') bytes (int
 if [ "$apply" = false ]; then
 	cat >&2 <<EOF
 Simulación: no se cambió nada. Con --apply:
-  1. init-permisos prepara los volúmenes
+  1. init-permissions prepara los volúmenes
   2. se copian la base y la media que falte a temporales en los volúmenes, y se comprueba que llegaron enteras
   3. se guarda lo que hay hoy en $BACKUP_DIR/pre-restore-<UTC>
   4. se paran api y builder (Caddy sigue sirviendo el sitio publicado) y se cambia todo por lo restaurado, con claves de
@@ -172,7 +180,7 @@ trap on_exit EXIT
 trap 'exit 1' HUP INT TERM
 
 log "1/5 preparando volúmenes"
-compose run --rm init-permisos
+compose run --rm init-permissions
 
 log "2/5 copiando el snapshot a temporales en los volúmenes"
 staged=true

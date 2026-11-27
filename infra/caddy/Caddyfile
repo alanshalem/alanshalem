@@ -33,8 +33,8 @@
 	import security
 
 	# ---------- API ----------
-	# Sin request_body max_size a propósito: Caddy no limita ni bufferiza el cuerpo (lo pasa en streaming) y el único
-	# tope es el de Kestrel en la API (12 MB en general, 200 MB en /api/admin/media/videos), así no hay dos que mantener.
+	# No request_body max_size on purpose: Caddy neither limits nor buffers the body (it streams it), and the only cap is
+	# the one the API sets in Kestrel (general and per video upload route), so there are not two limits to keep in sync.
 	handle /api/* {
 		# /api/internal lo lee el builder por la red interna de Docker: hacia afuera no existe. Va dentro del handle: ahí
 		# respond corre antes que reverse_proxy (afuera, Caddy evalúa handle primero y la regla nunca se aplicaba).

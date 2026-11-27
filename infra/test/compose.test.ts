@@ -38,7 +38,7 @@ describe('docker-compose.yml (VPS)', () => {
   const all = services(prod);
 
   it('tiene los cuatro servicios', () => {
-    assert.deepEqual(all, ['init-permisos', 'caddy', 'api', 'builder']);
+    assert.deepEqual(all, ['init-permissions', 'caddy', 'api', 'builder']);
   });
 
   it('los logs de Docker tienen tope (driver local, 5 × 10 MB) y lo usan todos los servicios', () => {
@@ -65,13 +65,13 @@ describe('docker-compose.yml (VPS)', () => {
       return lines(block(text, 'cap_add', 4)).map((line) => line.trim().replace(/^- /, ''));
     };
     assert.deepEqual(capAdd('caddy'), ['NET_BIND_SERVICE']);
-    assert.deepEqual(capAdd('init-permisos'), ['CHOWN', 'DAC_OVERRIDE']);
+    assert.deepEqual(capAdd('init-permissions'), ['CHOWN', 'DAC_OVERRIDE']);
     assert.deepEqual(capAdd('api'), []);
     assert.deepEqual(capAdd('builder'), []);
   });
 
-  it('API, Caddy e init-permisos con el sistema de archivos de solo lectura; API y Caddy con /tmp en memoria', () => {
-    for (const name of ['api', 'caddy', 'init-permisos']) assert.match(service(prod, name), /read_only: true/, name);
+  it('API, Caddy e init-permissions con el sistema de archivos de solo lectura; API y Caddy con /tmp en memoria', () => {
+    for (const name of ['api', 'caddy', 'init-permissions']) assert.match(service(prod, name), /read_only: true/, name);
     for (const name of ['api', 'caddy']) assert.match(block(service(prod, name), 'tmpfs', 4), /- \/tmp\b/, name);
   });
 
@@ -81,12 +81,12 @@ describe('docker-compose.yml (VPS)', () => {
     assert.match(api, /ASPNETCORE_TEMP: \*api-tmp/);
     assert.match(api, /TMPDIR: \*api-tmp/);
     assert.match(api, /- api_data:\/data$/m);
-    // init-permisos crea la carpeta antes de que arranque la API (ASP.NET no la crea).
-    assert.match(service(prod, 'init-permisos'), /mkdir -p \/data\/tmp/);
+    // init-permissions crea la carpeta antes de que arranque la API (ASP.NET no la crea).
+    assert.match(service(prod, 'init-permissions'), /mkdir -p \/data\/tmp/);
   });
 
-  it('init-permisos solo cambia el dueño de lo que tiene otro (no un chown -R de toda la media en cada up)', () => {
-    const init = service(prod, 'init-permisos');
+  it('init-permissions solo cambia el dueño de lo que tiene otro (no un chown -R de toda la media en cada up)', () => {
+    const init = service(prod, 'init-permissions');
     assert.doesNotMatch(init, /chown -R/);
     assert.match(init, /find \/data \/media \\\( ! -user 1654 -o ! -group 1654 \\\) -exec chown -h 1654:1654 \{\} \+/);
     assert.match(init, /find \/site \\\( ! -user 1000 -o ! -group 1000 \\\) -exec chown -h 1000:1000 \{\} \+/);
@@ -121,8 +121,14 @@ describe('docker-compose.yml (VPS)', () => {
     for (const text of [prod, dev, read('infra/compose.local.yml')]) assert.doesNotMatch(text, /SITE_(NAME|TAGLINE|AUTHOR)/);
   });
 
-  it('la imagen de init-permisos está fijada por digest', () => {
-    assert.match(service(prod, 'init-permisos'), /image: busybox:[\d.]+@sha256:[0-9a-f]{64}/);
+  it('la imagen de init-permissions está fijada por digest', () => {
+    assert.match(service(prod, 'init-permissions'), /image: busybox:[\d.]+@sha256:[0-9a-f]{64}/);
+  });
+
+  it('the builder token is written once (anchor) and fails fast when missing, for both the API and the builder', () => {
+    assert.match(prod, /^x-builder-token: &builder-token \$\{BUILDER_TOKEN:\?[^}]+\}$/m);
+    assert.match(service(prod, 'api'), /^\s+Builder__Token: \*builder-token$/m);
+    assert.match(service(prod, 'builder'), /^\s+BUILDER_TOKEN: \*builder-token$/m);
   });
 });
 
@@ -131,6 +137,10 @@ describe('compose.dev.yml', () => {
     assert.match(block(dev, 'x-node'), /logging: \*logging/);
     assert.match(block(dev, 'x-logging'), /driver: local/);
     for (const name of services(dev)) assert.match(service(dev, name), /logging: \*logging|<<: \*node/, name);
+  });
+
+  it('the same log cap as production (compose cannot share an anchor between files)', () => {
+    assert.equal(block(dev, 'x-logging'), block(prod, 'x-logging'));
   });
 });
 

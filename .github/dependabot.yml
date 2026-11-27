@@ -51,7 +51,7 @@ updates:
     commit-message:
       prefix: build(infra)
 
-  # La imagen de init-permisos (busybox) en el compose del VPS.
+  # La imagen de init-permissions (busybox) en el compose del VPS.
   - package-ecosystem: docker-compose
     directory: /infra
     schedule:
