@@ -1,7 +1,7 @@
 # The whole blog with one command:   docker compose --env-file .env up -d --build
 # (run from the infra/ folder)
 #
-# Behind Dokploy (its Traefik owns 80/443 and TLS): this same file plus compose.dokploy.yml, which only changes Caddy.
+# Behind Dokploy (its Traefik owns 80/443 and TLS): this same file plus compose.dokploy.yml, which runs the images CI published (no build on the VPS) and puts Caddy behind Traefik.
 #
 # Resources sized for a shared VPS: every service has a memory cap, the build runs at low priority and visitors only
 # reach Caddy (static files). The caps below are limits, not measured usage: measure with `docker stats` after the first

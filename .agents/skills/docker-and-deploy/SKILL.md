@@ -9,7 +9,7 @@ description: "How this blog runs in Docker and on the VPS, covering the dev comp
 
 | Goal | Command | Notes |
 |---|---|---|
-| Dokploy on srv2192513 (production + staging) | Dokploy runs `compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans --wait` from the repo root (`code/`), with `docker` in front | project `<appName>` (one Compose service per environment); Traefik on 80/443 does TLS; Caddy on :80 in `dokploy-network` |
+| Dokploy on srv2192513 (production + staging) | Dokploy runs `compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --remove-orphans --wait` from the repo root (`code/`), with `docker` in front; `.github/workflows/deploy.yml` sets it and starts the deploy | project `<appName>` (one Compose service per environment); the images CI published (`IMAGE_TAG`), no build; Traefik on 80/443 does TLS; Caddy on :80 in `dokploy-network` |
 | Dev, only Docker installed (repo root) | `docker compose -f infra/compose.dev.yml --env-file infra/local.env up --build` | project `blog-dev`; API :5090 (`dotnet watch`), admin :5173 (Vite HMR), site :4321 (`astro dev`); code mounted, deps/bin/obj/NuGet/data in volumes |
 | Local production copy (from `infra/`) | `docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env up -d --build` | project `blog-local`; same images, caps and volumes as the VPS; HTTP only on `127.0.0.1:${LOCAL_PORT}` (8080) |
 | VPS without Dokploy (from `infra/`) | `docker compose --env-file .env up -d --build` | project `blog`; Caddy with automatic TLS on 80/443 |
@@ -68,6 +68,11 @@ those references into the workflow.
 - `infra/caddy/Dockerfile` (context repo root): builds the admin with pnpm, precompresses it with the builder's script
   (`node apps/builder/src/precompress.ts apps/admin/dist`, the same `precompressSite` the builder uses; no inline
   `node -e`), then the pinned Caddy with the Caddyfile and `/srv/admin`.
+- **Published images (build once, promote by tag).** CI's `images` job builds each image with `docker compose build`,
+  scans it with Trivy and, on a push to `master`, publishes it as `ghcr.io/alanshalem/blog-<service>:sha-<40-char
+  commit>` (skipped when that tag already exists: a tag is never repointed). Only the Dokploy override uses them;
+  local dev, the local copy and a plain VPS keep `build:` (`infra/test/compose.test.ts` pins both sides). The
+  packages must be public: Dokploy pulls without credentials.
 - `.dockerignore` at the root is a **whitelist** (context ~1 MB; no `.env`, data or `node_modules` can leak). A new
   folder an image needs must be added there (`tooling/` was missing once and broke the admin image with TS2307).
 - Everything installs with `--frozen-lockfile`: commit `pnpm-lock.yaml` with dependency changes. pnpm ≥ 10.34.5 and
@@ -113,12 +118,18 @@ command from `code/` with `docker` in front. Containers are `<appName>-<service>
 goes in through the custom command (Advanced → Command); the base file stays the plain-VPS one and CI keeps validating
 it.
 
-- The override only touches Caddy: `ports: !reset []` (Traefik owns 80/443 TCP+UDP), `SITE_ADDRESS: ":80"` (no ACME),
+- api, builder and caddy: `build: !reset null`, `image: ghcr.io/alanshalem/blog-<service>:${IMAGE_TAG:?…}` and
+  `pull_policy: missing` (Dokploy never pulls by itself; compose pulls a tag it lacks, and a tag never changes).
+  Without `IMAGE_TAG` compose refuses to start (no `latest`). `IMAGE_TAG` reaches `infra/.env` through the service's
+  Environment tab line `IMAGE_TAG=${{environment.IMAGE_TAG}}`, which Dokploy resolves from the environment variable
+  the deploy workflow sets (`environment.update`, the whole environment env is that one line). Verified in Dokploy's
+  container (compose v5.7.1).
+- Caddy only: `ports: !reset []` (Traefik owns 80/443 TCP+UDP), `SITE_ADDRESS: ":80"` (no ACME),
   `CADDY_TRUSTED_PROXIES: trusted_proxies static private_ranges`, `PROXY_SECRET`, networks `default` + external
   `dokploy-network`.
   The API and the builder stay only on the stack's private network. `!reset` lives in the override on purpose: Dokploy
   re-serializes the base file and would drop a custom YAML tag there.
-- Type **Docker Compose**, never Stack (no `build`). Isolated Deployments off (it would add every service to a
+- Type **Docker Compose**, never Stack (the command, `--wait` and the `depends_on` conditions are plain compose). Isolated Deployments off (it would add every service to a
   Traefik-reachable network). Domain: service `caddy`, port 80, HTTPS + Let's Encrypt; a domain change needs a redeploy.
 - Client IP chain: Traefik drops visitor-sent `X-Forwarded-*` and sends one address; Caddy trusts private ranges only
   under Dokploy and forwards `X-Forwarded-For {client_ip}` alone, which the API (KnownNetworks, ForwardLimit 1) uses
@@ -140,20 +151,29 @@ it.
   referenced from the domain's Middlewares field as `alanshalem-staging-auth@file`, next to
   `alanshalem-staging-proxy-secret@file` (Dokploy's Security tab is for Applications only). `removeHeader: true`
   keeps `Authorization` away from the API.
-- Triggers: staging on push to `master` (skips `[skip ci]` commits); production on tag, which deploys the **branch
-  head**, not the tagged commit.
+- Deploys (`.github/workflows/deploy.yml`, runbook `docs/release-guide.md`): a green CI run of a push to `master` →
+  staging with `sha-<that commit>`; a `v*` tag → production with the tag's commit (refused unless that commit's whole
+  CI run on `master` passed and its three images pull anonymously); `workflow_dispatch` with an older tag = rollback.
+  Each run calls Dokploy's API (`x-api-key`, REST form `GET /api/compose.one?composeId=…`, JSON `POST`s; all through
+  one `dokploy()` function): `environment.update` (IMAGE_TAG), `compose.update` (the command above with the
+  `appName` read from `compose.one`, the branch = the tag or `master`, `autoDeploy: false`), `compose.deploy`, then
+  polls `deployment.allByCompose` until the new deployment is `done` or `error`, and smoke-tests the domain
+  (production 200 on `/api/health/ready`; staging 401 from Traefik's basic auth, which only routes to a healthy
+  Caddy). Dokploy's own webhook deploys nothing (autoDeploy off): it used to deploy the **branch head** on a tag,
+  not the tagged commit. `infra/test/deploy-workflow.test.ts` pins triggers, environments, permissions and that the
+  API key is never printed.
 - Volumes are `<appName>_<volume>`: per environment, kept across deploys (`--remove-orphans` never removes volumes);
   deleting the service with "delete volumes" ticked runs `down --volumes`.
 - `init-permissions` (one-shot) and the `depends_on` conditions behave as with plain compose. The command ends with
   `--wait` (A2c), so the deploy fails when a container exits or does not get healthy (`container <appName>-caddy-1 is
   unhealthy` for a SITE_ENV typo, ~4 s; measured locally, compose v5.7.1); `--wait` accepts the one-shot exiting 0.
-  A failed deploy is not rolled back. `infra/test/compose.test.ts` requires the same command in the header of
-  `compose.dokploy.yml`, the README and this skill.
+  A failed deploy is not rolled back. `infra/test/compose.test.ts` requires the same command (without `--build`) in
+  the header of `compose.dokploy.yml`, the README, `docs/vps-guide.md`, this skill and `deploy.yml`.
 - Availability: Traefik only routes to a healthy container. A deploy that does not change Caddy does not recreate it
   (no failed request); one that does (Caddyfile, admin, image, environment) leaves the domain answering 404 for ~5 s
   (~3 s of it is the old Caddy stopping; measured behind Traefik v3.7.19). The README "Dokploy: release flow" says so.
-- Not verifiable without a real Dokploy (README "Verify on the first real deploy"): the Middlewares field of Compose
-  domains, the tag trigger, `COMPOSE_PROJECT_NAME` in its env file, `$` in the single-quoted hash, `--wait` there.
+- Not verifiable without a real Dokploy (README "Still to verify"): `$` in the single-quoted hash, and the deploy
+  workflow's API calls end to end (staging deploy, tag release, rollback).
 - Verified end to end locally with Traefik v3.7.19 + docker provider on a `dokploy-network`, the base file rewritten
   the way Dokploy does, staging and production side by side: 401 without credentials, noindex only on staging, the
   API logging the client Traefik saw (a visitor-sent X-Forwarded-For ignored), 429 after 10 failed logins, and
@@ -259,7 +279,9 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
 
 - [ ] Compose/Dockerfile change brought up for real (dev or local copy) and the affected URLs checked.
 - [ ] `pnpm test:infra` green and `docker compose ... config -q` for the four stacks: VPS, Dokploy
-      (`-f docker-compose.yml -f compose.dokploy.yml`, needs a placeholder `PROXY_SECRET`), local copy and dev.
+      (`-f docker-compose.yml -f compose.dokploy.yml`, needs placeholder `PROXY_SECRET` and `IMAGE_TAG`), local copy
+      and dev.
+- [ ] Workflow change: `docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:latest -no-color` exits 0.
 - [ ] Caddyfile change: `sh infra/test/caddy-runtime.sh` green (CI runs it too).
 - [ ] Caddy change: test updated + real Caddy validation + headers verified with `curl -I`.
 - [ ] New files needed by an image added to the `.dockerignore` whitelist.
@@ -286,5 +308,7 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
 - Trusting `private_ranges` on the shared `dokploy-network` with no proof of origin: any other Dokploy app could forge
   `X-Forwarded-For` and skip the staging basic auth by calling `caddy:80` directly (A2 review; fixed by the proxy gate).
 - `SITE_ENV=prod` (a typo) silently behaving as production: now Caddy refuses the file.
+- A tag "releasing" whatever `master` was when Dokploy cloned it (its tag trigger deploys the branch head): production
+  now runs the images CI published for the tag's commit, deployed by the workflow.
 - `up --wait` trusted to catch that typo while Caddy had no healthcheck: it exited 0 on a crash-looping Caddy. Caddy
   now has a healthcheck; prove a `--wait` claim with the failure it should catch.

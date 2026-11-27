@@ -95,7 +95,7 @@ Tick every line for the system and environment you are about to deploy. Each lin
 - [ ] Compose service with Compose Path `./infra/docker-compose.yml` **saved** (reload the page and see it)
       ([Phase 8](#9-phase-8--compose-service-once-per-environment)).
 - [ ] Advanced → Command set with this environment's `<appName>`; Isolated Deployments off.
-- [ ] Environment tab filled and saved.
+- [ ] Environment tab filled and saved, with `IMAGE_TAG=${{environment.IMAGE_TAG}}` (alanshalem).
 - [ ] Domain added with the middlewares shown as **chips**, not as typed text.
 
 ## 1. The server
@@ -458,7 +458,8 @@ App Name, volumes, database, media, session keys and tokens. Values below are fo
 
 1. **[Dokploy]** Project `<app>` → environment selector → the environment (`production` or `staging`).
 2. Create Service → Compose.
-3. Name: `blog`. Compose type: **Docker Compose** (not Stack: Stack cannot `build`). Create.
+3. Name: `blog`. Compose type: **Docker Compose** (not Stack: the command, `--wait` and the `depends_on` conditions
+   are plain Docker Compose). Create.
 4. Open the service. In General, note the **App Name** (e.g. `alanshalem-blog-xvu8gq`): it is this environment's
    `<appName>` everywhere below. Save it in the Bitwarden item of the environment (it is not a secret).
 
@@ -467,8 +468,9 @@ App Name, volumes, database, media, session keys and tokens. Values below are fo
 1. Provider: **GitHub**.
 2. GitHub Account: the account of Phase 3. Repository: `alanshalem`. Branch: `master`.
 3. Compose Path: `./infra/docker-compose.yml` (the default `./docker-compose.yml` is wrong).
-4. Trigger Type: production **On Tag**; staging **On Push**.
-5. Autodeploy: on.
+4. Trigger Type: leave the default. Deploys come from the GitHub deploy workflow, not from Dokploy's webhook.
+5. Autodeploy: **off** (the deploy workflow also turns it off and sets the branch on every deploy; alanshalem only:
+   see [release-guide.md 10](release-guide.md#10-one-time-setup)).
 6. Press **Save**.
 7. **Reload the page (F5)** and read Compose Path again: it must show `./infra/docker-compose.yml`. If it shows
    `./docker-compose.yml`, the save did not happen; repeat steps 3, 6 and 7. (An unsaved Compose Path ends the deploy
@@ -477,10 +479,11 @@ App Name, volumes, database, media, session keys and tokens. Values below are fo
 ### 9.3 Advanced
 
 1. Advanced → Command. Paste, with this environment's App Name in place of `<appName>` (one line; Dokploy puts
-   `docker` in front and runs it from `code/`):
+   `docker` in front and runs it from `code/`; no `--build`: the images come from GHCR; the deploy workflow writes
+   the same line on every deploy):
 
    ```text
-   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans --wait
+   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --remove-orphans --wait
    ```
 
 2. Save.
@@ -497,6 +500,7 @@ App Name, volumes, database, media, session keys and tokens. Values below are fo
    ADMIN_PASSWORD_HASH='<production ADMIN_PASSWORD_HASH>'
    PROXY_SECRET=<production PROXY_SECRET>
    COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml
+   IMAGE_TAG=${{environment.IMAGE_TAG}}
    ```
 
    Staging:
@@ -509,9 +513,12 @@ App Name, volumes, database, media, session keys and tokens. Values below are fo
    ADMIN_PASSWORD_HASH='<staging ADMIN_PASSWORD_HASH>'
    PROXY_SECRET=<staging PROXY_SECRET>
    COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml
+   IMAGE_TAG=${{environment.IMAGE_TAG}}
    ```
 
 2. Check each line against these rules before saving:
+   - `IMAGE_TAG=${{environment.IMAGE_TAG}}` is typed exactly so: Dokploy replaces it with the environment's
+     `IMAGE_TAG` variable, which the deploy workflow sets (`sha-<commit>`).
    - Production has **no** `SITE_ENV` line (the default is `production`).
    - `SITE_ENV` is exactly `staging` (lower case). Any other value stops Caddy and the deploy fails.
    - `ADMIN_PASSWORD_HASH` is inside **single quotes** (it contains `$`).
@@ -537,7 +544,7 @@ App Name, volumes, database, media, session keys and tokens. Values below are fo
 
 ### Check
 
-- Reload the page: General shows Compose Path `./infra/docker-compose.yml`, the right branch and trigger.
+- Reload the page: General shows Compose Path `./infra/docker-compose.yml`, the right branch and Autodeploy off.
 - Advanced → Command shows this environment's `<appName>` (not the other environment's).
 - Environment shows the list of 9.4 for this environment.
 - Domains shows the host, `caddy`, port 80, HTTPS, and the middleware chips.
@@ -546,9 +553,11 @@ App Name, volumes, database, media, session keys and tokens. Values below are fo
 
 ### 10.1 Deploy
 
-1. **[Dokploy]** The service (one environment) → General → **Deploy**.
-2. Open Deployments → the running deployment → its log. Expected, in this order:
-   - the clone of the branch and the image builds (several minutes the first time),
+1. **[PC]** The first deploy of an environment goes through the deploy workflow, which sets `IMAGE_TAG` (alanshalem:
+   [release-guide.md 10](release-guide.md#10-one-time-setup), last step). Later, **Deploy** in the panel redeploys
+   the version last set.
+2. **[Dokploy]** Open Deployments → the running deployment → its log. Expected, in this order:
+   - the clone of the branch and the pull of the three `ghcr.io/alanshalem/blog-*` images,
    - `init-permissions` runs once and **exits with 0**,
    - `api`, `caddy` and `builder` report **Healthy**, and the deploy ends as done.
 3. Logs tab → `builder`: after the deploy it builds the site and logs `published: …` with the number of files
@@ -637,36 +646,37 @@ environment, each with **its own `BACKUP_DIR`** (two environments in one folder 
 
 ## 12. Release flow
 
-The full step-by-step (everyday flow, release, verification, hotfix, rollback, Dependabot, failures):
-[release-guide.md](release-guide.md). In short:
+The full step-by-step (everyday flow, release, verification, hotfix, rollback, Dependabot, failures, one-time setup):
+[release-guide.md](release-guide.md). In short, for alanshalem:
 
-1. **[PC]** Push to `master` → staging deploys on its own (On Push). It does not wait for CI: check the GitHub
-   Actions run is green before trusting staging. Commits with `[skip ci]` deploy nothing.
+1. **[GitHub]** A pull request merged into `master` → CI builds and publishes the images → when CI is green, the
+   Deploy workflow deploys staging with them. `[skip ci]` commits publish and deploy nothing.
 2. Review staging (`https://staging.alanshalem.com`, basic auth).
-3. **[VPS]** Back up production (the only way back; see [Rollback](#13-rollback)):
+3. **[VPS]** Back up production (the only way back for data; see [Rollback](#13-rollback)):
 
    ```bash
    BACKUP_DIR=/var/backups/alanshalem-production BACKUP_RCLONE_REMOTE=secret:alanshalem-production sh /etc/dokploy/compose/<production appName>/code/infra/backup.sh
    ```
 
-4. **[PC]** Tag the head of `master` that staging validated and push the tag:
-   `git tag vYYYY.MM.DD && git push origin vYYYY.MM.DD` → production deploys (On Tag).
-5. Do not push anything to `master` between step 4 and the start of the production deploy: **Dokploy deploys the
-   head of the branch, not the tagged commit.**
-6. Repeat the checks of [10.2](#102-check-from-your-pc) for production.
+4. **[PC]** Tag the latest commit with a green CI run and push the tag → the Deploy workflow deploys production with
+   that commit's images, the ones staging ran ([release-guide.md 3](release-guide.md#3-release-to-production)).
+5. Repeat the checks of [10.2](#102-check-from-your-pc) for production.
 
-A tag on a commit whose message has `[skip ci]` (the daily profile commit) deploys nothing: press **Deploy** in the
-production service instead.
+A tag on a commit CI did not publish (a `[skip ci]` profile commit) fails in the workflow before Dokploy is touched:
+tag the latest green commit instead.
 
 A deploy that changes Caddy (Caddyfile, admin, its image or environment) leaves the domain without Caddy for about
 5 seconds (Traefik answers 404 meanwhile). Other deploys keep the site up. Volumes are never touched by a deploy.
 
 ## 13. Rollback
 
-There are no down migrations: going back means the previous code **and** the backup taken before the release.
+There are no down migrations: going back means the previous code **and**, when data changed, the backup taken before
+the release.
 
-1. **[PC]** Revert the release on `master` (`git revert <commit>…`), push (staging redeploys), check staging.
-2. **[PC]** Tag and push as in [Release flow](#12-release-flow) step 4 → production deploys the previous code.
+1. **[PC]** Deploy the previous tag's images, no revert and no rebuild
+   ([release-guide.md 6](release-guide.md#6-rollback)):
+   `gh workflow run deploy.yml -f environment=production -f ref=<previous tag>`.
+2. Only if the data must go back too, steps 3–5.
 3. **[VPS]** Dry run of the restore (changes nothing):
 
    ```bash
@@ -693,6 +703,7 @@ Whatever was published after that backup is lost (except in `pre-restore-<UTC>`)
 | Admin rejects the right password | `$` of `ADMIN_PASSWORD_HASH` mangled (no single quotes) | Environment tab: single quotes around the hash; Deploy |
 | `grep -c '^COMPOSE_PROJECT_NAME='` prints `0` | Dokploy did not write it | Add `COMPOSE_PROJECT_NAME=<appName>` to the Environment tab; Deploy |
 | Deploy fails naming `PROXY_SECRET` (or another variable) | The variable is missing from the Environment tab | Add it ([9.4](#94-environment)); Deploy |
+| Deploy fails naming `IMAGE_TAG` | The Environment tab lacks `IMAGE_TAG=${{environment.IMAGE_TAG}}`, or the environment's variable was never set | Add the line ([9.4](#94-environment)); run the Deploy workflow ([release-guide.md 8](release-guide.md#8-if-it-fails)) |
 | `ssh vps` → `Permission denied (publickey)` | Wrong key, or your IP banned by fail2ban | `ssh -v vps` to see the key offered; [2.3](#23-emergency-entry) to unban |
 
 ## 15. wearemaking differences
@@ -807,4 +818,4 @@ Do it in a quiet hour. Keep Fly and Neon running until step 9 passes.
 | Production middlewares | `alanshalem-production-proxy-secret@file` | `wearemaking-production-proxy-secret@file` | `ting-production-proxy-secret@file` |
 | Staging middlewares | `alanshalem-staging-proxy-secret@file`, `alanshalem-staging-auth@file` | `wearemaking-staging-proxy-secret@file`, `wearemaking-staging-auth@file` | `ting-staging-proxy-secret@file`, `ting-staging-auth@file` |
 | Data to back up | SQLite + media | none | Postgres + `<TBD T6/T7>` |
-| Trigger | production On Tag, staging On Push | same | same |
+| Deploys | GitHub deploy workflow: staging after a green CI on `master`, production on a tag (Autodeploy off) | `<TBD W4>` | `<TBD T6/T7>` |

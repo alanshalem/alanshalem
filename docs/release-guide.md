@@ -1,7 +1,7 @@
 # Release guide: from staging to production
 
-How a change travels from your machine to `alanshalem.com`, step by step. The same flow applies to every system on the
-VPS (alanshalem now; wearemaking and ting once they run on Dokploy): replace the domains and the App Names.
+How a change travels from your machine to `alanshalem.com`, step by step. The same flow will apply to every system on
+the VPS (wearemaking and ting once they run on Dokploy): replace the domains, the App Names and the images.
 
 Setup and first deploy: [vps-guide.md](vps-guide.md). Commands on the server and backups:
 [README "Operations (VPS)"](README.md#operations-vps).
@@ -17,56 +17,91 @@ Setup and first deploy: [vps-guide.md](vps-guide.md). Commands on the server and
 - [7. Dependabot pull requests](#7-dependabot-pull-requests)
 - [8. If it fails](#8-if-it-fails)
 - [9. Branch protection](#9-branch-protection)
+- [10. One-time setup](#10-one-time-setup)
 
 ## 1. How it works
+
+**Build once, promote by tag.** CI builds the images once per commit; staging runs them; a tag sends those same
+images to production.
 
 | | Staging | Production |
 | --- | --- | --- |
 | URL | `https://staging.alanshalem.com` (asks for the `staging` user) | `https://alanshalem.com` |
 | Dokploy service | `alanshalem` → environment `staging` → `blog` | `alanshalem` → environment `production` → `blog` |
-| Deploys when | a commit is pushed to `master` (Trigger Type `On Push`) | a tag is pushed (Trigger Type `On Tag`), or you press **Deploy** |
+| Deploys when | the CI run of a merge into `master` is green | a `v*` tag is pushed |
+| Runs | the images of that commit | the images of the tag's commit: what staging ran |
 | Data | its own database, media and session keys | the real ones |
 
-Three rules decide everything else (checked in Dokploy v0.31.4's source on the VPS):
+The rules behind it:
 
-1. **A deploy always builds the head of `master`**, also when a tag triggers it. The tag only says *when* to deploy, not
-   *what*: production gets whatever `master` is when the deploy starts. Never push to `master` between creating the
-   tag and the end of the production deploy.
-2. **A push whose head commit message contains `[skip ci]`, `[ci skip]`, `[no ci]`, `[skip actions]` or
-   `[actions skip]` deploys nothing**, in either environment. The daily profile-images commit
-   (`chore(profile): refresh profile images [skip ci]`) is one: it never redeploys staging. The same check applies to
-   a tag push, so **a tag on a `[skip ci]` commit does not deploy production** (see [8](#8-if-it-fails)).
-3. **Staging does not wait for GitHub Actions.** It deploys at once; CI runs in parallel. Trust staging only when the
-   CI run of that commit is green.
+1. **CI builds every image once.** On each commit to `master`, CI builds api, builder and caddy, scans them (Trivy)
+   and publishes them as `ghcr.io/alanshalem/blog-<service>:sha-<commit>`. A published tag is never overwritten. The
+   VPS never builds anything.
+2. **Staging waits for CI.** The Deploy workflow (`.github/workflows/deploy.yml`) starts when the CI run of a push to
+   `master` ends green and deploys that commit's images. A red run deploys nothing.
+3. **The tag chooses what production runs**: the images of the tag's commit, never a rebuild and never "the head of
+   `master`". Pushing or merging after tagging changes nothing. The workflow refuses a tag whose commit has no green
+   CI run (for example a `[skip ci]` commit such as the daily profile images, which runs no CI and publishes
+   nothing).
+4. **Only the workflow deploys.** It turns Dokploy's Auto Deploy off on every deploy; Dokploy's webhook does nothing.
+   Pressing **Deploy** in the panel redeploys the version the workflow last set.
+5. **Rollback is a deploy of an older tag**: its images are still in GHCR. No revert, no rebuild.
+
+What one deploy does (the job summary of each run lists the environment, version, commit and the three images):
+
+1. **Plan**: picks the environment and the commit, checks that the commit's whole CI run on `master` passed and that
+   the three images can be pulled without credentials, the way Dokploy pulls them. Dokploy is not touched yet.
+2. **Deploy**, in the GitHub environment `staging` or `production` (one at a time per environment): sets the Dokploy
+   environment variable `IMAGE_TAG=sha-<commit>` (the service's Environment tab reads it), writes the service's
+   command, branch (the tag for a release, `master` for a commit on staging) and Auto Deploy off, then starts the
+   deploy and waits up to 15 minutes for Dokploy to say `done` or `error`.
+3. **Smoke test**: production must answer 200 on `/api/health/ready`. Staging must answer 401: its basic auth is in
+   Traefik and the workflow has no staging password (only you and the VPS know it). The 401 still proves
+   the deploy, because Traefik only routes the domain to a healthy Caddy (404 otherwise); a 200 would mean the basic
+   auth is gone, and fails the run.
 
 ## 2. Everyday flow
 
-1. **[PC]** Work on `master` (or a branch you merge into `master`), with the checks of
-   [README "How to verify"](README.md#how-to-verify) green locally.
-2. **[PC]** `git push origin master`.
-3. **[GitHub]** Actions → the `CI` run of your commit → wait until it is green. If it fails, fix and push again;
-   staging already has the broken version, which is what staging is for.
-4. **[Dokploy]** `alanshalem` → `staging` → `blog` → **Deployments**: the newest entry shows your commit message and
-   ends `Done` (green). `Error` → open it ([8](#8-if-it-fails)).
-5. **[Browser]** `https://staging.alanshalem.com` (user `staging`) and check what you changed: the pages, and
-   `/admin/` if you touched the admin. Staging has its own data: create what you need to test there.
+Every change reaches `master` through a pull request ([9](#9-branch-protection)).
+
+1. **[PC]** Work on a branch, with the checks of [README "How to verify"](README.md#how-to-verify) green locally:
+
+   ```bash
+   git switch -c feat/x
+   git push -u origin feat/x
+   gh pr create --fill
+   gh pr merge --auto --squash      # merges by itself when every CI check is green
+   ```
+
+2. **[GitHub]** CI runs on the pull request. Red → fix, push again to the same branch.
+3. **[GitHub]** After the merge, CI runs again on `master` and publishes the images; when it is green the Deploy
+   workflow deploys staging. Follow it:
+
+   ```bash
+   gh run watch "$(gh run list --workflow deploy.yml --limit 1 --json databaseId -q '.[0].databaseId')"
+   ```
+
+4. **[Browser]** `https://staging.alanshalem.com` (user `staging`): check what you changed, and `/admin/` if you
+   touched the admin. Staging has its own data: create what you need to test there.
 
 Repeat until staging is right. Nothing reaches production yet.
 
 ## 3. Release to production
 
-Do it when staging shows exactly what you want in production and the CI run of the head of `master` is green.
+Do it when staging shows exactly what you want in production.
 
-1. **[PC]** Bring your copy up to date and check what will be released (the bot may have pushed a profile commit):
+1. **[PC]** Find the latest commit with a green CI run on `master` and check it is the one staging runs (the summary
+   of the last staging deploy shows its commit):
 
    ```bash
-   git fetch origin
-   git log --oneline -5 origin/master
+   git fetch origin --tags
+   sha=$(gh run list --workflow CI --branch master --status success --limit 1 --json headSha -q '.[0].headSha')
+   git log --oneline -1 "$sha"
+   gh run list --workflow deploy.yml --limit 3
    ```
 
-   The top commit is what production will get. If it is a `[skip ci]` profile commit, the tag will not deploy: use the
-   **Deploy** button in step 5 instead of waiting for the tag.
-2. **[VPS]** Back up production. It is the only way back for data (posts, settings, media):
+2. **[VPS]** Optional, recommended when the release changes data (migrations) or before a big release: back up
+   production. It is the only way back for data (posts, settings, media):
 
    ```bash
    ssh vps
@@ -75,20 +110,23 @@ Do it when staging shows exactly what you want in production and the CI run of t
    ```
 
    It ends with `done: daily/<UTC>`. Without an off-site remote, drop `BACKUP_RCLONE_REMOTE=…`.
-3. **[PC]** Tag the head of `master` with today's date and push the tag:
+3. **[PC]** Tag that commit with today's date and push the tag:
 
    ```bash
-   git tag v2026.11.27 origin/master
+   git tag v2026.11.27 "$sha"
    git push origin v2026.11.27
    ```
 
    Second release on the same day: `v2026.11.27.2`, then `.3`… Tags are never moved or reused: a new release is a new
    tag.
-4. **[PC]** Do not push to `master` until step 5 shows the deploy finished.
-5. **[Dokploy]** `alanshalem` → `production` → `blog` → **Deployments**: a new entry titled `Tag created: v2026.11.27`
-   appears within seconds and ends `Done`. No entry after a minute → press **Deploy** (same result).
-6. **[Dokploy]** Check the deployed commit: open the entry and compare the `Commit:` hash with
-   `git rev-parse --short origin/master`. They must match.
+4. **[PC]** Watch the production deploy until it is green:
+
+   ```bash
+   gh run watch "$(gh run list --workflow deploy.yml --event push --limit 1 --json databaseId -q '.[0].databaseId')"
+   ```
+
+5. **[Dokploy]** Optional: `alanshalem` → `production` → `blog` → **Deployments** shows an entry titled
+   `v2026.11.27`, `Done`.
 
 A deploy that changes Caddy (the Caddyfile, the admin, its image or environment) leaves the domain without Caddy for
 about 5 seconds (Traefik answers 404). Other deploys keep the site up. Volumes are never touched by a deploy.
@@ -103,6 +141,9 @@ curl -s -o /dev/null -w '%{http_code}\n' https://alanshalem.com/es/      # 200
 curl -s -o /dev/null -w '%{http_code}\n' https://alanshalem.com/api/health/ready   # 200
 ```
 
+On the VPS, the containers run the tag's images:
+`docker ps --format '{{.Names}} {{.Image}}' | grep '<production appName>'` lists `ghcr.io/alanshalem/blog-*:sha-<commit>`.
+
 Then open `https://alanshalem.com/` and `/admin/`, sign in, and look at what you released. Something wrong →
 [6. Rollback](#6-rollback).
 
@@ -110,63 +151,74 @@ Then open `https://alanshalem.com/` and `/admin/`, sign in, and look at what you
 
 Production is broken and the fix is small:
 
-1. **[PC]** Fix it on `master`, push, and wait for the green CI run and the staging deploy (section 2). Check the fix
-   on staging: a hotfix that was never seen running is a guess.
+1. **[PC]** A pull request with the fix (section 2). After the merge, wait for the green CI and the staging deploy,
+   and check the fix on staging: a hotfix that was never seen running is a guess.
 2. Release it (section 3) with a new tag (`v2026.11.27.2`).
+
+If the fix needs time, roll back first (section 6) and fix calmly.
 
 ## 6. Rollback
 
-Dokploy cannot deploy an old tag: it always builds the head of `master` (rule 1). Going back is therefore a new commit.
+**Code** (the release broke the site, data is fine): deploy the previous tag. Its images are still in GHCR and the
+compose files come from the same tag:
 
-**Code** (the release broke the site, data is fine):
+```bash
+git tag --list 'v*' --sort=-creatordate | head -5                      # the previous release
+gh workflow run deploy.yml -f environment=production -f ref=v2026.11.20
+gh run watch "$(gh run list --workflow deploy.yml --event workflow_dispatch --limit 1 --json databaseId -q '.[0].databaseId')"
+```
 
-1. **[PC]** Undo the bad commits on `master` with new commits (never rewrite `master`'s history):
-
-   ```bash
-   git revert --no-edit <first bad commit>^..<last bad commit>
-   git push origin master
-   ```
-
-2. Check staging, then release the revert with a new tag (section 3).
-
-Urgent and the revert needs time: in Dokploy, `production` → `blog` → **Deployments** → **Rollback** on the previous
-`Done` entry, if your Dokploy version offers it, buys time; the revert is still the real fix.
+Or GitHub → Actions → Deploy → **Run workflow** → environment `production`, ref `v2026.11.20`. Production only takes
+a tag; staging also takes a full 40-character commit SHA. Then fix forward on `master` and release a new tag. Tags
+from before the images were published cannot be deployed this way (the workflow says so).
 
 **Data** (a migration or an action damaged posts, settings or media): restore the backup of step 3.2 with `restore.sh`
-([README "Rollback"](README.md#rollback)). Everything written after that backup is lost, and the admin signs in again.
+([README "Rollback"](README.md#rollback)), after the code rollback. Everything written after that backup is lost, and
+the admin signs in again.
 
 ## 7. Dependabot pull requests
 
 Dependabot opens pull requests with updates every week.
 
-1. **[GitHub]** Open the PR and wait for its CI run. Red → close it or fix it on `master`.
-2. Green → **Merge**. The merge is a push to `master`: staging deploys it (section 2).
+1. **Patch and minor** updates merge by themselves once CI is green (`.github/workflows/dependabot-auto-merge.yml`);
+   staging then deploys them (section 2).
+2. **Majors** wait for you: read the changelog, check the CI run, merge (or close) by hand.
 3. Check staging, then release as usual (section 3). Several merged updates can go out in one release.
 
 ## 8. If it fails
 
 | Symptom | Cause | What to do |
 | --- | --- | --- |
-| Pushed a tag, no production deployment appears | The head of `master` is a `[skip ci]` commit (the profile bot), or the GitHub webhook did not arrive | Dokploy → `production` → `blog` → **Deploy** |
-| Production shows an older or newer version than expected | Something was pushed to `master` between the tag and the deploy (rule 1) | Compare the deployment's `Commit:` with the commit you wanted; release again from the right head |
-| Pushed to `master`, staging did not deploy | The commit message contains `[skip ci]`, or the webhook did not arrive | Dokploy → `staging` → `blog` → **Deploy** |
-| Deployment `Error`, log ends `container …-api-1 is unhealthy` | The API did not start: a bad environment value (for example a short `BUILDER_TOKEN`) or a failed migration | `blog` → **Logs** → `api`: the first error line names it; fix the Environment tab, Deploy again |
-| Deployment `Error`, `container …-caddy-1 is unhealthy` | Caddy refused its configuration (for example a `SITE_ENV` typo) | **Logs** → `caddy`; fix, Deploy again. The domain answers 404 until then |
-| `Compose file not found` | The Compose Path is not `./infra/docker-compose.yml` | General → fix it → Save → reload → Deploy ([vps-guide.md](vps-guide.md)) |
-| Every page answers 403 | The domain lost its proxy-secret middleware, or the secret differs from `PROXY_SECRET` | Domains → the middleware chips ([vps-guide.md](vps-guide.md)) |
+| A merge into `master`, no staging deploy | CI on `master` was red or cancelled by a newer push, or the commit had `[skip ci]` | Actions → CI: fix and merge again; a newer green run deploys |
+| Deploy run fails in Plan: "has no green CI run on master" | The tag points at a `[skip ci]` commit (the profile bot) or at a commit whose CI failed | Tag the latest green commit instead (section 3, step 1 gives its SHA) |
+| Deploy run fails in Plan: "does not exist" | Images missing for that commit (from before publishing, or its publish step failed) | Re-run that commit's CI, or tag the latest green commit |
+| Deploy run fails in Plan: "cannot be read anonymously" | The GHCR packages are private (the first publish always is) | [10](#10-one-time-setup), step 1 |
+| "… is not set in the staging environment" | A variable or the secret is missing from that GitHub environment | [10](#10-one-time-setup), step 3 |
+| "Dokploy … answered 401" (or 403) | `DOKPLOY_API_KEY` is wrong, expired or revoked | New key in Dokploy, then `gh secret set DOKPLOY_API_KEY --env <environment>` ([10](#10-one-time-setup), step 2) |
+| "Dokploy: error" | The deploy failed on the VPS | Dokploy → the environment → `blog` → **Deployments** → the entry named after the version: its log names the cause (rows below) |
+| Dokploy log: `required variable IMAGE_TAG is missing a value` | The service's Environment tab lacks `IMAGE_TAG=${{environment.IMAGE_TAG}}` | [10](#10-one-time-setup), step 4; run the workflow again |
+| Dokploy log: `pull access denied`, `denied` or `unauthorized` from `ghcr.io` | The packages are not public | [10](#10-one-time-setup), step 1; run the workflow again |
+| Dokploy log ends `container …-api-1 is unhealthy` | The API did not start: a bad environment value (for example a short `BUILDER_TOKEN`) or a failed migration | `blog` → **Logs** → `api`: the first error line names it; fix the Environment tab, run the workflow again |
+| Dokploy log: `container …-caddy-1 is unhealthy` | Caddy refused its configuration (for example a `SITE_ENV` typo) | **Logs** → `caddy`; fix, run again. The domain answers 404 until then |
+| "Dokploy did not finish within 15 minutes" | A deploy stuck in Dokploy's queue | Dokploy → Deployments: cancel or wait, then run the workflow again |
+| Smoke test: production not 200 | The API is not ready (database) | `blog` → **Logs** → `api` |
+| Smoke test: staging answered 200 | The domain lost its basic-auth middleware | Domains → the middleware chips ([vps-guide.md](vps-guide.md#95-domains)) |
+| `Compose file not found` | The Compose Path is not `./infra/docker-compose.yml` | General → fix it → Save → reload → run again ([vps-guide.md](vps-guide.md#92-general)) |
+| Every page answers 403 | The domain lost its proxy-secret middleware, or the secret differs from `PROXY_SECRET` | Domains → the middleware chips ([vps-guide.md](vps-guide.md#95-domains)) |
 
 ## 9. Branch protection
 
 `master` accepts changes only through pull requests whose CI checks are all green (ruleset
 "master: pull requests with green CI": squash merge only, no force push, no deletion). An admin may merge a pull
-request without waiting for the checks in an emergency; nobody pushes straight to `master`.
+request without waiting for the checks in an emergency; nobody pushes straight to `master`. Such a merge still
+reaches staging only once CI on `master` is green, and production only through a tag on a green commit.
 
 - **Your changes:** `git switch -c feat/x` → commit → `git push -u origin feat/x` → `gh pr create --fill` →
-  `gh pr merge --auto --squash` (merges by itself when CI is green; the merge deploys staging).
+  `gh pr merge --auto --squash` (merges by itself when CI is green; CI on `master` then deploys staging).
 - **Dependabot:** patch and minor updates merge by themselves when CI is green
   (`.github/workflows/dependabot-auto-merge.yml`); majors wait for you.
 - **The profile bot** pushes its daily commit straight to `master` with a deploy key, the only actor the ruleset
-  lets through. One-time setup, from the repo folder:
+  lets through. Its commits carry `[skip ci]`: no CI, no images, no deploy. One-time setup, from the repo folder:
 
   ```bash
   ssh-keygen -t ed25519 -N "" -C profile-bot -f profile-bot
@@ -174,3 +226,55 @@ request without waiting for the checks in an emergency; nobody pushes straight t
   gh secret set PROFILE_DEPLOY_KEY < profile-bot
   rm profile-bot profile-bot.pub
   ```
+
+## 10. One-time setup
+
+Once, after CI on `master` published the first images and before the first run of the Deploy workflow. Until it is
+done, a run fails in Plan or at the first Dokploy call, without touching the site.
+
+1. **[GitHub]** Dokploy pulls the three packages (`blog-api`, `blog-builder`, `blog-caddy`) without credentials, so
+   they must be public. Here they inherit the public visibility of this repository through the source label the CI
+   adds (checked: an anonymous pull works). Check from your PC, logged out of `ghcr.io`:
+   `docker manifest inspect ghcr.io/alanshalem/blog-api:sha-<a published commit>` prints a manifest. If it is denied:
+   your profile → **Packages** → the package → **Package settings** → **Danger Zone** → **Change visibility** →
+   **Public**.
+2. **[Dokploy]** Settings → **Profile** → **API/CLI Keys** → **Generate New Key**.
+3. **[PC]** The GitHub environments `staging` and `production`, each with four variables and the key (the secret is
+   typed at the prompt, never on the command line). The ids below are this blog's services (they are not secrets);
+   for another system, read them from its Dokploy service:
+
+   ```bash
+   for env in staging production; do gh api --method PUT "repos/alanshalem/alanshalem/environments/$env"; done
+   gh variable set DOKPLOY_URL --env staging --body https://dokploy.alanshalem.com
+   gh variable set DOKPLOY_COMPOSE_ID --env staging --body rJ1gLZv7yiJVFulGncoDa
+   gh variable set DOKPLOY_ENVIRONMENT_ID --env staging --body pTJ3yuIorny1RwwmYTcqK
+   gh variable set SITE_URL --env staging --body https://staging.alanshalem.com
+   gh secret set DOKPLOY_API_KEY --env staging
+   gh variable set DOKPLOY_URL --env production --body https://dokploy.alanshalem.com
+   gh variable set DOKPLOY_COMPOSE_ID --env production --body ihqkCGvxQ01t-EBmCI_Qj
+   gh variable set DOKPLOY_ENVIRONMENT_ID --env production --body xDSC06RKSxvaXiZJ1Kimc
+   gh variable set SITE_URL --env production --body https://alanshalem.com
+   gh secret set DOKPLOY_API_KEY --env production
+   ```
+
+4. **[Dokploy]** In each environment (`staging` and `production`), the environment's own variables (shared by its
+   services, not a service's Environment tab): `IMAGE_TAG=sha-<a published commit>`. The workflow overwrites it on
+   every deploy; the first value only keeps the next step's reference resolvable.
+5. **[Dokploy]** In both services (`staging` → `blog` and `production` → `blog`), Environment tab: add this line as
+   is and Save. Dokploy replaces it with the environment's `IMAGE_TAG` variable, which the workflow sets on every
+   deploy (that variable list holds only this line; the workflow replaces it whole):
+
+   ```bash
+   IMAGE_TAG=${{environment.IMAGE_TAG}}
+   ```
+
+6. **Nothing to do for Auto Deploy, the branch or the command**: the workflow sets them (Auto Deploy off) on every
+   deploy.
+7. **[PC]** First deploys: staging with the latest green commit, then production with a first tag (section 3):
+
+   ```bash
+   sha=$(gh run list --workflow CI --branch master --status success --limit 1 --json headSha -q '.[0].headSha')
+   gh workflow run deploy.yml -f environment=staging -f ref="$sha"
+   ```
+
+   Then check staging and production as in [vps-guide.md 10.2](vps-guide.md#102-check-from-your-pc).

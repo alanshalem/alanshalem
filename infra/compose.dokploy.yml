@@ -1,18 +1,41 @@
-# Behind Dokploy (srv2192513): the same docker-compose.yml (images, caps, healthchecks, volumes) with Caddy moved
-# behind Dokploy's Traefik, which owns ports 80/443 (TCP and UDP) and terminates TLS with Let's Encrypt. Only Caddy
-# changes; visitors get the same responses. Dokploy runs it with this custom command (service → Advanced → Command;
-# <appName> is the service's App Name, shown in its General tab; Dokploy puts `docker` in front and runs it from code/):
+# Behind Dokploy (srv2192513): the same docker-compose.yml (caps, healthchecks, volumes) with two changes. Caddy moves
+# behind Dokploy's Traefik, which owns ports 80/443 (TCP and UDP) and terminates TLS with Let's Encrypt; visitors get
+# the same responses. And nothing is built on the VPS: api, builder and caddy run the images CI built, scanned and
+# published for one commit (ghcr.io/alanshalem/blog-<service>:sha-<commit>), so production runs exactly what staging
+# ran. Dokploy runs it with this custom command (service → Advanced → Command; <appName> is the service's App Name,
+# shown in its General tab; Dokploy puts `docker` in front and runs it from code/). The deploy workflow
+# (.github/workflows/deploy.yml) writes it into the service on every deploy:
 #
-#   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans --wait
+#   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --remove-orphans --wait
 #
 # --wait: the deploy fails (red in Dokploy) when a container does not start or does not get healthy, for example a
 # SITE_ENV typo that stops Caddy, instead of reporting success as soon as the containers are created.
 # Dokploy writes infra/.env from the Environment tab (adding COMPOSE_PROJECT_NAME=<appName>); with
 # COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml there too, backup.sh and restore.sh (run from infra/) find this
-# stack on their own. Runbook: docs/README.md, section "Operations (VPS)" (its "Dokploy: ..." subsections).
+# stack on their own. IMAGE_TAG arrives the same way: the deploy workflow sets the Dokploy environment's IMAGE_TAG and
+# the Environment tab references it (IMAGE_TAG=${{environment.IMAGE_TAG}}). Runbook: docs/README.md, section
+# "Operations (VPS)" (its "Dokploy: ..." subsections).
+
+# Without IMAGE_TAG compose refuses to start (no "latest" fallback: a deploy always names its version). pull_policy
+# missing: compose pulls a tag the VPS does not have yet (Dokploy never pulls by itself) and reuses one it has; a
+# published tag is never repointed. `build: !reset null` drops the base file's build, so the VPS cannot build by mistake.
+# The same message three times: compose cannot put an anchor inside a string.
 
 services:
+  api:
+    build: !reset null
+    image: ghcr.io/alanshalem/blog-api:${IMAGE_TAG:?IMAGE_TAG is set by the deploy workflow (docs/release-guide.md)}
+    pull_policy: missing
+
+  builder:
+    build: !reset null
+    image: ghcr.io/alanshalem/blog-builder:${IMAGE_TAG:?IMAGE_TAG is set by the deploy workflow (docs/release-guide.md)}
+    pull_policy: missing
+
   caddy:
+    build: !reset null
+    image: ghcr.io/alanshalem/blog-caddy:${IMAGE_TAG:?IMAGE_TAG is set by the deploy workflow (docs/release-guide.md)}
+    pull_policy: missing
     # Traefik already publishes 80/443 on the VPS: this Caddy publishes nothing.
     ports: !reset []
     environment:
