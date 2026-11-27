@@ -7,6 +7,10 @@ import { activeReleaseName } from './releases.ts';
 
 const config = loadConfig();
 
+/** First start: how many times the initial build is tried, and the wait between tries. */
+const INITIAL_BUILD_ATTEMPTS = 6;
+const INITIAL_BUILD_RETRY_MS = 10_000;
+
 interface BuildStatus {
   at: string;
   ok: boolean;
@@ -18,20 +22,22 @@ const log = (message: string): void => console.log(`[builder] ${new Date().toISO
 
 const queue = new BuildQueue(
   async () => {
-    log('construyendo el sitio…');
+    log('building the site…');
     const result: BuildResult = await buildAndActivate(config);
     lastBuild = {
       at: new Date().toISOString(),
       ok: true,
-      detail: `${result.release.split('/').pop()} en ${(result.durationMs / 1000).toFixed(1)} s, ${result.compressedFiles} archivos precomprimidos`,
+      detail:
+        `${result.release.split('/').pop()} in ${(result.durationMs / 1000).toFixed(1)} s, ` +
+        `${result.compressedFiles} files precompressed`,
     };
-    log(`publicado: ${lastBuild.detail}`);
+    log(`published: ${lastBuild.detail}`);
   },
   config.debounceMs,
   (error) => {
     const detail = error instanceof Error ? error.message : String(error);
     lastBuild = { at: new Date().toISOString(), ok: false, detail };
-    log(`el build falló; el sitio publicado no cambió.\n${detail}`);
+    log(`build failed; the published site did not change.\n${detail}`);
   },
 );
 
@@ -43,7 +49,7 @@ function sendJson(response: import('node:http').ServerResponse, status: number, 
 const server = createServer((request, response) => {
   const { method, url } = request;
 
-  // No hace falta leer cuerpos: ningún endpoint los usa. Descartarlos evita que un cliente cuelgue la conexión.
+  // No need to read bodies: no endpoint uses them. Discarding them keeps a client from hanging the connection.
   request.resume();
 
   if (method === 'GET' && url === '/health') {
@@ -56,7 +62,7 @@ const server = createServer((request, response) => {
 
   if (method === 'POST' && url === '/build') {
     queue.request();
-    // 202: pedido aceptado; el build ocurre en segundo plano.
+    // 202: request accepted; the build runs in the background.
     return sendJson(response, 202, { queued: true });
   }
 
@@ -70,30 +76,31 @@ const server = createServer((request, response) => {
 });
 
 /**
- * Primer arranque: si todavía no hay sitio publicado, se construye uno. La API puede tardar unos segundos
- * en estar lista (docker compose los levanta a la vez), así que se reintenta con espera.
+ * First start: when no site is published yet, one is built. The API may take a few seconds to be ready (docker compose
+ * starts them together), so it retries with a wait.
  */
 async function ensureInitialSite(): Promise<void> {
   if (await activeReleaseName(config.siteDir)) return;
-  for (let attempt = 1; attempt <= 6; attempt += 1) {
+  for (let attempt = 1; attempt <= INITIAL_BUILD_ATTEMPTS; attempt += 1) {
     queue.request();
     await queue.whenIdle();
     if (lastBuild?.ok) return;
-    log(`el build inicial falló (intento ${attempt}/6); reintento en 10 s`);
-    await new Promise((resolve) => setTimeout(resolve, 10_000));
+    const retryIn = `retrying in ${INITIAL_BUILD_RETRY_MS / 1000} s`;
+    log(`initial build failed (attempt ${attempt}/${INITIAL_BUILD_ATTEMPTS}); ${retryIn}`);
+    await new Promise((resolve) => setTimeout(resolve, INITIAL_BUILD_RETRY_MS));
   }
-  log('no se pudo hacer el build inicial. Publicá un post o llamá a POST /build para reintentar.');
+  log('the initial build did not succeed. Publish a post or call POST /build to retry.');
 }
 
 server.listen(config.port, () => {
-  log(`escuchando en :${config.port}`);
+  log(`listening on :${config.port}`);
   void ensureInitialSite();
 });
 
-// Apagado ordenado: dejar de aceptar pedidos y esperar a que termine el build en curso.
+// Orderly shutdown: stop accepting requests and wait for the running build to finish.
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
-    log(`${signal} recibido, cerrando…`);
+    log(`${signal} received, shutting down…`);
     server.close();
     void queue.whenIdle().then(() => process.exit(0));
   });

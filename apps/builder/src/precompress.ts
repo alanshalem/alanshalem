@@ -1,12 +1,12 @@
-// Precomprime una carpeta ya construida (.br y .gz junto a cada archivo de texto). La imagen de Caddy lo usa con el
-// admin, con la misma función con la que el builder precomprime cada release del sitio:
+// Precompresses an already built folder (.br and .gz next to each text file). The Caddy image uses it for the admin,
+// with the same function the builder uses to precompress each site release:
 //
 //   node apps/builder/src/precompress.ts apps/admin/dist
 import { precompressSite } from './compress.ts';
 
 const dir = process.argv[2];
 if (!dir) {
-  console.error('Uso: node precompress.ts <carpeta>');
+  console.error('Usage: node precompress.ts <dir>');
   process.exit(2);
 }
-console.log(`${dir}: ${await precompressSite(dir)} archivos precomprimidos`);
+console.log(`${dir}: ${await precompressSite(dir)} files precompressed`);

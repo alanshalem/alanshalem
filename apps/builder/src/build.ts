@@ -12,8 +12,8 @@ export interface BuildResult {
 }
 
 /**
- * Corre `astro build` con baja prioridad de CPU (nice) para no quitarle recursos a las otras apps del VPS. El binario
- * de node_modules directo, sin `pnpm exec`: la imagen de producción no trae gestor de paquetes.
+ * Runs `astro build` with a low CPU priority (nice) so it does not take resources from the other apps on the VPS. The
+ * node_modules binary directly, without `pnpm exec`: the production image has no package manager.
  */
 function runAstroBuild(config: BuilderConfig, outDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -25,13 +25,13 @@ function runAstroBuild(config: BuilderConfig, outDir: string): Promise<void> {
         API_URL: config.apiUrl,
         BUILDER_TOKEN: config.token,
         SITE_URL: config.siteUrl,
-        // Tope de memoria del proceso de build (el VPS comparte RAM con otras apps).
+        // Memory cap of the build process (the VPS shares RAM with other apps).
         NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ''} --max-old-space-size=768`.trim(),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    // Se guarda solo el final de la salida: alcanza para diagnosticar y no acumula memoria.
+    // Only the end of the output is kept: enough to diagnose, without piling up memory.
     let tail = '';
     const keepTail = (chunk: Buffer): void => {
       tail = (tail + chunk.toString()).slice(-4_000);
@@ -48,14 +48,14 @@ function runAstroBuild(config: BuilderConfig, outDir: string): Promise<void> {
     child.on('close', (code, signal) => {
       clearTimeout(timeout);
       if (code === 0) resolve();
-      else reject(new Error(`astro build terminó con ${signal ?? `código ${code}`}:\n${tail}`));
+      else reject(new Error(`astro build ended with ${signal ?? `exit code ${code}`}:\n${tail}`));
     });
   });
 }
 
 /**
- * Una construcción completa: build -> verificación -> precompresión -> cambio atómico -> limpieza.
- * Si algo falla, la carpeta a medio hacer se borra y la versión publicada NO cambia.
+ * One full build: build -> check -> precompression -> atomic swap -> cleanup.
+ * If anything fails, the half-built folder is deleted and the published version does NOT change.
  */
 export async function buildAndActivate(config: BuilderConfig): Promise<BuildResult> {
   const startedAt = Date.now();
@@ -63,7 +63,7 @@ export async function buildAndActivate(config: BuilderConfig): Promise<BuildResu
 
   try {
     await runAstroBuild(config, releaseDir);
-    // Sanidad mínima: un build "exitoso" sin página de inicio no se publica.
+    // Minimal sanity check: a "successful" build without a home page is not published.
     await access(join(releaseDir, 'index.html'));
 
     const compressedFiles = await precompressSite(releaseDir);

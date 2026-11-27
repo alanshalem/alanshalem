@@ -1,15 +1,15 @@
 export interface BuilderConfig {
   port: number;
-  /** Secreto compartido con la API (mismo valor que Builder__Token allá). */
+  /** Secret shared with the API (the same value as Builder__Token there). */
   token: string;
-  /** Carpeta que contiene `releases/` y el symlink `current`. Caddy sirve `current`. */
+  /** Folder holding `releases/` and the `current` symlink. Caddy serves `current`. */
   siteDir: string;
-  /** Carpeta del proyecto Astro (apps/web). */
+  /** Folder of the Astro project (apps/web). */
   webDir: string;
   apiUrl: string;
   siteUrl: string;
   keepReleases: number;
-  /** Espera antes de construir, para juntar varios guardados seguidos en una sola construcción. */
+  /** Wait before building, to merge several saves in a row into one build. */
   debounceMs: number;
   buildTimeoutMs: number;
 }
@@ -19,7 +19,7 @@ const DEFAULT_PORT = 4000;
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
-  if (!value) throw new Error(`Falta la variable de entorno ${name}.`);
+  if (!value) throw new Error(`Missing environment variable ${name}.`);
   return value;
 }
 
@@ -27,22 +27,22 @@ function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): nu
   const raw = env[name];
   if (raw === undefined || raw === '') return fallback;
   const value = Number(raw);
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} debe ser un entero positivo (recibido: "${raw}").`);
+  if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer (got: "${raw}").`);
   return value;
 }
 
-/** El puerto del servicio: lo usan el servidor y los scripts que le hablan, así que se valida en un solo lugar. */
+/** The service port: the server and the scripts that talk to it use it, so it is validated in one place. */
 const portOf = (env: NodeJS.ProcessEnv): number => positiveInt(env, 'PORT', DEFAULT_PORT);
 
-/** URL del propio servicio desde su contenedor, para los scripts que le hablan (healthcheck, pedir un build). */
+/** URL of the service itself from its container, for the scripts that talk to it (healthcheck, requesting a build). */
 export const localUrl = (path: string, env: NodeJS.ProcessEnv = process.env): string =>
   `http://127.0.0.1:${portOf(env)}${path}`;
 
-/** Lee la configuración del entorno. Falla al arrancar si falta algo, no a mitad de un build. */
+/** Reads the configuration from the environment. Fails at startup when something is missing, not halfway a build. */
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): BuilderConfig {
   const token = required(env, 'BUILDER_TOKEN');
   if (token.length < MIN_TOKEN_LENGTH) {
-    throw new Error(`BUILDER_TOKEN debe tener al menos ${MIN_TOKEN_LENGTH} caracteres (openssl rand -hex 32).`);
+    throw new Error(`BUILDER_TOKEN must be at least ${MIN_TOKEN_LENGTH} characters long (openssl rand -hex 32).`);
   }
 
   return {

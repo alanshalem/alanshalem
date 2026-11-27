@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Servicio que regenera el sitio estático de Astro cuando la API avisa que hubo cambios.",
+  "description": "Service that rebuilds the static Astro site when the API reports changes.",
   "engines": { "node": ">=22.18" },
   "scripts": {
     "start": "node src/server.ts",

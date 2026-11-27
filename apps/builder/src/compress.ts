@@ -7,15 +7,15 @@ const brotli = promisify(brotliCompress);
 const gzipAsync = promisify(gzip);
 
 const COMPRESSIBLE = new Set(['.html', '.css', '.js', '.mjs', '.json', '.xml', '.svg', '.txt', '.webmanifest']);
-const MIN_BYTES = 256; // por debajo de esto la cabecera de compresión pesa más que lo que se ahorra
+const MIN_BYTES = 256; // below this the compression header weighs more than what it saves
 
 /**
- * Deja junto a cada archivo de texto su versión .br y .gz.
- * Caddy (`file_server { precompressed br gzip }`) las sirve tal cual: cero CPU por petición.
- * Se comprime al máximo nivel porque pasa una sola vez por build, no por visita.
- * Las fuentes woff2 e imágenes ya vienen comprimidas: no se tocan.
+ * Leaves the .br and .gz versions next to each text file.
+ * Caddy (`file_server { precompressed br gzip }`) serves them as they are: zero CPU per request.
+ * It compresses at the highest level because it happens once per build, not per visit.
+ * woff2 fonts and images come already compressed: they are left alone.
  *
- * @returns cantidad de archivos comprimidos
+ * @returns the number of compressed files
  */
 export async function precompressSite(dir: string): Promise<number> {
   let count = 0;

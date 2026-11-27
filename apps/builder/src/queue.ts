@@ -1,10 +1,10 @@
 /**
- * Cola de construcciones con "debounce" y sin concurrencia.
+ * Build queue with "debounce" and no concurrency.
  *
- *  - Varios pedidos seguidos (ej: guardar y publicar en 2 segundos) se juntan en UNA construcción.
- *  - Nunca hay dos construcciones a la vez: un pedido que llega mientras se construye pide UNA más al terminar
- *    (el contenido pudo cambiar después de que la construcción en curso leyó los posts).
- *  - Un error no frena la cola: se informa y el siguiente pedido construye de nuevo.
+ *  - Several requests in a row (e.g. save and publish within 2 seconds) merge into ONE build.
+ *  - Never two builds at once: a request that arrives during a build asks for ONE more when it ends
+ *    (the content may have changed after the running build read the posts).
+ *  - An error does not stop the queue: it is reported and the next request builds again.
  */
 export class BuildQueue {
   private readonly run: () => Promise<void>;
@@ -26,7 +26,7 @@ export class BuildQueue {
     return this.running !== undefined || this.timer !== undefined;
   }
 
-  /** Pide una construcción. Retorna enseguida; la construcción ocurre en segundo plano. */
+  /** Requests a build. Returns right away; the build runs in the background. */
   request(): void {
     if (this.running) {
       this.pending = true;
@@ -35,7 +35,7 @@ export class BuildQueue {
     this.schedule();
   }
 
-  /** Se resuelve cuando no hay nada construyéndose ni agendado (útil para tests y para apagar limpio). */
+  /** Resolves when nothing is building or scheduled (useful for tests and for a clean shutdown). */
   whenIdle(): Promise<void> {
     if (!this.isBusy) return Promise.resolve();
     return new Promise((resolve) => this.idleWaiters.push(resolve));

@@ -8,8 +8,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-// Los dos scripts de línea de comando del builder se prueban como los usa Docker: un proceso aparte, mirando el código
-// de salida y lo que imprime.
+// The builder's command-line scripts are tested the way Docker uses them: a separate process, checking the exit code
+// and what it prints.
 const script = (name: string): string => fileURLToPath(new URL(`../src/${name}`, import.meta.url));
 
 interface Run {
@@ -26,7 +26,7 @@ function run(name: string, args: string[], env: NodeJS.ProcessEnv = {}): Promise
   });
 }
 
-describe('precompress.ts (precomprime el admin al construir la imagen de Caddy)', () => {
+describe('precompress.ts (precompresses the admin when building the Caddy image)', () => {
   let dir: string;
 
   beforeEach(async () => {
@@ -36,25 +36,25 @@ describe('precompress.ts (precomprime el admin al construir la imagen de Caddy)'
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('deja .br y .gz junto a cada archivo de texto e informa cuántos', async () => {
+  it('leaves .br and .gz next to each text file and reports how many', async () => {
     await writeFile(join(dir, 'index.html'), `<!doctype html>${'<p>hola</p>'.repeat(100)}`);
 
     const result = await run('precompress.ts', [dir]);
 
-    assert.deepEqual(result, { code: 0, stdout: `${dir}: 1 archivos precomprimidos\n`, stderr: '' });
+    assert.deepEqual(result, { code: 0, stdout: `${dir}: 1 files precompressed\n`, stderr: '' });
     assert.deepEqual((await readdir(dir)).sort(), ['index.html', 'index.html.br', 'index.html.gz']);
   });
 
-  it('sin carpeta explica el uso y termina con código 2', async () => {
+  it('without a folder it explains the usage and exits with code 2', async () => {
     assert.deepEqual(await run('precompress.ts', []), {
       code: 2,
       stdout: '',
-      stderr: 'Uso: node precompress.ts <carpeta>\n',
+      stderr: 'Usage: node precompress.ts <dir>\n',
     });
   });
 });
 
-describe('healthcheck.ts (healthcheck de compose, sin curl en la imagen)', () => {
+describe('healthcheck.ts (compose healthcheck, no curl in the image)', () => {
   let server: Server | undefined;
 
   const listen = async (status: number): Promise<string> => {
@@ -70,27 +70,27 @@ describe('healthcheck.ts (healthcheck de compose, sin curl en la imagen)', () =>
     server = undefined;
   });
 
-  it('sale con 0 si GET /health responde 200', async () => {
+  it('exits with 0 when GET /health answers 200', async () => {
     assert.deepEqual(await run('healthcheck.ts', [], { PORT: await listen(200) }), { code: 0, stdout: '', stderr: '' });
   });
 
-  it('sale con 1 y dice por qué si /health no responde 200', async () => {
+  it('exits with 1 and says why when /health does not answer 200', async () => {
     const result = await run('healthcheck.ts', [], { PORT: await listen(503) });
-    assert.deepEqual(result, { code: 1, stdout: '', stderr: 'builder no saludable: /health respondió 503\n' });
+    assert.deepEqual(result, { code: 1, stdout: '', stderr: 'builder unhealthy: /health answered 503\n' });
   });
 
-  it('sale con 1 si no hay nadie escuchando', async () => {
+  it('exits with 1 when nobody is listening', async () => {
     const port = await listen(200);
     await new Promise((resolve) => server!.close(resolve));
     server = undefined;
 
     const result = await run('healthcheck.ts', [], { PORT: port });
     assert.equal(result.code, 1);
-    assert.match(result.stderr, /^builder no saludable: /);
+    assert.match(result.stderr, /^builder unhealthy: /);
   });
 });
 
-describe('request-build.ts (pide un build desde dentro del contenedor, por ejemplo tras un restore)', () => {
+describe('request-build.ts (requests a build from inside the container, for example after a restore)', () => {
   let server: Server | undefined;
   let seen: { method?: string; url?: string; authorization?: string } = {};
 
@@ -108,16 +108,16 @@ describe('request-build.ts (pide un build desde dentro del contenedor, por ejemp
     server = undefined;
   });
 
-  it('hace POST /build con el token y sale con 0 si el builder lo acepta (202)', async () => {
+  it('sends POST /build with the token and exits with 0 when the builder accepts it (202)', async () => {
     const token = 't'.repeat(40);
     const result = await run('request-build.ts', [], { PORT: await listen(202), BUILDER_TOKEN: token });
 
-    assert.deepEqual(result, { code: 0, stdout: 'build pedido\n', stderr: '' });
+    assert.deepEqual(result, { code: 0, stdout: 'build requested\n', stderr: '' });
     assert.deepEqual(seen, { method: 'POST', url: '/build', authorization: `Bearer ${token}` });
   });
 
-  it('sale con 1 y dice por qué si el builder lo rechaza', async () => {
+  it('exits with 1 and says why when the builder rejects it', async () => {
     const result = await run('request-build.ts', [], { PORT: await listen(401), BUILDER_TOKEN: 'x' });
-    assert.deepEqual(result, { code: 1, stdout: '', stderr: 'no se pudo pedir el build: POST /build respondió 401\n' });
+    assert.deepEqual(result, { code: 1, stdout: '', stderr: 'could not request a build: POST /build answered 401\n' });
   });
 });
