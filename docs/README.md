@@ -22,6 +22,20 @@ Admin ──► API ──► SQLite
 
 On the VPS, Dokploy's Traefik sits in front of Caddy and terminates TLS (see "Operations").
 
+How a change reaches the site (build once, deploy many; step by step in the [release guide](release-guide.md)):
+
+```
+feat/x ──PR──► master (protected: pull requests with green CI only)
+                 │
+                 └─ CI ──► builds and scans api, builder, caddy ──► ghcr.io/alanshalem/blog-<service>:sha-<commit>
+                              │
+                              ├─ green CI on master ──► Deploy workflow ──► Dokploy API ──► staging runs sha-<commit>
+                              └─ tag v<date> ─────────► Deploy workflow ──► Dokploy API ──► production runs the same images
+```
+
+The VPS never builds: Dokploy pulls the images CI published, so production runs byte for byte what staging ran.
+Rollback is the Deploy workflow run by hand with an older tag.
+
 The home hero rotates on every visit between photos and short videos (≤ 15 s) uploaded from Settings. Every image is
 stored optimized (AVIF + WebP at several widths, no metadata, with libvips) and every video is trimmed, stripped of its
 audio and encoded with ffmpeg to AV1 + H.264 at 720p and 1080p.
