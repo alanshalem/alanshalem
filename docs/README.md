@@ -144,7 +144,8 @@ docker compose -f infra/docker-compose.yml -f infra/compose.local.yml --env-file
 docker compose -f infra/compose.dev.yml --env-file infra/local.env config -q
 docker run --rm -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" -e SITE_ADDRESS=:80 \
   "$(sed -n 's/^FROM \(caddy:[^ ]*\).*/\1/p' infra/caddy/Dockerfile)" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-# The Caddyfile running (production, staging behind a proxy, a stub API): noindex, robots.txt, the proxy gate
+# The Caddyfile running (production, staging behind a proxy, a stub API): noindex, robots.txt, the proxy gate, the
+# proxy secret kept from the API and the access log
 sh infra/test/caddy-runtime.sh
 
 # Security: dependencies with known vulnerabilities
@@ -172,67 +173,27 @@ nothing). Under Dokploy, `infra/` is `/etc/dokploy/compose/<appName>/code/infra`
 there names the project (`COMPOSE_PROJECT_NAME=<appName>`) and both compose files (`COMPOSE_FILE`), so the commands and
 scripts below find that environment's stack as they are.
 
-### Dokploy: first deploy (once per environment)
+How Dokploy runs a Compose service: on every deploy it clones the branch into `/etc/dokploy/compose/<appName>/code`,
+rewrites the Compose Path file (`infra/docker-compose.yml`) adding the Traefik labels of its domains and
+`dokploy-network`, writes `infra/.env` from the Environment tab and runs the Command (Advanced) from `code/` with
+`docker` in front. The compose file on the VPS is therefore not the one in git (never edit it there: the next deploy
+replaces it), and the containers are `<appName>-<service>-1` (for example `<appName>-caddy-1`), the names the checks
+below use.
 
-Each environment is its own Dokploy Compose service: its own project name (`<appName>`), volumes, database, media,
-session keys and builder token. Nothing is shared between staging and production.
-
-1. DNS: `A` records for `alanshalem.com` and `staging.alanshalem.com` pointing to the VPS IP.
-2. Dokploy → Settings → Git → GitHub: connect the GitHub account (GitHub App) with access to this repository.
-3. Projects → Create Project `alanshalem`, with two environments, `production` and `staging`. In each one: Create
-   Service → Compose, type **Docker Compose** (not Stack: Stack cannot `build`), provider GitHub, this repository,
-   branch `master`, Compose Path `./infra/docker-compose.yml`. Leave Isolated Deployments off. Save.
-4. Advanced → Command, with the App Name shown in the General tab (Dokploy deploys this exact command; it adds
-   `compose.dokploy.yml`, which takes Caddy off 80/443 and puts it behind Traefik):
-
-   ```text
-   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans
-   ```
-
-5. Environment (Dokploy writes it to `infra/.env` on every deploy; edit it here, never on the server). Staging:
-
-   ```bash
-   SITE_ADDRESS=:80
-   SITE_URL=https://staging.alanshalem.com
-   SITE_ENV=staging
-   BUILDER_TOKEN=...
-   ADMIN_PASSWORD_HASH='pbkdf2-sha256$...'
-   PROXY_SECRET=...
-   COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml
-   ```
-
-   - Production: `SITE_URL=https://alanshalem.com` and no `SITE_ENV` line (the default is `production`). `SITE_ENV`
-     only accepts `production` or `staging`: any other value stops Caddy (it refuses its configuration), so a typo
-     never serves staging as an indexable production; check the Logs tab of `caddy` after changing it.
-   - `BUILDER_TOKEN`: `openssl rand -hex 32`, a different one per environment.
-   - `PROXY_SECRET`: `openssl rand -hex 32`, a different one per environment, the same value Traefik adds for that
-     environment ("Dokploy: proxy secret"). Without it the deploy fails (compose names the variable).
-   - `ADMIN_PASSWORD_HASH`: in single quotes (it contains `$`), generated on your machine with
-     `docker build --tag blog-api apps/api && docker run --rm -it blog-api hash-password` (12 characters or more,
-     typed without echo).
-   - `COMPOSE_FILE` is for the commands and scripts run on the VPS (`backup.sh`, `restore.sh`, `docker compose ...`);
-     Dokploy's own deploy passes the files in its command. `ACME_EMAIL` is not used: Traefik requests the
-     certificates.
-6. Domains → Add Domain: Service Name `caddy`, Host `staging.alanshalem.com` (or `alanshalem.com`), Path `/`,
-   Container Port `80`, HTTPS on, Certificate Provider Let's Encrypt, and the proxy secret middleware ("Dokploy:
-   proxy secret"); staging also gets the basic auth middleware ("Dokploy: staging basic auth and noindex").
-7. Deploy and follow the deployment log: `init-permissions` runs once and exits with 0 (it is a one-shot), then `api`
-   becomes healthy and `builder` starts and builds the site. Open `https://<domain>/admin/`, create a post and
-   publish it.
-8. Automatic deploys, in General: staging with Auto Deploy on and the trigger on push (branch `master`); production
-   with Auto Deploy on and the trigger on tag (see "Dokploy: release flow").
+Set up the two Traefik middlewares below before the first deploy: the domain of each environment points at them.
 
 ### Dokploy: proxy secret
 
 `dokploy-network` is shared by every Dokploy app on the VPS, so any container on it can call this Caddy directly
-(`caddy:80`), skipping Traefik. To tell Traefik's requests apart, Traefik adds a secret header to every request it
-forwards and Caddy answers 403 to any request without it (`PROXY_SECRET`, Caddyfile "Proxy gate"): a container that
-calls Caddy directly cannot skip the staging basic auth, and cannot forge `X-Forwarded-For` (Caddy only believes it
-from private addresses, and the login rate limit is per IP). The secret never goes to git: it lives in the service's
-Environment tab and in Traefik's dynamic configuration, on the VPS only. Caddy keeps it from the API and its logs.
+(`<appName>-caddy-1:80`), skipping Traefik. To tell Traefik's requests apart, Traefik adds a secret header to every
+request it forwards and Caddy answers 403 to any request without it (`PROXY_SECRET`, Caddyfile "Proxy gate"): a
+container that calls Caddy directly cannot skip the staging basic auth, and cannot forge `X-Forwarded-For` (Caddy only
+believes it from private addresses, and the login rate limit is per IP). The secret never goes to git: it lives in the
+service's Environment tab and in Traefik's dynamic configuration, on the VPS only. Caddy keeps it from the API and its
+logs.
 
-1. On your machine, one per environment: `openssl rand -hex 32`. Put it in that environment's Environment tab as
-   `PROXY_SECRET=...`.
+1. On your machine, one per environment: `openssl rand -hex 32`. Each one goes to its environment's Environment tab
+   as `PROXY_SECRET=...` ("Dokploy: first deploy", step 5).
 2. Dokploy → Traefik File System → `dynamic/` (on the VPS: `/etc/dokploy/traefik/dynamic/`), new file
    `alanshalem-proxy-secret.yml` (Traefik reloads it on its own), with each environment's value:
 
@@ -249,16 +210,8 @@ Environment tab and in Traefik's dynamic configuration, on the VPS only. Caddy k
              X-Proxy-Secret: "<staging PROXY_SECRET>"
    ```
 
-3. Each service → Domains → its domain → Middlewares: production `alanshalem-production-proxy-secret@file`; staging
-   `alanshalem-staging-proxy-secret@file` (plus `alanshalem-staging-auth@file`, next section). Save and Deploy (a
-   Compose service applies domain changes on the next deploy).
-4. Check: `https://<domain>/` answers as always (302 to `/es/` or `/en/`), and from another container on the network
-   Caddy refuses: `docker run --rm --network dokploy-network curlimages/curl -s -o /dev/null -w '%{http_code}\n'
-   http://<appName>-caddy-1/` prints `403`. If the site itself answers 403, the middleware is missing from the
-   domain or its value differs from `PROXY_SECRET`.
-
-To rotate it: change the value in Traefik's file and in the Environment tab, then Deploy (between the two steps the
-site answers 403).
+The domain gets it in "Dokploy: first deploy" (step 6) and the check is its step 8. To rotate it: change the value in
+Traefik's file and in the Environment tab, then Deploy (between the two steps the site answers 403).
 
 ### Dokploy: staging basic auth and noindex
 
@@ -281,15 +234,96 @@ The password never goes to git: only its bcrypt hash, and only on the VPS.
              - "staging:$2y$05$..."
    ```
 
-3. Staging service → Domains → `staging.alanshalem.com` → Middlewares: add `alanshalem-staging-auth@file` (next to
-   `alanshalem-staging-proxy-secret@file`), save, and Deploy (a Compose service applies domain changes on the next
-   deploy).
-4. Check: `curl -I https://staging.alanshalem.com/` answers 401; with `-u staging` it answers 302 with
-   `X-Robots-Tag: noindex, nofollow`.
+The staging domain gets it in "Dokploy: first deploy" (step 6), next to its proxy secret; the check is step 8.
 
 Why in Traefik and not in Caddy: Dokploy attaches middlewares to a Compose domain, and Traefik checks the password
 before the request reaches the blog. Dokploy's Security tab (basic auth form) exists only for Applications. Nobody
 skips it by calling Caddy directly: without the proxy secret Caddy answers 403.
+
+### Dokploy: first deploy (once per environment)
+
+Each environment is its own Dokploy Compose service: its own project name (`<appName>`), volumes, database, media,
+session keys and builder token. Nothing is shared between staging and production. Before it: the Traefik files of
+"Dokploy: proxy secret" and, for staging, "Dokploy: staging basic auth and noindex".
+
+1. DNS: `A` records for `alanshalem.com` and `staging.alanshalem.com` pointing to the VPS IP.
+2. Dokploy → Settings → Git → GitHub: connect the GitHub account (GitHub App) with access to this repository.
+3. Projects → Create Project `alanshalem`, with two environments, `production` and `staging`. In each one: Create
+   Service → Compose, type **Docker Compose** (not Stack: Stack cannot `build`), provider GitHub, this repository,
+   branch `master`, Compose Path `./infra/docker-compose.yml`. Leave Isolated Deployments off. Save.
+4. Advanced → Command, with the App Name shown in the General tab. Dokploy runs this exact command from `code/` with
+   `docker` in front; it adds `compose.dokploy.yml`, which takes Caddy off 80/443 and puts it behind Traefik, and
+   `--wait` makes the deploy wait until every container is running and healthy (step 7):
+
+   ```text
+   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans --wait
+   ```
+
+5. Environment (Dokploy writes it to `infra/.env` on every deploy; edit it here, never on the server). Staging:
+
+   ```bash
+   SITE_ADDRESS=:80
+   SITE_URL=https://staging.alanshalem.com
+   SITE_ENV=staging
+   BUILDER_TOKEN=...
+   ADMIN_PASSWORD_HASH='pbkdf2-sha256$...'
+   PROXY_SECRET=...
+   COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml
+   ```
+
+   - Production: `SITE_URL=https://alanshalem.com` and no `SITE_ENV` line (the default is `production`). `SITE_ENV`
+     only accepts `production` or `staging`: any other value stops Caddy (it refuses its configuration), so a typo
+     never serves staging as an indexable production, and the deploy fails (step 7).
+   - `BUILDER_TOKEN`: `openssl rand -hex 32`, a different one per environment.
+   - `PROXY_SECRET`: this environment's value in Traefik's file ("Dokploy: proxy secret"). Without it the deploy fails
+     (compose names the variable).
+   - `ADMIN_PASSWORD_HASH`: in single quotes (it contains `$`), generated on your machine with
+     `docker build --tag blog-api apps/api && docker run --rm -it blog-api hash-password` (12 characters or more,
+     typed without echo).
+   - `COMPOSE_FILE` is for the commands and scripts run on the VPS (`backup.sh`, `restore.sh`, `docker compose ...`);
+     Dokploy's own deploy passes the files in its command. `ACME_EMAIL` is not used: Traefik requests the
+     certificates.
+6. Domains → Add Domain: Service Name `caddy`, Host `staging.alanshalem.com` (or `alanshalem.com`), Path `/`,
+   Container Port `80`, HTTPS on, Certificate Provider Let's Encrypt, and Middlewares: production
+   `alanshalem-production-proxy-secret@file`; staging `alanshalem-staging-proxy-secret@file` and
+   `alanshalem-staging-auth@file`. Save (a Compose service applies domain changes on the next deploy).
+7. Deploy and follow the deployment log: `init-permissions` runs once and exits with 0 (a one-shot, which `--wait`
+   accepts), then `api`, `caddy` and `builder` report `Healthy` and the deploy is done; the builder then builds the
+   site (Logs tab of `builder`). **A failed deploy** is marked as an error in the Deployments tab and its log ends with
+   `container <appName>-<service>-1 is unhealthy` (or `exited`): that service's Logs tab says why (a `SITE_ENV` typo:
+   `File to import not found: site-env-prod`). Nothing is rolled back: what the deploy recreated stays (a Caddy that
+   refuses its configuration leaves the domain answering 404 from Traefik) until a deploy with the fix.
+8. Check it, from your machine (and the second check on the VPS):
+   - `curl -I https://alanshalem.com/` answers 302 to `/es/` or `/en/`. Staging: without credentials 401;
+     `curl -I -u staging https://staging.alanshalem.com/` answers 302 with `X-Robots-Tag: noindex, nofollow`. If the
+     site answers 403, the proxy secret middleware is missing from the domain or its value differs from `PROXY_SECRET`.
+   - Nobody skips Traefik: `docker run --rm --network dokploy-network curlimages/curl -s -o /dev/null -w
+     '%{http_code}\n' http://<appName>-caddy-1/` prints `403`.
+   - The API sees the visitor's real IP (the login rate limit and the logs depend on it): a wrong login,
+     `curl -s -o /dev/null -w '%{http_code}\n' -X POST -H 'X-Requested-With: blog-admin' -H 'Content-Type:
+     application/json' -d '{"password":"wrong"}' https://alanshalem.com/api/auth/login` (staging: add `-u staging`)
+     prints `401`, and then `docker logs --since 5m <appName>-api-1 2>&1 | grep 'Failed login'` shows
+     `Failed login from <your public IP>`. A private address (`10.…`, `172.…`) means every visitor shares one login
+     rate limit: check `CADDY_TRUSTED_PROXIES` (`compose.dokploy.yml`) and the address Traefik itself sees.
+   - Open `https://<domain>/admin/`, sign in, create a post and publish it.
+9. Automatic deploys, in General: staging with Auto Deploy on and the trigger on push (branch `master`); production
+   with Auto Deploy on and the trigger on tag (see "Dokploy: release flow").
+
+**Verify on the first real deploy.** These Dokploy behaviours were checked locally (Traefik v3.7 and the compose file
+rewritten as Dokploy does), not on a real Dokploy: confirm them once per environment and fix this runbook if one
+differs.
+
+- [ ] Compose domains have the Middlewares field and it reaches Caddy's router: `docker inspect --format
+      '{{json .Config.Labels}}' <appName>-caddy-1` lists the middlewares of step 6. Without them Caddy answers 403 to
+      everything (it fails closed: nothing is exposed).
+- [ ] The tag trigger: `git push origin <tag>` starts a production deploy and no staging one; a push to `master` only
+      staging.
+- [ ] `COMPOSE_PROJECT_NAME=<appName>` is in the env file Dokploy writes (`backup.sh` and `restore.sh` need it):
+      `grep -c '^COMPOSE_PROJECT_NAME=' /etc/dokploy/compose/<appName>/code/infra/.env` prints `1`. If it prints `0`,
+      add that line to the Environment tab.
+- [ ] The `$` of the single-quoted `ADMIN_PASSWORD_HASH` survives the Environment tab: signing in to `/admin/` with
+      the password works (a mangled hash rejects every password).
+- [ ] `--wait` works in Dokploy's deploy: the deployment log ends with the `Healthy` lines of step 7.
 
 ### Dokploy: release flow
 
@@ -299,8 +333,12 @@ skips it by calling Caddy directly: without the proxy secret Caddy answers 403.
   the head of the configured branch, not the tagged commit** (it clones `--branch master --depth 1`): tag the head of
   `master` that staging validated and do not push anything else before the production deploy starts.
 - Before tagging, a backup of production (`sh backup.sh` in its `infra/`): it is the only way back (see Rollback).
-- Each deploy rebuilds the images and recreates what changed; the volumes stay. Migrations run when the API starts and
-  a failed build never touches the published site.
+- Each deploy rebuilds the images and recreates only the containers whose image or configuration changed; the volumes
+  stay. Migrations run when the API starts and a failed build never touches the published site.
+- A deploy that does not change Caddy keeps the site up. One that does (the Caddyfile, the admin, its image or
+  environment, such as `SITE_ENV` or `PROXY_SECRET`) leaves the domain without Caddy for about 5 s: Traefik answers 404
+  from when the old one stops until the new one is healthy (it only routes to healthy containers; measured behind
+  Traefik v3.7, ~3 s of that is the old Caddy stopping).
 - Dokploy's Deployments tab keeps the logs of each deploy; its Logs tab, the containers' logs.
 
 ### First deploy (VPS without Dokploy)
@@ -324,7 +362,8 @@ skips it by calling Caddy directly: without the proxy secret Caddy answers 403.
 
 If the VPS already has another reverse proxy on 80/443, do not bring this Caddy up as is: put yours in front and point
 it at the `caddy` container over an internal network, as `compose.dokploy.yml` does for Traefik (no published ports,
-`SITE_ADDRESS=:80`, `CADDY_TRUSTED_PROXIES`, and `PROXY_SECRET` sent by your proxy as `X-Proxy-Secret`). The API publishes no ports: only Caddy and the builder reach it.
+`SITE_ADDRESS=:80`, `CADDY_TRUSTED_PROXIES`, and `PROXY_SECRET` sent by your proxy as `X-Proxy-Secret`). The API
+publishes no ports: only Caddy and the builder reach it.
 
 ### Update
 
@@ -409,17 +448,20 @@ published site is still the previous one).
 - `api`: `dotnet Blog.Api.dll healthcheck` asks `/api/health/ready` (200 if SQLite answers, otherwise 503).
   `/api/health` only says the process is alive; it is the one Caddy uses to take the API out of rotation.
 - `builder`: `node src/healthcheck.ts` asks its `GET /health`. It starts once the API is healthy (`service_healthy`).
-- `caddy`: starts as soon as the API has started (`service_started`), without waiting for it to be healthy: the static
-  site never depends on the API.
+- `caddy`: `wget` asks its own admin endpoint (`127.0.0.1:2019`, inside the container only, never published): healthy
+  once its configuration loaded, so `up --wait` (the Dokploy deploy, `restore.sh`) fails when Caddy refuses it. It
+  does not ask the API, and Caddy starts as soon as the API has started (`service_started`), without waiting for it to
+  be healthy: the static site never depends on the API.
 
 `docker compose --env-file .env ps` shows the state; an `unhealthy` service keeps running (Docker does not restart
-it): check its logs.
+it): check its logs. Behind Dokploy, Traefik only routes to a healthy Caddy.
 
 ### Rotate the admin password and the builder token
 
 - Password: generate the new hash (as in the first deploy), replace `ADMIN_PASSWORD_HASH` in `.env` and run
-  `docker compose --env-file .env up -d api` (under Dokploy: in the service's Environment tab, then Deploy). Then sign in to the admin with the new password and log out: logging out
-  invalidates every open session (a copied cookie too).
+  `docker compose --env-file .env up -d api` (under Dokploy: in the service's Environment tab, then Deploy). Then sign
+  in to the admin with the new password and log out: logging out invalidates every open session (a copied cookie
+  too).
 - Token: `openssl rand -hex 32`, replace `BUILDER_TOKEN` in `.env` and run `docker compose --env-file .env up -d` (the
   API and the builder read it at startup; under Dokploy: Environment tab, then Deploy).
 

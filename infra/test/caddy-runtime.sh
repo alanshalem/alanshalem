@@ -1,7 +1,8 @@
 #!/bin/sh
 # The Caddyfile running in the pinned Caddy image (infra/caddy/Dockerfile), in the forms the compose files start it,
-# against a stub API (the same image answering with the X-Forwarded-* it received): production as the edge (plain VPS),
-# staging and production behind a proxy (Dokploy's Traefik: trusted proxies + the proxy secret), and a SITE_ENV typo.
+# against a stub API (the same image answering with the X-Forwarded-* and X-Proxy-Secret it received): production as
+# the edge (plain VPS), staging and production behind a proxy (Dokploy's Traefik: trusted proxies + the proxy secret,
+# which reaches neither the API nor Caddy's access log), and a SITE_ENV typo.
 # Text tests (infra/test/caddy.test.ts) pin the directives; this proves what they do. CI's infra job runs it; locally,
 # from anywhere: sh infra/test/caddy-runtime.sh (needs Docker and curl). Everything it creates is named
 # caddy-runtime-<pid>-* and removed on exit; Caddy publishes a random port on 127.0.0.1 only.
@@ -104,6 +105,10 @@ get /api/echo -H "X-Forwarded-For: $forged"
 check '/api reaches the API without X-Robots-Tag' no_header X-Robots-Tag
 check 'a forged X-Forwarded-For is ignored: the API gets the connecting address' lacks "$forged"
 check 'the API gets one address' body_matches '^xff=[0-9a-f.:]+ proto=http '
+# Without PROXY_SECRET there is no gate: a client's X-Proxy-Secret is just a header, and it still stops at Caddy.
+get /api/echo -H 'X-Proxy-Secret: stray'
+check 'a stray X-Proxy-Secret is not refused' status_is 200
+check 'a stray X-Proxy-Secret never reaches the API' body_matches '^xff=[0-9a-f.:]+ proto=http secret=$'
 
 echo "# staging behind the proxy (Dokploy: trusted private ranges + proxy secret)"
 start_caddy --env SITE_ADDRESS=:80 --env SITE_ENV=staging \
@@ -127,6 +132,10 @@ check 'the 404 says noindex, nofollow' header_is X-Robots-Tag 'noindex, nofollow
 get /api/echo -H "X-Proxy-Secret: $secret" -H "X-Forwarded-For: $forged" -H 'X-Forwarded-Proto: https'
 check '/api says noindex, nofollow' header_is X-Robots-Tag 'noindex, nofollow'
 check "the proxy's X-Forwarded-For and -Proto reach the API, and the secret does not" body_is "xff=$forged proto=https secret="
+# Every request above sent the secret (or wrong-<secret>) and the access log records the request headers.
+response=$(docker logs "$run-caddy" 2>&1)
+check 'the access log records the requests and their headers' contains '"X-Forwarded-Proto":["https"]'
+check 'the access log never carries the proxy secret' lacks "$secret"
 
 echo "# production behind the proxy"
 start_caddy --env SITE_ADDRESS=:80 --env SITE_ENV=production \

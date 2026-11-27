@@ -102,6 +102,13 @@ services:
       - caddy_config:/config
       - site:/srv/site:ro
       - media:/srv/media:ro
+    healthcheck:
+      <<: *healthcheck
+      # Caddy's admin endpoint (localhost:2019 inside the container, never published): it answers once the Caddyfile
+      # loaded. A config Caddy refuses (a SITE_ENV typo) never gets healthy, so `up --wait` (Dokploy's deploy,
+      # restore.sh) fails instead of passing on a container that only ran for an instant. It does not ask the API: the
+      # static site never depends on it. busybox wget comes with the image (no curl).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
     depends_on:
       # Only that the API has started, not that it is healthy: waiting for its healthcheck kept the static site down
       # for the whole start_period of a broken API. While the API does not answer, /api errors (502/503: Caddy's health

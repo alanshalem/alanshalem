@@ -15,8 +15,9 @@
 	# Whom Caddy believes X-Forwarded-For and X-Forwarded-Proto from. Nobody by default: on a VPS without another proxy
 	# Caddy is the edge and the visitor is whoever connects. Behind Dokploy's Traefik, compose.dokploy.yml fills
 	# CADDY_TRUSTED_PROXIES with the whole option (`trusted_proxies static ...`) so the visitor's IP and https reach the
-	# API; the proxy gate in the site block (PROXY_SECRET) keeps that trust for requests that came through Traefik. Not trusted_proxies_strict: Traefik drops the X-Forwarded-* a visitor sends and forwards exactly one address,
-	# and strict parsing skips every trusted (private) address, so a visitor Traefik sees with a private address (Docker's
+	# API; the proxy gate in the site block (PROXY_SECRET) keeps that trust for requests that came through Traefik.
+	# Not trusted_proxies_strict: Traefik drops the X-Forwarded-* a visitor sends and forwards exactly one address, and
+	# strict parsing skips every trusted (private) address, so a visitor Traefik sees with a private address (Docker's
 	# gateway) would turn into Traefik's own IP.
 	servers {
 		{$CADDY_TRUSTED_PROXIES}

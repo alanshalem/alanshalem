@@ -104,6 +104,18 @@ describe('docker-compose.yml (VPS)', () => {
     assert.match(block(prod, 'x-healthcheck'), /start_period: \d+s\n\s+start_interval: 2s/);
   });
 
+  it('Caddy has a healthcheck on its own admin endpoint, inside the container: `up --wait` fails when its config does not load', () => {
+    // A SITE_ENV typo stops Caddy at once; without a healthcheck `up --wait` saw it running for an instant and passed.
+    // The admin endpoint does not depend on the API (the static site never waits for it) and skips the proxy gate.
+    const caddy = service(prod, 'caddy');
+    assert.match(caddy, /<<: \*healthcheck/);
+    assert.match(caddy, /test: \["CMD", "wget", "-q", "-O", "\/dev\/null", "http:\/\/127\.0\.0\.1:2019\/config\/"\]/);
+    // Caddy's default admin address (localhost:2019): never moved to an address other containers reach.
+    assert.doesNotMatch(read('infra/caddy/Caddyfile'), /^\s*admin\b/m);
+    assert.equal(lines(prod).join('\n').match(/2019/g)?.length, 1, 'the admin port only in the healthcheck, never published');
+    for (const text of [prod, dokploy, read('infra/compose.local.yml')]) assert.doesNotMatch(text, /2019:|CADDY_ADMIN/);
+  });
+
   it('the builder waits for a healthy API; Caddy only for it to start (an unhealthy API does not take the site down)', () => {
     assert.match(block(service(prod, 'builder'), 'depends_on', 4), /api:\n\s+condition: service_healthy$/m);
     assert.match(block(service(prod, 'caddy'), 'depends_on', 4), /^\s+api:\n\s+condition: service_started\n\s+required: false$/);
@@ -184,11 +196,14 @@ describe('compose.dokploy.yml (behind Dokploy and its Traefik)', () => {
     assert.match(block(dokploy, 'networks'), /^ {2}dokploy-network:\n {4}external: true$/m);
   });
 
-  it('the Dokploy command in its header is the one the README runbook gives', () => {
+  it('the Dokploy command in its header is the one the README runbook and the skill give', () => {
     const command = /^# {3}(compose -p <appName> .+)$/m.exec(dokploy)?.[1];
     assert.ok(command, 'missing the Dokploy command in the header');
-    assert.match(command, / --env-file infra\/\.env -f infra\/docker-compose\.yml -f infra\/compose\.dokploy\.yml up -d --build --remove-orphans$/);
+    // --wait: the deploy fails when a container does not start or a healthcheck does not pass (a SITE_ENV typo stops
+    // Caddy), instead of reporting success as soon as the containers are created.
+    assert.match(command, / --env-file infra\/\.env -f infra\/docker-compose\.yml -f infra\/compose\.dokploy\.yml up -d --build --remove-orphans --wait$/);
     assert.ok(read('docs/README.md').includes(command), 'docs/README.md must give the same command');
+    assert.ok(read('.agents/skills/docker-and-deploy/SKILL.md').includes(command), 'the docker-and-deploy skill must give the same command');
   });
 
   it('the runbook section its header names exists in the README', () => {

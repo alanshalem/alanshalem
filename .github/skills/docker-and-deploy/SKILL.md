@@ -9,7 +9,7 @@ description: "How this blog runs in Docker and on the VPS, covering the dev comp
 
 | Goal | Command | Notes |
 |---|---|---|
-| Dokploy on srv2192513 (production + staging) | Dokploy runs `compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans` from the repo root | project `<appName>` (one Compose service per environment); Traefik on 80/443 does TLS; Caddy on :80 in `dokploy-network` |
+| Dokploy on srv2192513 (production + staging) | Dokploy runs `compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans --wait` from the repo root (`code/`), with `docker` in front | project `<appName>` (one Compose service per environment); Traefik on 80/443 does TLS; Caddy on :80 in `dokploy-network` |
 | Dev, only Docker installed (repo root) | `docker compose -f infra/compose.dev.yml --env-file infra/local.env up --build` | project `blog-dev`; API :5090 (`dotnet watch`), admin :5173 (Vite HMR), site :4321 (`astro dev`); code mounted, deps/bin/obj/NuGet/data in volumes |
 | Local production copy (from `infra/`) | `docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env up -d --build` | project `blog-local`; same images, caps and volumes as the VPS; HTTP only on `127.0.0.1:${LOCAL_PORT}` (8080) |
 | VPS without Dokploy (from `infra/`) | `docker compose --env-file .env up -d --build` | project `blog`; Caddy with automatic TLS on 80/443 |
@@ -51,9 +51,11 @@ Every base image is **pinned by digest** (a rebuild never changes version on its
 x264, `mwader/static-ffmpeg`), .NET SDK 11.0.100 / aspnet 11.0.0 (Ubuntu 26.04), `node:22.23.5-slim` (one `ARG NODE_IMAGE`, the same in
 `apps/builder/Dockerfile` and `infra/caddy/Dockerfile`: `infra/test/compose.test.ts` compares them), `caddy:2.11.9-alpine`
 and `busybox` in the compose. To update: new tag + `docker buildx imagetools inspect <image:tag>`; Dependabot proposes
-updates weekly (`.github/dependabot.yml`, one grouped PR for the three Dockerfile folders). CI's node job reads the Node
-version from `apps/builder/Dockerfile` and the infra job the Caddy image from `infra/caddy/Dockerfile`: never copy those
-references into the workflow.
+updates weekly (`.github/dependabot.yml`, one grouped PR for the three Dockerfile folders). `.trivyignore` holds the
+accepted findings, each with a reason and an expiry ≤ 60 days (CVE-2025-6020, libpam in the node:22 Debian 12 base:
+no node:22 digest had the fix on 2026-11-27, and the trixie variant has another fixable HIGH). CI's node job reads the
+Node version from `apps/builder/Dockerfile` and the infra job the Caddy image from `infra/caddy/Dockerfile`: never copy
+those references into the workflow.
 
 - `apps/api/Dockerfile` (context `apps/api`): `sdk`, `dev` (SDK + ffmpeg, `dotnet watch`; CI runs `dotnet build -warnaserror`
   and `dotnet test` in it, so the Ffmpeg tests run too) and `runtime` (aspnet, non-root `$APP_UID`, port 8080). Restore
@@ -88,8 +90,11 @@ references into the workflow.
   `["CMD", "dotnet", "Blog.Api.dll", "healthcheck"]` (asks `/api/health/ready`: SQLite answers), builder
   `["CMD", "node", "src/healthcheck.ts"]` (its `GET /health`). Start order: the builder waits for the API
   `service_healthy` (a build reads the API); **Caddy waits only for `service_started`** — the static site must never depend
-  on the API being healthy (an earlier `service_healthy` + `required: false` coupled them). Caddy has no healthcheck; its
-  own `health_uri /api/health` takes the API out of rotation.
+  on the API being healthy (an earlier `service_healthy` + `required: false` coupled them). Caddy's healthcheck asks its
+  own admin endpoint (`["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]`; Caddy's default
+  admin address, localhost inside the container, never published nor reachable from `dokploy-network`): healthy once
+  the Caddyfile loaded, never asks the API. Without it `up --wait` passed on a Caddy that crash-loops (a SITE_ENV typo:
+  compose saw it running for an instant). Its own `health_uri /api/health` takes the API out of rotation.
 - API has no published ports (only Caddy and the builder reach it); `mem_limit 1536m`, `cpus 2.0` (measured video
   peak ~1.3 GiB; user decision). Builder `mem_limit 1g`, `cpus 1.0`; `astro build` runs with `nice -n 10` and
   `--max-old-space-size=768`. Caddy `128m`. Caps are limits, not measurements: check with `docker stats`.
@@ -103,8 +108,10 @@ references into the workflow.
 Dokploy v0.31.4 (Traefik v3.7, Swarm on the host, overlay `dokploy-network`) deploys a Compose service by cloning the
 branch (`git clone --branch <b> --depth 1`) into `/etc/dokploy/compose/<appName>/code`, rewriting the compose path
 file (yaml parse with merge keys, then Traefik labels and `dokploy-network` on the domain's service) and running its
-command. It reads **one** compose file, so the override goes in through the custom command (Advanced → Command); the
-base file stays the plain-VPS one and CI keeps validating it.
+command from `code/` with `docker` in front. Containers are `<appName>-<service>-1` (use that name in checks: on
+`dokploy-network` the `caddy` alias is shared by every app's Caddy). It reads **one** compose file, so the override
+goes in through the custom command (Advanced → Command); the base file stays the plain-VPS one and CI keeps validating
+it.
 
 - The override only touches Caddy: `ports: !reset []` (Traefik owns 80/443 TCP+UDP), `SITE_ADDRESS: ":80"` (no ACME),
   `CADDY_TRUSTED_PROXIES: trusted_proxies static private_ranges`, `PROXY_SECRET`, networks `default` + external
@@ -137,8 +144,16 @@ base file stays the plain-VPS one and CI keeps validating it.
   head**, not the tagged commit.
 - Volumes are `<appName>_<volume>`: per environment, kept across deploys (`--remove-orphans` never removes volumes);
   deleting the service with "delete volumes" ticked runs `down --volumes`.
-- `init-permissions` (one-shot) and the `depends_on` conditions behave as with plain compose; Dokploy uses `up -d`
-  without `--wait`, so a deploy reports success once the containers start: check `ps` / the Logs tab for `healthy`.
+- `init-permissions` (one-shot) and the `depends_on` conditions behave as with plain compose. The command ends with
+  `--wait` (A2c), so the deploy fails when a container exits or does not get healthy (`container <appName>-caddy-1 is
+  unhealthy` for a SITE_ENV typo, ~4 s; measured locally, compose v5.7.1); `--wait` accepts the one-shot exiting 0.
+  A failed deploy is not rolled back. `infra/test/compose.test.ts` requires the same command in the header of
+  `compose.dokploy.yml`, the README and this skill.
+- Availability: Traefik only routes to a healthy container. A deploy that does not change Caddy does not recreate it
+  (no failed request); one that does (Caddyfile, admin, image, environment) leaves the domain answering 404 for ~5 s
+  (~3 s of it is the old Caddy stopping; measured behind Traefik v3.7.19). The README "Dokploy: release flow" says so.
+- Not verifiable without a real Dokploy (README "Verify on the first real deploy"): the Middlewares field of Compose
+  domains, the tag trigger, `COMPOSE_PROJECT_NAME` in its env file, `$` in the single-quoted hash, `--wait` there.
 - Verified end to end locally with Traefik v3.7.19 + docker provider on a `dokploy-network`, the base file rewritten
   the way Dokploy does, staging and production side by side: 401 without credentials, noindex only on staging, the
   API logging the client Traefik saw (a visitor-sent X-Forwarded-For ignored), 429 after 10 failed logins, and
@@ -217,7 +232,8 @@ Every Caddy change: update `apps/web/test/caddyfile.test.ts` (routing and cachin
 (production pass: ACME, COOP/CORP, noindex, proxy gate, SITE_ENV), then validate with real Caddy (`caddy validate` in
 the image — CI does it for the VPS, local and Dokploy forms — and `sh infra/test/caddy-runtime.sh`, which CI's infra
 job also runs: the pinned image against a stub API, production at the edge, staging and production behind a proxy,
-checked with curl for noindex, robots.txt, 404, /api, the 403 gate, forged X-Forwarded-For and a SITE_ENV typo) —
+checked with curl for noindex, robots.txt, 404, /api, the 403 gate, forged X-Forwarded-For, a stray X-Proxy-Secret at
+the edge (not refused, not forwarded), the secret absent from `docker logs` of Caddy, and a SITE_ENV typo) —
 text tests alone have passed broken configs.
 
 ## Builder (`apps/builder`)
@@ -266,3 +282,5 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
 - Trusting `private_ranges` on the shared `dokploy-network` with no proof of origin: any other Dokploy app could forge
   `X-Forwarded-For` and skip the staging basic auth by calling `caddy:80` directly (A2 review; fixed by the proxy gate).
 - `SITE_ENV=prod` (a typo) silently behaving as production: now Caddy refuses the file.
+- `up --wait` trusted to catch that typo while Caddy had no healthcheck: it exited 0 on a crash-looping Caddy. Caddy
+  now has a healthcheck; prove a `--wait` claim with the failure it should catch.
