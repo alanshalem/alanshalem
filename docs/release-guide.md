@@ -16,6 +16,7 @@ Setup and first deploy: [vps-guide.md](vps-guide.md). Commands on the server and
 - [6. Rollback](#6-rollback)
 - [7. Dependabot pull requests](#7-dependabot-pull-requests)
 - [8. If it fails](#8-if-it-fails)
+- [9. Branch protection](#9-branch-protection)
 
 ## 1. How it works
 
@@ -153,3 +154,23 @@ Dependabot opens pull requests with updates every week.
 | Deployment `Error`, `container …-caddy-1 is unhealthy` | Caddy refused its configuration (for example a `SITE_ENV` typo) | **Logs** → `caddy`; fix, Deploy again. The domain answers 404 until then |
 | `Compose file not found` | The Compose Path is not `./infra/docker-compose.yml` | General → fix it → Save → reload → Deploy ([vps-guide.md](vps-guide.md)) |
 | Every page answers 403 | The domain lost its proxy-secret middleware, or the secret differs from `PROXY_SECRET` | Domains → the middleware chips ([vps-guide.md](vps-guide.md)) |
+
+## 9. Branch protection
+
+`master` accepts changes only through pull requests whose CI checks are all green (ruleset
+"master: pull requests with green CI": squash merge only, no force push, no deletion). An admin may merge a pull
+request without waiting for the checks in an emergency; nobody pushes straight to `master`.
+
+- **Your changes:** `git switch -c feat/x` → commit → `git push -u origin feat/x` → `gh pr create --fill` →
+  `gh pr merge --auto --squash` (merges by itself when CI is green; the merge deploys staging).
+- **Dependabot:** patch and minor updates merge by themselves when CI is green
+  (`.github/workflows/dependabot-auto-merge.yml`); majors wait for you.
+- **The profile bot** pushes its daily commit straight to `master` with a deploy key, the only actor the ruleset
+  lets through. One-time setup, from the repo folder:
+
+  ```bash
+  ssh-keygen -t ed25519 -N "" -C profile-bot -f profile-bot
+  gh repo deploy-key add profile-bot.pub --allow-write --title "profile bot (pushes to master)"
+  gh secret set PROFILE_DEPLOY_KEY < profile-bot
+  rm profile-bot profile-bot.pub
+  ```
