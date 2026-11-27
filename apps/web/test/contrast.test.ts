@@ -193,7 +193,16 @@ describe('focus and underline on the white sheet (WCAG 1.4.11)', () => {
     assert.equal(token('--link-underline-hover'), '#c4d0ff');
   });
 
-  it('code blocks and scrolling tables show focus (WCAG 2.4.7)', () => {
-    assert.match(block(prose, '.prose pre:focus-visible, .prose .table-wrap:focus-visible'), /outline:\s*2px solid var\(--link-accent\)/);
+  it('code blocks, scrolling tables and display math show focus (WCAG 2.4.7)', () => {
+    const selector = '.prose pre:focus-visible, .prose .table-wrap:focus-visible, .prose .math-display:focus-visible';
+    assert.match(block(prose, selector), /outline:\s*2px solid var\(--link-accent\)/);
+  });
+
+  it('a formula error reads at 4.5:1 or more on the sheet and on the inline code background (WCAG 1.4.3)', () => {
+    for (const background of ['--paper-bg', '--paper-code-bg']) {
+      const ratio = contrast(hex(token('--paper-error', '.paper')), hex(token(background, '.paper')));
+      assert.ok(ratio >= 4.5, `--paper-error on ${background}: ${ratio.toFixed(2)}:1`);
+    }
+    assert.match(block(prose, '.paper .prose .math-error'), /color:\s*var\(--paper-error\)/);
   });
 });

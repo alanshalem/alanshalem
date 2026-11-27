@@ -46,10 +46,29 @@
 }
 .prose pre code { font: inherit; background: none; border: 0; padding: 0; }
 
-/* Code blocks and tables scroll horizontally: the renderer makes them focusable (tabindex="0") so the arrow keys can
-   scroll them (WCAG 2.1.1); their focus looks like the links' (WCAG 2.4.7). On the sheet, --link-accent is the dark
-   accent of .paper (≥ 3:1 on white). */
-.prose pre:focus-visible, .prose .table-wrap:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 2px; }
+/* Code blocks, tables and display math scroll horizontally: the renderer makes them focusable (tabindex="0") so the
+   arrow keys can scroll them (WCAG 2.1.1); their focus looks like the links' (WCAG 2.4.7). On the sheet, --link-accent
+   is the dark accent of .paper (≥ 3:1 on white). */
+.prose pre:focus-visible, .prose .table-wrap:focus-visible, .prose .math-display:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 2px; }
+
+/* Math (TeX → MathML, @blog/math): Pagella Math matches the body's Pagella and takes the text color. A display
+   formula is a block of its own that scrolls inside its box on a narrow screen: centered while it fits, and when it
+   does not, max-content + auto margins start it at the left edge so no part is out of reach. */
+.prose math { font-family: var(--font-math); }
+/* A line may break right before or after an inline formula, even after `(`: the renderer wraps the text written
+   against it in .math-nowrap so `(formula),` stays together. */
+.prose .math-nowrap { white-space: nowrap; }
+.prose .math-display { overflow-x: auto; overflow-y: hidden; padding-block: 0.2em; }
+.prose .math-display > math { width: max-content; margin-inline: auto; }
+/* TeX that does not compile shows its source as code, in the error color and with a wavy underline (not color alone). */
+.paper .prose .math-error {
+  color: var(--paper-error);
+  text-decoration: underline wavy;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  white-space: pre-wrap;
+}
+.prose .math-display > .math-error { display: block; width: max-content; margin-inline: auto; }
 
 /* Tables: the renderer wraps them in .table-wrap so they can scroll horizontally on mobile */
 .prose .table-wrap { overflow-x: auto; }

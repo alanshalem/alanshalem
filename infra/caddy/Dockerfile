@@ -16,6 +16,7 @@ WORKDIR /repo
 # change, and the pnpm store (mounted, not left in the image) avoids downloading them again when they do.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/markdown/package.json packages/markdown/
+COPY packages/math/package.json packages/math/
 COPY packages/tokens/package.json packages/tokens/
 COPY apps/admin/package.json apps/admin/
 # Only the admin and the packages it uses.

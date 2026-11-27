@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { renderMarkdown } from '@blog/markdown';
+import { postBodyOptions, renderTex } from '@blog/math';
 import { availableActions, editorActions, inPalette } from '../src/editor/actions.ts';
 import { insertCallout, insertFigure, insertFootnote } from '../src/editor/commands.ts';
 import { CALLOUT_KINDS } from '../src/editor/markdownSource.ts';
@@ -100,8 +101,9 @@ describe('registry: the new actions reach the toolbar and the palette', () => {
 });
 
 describe('preview with the same options as the site', () => {
-  it('post language, smart typography, figures and standard headings', () => {
-    assert.deepEqual(previewOptions('en'), { minHeadingLevel: 2, lang: 'en', smartTypography: true, figures: true });
+  it('post language, smart typography, figures, standard headings and math', () => {
+    assert.deepEqual(previewOptions('en'), { minHeadingLevel: 2, lang: 'en', smartTypography: true, figures: true, math: renderTex });
+    assert.deepEqual(previewOptions('es'), postBodyOptions('es'));
     const html = renderPreview('# Hola\n\n## Sección\n\n### Sub\n\n"citas" -- y...\n\n> [!NOTE]\n> x', 'en').html;
     // ## = h2, ### = h3 (what the H2/H3 buttons say) and a body # is a section too: the h1 is the title.
     assert.match(html, /<h2 id="hola">Hola<\/h2>/);
@@ -109,6 +111,15 @@ describe('preview with the same options as the site', () => {
     assert.match(html, /<h3 id="sub">Sub<\/h3>/);
     assert.match(html, /“citas”/);
     assert.match(html, /Note/); // callout title in the post language
+  });
+
+  it('TeX math is MathML like on the page; the counter reads its TeX source; prices stay text', () => {
+    const markdown = '($D = \\sigma^2/2$) y ($N_{\\text{ef}}$), cuesta $5 y $10\n\n```math\n\\mu\n```';
+    const preview = renderPreview(markdown, 'es');
+    assert.equal(preview.html, renderMarkdown(markdown, postBodyOptions('es')).html);
+    assert.match(preview.html, /^<p><span class="math-nowrap">\(<math>.*<\/math>\)<\/span> y <span class="math-nowrap">\(<math><msub><mi>N<\/mi>/);
+    assert.match(preview.html, /cuesta \$5 y \$10<\/p>\n<div class="math-display" tabindex="0"><math display="block"/);
+    assert.equal(preview.text, '(D = \\sigma^2/2) y (N_{\\text{ef}}), cuesta $5 y $10 \\mu');
   });
 });
 

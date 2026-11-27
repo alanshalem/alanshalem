@@ -12,6 +12,8 @@
 @font-face { font-family: "Pagella";         src: url("/fonts/pagella-regular-latin.woff2") format("woff2"); font-weight: 400;     font-style: normal; font-display: swap; }
 @font-face { font-family: "Pagella";         src: url("/fonts/pagella-italic-latin.woff2") format("woff2");  font-weight: 400;     font-style: italic; font-display: swap; }
 @font-face { font-family: "Pagella";         src: url("/fonts/pagella-bold-latin.woff2") format("woff2");    font-weight: 700;     font-style: normal; font-display: swap; }
+/* Formulas (MathML): Pagella's math companion. Only `.prose math` uses it, so only pages with a formula download it. */
+@font-face { font-family: "Pagella Math";    src: url("/fonts/pagella-math.woff2") format("woff2");        font-weight: 400;     font-style: normal; font-display: swap; }
 
 :root {
   color-scheme: dark;
@@ -38,6 +40,7 @@
   --font-display: Gloock, "Iowan Old Style", Georgia, serif;
   --font-text: Pagella, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --font-ui: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-math: "Pagella Math", math;
   --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
 
   /* Type scale (rem; 1rem = 16px). Resulting px in the comments */
@@ -178,6 +181,7 @@ a:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
   --paper-rule: #ece9e4;
   --paper-border-ui: #d9d9d6;
   --paper-code-bg: #f9f9f9;
+  --paper-error: #b42318; /* TeX that does not compile: 6.5:1 on the sheet */
   --code-block-bg: #24292e;
   --code-block-fg: #e1e4e8;
   /* Focus and hover underline on the sheet: the dark theme's light accent gets 2.1:1 and 1.5:1 against white; this one

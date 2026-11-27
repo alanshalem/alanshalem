@@ -1,4 +1,5 @@
-import { excerpt, POST_BODY_RENDER_OPTIONS, readingTimeOfText, renderMarkdown, slugify, type Heading } from '@blog/markdown';
+import { excerpt, readingTimeOfText, renderMarkdown, slugify, type Heading } from '@blog/markdown';
+import { postBodyOptions } from '@blog/math';
 import { getInternal, oncePerBuild } from './api.ts';
 import { resolveCover, type Cover } from './cover.ts';
 import { isLang, paths, type Alternates, type Lang } from './i18n.ts';
@@ -67,11 +68,12 @@ export function toBlogPost(apiPost: ApiPost): BlogPost {
   // Publishing it under another language would show it with the wrong UI: better to fail the build and keep the
   // previous site.
   if (!isLang(lang)) throw new Error(`Post "${apiPost.slug}" has language "${lang}", which the site does not publish.`);
-  // The same options as the admin preview (@blog/markdown): "## section, ### subsection" with the post title as the
-  // only <h1>, figures and smart typography; the language puts callout and footnote titles in the post's language.
+  // The same options as the admin preview (`postBodyOptions` of @blog/math): "## section, ### subsection" with the post
+  // title as the only <h1>, figures, smart typography and TeX math as MathML; the language puts callout and footnote
+  // titles in the post's language.
   // One render feeds the page: its `text` is what the reader sees (figure captions, callout titles in the post's
   // language), so the reading time matches the admin preview, which counts the same render.
-  const { html, headings, text } = renderMarkdown(apiPost.body, { ...POST_BODY_RENDER_OPTIONS, lang });
+  const { html, headings, text } = renderMarkdown(apiPost.body, postBodyOptions(lang));
   const tags = apiPost.tags.map((name) => ({ name, slug: slugify(name) }));
   const cover = resolveCover({
     slug: apiPost.slug,
