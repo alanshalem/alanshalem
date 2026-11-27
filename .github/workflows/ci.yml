@@ -8,7 +8,7 @@ on:
   pull_request:
     branches: [master]
 
-# Read the code only: no job writes to the repo, to issues or to packages.
+# Read the code only; the one exception is the images job, which publishes to GHCR on a push to master.
 permissions:
   contents: read
 
@@ -141,6 +141,10 @@ jobs:
     name: Image ${{ matrix.service }} (build, vulnerability scan)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # The only job that writes: on a push to master it publishes the scanned image to GHCR (last step).
+    permissions:
+      contents: read
+      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -169,6 +173,24 @@ jobs:
           # Exceptions with a reason and an expiry (see the file): once expired, CI fails again.
           trivyignores: .trivyignore
           exit-code: '1'
+
+      # Build once, deploy many: every commit on master publishes the image it just scanned as
+      # ghcr.io/<owner>/blog-<service>:sha-<commit>. Staging and production deploy these exact images (deploy.yml);
+      # nothing rebuilds them on the VPS. A tag is never overwritten. The label links the package to this repository.
+      - name: Publish to GHCR (master only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        env:
+          SERVICE: ${{ matrix.service }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/blog-$SERVICE:sha-$GITHUB_SHA"
+          echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          echo "FROM blog-$SERVICE" | docker build --quiet --tag "$image" \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" -
+          docker push --quiet "$image"
+          docker logout ghcr.io
+          echo "Published $image" >>"$GITHUB_STEP_SUMMARY"
 
   security:
     name: Security (secrets in history, vulnerable dependencies)
