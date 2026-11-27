@@ -1,37 +1,37 @@
-# Desarrollo con un solo comando, sin instalar .NET, Node ni ffmpeg (desde la raíz del repo):
+# Development with one command, without installing .NET, Node or ffmpeg (from the repo root):
 #
 #   docker compose -f infra/compose.dev.yml --env-file infra/local.env up --build
 #
 #   API (dotnet watch)  http://localhost:5090/api/health
-#   Admin (Vite)        http://localhost:5173/admin/      contraseña: admin
-#   Sitio (astro dev)   http://localhost:4321/
+#   Admin (Vite)        http://localhost:5173/admin/      password: admin
+#   Site (astro dev)    http://localhost:4321/
 #
-# El código se monta desde tu disco (recarga en vivo); node_modules, bin/obj, NuGet y los datos viven en volúmenes del
-# proyecto blog-dev, así no se pisan con los de Windows. Solo para tu PC: valores de prueba y puertos solo en 127.0.0.1.
-# Puertos ocupados: API_PORT, ADMIN_PORT y WEB_PORT cambian los del lado de tu PC (ver README).
+# The code is mounted from your disk (live reload); node_modules, bin/obj, NuGet and the data live in volumes of the
+# blog-dev project, so they do not clash with the Windows ones. Only for your PC: test values and ports only on
+# 127.0.0.1. Ports in use: API_PORT, ADMIN_PORT and WEB_PORT change the ones on your PC's side (see README).
 #
-# La contraseña del admin y el token salen de infra/local.env, el mismo archivo que usa la copia local de producción:
-# se cambian en un solo lugar. Sin --env-file, compose avisa qué falta en vez de arrancar con otros valores.
+# The admin password and the token come from infra/local.env, the same file the local production copy uses: they change
+# in one place. Without --env-file, compose says what is missing instead of starting with other values.
 
 name: blog-dev
 
-# Logs con tope (dotnet watch, Vite y Astro escriben mucho en un día): los mismos que en producción.
+# Capped logs (dotnet watch, Vite and Astro write a lot in a day): the same as in production.
 x-logging: &logging
   driver: local
   options:
     max-size: 10m
     max-file: "5"
 
-# Token API ↔ sitio (Builder__Token allá, BUILDER_TOKEN acá): definido una vez.
-x-builder-token: &builder-token ${BUILDER_TOKEN:?Falta BUILDER_TOKEN, levantá con --env-file infra/local.env (ver README)}
+# API ↔ site token (Builder__Token there, BUILDER_TOKEN here): defined once.
+x-builder-token: &builder-token ${BUILDER_TOKEN:?BUILDER_TOKEN is missing, start with --env-file infra/local.env (see README)}
 
-# Dónde encuentran admin y sitio a la API (por la red de compose) y dónde ve tu navegador el sitio (los enlaces
-# "Ver sitio" del admin y las URL absolutas de astro dev): siguen a WEB_PORT si lo cambiás.
+# Where the admin and the site find the API (over the compose network) and where your browser sees the site (the
+# admin's "View site" links and astro dev's absolute URLs): they follow WEB_PORT if you change it.
 x-dev-urls: &dev-urls
   API_URL: http://api:5090
   SITE_URL: http://localhost:${WEB_PORT:-4321}
 
-# Los tres servicios Node usan la misma imagen (Node + pnpm de package.json) y los mismos volúmenes.
+# The three Node services use the same image (Node + pnpm from package.json) and the same volumes.
 x-node: &node
   logging: *logging
   build:
@@ -41,7 +41,7 @@ x-node: &node
   image: blog-dev-node
   volumes:
     - ..:/repo
-    # Tapan los node_modules de Windows (enlaces y binarios que en Linux no sirven) y el caché de Astro.
+    # Cover the Windows node_modules (links and binaries that do not work on Linux) and the Astro cache.
     - node_modules:/repo/node_modules
     - admin_node_modules:/repo/apps/admin/node_modules
     - web_node_modules:/repo/apps/web/node_modules
@@ -59,18 +59,18 @@ services:
       - "127.0.0.1:${API_PORT:-5090}:5090"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      # Contraseña "admin" (local.env). Otra: README, "Copia local de producción".
-      Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:?Falta ADMIN_PASSWORD_HASH, levantá con --env-file infra/local.env (ver README)}
+      # Password "admin" (local.env). Another one: README, "Local production copy".
+      Admin__PasswordHash: ${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is missing, start with --env-file infra/local.env (see README)}
       Builder__Token: *builder-token
-      # Datos fuera del código montado: SQLite sobre una carpeta de Windows es lenta y no debe mezclarse con la base de
-      # `dotnet run` (apps/api/src/Blog.Api/data).
+      # Data outside the mounted code: SQLite on a Windows folder is slow and must not mix with the `dotnet run`
+      # database (apps/api/src/Blog.Api/data).
       ConnectionStrings__Blog: Data Source=/data/blog.db
       Media__Directory: /data/media
       Video__WorkDirectory: /data/video-work
       DataProtection__KeysDirectory: /data/keys
-      # bin/ y obj/ de los proyectos van a un volumen, fuera del código montado (ahí están los de Windows).
+      # The projects' bin/ and obj/ go to a volume, outside the mounted code (the Windows ones are there).
       ArtifactsPath: /artifacts
-      # Las carpetas de Windows montadas no avisan los cambios dentro del contenedor: se comparan cada tanto.
+      # Mounted Windows folders do not report changes inside the container: they are compared every so often.
       DOTNET_USE_POLLING_FILE_WATCHER: "1"
     volumes:
       - ../apps/api:/repo/apps/api
@@ -78,15 +78,16 @@ services:
       - nuget:/root/.nuget/packages
       - api_data:/data
 
-  # Instala las dependencias una vez y termina; admin y sitio arrancan después. Si ya están, tarda segundos.
+  # Installs the dependencies once and exits; the admin and the site start afterwards. If they are there, it takes
+  # seconds.
   deps:
     <<: *node
-    # El store va en el volumen del node_modules raíz, donde pnpm arma su carpeta .pnpm con todos los paquetes: mismo disco,
-    # así enlaza (hardlink) en vez de copiar, y sobrevive entre arranques. Los node_modules de cada app solo tienen
-    # symlinks hacia esa carpeta.
+    # The store goes in the root node_modules volume, where pnpm builds its .pnpm folder with every package: same disk,
+    # so it hardlinks instead of copying, and it survives between starts. Each app's node_modules only has symlinks into
+    # that folder.
     command: pnpm install --frozen-lockfile --store-dir /repo/node_modules/.pnpm-store --filter "@blog/admin..." --filter "@blog/web..."
     environment:
-      CI: "true" # sin terminal: que pnpm no pregunte antes de rehacer node_modules
+      CI: "true" # no terminal: pnpm must not ask before recreating node_modules
     restart: "no"
 
   admin:
@@ -116,7 +117,7 @@ services:
         condition: service_started
 
 volumes:
-  api_data: # SQLite, media subida, videos en proceso y claves de la cookie
+  api_data: # SQLite, uploaded media, videos being processed and the cookie keys
   api_artifacts:
   nuget:
   node_modules:

@@ -1,31 +1,33 @@
-# Caddy: TLS automático (Let's Encrypt), HTTP/2 y HTTP/3, y sirve TODO lo público directo desde disco.
-# La API solo atiende /api (login, editor, subida de imágenes). Los visitantes nunca tocan .NET ni Node.
+# Caddy: automatic TLS (Let's Encrypt), HTTP/2 and HTTP/3, and it serves EVERYTHING public straight from disk.
+# The API only answers /api (login, editor, image uploads). Visitors never reach .NET or Node.
 #
-# SITE_ADDRESS = tu dominio (ej: blog.midominio.com). Para probar local: localhost
+# SITE_ADDRESS = your domain (e.g. blog.mydomain.com). To test locally: localhost
 
-# Opciones globales. CADDY_ACME_EMAIL trae la opción completa (`email tu@correo`) o nada: docker-compose.yml la arma
-# desde ACME_EMAIL, que es opcional, y Caddy rechaza un `email` sin valor.
+# Global options. CADDY_ACME_EMAIL carries the whole option (`email you@example.com`) or nothing: docker-compose.yml
+# builds it from ACME_EMAIL, which is optional, and Caddy rejects an `email` without a value.
 {
 	{$CADDY_ACME_EMAIL}
 }
 
-# Cabeceras de seguridad de toda respuesta. En un snippet porque las rutas de error (handle_errors) no pasan por las
-# directivas del sitio: sin importarlo también ahí, un 404 salía sin nosniff, X-Frame-Options ni HSTS (y con Server).
+# Security headers of every response. In a snippet because the error routes (handle_errors) do not go through the site
+# directives: without importing it there too, a 404 went out without nosniff, X-Frame-Options or HSTS (and with Server).
 (security) {
 	header {
-		# Sin includeSubDomains a propósito: este VPS va a alojar otras apps y no quiero forzar HTTPS en sus subdominios por accidente.
+		# No includeSubDomains on purpose: this VPS will host other apps and HTTPS must not be forced on their
+		# subdomains by accident.
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Permissions-Policy "camera=(), microphone=(), geolocation=()"
 		X-Frame-Options "DENY"
-		# Ninguna ventana de otro origen conserva una referencia a esta (window.opener): corta el tabnabbing y fugas entre sitios.
+		# No window from another origin keeps a reference to this one (window.opener): stops tabnabbing and cross-site
+		# leaks.
 		Cross-Origin-Opener-Policy "same-origin"
 		-Server
 	}
-	# Nadie de afuera puede incrustar los recursos del sitio (lecturas por canal lateral tipo Spectre), salvo /media, que
-	# lo pisa. Fuera del bloque de arriba a propósito: un bloque con `-Server` se aplica diferido, al escribir la
-	# respuesta, y le ganaría al de /media.
+	# Nobody outside can embed the site's resources (Spectre-style side-channel reads), except /media, which overrides
+	# it. Outside the block above on purpose: a block with `-Server` is applied deferred, when the response is written,
+	# and it would win over /media's.
 	header Cross-Origin-Resource-Policy "same-origin"
 }
 
@@ -36,78 +38,81 @@
 	# No request_body max_size on purpose: Caddy neither limits nor buffers the body (it streams it), and the only cap is
 	# the one the API sets in Kestrel (general and per video upload route), so there are not two limits to keep in sync.
 	handle /api/* {
-		# /api/internal lo lee el builder por la red interna de Docker: hacia afuera no existe. Va dentro del handle: ahí
-		# respond corre antes que reverse_proxy (afuera, Caddy evalúa handle primero y la regla nunca se aplicaba).
+		# /api/internal is read by the builder over Docker's internal network: from outside it does not exist. It goes
+		# inside the handle: there respond runs before reverse_proxy (outside, Caddy evaluates handle first and the rule
+		# was never applied).
 		@internal path /api/internal /api/internal/*
-		# `respond` no pasa por handle_errors: el no-store va acá (si no, este 404 quedaría sin Cache-Control).
+		# `respond` does not go through handle_errors: the no-store goes here (otherwise this 404 would have no
+		# Cache-Control).
 		header @internal Cache-Control "no-store"
 		respond @internal 404
-		# Lo del panel es privado y cambia con cada guardado: ni el navegador ni un proxy intermedio lo guardan. Lo pone Caddy,
-		# que decide la caché de todas las rutas del sitio en este archivo. `>` (diferido) reemplaza el Cache-Control que
-		# mande la API en vez de sumar un segundo valor.
+		# The admin panel's data is private and changes with every save: neither the browser nor an intermediate proxy
+		# stores it. Caddy sets it, since it decides the caching of every route of the site in this file. `>` (deferred)
+		# replaces the Cache-Control the API sends instead of adding a second value.
 		@admin path /api/admin/*
 		header @admin >Cache-Control "no-store"
 		encode zstd gzip
 		reverse_proxy api:8080 {
-			# Si la API se cae, Caddy deja de mandarle tráfico y responde 503 en vez de colgarse. Cada 2 s: tras arrancar o
-			# un deploy (el primer chequeo suele caer mientras .NET arranca), /api vuelve a los pocos segundos y no a los 30.
-			# 3 fallos seguidos para sacarla: un chequeo lento suelto no la deja afuera.
+			# If the API goes down, Caddy stops sending it traffic and answers 503 instead of hanging. Every 2 s: after
+			# a start or a deploy (the first check usually lands while .NET is starting), /api is back within a few
+			# seconds and not 30. 3 failures in a row to take it out: a single slow check does not leave it out.
 			health_uri /api/health
 			health_interval 2s
 			health_fails 3
 		}
 	}
 
-	# ---------- Panel de administración (SPA de React ya compilada) ----------
+	# ---------- Admin panel (React SPA, already built) ----------
 	handle_path /admin/* {
 		root * /srv/admin
-		# El panel no tiene nada que indexar: ni la pantalla de login aparece en un buscador.
+		# The panel has nothing to index: not even the login screen shows up in a search engine.
 		header X-Robots-Tag "noindex"
-		# blob: en img-src y media-src: la vista previa local de fotos y el editor de recorte de videos usan URLs de objeto
-		# (el archivo todavía no se subió). Los videos ya procesados vienen de /media ('self'). https: en img-src, igual que
-		# la CSP del sitio (apps/web/src/lib/csp.ts): la vista previa muestra las imágenes externas del Markdown como el sitio.
+		# blob: in img-src and media-src: the local photo preview and the video trim editor use object URLs (the file is
+		# not uploaded yet). Processed videos come from /media ('self'). https: in img-src, like the site's CSP
+		# (apps/web/src/lib/csp.ts): the preview shows the Markdown's external images like the site does.
 		header Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
-		# Los assets llevan el hash del contenido en el nombre: para siempre. Todo lo demás (index.html, que apunta a los
-		# assets de turno) se revalida. Los dos con matcher, sin solaparse: Caddy ordena los `header` iguales dejando el
-		# que no tiene matcher al final, y un no-cache suelto pisaba el immutable.
+		# Assets carry the content hash in their name: cached forever. Everything else (index.html, which points to the
+		# current assets) is revalidated. Both with a matcher, not overlapping: Caddy sorts equal `header` directives
+		# leaving the one without a matcher last, and a bare no-cache overrode the immutable one.
 		@hashed path /assets/*
 		header @hashed Cache-Control "public, max-age=31536000, immutable"
 		@html not path /assets/*
 		header @html Cache-Control "no-cache"
-		# Una SPA: cualquier ruta que no sea un archivo devuelve index.html. Solo fuera de /assets/: un asset con hash que no
-		# existe (pestaña vieja durante un deploy) tiene que dar 404 (no-store en handle_errors) y no index.html con el
-		# immutable de @hashed, que dejaría ese navegador con el admin roto por un año. `rewrite` y no `try_files`:
-		# try_files no admite matcher (tomaría `@spa` como un archivo más).
+		# A SPA: any path that is not a file returns index.html. Only outside /assets/: a hashed asset that does not
+		# exist (an old tab during a deploy) must give a 404 (no-store in handle_errors) and not index.html with the
+		# @hashed immutable, which would leave that browser with a broken admin for a year. `rewrite` and not
+		# `try_files`: try_files does not accept a matcher (it would take `@spa` as one more file).
 		@spa {
 			not path /assets/*
 			not file
 		}
 		rewrite @spa /index.html
-		# Los .br y .gz se generan al construir la imagen (infra/caddy/Dockerfile), como hace el builder con el sitio.
+		# The .br and .gz files are generated when the image is built (infra/caddy/Dockerfile), as the builder does with
+		# the site.
 		file_server {
 			precompressed br gzip
 		}
 	}
 
-	# ---------- Imágenes y videos subidos ----------
-	# Los nombres salen del hash del contenido y nunca cambian: se pueden cachear para siempre. Sin encode: AVIF, WebP y
-	# MP4 ya vienen comprimidos, y file_server responde Range (206) para que el <video> pida solo lo que necesita.
+	# ---------- Uploaded images and videos ----------
+	# Names come from the content hash and never change: they can be cached forever. No encode: AVIF, WebP and MP4 are
+	# already compressed, and file_server answers Range (206) so the <video> asks only for what it needs.
 	handle_path /media/* {
 		root * /srv/media
 		header Cache-Control "public, max-age=31536000, immutable"
 		header Content-Security-Policy "default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'; sandbox"
-		# El RSS lleva el cuerpo de los posts con sus imágenes: los lectores web (Feedly, Inoreader) las cargan desde su
-		# propio origen, y con el same-origin del snippet de seguridad el navegador las bloquearía.
+		# The RSS feed carries the post bodies with their images: web readers (Feedly, Inoreader) load them from their
+		# own origin, and with the security snippet's same-origin the browser would block them.
 		header Cross-Origin-Resource-Policy "cross-origin"
-		# restore.sh deja los archivos nuevos en .restoring hasta cambiarlos de lugar: nunca se sirven.
+		# restore.sh keeps new files in .restoring until it moves them into place: they are never served.
 		file_server {
 			hide .restoring
 		}
 	}
 
-	# ---------- Raíz: idioma preferido del navegador ----------
-	# El sitio vive en /es/ y /en/. Si la primera preferencia de Accept-Language es inglés va a /en/; si no, a /es/
-	# (español por defecto). 302 porque depende de quién pide; Vary para que ninguna caché mezcle las respuestas.
+	# ---------- Root: the browser's preferred language ----------
+	# The site lives under /es/ and /en/. If the first Accept-Language preference is English it goes to /en/; otherwise
+	# to /es/ (Spanish by default). 302 because it depends on who asks; Vary so no cache mixes the responses.
 	@root path /
 	handle @root {
 		header Vary Accept-Language
@@ -116,33 +121,34 @@
 		redir * /es/ 302
 	}
 
-	# ---------- Sitio público (HTML estático) ----------
+	# ---------- Public site (static HTML) ----------
 	handle {
-		# `current` es un symlink que el builder cambia de forma atómica en cada publicación.
+		# `current` is a symlink the builder swaps atomically on every publish.
 		root * /srv/site/current
 
 		@assets path /_astro/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
 		@fonts path /fonts/*
 		header @fonts Cache-Control "public, max-age=2592000"
-		# El HTML se revalida siempre (ETag => 304 casi sin costo): una publicación nueva se ve al instante.
+		# HTML is always revalidated (ETag => 304 at almost no cost): a new publish shows up at once.
 		@pages not path /_astro/* /fonts/*
 		header @pages Cache-Control "no-cache"
 
-		# El builder dejó cada archivo de texto ya comprimido en .br y .gz: se sirven tal cual, sin gastar CPU.
+		# The builder left every text file already compressed as .br and .gz: they are served as they are, without
+		# spending CPU.
 		file_server {
 			precompressed br gzip
 		}
 	}
 
-	# Errores: nunca se cachean (un 404 de /media o /_astro heredaba el immutable de un año, y el archivo que falta
-	# puede aparecer después) y llevan las mismas cabeceras de seguridad. Vale también para los 502/503 de la API.
+	# Errors: never cached (a 404 from /media or /_astro inherited the one-year immutable, and the missing file may
+	# appear later) and they carry the same security headers. It also applies to the API's 502/503.
 	handle_errors {
 		import security
 		header Cache-Control "no-store"
-		# Página 404 del sitio en el idioma de la URL: Astro genera /es/404.html y /en/404.html (todo en ese idioma)
-		# y /404.html, bilingüe, para lo que no tiene prefijo. Las rewrite de un bloque son excluyentes y Caddy prueba las
-		# de ruta antes que la de `*`: esa es el resto. El código de estado sigue siendo 404.
+		# The site's 404 page in the URL's language: Astro generates /es/404.html and /en/404.html (all in that
+		# language) and /404.html, bilingual, for what has no prefix. The rewrites of a block are mutually exclusive and
+		# Caddy tries the path ones before the `*` one: that one is the rest. The status code stays 404.
 		@notfound expression {err.status_code} == 404
 		handle @notfound {
 			root * /srv/site/current
@@ -155,7 +161,7 @@
 		}
 	}
 
-	# Una línea JSON por petición: se filtra con jq y la leen los colectores de logs sin parsers a medida.
+	# One JSON line per request: it can be filtered with jq and log collectors read it without custom parsers.
 	log {
 		output stdout
 		format json

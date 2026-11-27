@@ -1,24 +1,24 @@
 #!/bin/sh
-# Restaura un snapshot de infra/backup.sh: base y media, con claves de sesión nuevas (el admin vuelve a entrar: un
-# snapshot es de antes de un logout y no puede revivir una sesión revocada). Sin --apply solo revisa el snapshot y
-# muestra lo que haría (no toca nada). Configuración: infra/backup-common.sh (las mismas variables que el backup).
+# Restores an infra/backup.sh snapshot: database and media, with new session keys (the admin signs in again: a snapshot
+# predates a logout and must not bring a revoked session back). Without --apply it only checks the snapshot and shows
+# what it would do (it touches nothing). Configuration: infra/backup-common.sh (the same variables as the backup).
 #
-#   sh restore.sh /var/backups/blog/daily/20261126T031500Z            revisar
-#   sh restore.sh /var/backups/blog/daily/20261126T031500Z --apply    restaurar
+#   sh restore.sh /var/backups/blog/daily/20261126T031500Z            check
+#   sh restore.sh /var/backups/blog/daily/20261126T031500Z --apply    restore
 #
-# Desde la copia remota (VPS nuevo): primero `rclone copy "$BACKUP_RCLONE_REMOTE" "$BACKUP_DIR"`, después lo de arriba.
+# From the remote copy (a new VPS): first `rclone copy "$BACKUP_RCLONE_REMOTE" "$BACKUP_DIR"`, then the above.
 #
-# Pasos con --apply. Lo que puede fallar a mitad (traer archivos, que lleguen enteros) se hace antes de parar nada;
-# parado el blog, quedan solo renames dentro de cada volumen y levantarlo:
-#   1. Prepara los volúmenes (init-permissions: los crea si no existen y les pone el dueño correcto).
-#   2. Copia la base y la media que le falte al volumen a carpetas temporales (.restoring) y comprueba que
-#      llegaron enteras (CRC y tamaño). Hasta acá no se tocó nada.
-#   3. Guarda lo que hay hoy en BACKUP_DIR/pre-restore-<UTC> (con la API en marcha, con su comando backup; parada, el
-#      volumen tal cual). Es un snapshot como cualquier otro: se puede restaurar con este mismo script.
-#   4. Para la API y el builder (Caddy sigue sirviendo el sitio publicado), cambia base y media por las nuevas y borra
-#      las claves de sesión.
-#   5. Levanta todo, espera a que los healthchecks den sano y pide un build con la base restaurada.
-#   Si algo falla desde el paso 4, vuelve a poner la copia previa, levanta todo y dice dónde quedó.
+# Steps with --apply. What can fail halfway (fetching files, checking they arrived whole) is done before stopping
+# anything; once the blog is stopped, only renames inside each volume and starting it again remain:
+#   1. Prepares the volumes (init-permissions: creates them if they do not exist and sets the right owner).
+#   2. Copies the database and the media the volume is missing to temporary folders (.restoring) and checks that they
+#      arrived whole (CRC and size). Nothing has been touched so far.
+#   3. Saves what is there today in BACKUP_DIR/pre-restore-<UTC> (with the API running, with its backup command;
+#      stopped, the volume as it is). It is a snapshot like any other: it can be restored with this same script.
+#   4. Stops the API and the builder (Caddy keeps serving the published site), swaps the database and media for the new
+#      ones and deletes the session keys.
+#   5. Starts everything, waits for the healthchecks to report healthy and requests a build with the restored database.
+#   If anything fails from step 4 on, it puts the previous copy back, starts everything and says where it is.
 
 # shellcheck source=infra/backup-common.sh
 . "$(dirname "$0")/backup-common.sh"
@@ -33,7 +33,7 @@ api_running() {
 
 snapshot=${1:-}
 [ -n "$snapshot" ] || {
-	echo "Uso: sh restore.sh <carpeta del snapshot> [--apply]" >&2
+	echo "Usage: sh restore.sh <snapshot folder> [--apply]" >&2
 	exit 2
 }
 apply=false
@@ -41,39 +41,40 @@ if [ "${2:-}" = --apply ]; then apply=true; fi
 
 snapshot=$(absolute "$snapshot")
 
-# ---------- Revisión (siempre) ----------
-is_sqlite "$snapshot/blog.db" || die "$snapshot/blog.db no existe o no es una base SQLite"
-[ -d "$BACKUP_DIR/media" ] || die "falta $BACKUP_DIR/media"
-verify_db "$snapshot" || die "$snapshot/blog.db no pasa PRAGMA integrity_check"
-log "snapshot válido: base $(wc -c <"$snapshot/blog.db" | tr -d ' ') bytes (integrity_check ok), $(backup_sizes "$BACKUP_DIR/media" | wc -l | tr -d ' ') archivos de media en $BACKUP_DIR/media"
+# ---------- Check (always) ----------
+is_sqlite "$snapshot/blog.db" || die "$snapshot/blog.db does not exist or is not a SQLite database"
+[ -d "$BACKUP_DIR/media" ] || die "$BACKUP_DIR/media is missing"
+verify_db "$snapshot" || die "$snapshot/blog.db does not pass PRAGMA integrity_check"
+log "valid snapshot: database $(wc -c <"$snapshot/blog.db" | tr -d ' ') bytes (integrity_check ok), $(backup_sizes "$BACKUP_DIR/media" | wc -l | tr -d ' ') media files in $BACKUP_DIR/media"
 
 if [ "$apply" = false ]; then
 	cat >&2 <<EOF
-Simulación: no se cambió nada. Con --apply:
-  1. init-permissions prepara los volúmenes
-  2. se copian la base y la media que falte a temporales en los volúmenes, y se comprueba que llegaron enteras
-  3. se guarda lo que hay hoy en $BACKUP_DIR/pre-restore-<UTC>
-  4. se paran api y builder (Caddy sigue sirviendo el sitio publicado) y se cambia todo por lo restaurado, con claves de
-     sesión nuevas: el admin vuelve a entrar
-  5. se levanta todo, se espera a los healthchecks y se pide un build del sitio
-  Si algo falla desde el paso 4, se vuelve a poner la copia previa y se levanta todo.
+Dry run: nothing was changed. With --apply:
+  1. init-permissions prepares the volumes
+  2. the database and the missing media are copied to temporary folders on the volumes, and checked to have arrived
+     whole
+  3. what is there today is saved in $BACKUP_DIR/pre-restore-<UTC>
+  4. api and builder are stopped (Caddy keeps serving the published site) and everything is swapped for the restored
+     copy, with new session keys: the admin signs in again
+  5. everything is started, the healthchecks are awaited and a site build is requested
+  If anything fails from step 4 on, the previous copy is put back and everything is started.
 EOF
 	exit 0
 fi
 
-# ---------- Restauración ----------
-# Las funciones de acá devuelven su resultado en vez de cortar (set -e no corta dentro de un `if` o un `&&`, y la vuelta
-# atrás las usa así): cada paso que falla termina con `|| return 1`.
+# ---------- Restore ----------
+# The functions here return their result instead of stopping (set -e does not stop inside an `if` or an `&&`, and the
+# rollback uses them that way): every step that fails ends with `|| return 1`.
 
-# Copia el archivo local $1 al volumen como $2 y comprueba, en el mismo contenedor, que llegó entero.
+# Copies the local file $1 to the volume as $2 and checks, in the same container, that it arrived whole.
 push() {
 	[ "$(api_sh run "cat >$2; cksum <$2" <"$1" | crc)" = "$(cksum <"$1" | crc)" ] || {
-		log "${1##*/} llegó incompleta a $2"
+		log "${1##*/} arrived incomplete at $2"
 		return 1
 	}
 }
 
-# Base (con su -wal, si el snapshot lo tiene) del snapshot $1 a /data/.restoring, listas para el cambio.
+# Database (with its -wal, if the snapshot has one) from snapshot $1 to /data/.restoring, ready for the swap.
 stage_data() {
 	api_sh run 'rm -rf /data/.restoring; mkdir /data/.restoring' || return 1
 	for file in blog.db blog.db-wal; do
@@ -81,7 +82,7 @@ stage_data() {
 	done
 }
 
-# La media del backup que el volumen no tiene (o tiene con otro tamaño) a /media/.restoring, comprobada por tamaño.
+# The backup media the volume lacks (or has with another size) to /media/.restoring, checked by size.
 stage_media() {
 	volume_sizes run >"$work/media-volume.txt" || return 1
 	backup_sizes "$BACKUP_DIR/media" >"$work/media-backup.txt" || return 1
@@ -89,20 +90,20 @@ stage_media() {
 	if [ -s "$work/media-missing.txt" ]; then
 		[ "$(paths <"$work/media-missing.txt" | (cd "$BACKUP_DIR/media" && tar -cf - -T -) |
 			api_sh run "rm -rf /media/.restoring; mkdir /media/.restoring; tar -C /media/.restoring -xf -; set -- /media/.restoring; $SIZES")" = "$(cat "$work/media-missing.txt")" ] || {
-			log "la media llegó incompleta a /media/.restoring"
+			log "the media arrived incomplete at /media/.restoring"
 			return 1
 		}
 	fi
-	log "media: $(wc -l <"$work/media-missing.txt" | tr -d ' ') archivos para agregar"
+	log "media: $(wc -l <"$work/media-missing.txt" | tr -d ' ') files to add"
 }
 
-# Lo que hay hoy en el volumen ($1 = exec: la API en marcha hace la copia consistente; run: con la API parada se
-# copia tal cual, con el -wal si lo hay, porque ahí puede haber cambios que todavía no pasaron a la base).
+# What the volume has today ($1 = exec: the running API makes the consistent copy; run: with the API stopped it is
+# copied as it is, with the -wal if there is one, because it may hold changes not yet written to the database).
 save_current() {
-	# shellcheck disable=SC2016 # se expande en el contenedor
+	# shellcheck disable=SC2016 # expanded in the container
 	present=$(api_sh run 'cd /data; for f in blog.db blog.db-wal; do [ ! -e "$f" ] || echo "$f"; done') || return 1
 	if ! printf '%s\n' "$present" | grep -qx blog.db; then
-		log "no hay base en el volumen: no hace falta copia previa"
+		log "no database on the volume: no previous copy needed"
 		saved=true
 		return
 	fi
@@ -115,7 +116,7 @@ save_current() {
 		for file in blog.db blog.db-wal; do
 			if printf '%s\n' "$present" | grep -qx "$file"; then
 				pull run "/data/$file" "$partial/$file" || {
-					log "$file llegó incompleta desde el volumen"
+					log "$file arrived incomplete from the volume"
 					return 1
 				}
 			fi
@@ -125,13 +126,14 @@ save_current() {
 	mv "$partial" "$target" || return 1
 	pre=$target
 	saved=true
-	log "copia previa: $pre"
+	log "previous copy: $pre"
 }
 
-# El cambio, con la API parada: renames dentro de cada volumen, nada que pueda llegar a medias. Las claves de sesión se
-# borran (la API crea otras al arrancar): ninguna cookie emitida antes vale, tampoco una que un logout ya había revocado
-# y que la época de sesiones de la base restaurada volvería a aceptar. Vale también al volver a la copia previa. Caddy (otro usuario)
-# tiene que poder leer la media: tar la extrae con los permisos del backup (solo el dueño) y acá se le devuelven.
+# The swap, with the API stopped: renames inside each volume, nothing that can arrive halfway. The session keys are
+# deleted (the API creates new ones on start): no cookie issued before is valid, not even one that a logout had already
+# revoked and that the restored database's session epoch would accept again. It also applies when putting the previous
+# copy back. Caddy (another user) must be able to read the media: tar extracts it with the backup's permissions (owner
+# only) and they are given back here.
 INSTALL="cd /data
 rm -f blog.db-wal blog.db-shm
 mv .restoring/blog.db blog.db
@@ -145,17 +147,17 @@ fi"
 
 rollback() {
 	if [ "$swapped" = true ] && [ -n "$pre" ]; then
-		# Primero parar: si falló el paso 5, la API puede estar en marcha con la base restaurada abierta, y cambiarla debajo
-		# la dejaría atendiendo con archivos borrados (lo que se escriba se pierde al reiniciar).
+		# Stop first: if step 5 failed, the API may be running with the restored database open, and swapping it
+		# underneath would leave it serving with deleted files (whatever is written is lost on restart).
 		if compose stop api builder && stage_data "$pre" && api_sh run "$INSTALL"; then
-			log "el restore falló: se volvió a poner la copia previa $pre"
+			log "the restore failed: the previous copy $pre was put back"
 		else
-			log "ATENCIÓN: el restore falló y no se pudo volver a poner la copia previa sola. A mano: sh restore.sh $pre --apply"
+			log "WARNING: the restore failed and the previous copy could not be put back automatically. By hand: sh restore.sh $pre --apply"
 		fi
 	elif [ "$swapped" = true ]; then
-		log "el restore falló: no había base antes, así que queda la restaurada"
+		log "the restore failed: there was no database before, so the restored one stays"
 	fi
-	compose up -d --wait || log "ATENCIÓN: el blog no levantó sano: revisá con docker compose ps y docker compose logs api"
+	compose up -d --wait || log "WARNING: the blog did not come up healthy: check with docker compose ps and docker compose logs api"
 }
 
 on_exit() {
@@ -164,7 +166,7 @@ on_exit() {
 	set +e
 	if [ "$status" -ne 0 ] && [ "$stopped" = true ]; then rollback; fi
 	if [ "$staged" = true ]; then
-		api_sh run 'rm -rf /data/.restoring /media/.restoring' || log "quedaron temporales en los volúmenes (/data/.restoring, /media/.restoring): se borran en el próximo restore"
+		api_sh run 'rm -rf /data/.restoring /media/.restoring' || log "temporary folders were left on the volumes (/data/.restoring, /media/.restoring): they are deleted on the next restore"
 	fi
 	rm -rf "$work" "$BACKUP_DIR/.pre-restore.partial"
 	exit "$status"
@@ -179,32 +181,32 @@ swapped=false
 trap on_exit EXIT
 trap 'exit 1' HUP INT TERM
 
-log "1/5 preparando volúmenes"
+log "1/5 preparing volumes"
 compose run --rm init-permissions
 
-log "2/5 copiando el snapshot a temporales en los volúmenes"
+log "2/5 copying the snapshot to temporary folders on the volumes"
 staged=true
 stage_data "$snapshot" || exit 1
 stage_media || exit 1
 
-log "3/5 guardando lo que hay hoy"
+log "3/5 saving what is there today"
 if api_running; then
-	save_current exec || die "no se pudo guardar la copia previa con la API en marcha: no se cambió nada"
+	save_current exec || die "could not save the previous copy with the API running: nothing was changed"
 fi
 
-log "4/5 parando api y builder, y cambiando base y media"
+log "4/5 stopping api and builder, and swapping database and media"
 stopped=true
 compose stop api builder
 if [ "$saved" = false ]; then
-	save_current run || die "no se pudo guardar la copia previa del volumen: no se cambió nada"
+	save_current run || die "could not save the previous copy of the volume: nothing was changed"
 fi
 swapped=true
 api_sh run "$INSTALL"
-log "claves de sesión nuevas: el admin tiene que volver a entrar"
+log "new session keys: the admin has to sign in again"
 
-log "5/5 levantando, esperando los healthchecks y pidiendo un build del sitio"
+log "5/5 starting, waiting for the healthchecks and requesting a site build"
 compose up -d --wait
 compose exec -T builder node src/request-build.ts
 stopped=false
 
-log "restaurado desde $snapshot${pre:+ (lo de antes quedó en $pre: borralo cuando no lo necesites)}"
+log "restored from $snapshot${pre:+ (the previous state is in $pre: delete it when you no longer need it)}"

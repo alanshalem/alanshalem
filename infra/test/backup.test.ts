@@ -7,13 +7,13 @@ import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-// backup.sh y restore.sh con un `docker` falso en el PATH: cada `docker compose exec|run … sh -euc SCRIPT` corre SCRIPT
-// acá, con /data y /media apuntando a carpetas temporales; `dotnet Blog.Api.dll backup` copia la base de prueba (como
-// el comando real, imprime la ruta) y el chequeo de integridad corre con el node de esta máquina (node:sqlite). Las
-// variables FAKE_* simulan las fallas: la API caída, un healthcheck que no da sano, una conexión que se corta a mitad
-// del stream. La prueba con Docker de verdad (backup con el sitio andando, borrar los volúmenes y restaurar) se corre a
-// mano con la copia local de producción. Los scripts son para el VPS (Linux): en Windows se saltean.
-const skip = process.platform === 'win32' ? 'los scripts de backup corren en Linux (en Windows, probalos en Docker)' : false;
+// backup.sh and restore.sh with a fake `docker` on the PATH: each `docker compose exec|run … sh -euc SCRIPT` runs
+// SCRIPT here, with /data and /media pointing to temporary folders; `dotnet Blog.Api.dll backup` copies the test
+// database (like the real command, it prints the path) and the integrity check runs with this machine's node
+// (node:sqlite). The FAKE_* variables simulate the failures: the API down, a healthcheck that never reports healthy, a
+// connection cut halfway through the stream. The test with real Docker (a backup with the site running, deleting the volumes and
+// restoring) is run by hand with the local production copy. The scripts are for the VPS (Linux): skipped on Windows.
+const skip = process.platform === 'win32' ? 'the backup scripts run on Linux (on Windows, test them in Docker)' : false;
 const script = (name: string): string => fileURLToPath(new URL(`../${name}`, import.meta.url));
 
 const FAKE_DOCKER = String.raw`#!/bin/sh
@@ -36,11 +36,11 @@ stop)
 	fi
 	exit 0 ;;
 esac
-case " $* " in *' -euc '*) ;; *) exit 0 ;; esac      # stop, init-permissions, request-build: solo se registran
-for last; do :; done                    # el script es el último argumento
+case " $* " in *' -euc '*) ;; *) exit 0 ;; esac      # stop, init-permissions, request-build: only recorded
+for last; do :; done                    # the script is the last argument
 mapped=$(printf %s "$last" | sed "s#/data#$FAKE_ROOT/data#g; s#/media#$FAKE_ROOT/media#g")
 run() { PATH="$FAKE_ROOT/bin:$PATH" sh -euc "$mapped"; }
-# La conexión se corta a mitad del stream y docker igual sale con 0 (el peor caso: nadie avisa).
+# The connection is cut halfway through the stream and docker still exits with 0 (the worst case: nobody notices).
 if [ -n "$FAKE_CUT_IN" ] && printf %s "$last" | grep -qF -- "$FAKE_CUT_IN"; then
 	head -c "$FAKE_CUT_BYTES" | run
 elif [ -n "$FAKE_CUT_OUT" ] && printf %s "$last" | grep -qF -- "$FAKE_CUT_OUT"; then
@@ -50,14 +50,15 @@ else
 fi
 `;
 
+// The API's backup failure message (`Backup failed: {exception.Message}`), with a test exception message.
 const FAKE_DOTNET = String.raw`#!/bin/sh
 [ "$1 $2" = "Blog.Api.dll backup" ] || exit 64
-[ -z "$FAKE_BACKUP_FAIL" ] || { echo "No se pudo hacer la copia de respaldo: falla de prueba" >&2; exit 1; }
+[ -z "$FAKE_BACKUP_FAIL" ] || { echo "Backup failed: test failure" >&2; exit 1; }
 cp "$FAKE_ROOT/data/blog.db" "$3/blog-20261126T030000Z.db"
-echo "$3/blog-20261126T030000Z.db" | sed "s#^$FAKE_ROOT##"     # la ruta como la ve el contenedor
+echo "$3/blog-20261126T030000Z.db" | sed "s#^$FAKE_ROOT##"     # the path as the container sees it
 `;
 
-// rclone falso: registra cada llamada; listremotes y lsf responden lo que diga el test.
+// Fake rclone: records every call; listremotes and lsf answer whatever the test says.
 const FAKE_RCLONE = String.raw`#!/bin/sh
 echo "rclone $*" >>"$FAKE_ROOT/calls"
 case $1 in
@@ -72,7 +73,7 @@ interface Run {
   stderr: string;
 }
 
-/** Una base SQLite de verdad (el chequeo de integridad la abre) con un solo valor adentro. */
+/** A real SQLite database (the integrity check opens it) with a single value inside. */
 function writeDb(path: string, value: string): void {
   const db = new DatabaseSync(path);
   db.exec('CREATE TABLE t (v TEXT)');
@@ -87,7 +88,7 @@ function readDb(path: string): string {
   return row.v;
 }
 
-describe('backup.sh y restore.sh', { skip }, () => {
+describe('backup.sh and restore.sh', { skip }, () => {
   let root: string;
   let backups: string;
 
@@ -109,7 +110,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
         (error, stdout, stderr) => resolve({ code: error ? Number(error.code) : 0, stdout, stderr }),
       );
     });
-  // Dos backups en el mismo segundo tendrían el mismo nombre: entre corrida y corrida se espera.
+  // Two backups in the same second would have the same name: wait between runs.
   const nextSecond = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 1_100));
   const list = async (dir: string): Promise<string[]> => (await readdir(dir)).sort();
   const calls = (): Promise<string> => readFile(join(root, 'calls'), 'utf8');
@@ -127,49 +128,49 @@ describe('backup.sh y restore.sh', { skip }, () => {
       await writeFile(join(root, 'bin', name), text);
       await chmod(join(root, 'bin', name), 0o755);
     }
-    writeDb(live('blog.db'), 'base de prueba');
+    writeDb(live('blog.db'), 'test database');
     await writeFile(live('keys/key-1.xml'), '<key/>');
-    await writeFile(join(root, 'media', 'abc', '640.webp'), 'imagen');
-    await writeFile(join(root, 'media', 'abc', '1024.webp.0f.tmp'), 'subida en curso');
+    await writeFile(join(root, 'media', 'abc', '640.webp'), 'image');
+    await writeFile(join(root, 'media', 'abc', '1024.webp.0f.tmp'), 'upload in progress');
   });
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
   });
 
   describe('backup.sh', () => {
-    it('copia la base y la media (sin los .tmp; nunca las claves de sesión), y no deja la copia de la base en el volumen', async () => {
+    it('copies the database and the media (without the .tmp files; never the session keys), and leaves no database copy on the volume', async () => {
       const result = await sh('backup.sh');
 
       assert.equal(result.code, 0, result.stderr);
       assert.equal(result.stdout, '');
       const [stamp] = await list(join(backups, 'daily'));
       assert.match(stamp!, /^\d{8}T\d{6}Z$/);
-      assert.deepEqual(await list(join(backups, 'daily', stamp!)), ['blog.db'], 'sin claves de sesión');
-      assert.equal(readDb(join(backups, 'daily', stamp!, 'blog.db')), 'base de prueba');
+      assert.deepEqual(await list(join(backups, 'daily', stamp!)), ['blog.db'], 'no session keys');
+      assert.equal(readDb(join(backups, 'daily', stamp!, 'blog.db')), 'test database');
       assert.deepEqual(await list(join(backups, 'media', 'abc')), ['640.webp']);
       assert.deepEqual(await list(live('backups')), []);
       assert.deepEqual(await list(join(backups, 'weekly')), [stamp]);
-      assert.match(result.stderr, /media: 1 archivos nuevos, 1 en total/);
-      assert.match(result.stderr, /sin BACKUP_RCLONE_REMOTE: el backup queda solo en /);
-      // El comando `backup` de la API, dentro de su contenedor en marcha; y la base revisada con integrity_check.
+      assert.match(result.stderr, /media: 1 new files, 1 in total/);
+      assert.match(result.stderr, /no BACKUP_RCLONE_REMOTE: the backup stays only in /);
+      // The API's `backup` command, inside its running container; and the database checked with integrity_check.
       const log = await calls();
       assert.match(log, /exec -T api sh -euc dotnet Blog\.Api\.dll backup \/data\/backups/);
       assert.match(log, /run --rm --no-deps -T builder sh -euc .*PRAGMA integrity_check/s);
     });
 
-    it('la segunda vez copia solo la media nueva', async () => {
+    it('the second time copies only the new media', async () => {
       await sh('backup.sh');
-      await writeFile(join(root, 'media', 'abc', '1024.webp'), 'otra');
+      await writeFile(join(root, 'media', 'abc', '1024.webp'), 'another');
       await nextSecond();
 
       const result = await sh('backup.sh');
 
       assert.equal(result.code, 0, result.stderr);
-      assert.match(result.stderr, /media: 1 archivos nuevos, 2 en total/);
+      assert.match(result.stderr, /media: 1 new files, 2 in total/);
       assert.deepEqual(await list(join(backups, 'media', 'abc')), ['1024.webp', '640.webp']);
     });
 
-    it('rota: quedan los 7 diarios y los 4 semanales más nuevos; un semanal por semana', async () => {
+    it('rotates: the 7 newest daily and 4 newest weekly snapshots stay; one weekly per week', async () => {
       for (let day = 1; day <= 8; day += 1) await mkdir(join(backups, 'daily', `202611${String(day).padStart(2, '0')}T030000Z`), { recursive: true });
       for (const week of ['20261001', '20261008', '20261015', '20261022']) {
         const dir = join(backups, 'weekly', `${week}T030000Z`);
@@ -185,82 +186,82 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.deepEqual(daily.slice(0, 6), ['20261103T030000Z', '20261104T030000Z', '20261105T030000Z', '20261106T030000Z', '20261107T030000Z', '20261108T030000Z']);
       const weekly = await list(join(backups, 'weekly'));
       assert.deepEqual(weekly.slice(0, 3), ['20261008T030000Z', '20261015T030000Z', '20261022T030000Z']);
-      assert.equal(weekly[3], daily[6], 'el semanal nuevo es el diario de hoy (no había uno de los últimos 7 días)');
+      assert.equal(weekly[3], daily[6], "the new weekly is today's daily (there was none from the last 7 days)");
 
-      // Otra corrida la misma semana: diario nuevo, semanal no.
+      // Another run the same week: a new daily, no new weekly.
       await nextSecond();
       assert.equal((await sh('backup.sh')).code, 0);
       assert.deepEqual(await list(join(backups, 'weekly')), weekly);
     });
 
-    it('si la API no puede copiar la base, falla y no deja un snapshot a medias', async () => {
+    it('if the API cannot copy the database, it fails and leaves no half-made snapshot', async () => {
       const result = await sh('backup.sh', [], { FAKE_BACKUP_FAIL: '1' });
 
       assert.notEqual(result.code, 0);
-      assert.match(result.stderr, /No se pudo hacer la copia de respaldo: falla de prueba/);
+      assert.match(result.stderr, /Backup failed: test failure/);
       assert.deepEqual(await list(join(backups, 'daily')), []);
     });
 
-    it('si el stream de la base llega cortado, falla, no deja snapshot y borra igual la copia del volumen', async () => {
+    it('if the database stream arrives cut, it fails, leaves no snapshot and still deletes the copy on the volume', async () => {
       const result = await sh('backup.sh', [], { FAKE_CUT_OUT: 'cat /data/backups/blog-' });
 
       assert.equal(result.code, 1);
-      assert.match(result.stderr, /la base llegó incompleta desde \/data\/backups\/blog-20261126T030000Z\.db/);
+      assert.match(result.stderr, /the database arrived incomplete from \/data\/backups\/blog-20261126T030000Z\.db/);
       assert.deepEqual(await list(join(backups, 'daily')), []);
       assert.deepEqual(await list(live('backups')), []);
     });
 
-    it('si la base copiada no pasa integrity_check, falla y no deja snapshot', async () => {
+    it('if the copied database does not pass integrity_check, it fails and leaves no snapshot', async () => {
       await writeFile(live('blog.db'), `SQLite format 3\0${'x'.repeat(4096)}`);
 
       const result = await sh('backup.sh');
 
       assert.equal(result.code, 1);
-      assert.match(result.stderr, /la base no pasa PRAGMA integrity_check/);
+      assert.match(result.stderr, /the database does not pass PRAGMA integrity_check/);
       assert.deepEqual(await list(join(backups, 'daily')), []);
       assert.deepEqual(await list(live('backups')), []);
     });
 
-    it('al empezar borra las copias de la base de más de un día que quedaron en el volumen (una corrida cortada)', async () => {
-      await writeFile(live('backups/blog-20261120T030000Z.db'), 'huérfana');
+    it('on start it deletes the database copies older than a day left on the volume (a killed run)', async () => {
+      await writeFile(live('backups/blog-20261120T030000Z.db'), 'orphan');
       await utimes(live('backups/blog-20261120T030000Z.db'), new Date('2026-11-20'), new Date('2026-11-20'));
-      await writeFile(live('backups/blog-reciente.db'), 'de otra corrida en curso');
+      await writeFile(live('backups/blog-recent.db'), 'from another run in progress');
 
       const result = await sh('backup.sh');
 
       assert.equal(result.code, 0, result.stderr);
-      assert.deepEqual(await list(live('backups')), ['blog-reciente.db']);
+      assert.deepEqual(await list(live('backups')), ['blog-recent.db']);
     });
 
-    it('media cortada a mitad del stream: no queda con su nombre final y la próxima corrida la copia entera', async () => {
+    it('media cut halfway through the stream: it does not keep its final name and the next run copies it whole', async () => {
       await sh('backup.sh');
-      await writeFile(join(root, 'media', 'abc', '1024.webp'), 'otra imagen');
+      await writeFile(join(root, 'media', 'abc', '1024.webp'), 'another image');
       await nextSecond();
 
       const cut = await sh('backup.sh', [], { FAKE_CUT_OUT: 'tar -cf - -T -' });
 
       assert.notEqual(cut.code, 0);
       assert.deepEqual(await list(join(backups, 'media', 'abc')), ['640.webp']);
-      assert.equal((await list(join(backups, 'daily'))).length, 1, 'sin snapshot nuevo');
+      assert.equal((await list(join(backups, 'daily'))).length, 1, 'no new snapshot');
       await nextSecond();
       const next = await sh('backup.sh');
       assert.equal(next.code, 0, next.stderr);
-      assert.equal(await readFile(join(backups, 'media', 'abc', '1024.webp'), 'utf8'), 'otra imagen');
+      assert.equal(await readFile(join(backups, 'media', 'abc', '1024.webp'), 'utf8'), 'another image');
     });
 
-    it('repara la media que un backup anterior dejó truncada (mismo nombre, otro tamaño)', async () => {
+    it('repairs media that a previous backup left truncated (same name, another size)', async () => {
       await mkdir(join(backups, 'media', 'abc'), { recursive: true });
       await writeFile(join(backups, 'media', 'abc', '640.webp'), 'ima');
 
       const result = await sh('backup.sh');
 
       assert.equal(result.code, 0, result.stderr);
-      assert.equal(await readFile(join(backups, 'media', 'abc', '640.webp'), 'utf8'), 'imagen');
-      assert.match(result.stderr, /media: 1 archivos nuevos, 1 en total/);
+      assert.equal(await readFile(join(backups, 'media', 'abc', '640.webp'), 'utf8'), 'image');
+      assert.match(result.stderr, /media: 1 new files, 1 in total/);
     });
   });
 
-  describe('backup.sh: copia remota con rclone', () => {
+  describe('backup.sh: remote copy with rclone', () => {
     const remoteEnv = (remote: string, remotes: string, extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
       BACKUP_RCLONE_REMOTE: remote,
       FAKE_RCLONE_REMOTES: remotes,
@@ -274,78 +275,78 @@ describe('backup.sh y restore.sh', { skip }, () => {
       for (let day = 20; day <= 25; day += 1) await mkdir(join(backups, 'daily', `202611${day}T030000Z`), { recursive: true });
     };
 
-    it('con BACKUP_RCLONE_REMOTE pero sin rclone, avisa y el backup local queda', async () => {
+    it('with BACKUP_RCLONE_REMOTE but without rclone, it warns and the local backup stays', async () => {
       await rm(join(root, 'bin', 'rclone'));
       const result = await sh('backup.sh', [], { BACKUP_RCLONE_REMOTE: 'b2:bucket/blog' });
 
       assert.equal(result.code, 0, result.stderr);
-      assert.match(result.stderr, /BACKUP_RCLONE_REMOTE está definido pero rclone no está instalado/);
+      assert.match(result.stderr, /BACKUP_RCLONE_REMOTE is set but rclone is not installed/);
     });
 
-    it('rechaza un remote sin cifrar (el backup tiene el hash del admin y las claves): el local queda, no sube nada', async () => {
+    it('rejects an unencrypted remote (the backup holds the admin hash and the drafts): the local one stays, nothing is uploaded', async () => {
       const result = await sh('backup.sh', [], remoteEnv('b2:bucket/blog', 'b2: b2'));
 
       assert.equal(result.code, 1);
-      assert.match(result.stderr, /b2:bucket\/blog no es un remote crypt de rclone/);
+      assert.match(result.stderr, /b2:bucket\/blog is not an rclone crypt remote/);
       assert.match(result.stderr, /BACKUP_ALLOW_PLAINTEXT=1/);
       assert.equal((await list(join(backups, 'daily'))).length, 1);
       assert.doesNotMatch(await calls(), /rclone (copy|sync)/);
     });
 
-    it('con BACKUP_ALLOW_PLAINTEXT=1 acepta el remote sin cifrar', async () => {
+    it('with BACKUP_ALLOW_PLAINTEXT=1 it accepts the unencrypted remote', async () => {
       const result = await sh('backup.sh', [], remoteEnv('b2:bucket/blog', 'b2: b2', { BACKUP_ALLOW_PLAINTEXT: '1' }));
 
       assert.equal(result.code, 0, result.stderr);
       assert.match(await calls(), /rclone copy \S+ b2:bucket\/blog/);
     });
 
-    it('sube con copy (nunca borra allá) y, con menos de 7 diarios locales, no aplica la retención remota', async () => {
-      const result = await sh('backup.sh', [], remoteEnv('secreto:blog', 'b2: b2\nsecreto: crypt'));
+    it('uploads with copy (never deletes there) and, with fewer than 7 local dailies, does not apply the remote retention', async () => {
+      const result = await sh('backup.sh', [], remoteEnv('secret:blog', 'b2: b2\nsecret: crypt'));
 
       assert.equal(result.code, 0, result.stderr);
       const log = await calls();
-      // Por tamaño: los archivos del backup nunca cambian (nombres por fecha o por hash), y comparar fechas falla en
-      // remotos que las guardan con menos precisión (todo parecería cambiado y se volvería a subir).
-      assert.match(log, new RegExp(`rclone copy ${backups} secreto:blog --size-only\n`));
+      // By size: backup files never change (named by date or by hash), and comparing dates fails on remotes that store
+      // them with less precision (everything would look changed and be uploaded again).
+      assert.match(log, new RegExp(`rclone copy ${backups} secret:blog --size-only\n`));
       assert.doesNotMatch(log, /rclone (sync|delete|purge)/);
-      assert.match(result.stderr, /retención remota salteada: hay 1 diarios locales y hacen falta 7/);
+      assert.match(result.stderr, /remote retention skipped: there are 1 local daily snapshots and 7 are needed/);
     });
 
-    it('si el diario más nuevo no es el de esta corrida, no aplica la retención remota', async () => {
+    it("if the newest daily is not this run's, it does not apply the remote retention", async () => {
       await sixOldDays();
       await mkdir(join(backups, 'daily', '29991231T000000Z'));
 
-      const result = await sh('backup.sh', [], remoteEnv('secreto:blog', 'secreto: crypt'));
+      const result = await sh('backup.sh', [], remoteEnv('secret:blog', 'secret: crypt'));
 
       assert.equal(result.code, 0, result.stderr);
       assert.doesNotMatch(await calls(), /rclone (sync|delete|purge)/);
-      assert.match(result.stderr, /retención remota salteada: el diario más nuevo \(29991231T000000Z\) no es el de esta corrida/);
+      assert.match(result.stderr, /remote retention skipped: the newest daily snapshot \(29991231T000000Z\) is not this run's/);
     });
 
-    it('con el set local completo, rota allá con tope de borrados y lo borrado va a deleted/<fecha>', async () => {
+    it('with the complete local set, it rotates there with a deletion cap and what is deleted goes to deleted/<date>', async () => {
       await sixOldDays();
 
-      const result = await sh('backup.sh', [], remoteEnv('secreto:blog', 'secreto: crypt', { FAKE_RCLONE_LSF: 'daily/\ndeleted/' }));
+      const result = await sh('backup.sh', [], remoteEnv('secret:blog', 'secret: crypt', { FAKE_RCLONE_LSF: 'daily/\ndeleted/' }));
 
       assert.equal(result.code, 0, result.stderr);
       const stamp = (await list(join(backups, 'daily'))).at(-1)!;
       const log = await calls();
       for (const set of ['daily', 'weekly']) {
         assert.ok(
-          log.includes(`rclone sync ${backups}/${set} secreto:blog/${set} --size-only --max-delete 2 --backup-dir secreto:blog/deleted/${stamp}/${set}\n`),
+          log.includes(`rclone sync ${backups}/${set} secret:blog/${set} --size-only --max-delete 2 --backup-dir secret:blog/deleted/${stamp}/${set}\n`),
           set,
         );
       }
-      // Las carpetas vacías se borran aparte y sin filtro de edad: con el filtro, --rmdirs ve vacías las que tienen
-      // archivos nuevos (los filtrados) e intenta borrarlas.
-      assert.match(log, /rclone delete secreto:blog\/deleted --min-age 30d\nrclone rmdirs secreto:blog\/deleted --leave-root\n/);
-      assert.ok(log.indexOf('rclone copy') < log.indexOf('rclone sync'), 'primero sube, después rota');
+      // Empty folders are deleted separately and without an age filter: with the filter, --rmdirs sees folders with new
+      // files (the filtered ones) as empty and tries to delete them.
+      assert.match(log, /rclone delete secret:blog\/deleted --min-age 30d\nrclone rmdirs secret:blog\/deleted --leave-root\n/);
+      assert.ok(log.indexOf('rclone copy') < log.indexOf('rclone sync'), 'uploads first, rotates afterwards');
     });
 
-    it('sin carpeta deleted/ allá todavía, no intenta limpiarla', async () => {
+    it('without a deleted/ folder there yet, it does not try to clean it', async () => {
       await sixOldDays();
 
-      const result = await sh('backup.sh', [], remoteEnv('secreto:blog', 'secreto: crypt', { FAKE_RCLONE_LSF: 'daily/' }));
+      const result = await sh('backup.sh', [], remoteEnv('secret:blog', 'secret: crypt', { FAKE_RCLONE_LSF: 'daily/' }));
 
       assert.equal(result.code, 0, result.stderr);
       assert.match(await calls(), /rclone sync /);
@@ -354,102 +355,103 @@ describe('backup.sh y restore.sh', { skip }, () => {
   });
 
   describe('restore.sh', () => {
-    /** Hace un backup y deja el volumen distinto del snapshot (lo que el restore tiene que pisar). */
+    /** Makes a backup and leaves the volume different from the snapshot (what the restore has to overwrite). */
     const backupThenChange = async (): Promise<string> => {
       const result = await sh('backup.sh');
       assert.equal(result.code, 0, result.stderr);
       const snapshot = await latest();
       await rm(live('blog.db'));
-      writeDb(live('blog.db'), 'base nueva');
-      await writeFile(live('keys/key-1.xml'), '<key-nueva/>');
-      await writeFile(live('keys/key-2.xml'), '<otra-key/>');
+      writeDb(live('blog.db'), 'new database');
+      await writeFile(live('keys/key-1.xml'), '<new-key/>');
+      await writeFile(live('keys/key-2.xml'), '<another-key/>');
       await rm(join(root, 'calls'));
       return snapshot;
     };
-    /** Sin claves en el volumen: la API arranca con unas nuevas y ninguna cookie emitida antes del restore vale. */
+    /** No keys on the volume: the API starts with new ones and no cookie issued before the restore is valid. */
     const noKeys = async (): Promise<void> => {
       await assert.rejects(readdir(live('keys')), { code: 'ENOENT' });
     };
     const preRestore = async (): Promise<string[]> => (await list(backups)).filter((name) => name.startsWith('pre-restore-'));
 
-    it('sin --apply solo revisa (con integrity_check): no para nada ni toca la base', async () => {
+    it('without --apply it only checks (with integrity_check): it stops nothing and does not touch the database', async () => {
       const snapshot = await backupThenChange();
 
       const result = await sh('restore.sh', [snapshot]);
 
       assert.equal(result.code, 0, result.stderr);
-      assert.match(result.stderr, /snapshot válido: base \d+ bytes \(integrity_check ok\), 1 archivos de media/);
-      assert.match(result.stderr, /Simulación: no se cambió nada\. Con --apply:/);
-      assert.equal(readDb(live('blog.db')), 'base nueva');
+      assert.match(result.stderr, /valid snapshot: database \d+ bytes \(integrity_check ok\), 1 media files/);
+      assert.match(result.stderr, /Dry run: nothing was changed\. With --apply:/);
+      assert.equal(readDb(live('blog.db')), 'new database');
       const log = await calls();
       assert.match(log, /PRAGMA integrity_check/);
       assert.doesNotMatch(log, /init-permissions|stop|up -d|exec -T api|api -euc/);
       assert.deepEqual(await preRestore(), []);
     });
 
-    it('--apply guarda antes una copia previa, reemplaza la base, descarta el -wal y agrega la media que falta', async () => {
+    it('--apply first saves a previous copy, replaces the database, discards the -wal and adds the missing media', async () => {
       const snapshot = await backupThenChange();
-      await writeFile(live('blog.db-wal'), 'wal de la base nueva');
+      await writeFile(live('blog.db-wal'), 'wal of the new database');
       await rm(join(root, 'media', 'abc', '640.webp'));
 
       const result = await sh('restore.sh', [snapshot, '--apply']);
 
       assert.equal(result.code, 0, result.stderr);
-      assert.equal(readDb(live('blog.db')), 'base de prueba');
+      assert.equal(readDb(live('blog.db')), 'test database');
       assert.deepEqual((await list(live(''))).filter((name) => name.startsWith('blog.db')), ['blog.db']);
       await noKeys();
-      assert.equal(await readFile(join(root, 'media', 'abc', '640.webp'), 'utf8'), 'imagen');
-      assert.deepEqual((await list(live(''))).filter((name) => name.startsWith('.')), [], 'sin temporales en el volumen');
+      assert.equal(await readFile(join(root, 'media', 'abc', '640.webp'), 'utf8'), 'image');
+      assert.deepEqual((await list(live(''))).filter((name) => name.startsWith('.')), [], 'no temporary folders on the volume');
       assert.deepEqual((await list(join(root, 'media'))).filter((name) => name.startsWith('.')), []);
 
-      // La copia previa la hizo la API en marcha (copia consistente) y es un snapshot que restore.sh acepta.
+      // The previous copy was made by the running API (a consistent copy) and is a snapshot restore.sh accepts.
       const [pre] = await preRestore();
       assert.match(pre!, /^pre-restore-\d{8}T\d{6}Z$/);
       assert.deepEqual(await list(join(backups, pre!)), ['blog.db']);
-      assert.equal(readDb(join(backups, pre!, 'blog.db')), 'base nueva');
-      assert.match(result.stderr, new RegExp(`copia previa: ${backups}/${pre}`));
+      assert.equal(readDb(join(backups, pre!, 'blog.db')), 'new database');
+      assert.match(result.stderr, new RegExp(`previous copy: ${backups}/${pre}`));
       assert.deepEqual(await list(live('backups')), []);
 
       const log = await calls();
       const order = ['run --rm init-permissions', 'exec -T api sh -euc dotnet Blog.Api.dll backup', 'stop api builder', 'up -d --wait', 'exec -T builder node src/request-build.ts'];
       const positions = order.map((step) => log.indexOf(step));
       for (const [index, step] of order.entries()) assert.ok(positions[index]! >= 0, step);
-      assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'en este orden');
+      assert.deepEqual([...positions].sort((a, b) => a - b), positions, 'in this order');
     });
 
-    it('--apply no revive sesiones revocadas: ni el snapshot ni el volumen dejan sus claves de sesión', async () => {
-      // Un backup es de antes de un logout: si trajera sus claves (y su época de sesiones), una cookie revocada después
-      // volvería a valer. Con claves nuevas, toda cookie emitida antes del restore deja de valer y el admin entra de nuevo.
+    it('--apply does not bring revoked sessions back: neither the snapshot nor the volume keeps its session keys', async () => {
+      // A backup predates a logout: if it brought its keys (and its session epoch), a cookie revoked later would be
+      // valid again. With new keys, every cookie issued before the restore stops being valid and the admin signs in
+      // again.
       const snapshot = await backupThenChange();
-      // Los snapshots de antes de este cambio traen keys.tar: se aceptan y sus claves se ignoran.
-      await writeFile(join(snapshot, 'keys.tar'), 'claves viejas');
+      // Snapshots from before the keys left the backup carry keys.tar: they are accepted and their keys ignored.
+      await writeFile(join(snapshot, 'keys.tar'), 'old keys');
       await mkdir(join(snapshot, 'keys'));
-      await writeFile(join(snapshot, 'keys', 'key-0.xml'), '<key-vieja/>');
-      assert.deepEqual(await list(live('keys')), ['key-1.xml', 'key-2.xml'], 'el volumen tenía claves antes');
+      await writeFile(join(snapshot, 'keys', 'key-0.xml'), '<old-key/>');
+      assert.deepEqual(await list(live('keys')), ['key-1.xml', 'key-2.xml'], 'the volume had keys before');
 
       const result = await sh('restore.sh', [snapshot, '--apply']);
 
       assert.equal(result.code, 0, result.stderr);
       await noKeys();
-      assert.match(result.stderr, /claves de sesión nuevas: el admin tiene que volver a entrar/);
+      assert.match(result.stderr, /new session keys: the admin has to sign in again/);
     });
 
-    it('con la API parada, la copia previa es la del volumen tal cual, con su -wal', async () => {
+    it('with the API stopped, the previous copy is the volume as it is, with its -wal', async () => {
       const snapshot = await backupThenChange();
-      await writeFile(live('blog.db-wal'), 'wal sin aplicar');
+      await writeFile(live('blog.db-wal'), 'unapplied wal');
 
       const result = await sh('restore.sh', [snapshot, '--apply'], { FAKE_API_DOWN: '1' });
 
       assert.equal(result.code, 0, result.stderr);
       const [pre] = await preRestore();
       assert.deepEqual(await list(join(backups, pre!)), ['blog.db', 'blog.db-wal']);
-      assert.equal(readDb(join(backups, pre!, 'blog.db')), 'base nueva');
-      assert.equal(await readFile(join(backups, pre!, 'blog.db-wal'), 'utf8'), 'wal sin aplicar');
+      assert.equal(readDb(join(backups, pre!, 'blog.db')), 'new database');
+      assert.equal(await readFile(join(backups, pre!, 'blog.db-wal'), 'utf8'), 'unapplied wal');
       assert.doesNotMatch(await calls(), /exec -T api/);
-      assert.equal(readDb(live('blog.db')), 'base de prueba');
+      assert.equal(readDb(live('blog.db')), 'test database');
     });
 
-    it('en un VPS nuevo (sin base ni claves) restaura sin copia previa', async () => {
+    it('on a new VPS (no database or keys) it restores without a previous copy', async () => {
       const snapshot = await backupThenChange();
       await rm(live('blog.db'));
       await rm(live('keys'), { recursive: true });
@@ -457,26 +459,26 @@ describe('backup.sh y restore.sh', { skip }, () => {
       const result = await sh('restore.sh', [snapshot, '--apply'], { FAKE_API_DOWN: '1' });
 
       assert.equal(result.code, 0, result.stderr);
-      assert.match(result.stderr, /no hay base en el volumen: no hace falta copia previa/);
+      assert.match(result.stderr, /no database on the volume: no previous copy needed/);
       assert.deepEqual(await preRestore(), []);
-      assert.equal(readDb(live('blog.db')), 'base de prueba');
+      assert.equal(readDb(live('blog.db')), 'test database');
       await noKeys();
     });
 
-    it('si la base llega cortada al volumen, falla antes de parar nada y la base actual queda intacta', async () => {
+    it('if the database arrives cut on the volume, it fails before stopping anything and the current database stays intact', async () => {
       const snapshot = await backupThenChange();
 
       const result = await sh('restore.sh', [snapshot, '--apply'], { FAKE_CUT_IN: 'cat >/data/.restoring/blog.db' });
 
       assert.equal(result.code, 1);
-      assert.match(result.stderr, /blog\.db llegó incompleta a \/data\/\.restoring\/blog\.db/);
-      assert.equal(readDb(live('blog.db')), 'base nueva');
+      assert.match(result.stderr, /blog\.db arrived incomplete at \/data\/\.restoring\/blog\.db/);
+      assert.equal(readDb(live('blog.db')), 'new database');
       assert.deepEqual(await list(live('keys')), ['key-1.xml', 'key-2.xml']);
-      assert.deepEqual((await list(live(''))).filter((name) => name.startsWith('.')), [], 'sin temporales en el volumen');
+      assert.deepEqual((await list(live(''))).filter((name) => name.startsWith('.')), [], 'no temporary folders on the volume');
       assert.doesNotMatch(await calls(), /stop api builder/);
     });
 
-    it('si la media llega cortada, falla antes de parar nada y no deja archivos a medias en /media', async () => {
+    it('if the media arrives cut, it fails before stopping anything and leaves no half-made files in /media', async () => {
       const snapshot = await backupThenChange();
       await rm(join(root, 'media', 'abc', '640.webp'));
 
@@ -485,11 +487,11 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.equal(result.code, 1);
       assert.deepEqual(await list(join(root, 'media', 'abc')), ['1024.webp.0f.tmp']);
       assert.deepEqual((await list(join(root, 'media'))).filter((name) => name.startsWith('.')), []);
-      assert.equal(readDb(live('blog.db')), 'base nueva');
+      assert.equal(readDb(live('blog.db')), 'new database');
       assert.doesNotMatch(await calls(), /stop api builder/);
     });
 
-    it('si después del cambio la API no da sano, vuelve a poner la copia previa, levanta todo y dice dónde está', async () => {
+    it('if the API is not healthy after the swap, it puts the previous copy back, starts everything and says where it is', async () => {
       const snapshot = await backupThenChange();
 
       const result = await sh('restore.sh', [snapshot, '--apply'], { FAKE_UP_FAIL: '1' });
@@ -497,15 +499,15 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.equal(result.code, 1);
       const [pre] = await preRestore();
       assert.match(result.stderr, /container blog-api-1 is unhealthy/);
-      assert.match(result.stderr, new RegExp(`el restore falló: se volvió a poner la copia previa ${backups}/${pre}`));
-      assert.equal(readDb(live('blog.db')), 'base nueva');
+      assert.match(result.stderr, new RegExp(`the restore failed: the previous copy ${backups}/${pre} was put back`));
+      assert.equal(readDb(live('blog.db')), 'new database');
       await noKeys();
-      assert.equal((await calls()).match(/up -d --wait/g)?.length, 2, 'levanta todo de nuevo');
+      assert.equal((await calls()).match(/up -d --wait/g)?.length, 2, 'starts everything again');
     });
 
-    it('si up --wait falla con la API ya arrancada, para api y builder antes de volver a poner la copia previa', async () => {
-      // --wait puede fallar por el builder o Caddy con la API ya en marcha: cambiar la base debajo de ella la dejaría
-      // atendiendo con la restaurada (archivos borrados abiertos) y perdería lo que se escriba hasta que reinicie.
+    it('if up --wait fails with the API already started, it stops api and builder before putting the previous copy back', async () => {
+      // --wait can fail because of the builder or Caddy with the API already running: swapping the database underneath
+      // it would leave it serving the restored one (deleted files open) and lose whatever is written until it restarts.
       const snapshot = await backupThenChange();
 
       const result = await sh('restore.sh', [snapshot, '--apply'], { FAKE_UP_FAIL: '1' });
@@ -515,39 +517,39 @@ describe('backup.sh y restore.sh', { skip }, () => {
       const firstUp = log.findIndex((line) => line.includes('up -d --wait'));
       const stop = log.findIndex((line, index) => index > firstUp && line.includes('stop api builder'));
       const swap = log.findIndex((line, index) => index > firstUp && line.includes('mv .restoring/blog.db blog.db'));
-      assert.ok(firstUp >= 0 && stop > firstUp && stop < swap, 'la vuelta atrás nunca cambia la base con la API en marcha');
-      assert.equal(readDb(live('blog.db')), 'base nueva');
+      assert.ok(firstUp >= 0 && stop > firstUp && stop < swap, 'the rollback never swaps the database with the API running');
+      assert.equal(readDb(live('blog.db')), 'new database');
     });
 
-    it('si en la vuelta atrás no se puede parar la API, no cambia la base y dice cómo terminar a mano', async () => {
+    it('if the rollback cannot stop the API, it does not swap the database and says how to finish by hand', async () => {
       const snapshot = await backupThenChange();
 
       const result = await sh('restore.sh', [snapshot, '--apply'], { FAKE_UP_FAIL: '1', FAKE_STOP_FAIL: '1' });
 
       assert.equal(result.code, 1);
       const [pre] = await preRestore();
-      assert.match(result.stderr, new RegExp(`no se pudo volver a poner la copia previa sola\\. A mano: sh restore\\.sh ${backups}/${pre} --apply`));
-      assert.equal((await calls()).match(/mv \.restoring\/blog\.db blog\.db/g)?.length, 1, 'un solo cambio de base: el del restore');
-      assert.equal(readDb(live('blog.db')), 'base de prueba');
+      assert.match(result.stderr, new RegExp(`the previous copy could not be put back automatically\\. By hand: sh restore\\.sh ${backups}/${pre} --apply`));
+      assert.equal((await calls()).match(/mv \.restoring\/blog\.db blog\.db/g)?.length, 1, "a single database swap: the restore's");
+      assert.equal(readDb(live('blog.db')), 'test database');
     });
 
-    it('rechaza un snapshot con la base dañada (integrity_check) sin tocar nada', async () => {
+    it('rejects a snapshot with a damaged database (integrity_check) without touching anything', async () => {
       const snapshot = await backupThenChange();
       await writeFile(join(snapshot, 'blog.db'), `SQLite format 3\0${'x'.repeat(4096)}`);
 
       const result = await sh('restore.sh', [snapshot, '--apply']);
 
       assert.equal(result.code, 1);
-      assert.match(result.stderr, /blog\.db no pasa PRAGMA integrity_check/);
-      assert.equal(readDb(live('blog.db')), 'base nueva');
+      assert.match(result.stderr, /blog\.db does not pass PRAGMA integrity_check/);
+      assert.equal(readDb(live('blog.db')), 'new database');
       assert.doesNotMatch(await calls(), /init-permissions|stop api builder/);
     });
 
-    it('sin snapshot explica el uso; con uno inválido no hace nada', async () => {
-      assert.deepEqual(await sh('restore.sh'), { code: 2, stdout: '', stderr: 'Uso: sh restore.sh <carpeta del snapshot> [--apply]\n' });
-      const result = await sh('restore.sh', [join(backups, 'nada'), '--apply']);
+    it('without a snapshot it explains the usage; with an invalid one it does nothing', async () => {
+      assert.deepEqual(await sh('restore.sh'), { code: 2, stdout: '', stderr: 'Usage: sh restore.sh <snapshot folder> [--apply]\n' });
+      const result = await sh('restore.sh', [join(backups, 'nothing'), '--apply']);
       assert.equal(result.code, 1);
-      assert.match(result.stderr, /nada\/blog\.db no existe o no es una base SQLite/);
+      assert.match(result.stderr, /nothing\/blog\.db does not exist or is not a SQLite database/);
       await assert.rejects(readFile(join(root, 'calls')), { code: 'ENOENT' });
     });
   });
