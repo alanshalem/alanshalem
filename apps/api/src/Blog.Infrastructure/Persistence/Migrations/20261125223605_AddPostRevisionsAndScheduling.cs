@@ -11,14 +11,14 @@ namespace Blog.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // ----- Publicación programada: los posts existentes quedan sin programar (null) -----
+            // ----- Scheduled publishing: existing posts stay unscheduled (null) -----
             migrationBuilder.AddColumn<DateTime>(
                 name: "ScheduledAtUtc",
                 table: "posts",
                 type: "TEXT",
                 nullable: true);
 
-            // ----- Historial de versiones -----
+            // ----- Version history -----
             migrationBuilder.CreateTable(
                 name: "post_revisions",
                 columns: table => new
@@ -52,10 +52,10 @@ namespace Blog.Infrastructure.Persistence.Migrations
                 columns: new[] { "PostId", "Number" },
                 unique: true);
 
-            // Cada post existente arranca su historial con su contenido actual como versión 1 (fechada en su última
-            // edición): así el primer guardado después de actualizar ya se puede deshacer. SQLite no genera Guids, así que
-            // se usa el Id del post, como en AddTranslations: es único (una sola versión inicial por post) y ya tiene el
-            // formato con que EF guarda un Guid. Las etiquetas ya son el mismo arreglo JSON.
+            // Each existing post starts its history with its current content as version 1 (dated at its last edit):
+            // this way the first save after upgrading can already be undone. SQLite does not generate Guids, so the
+            // post's Id is used, as in AddTranslations: it is unique (a single initial version per post) and already
+            // has the format EF stores a Guid with. The tags are already the same JSON array.
             migrationBuilder.Sql("""
                 INSERT INTO post_revisions (Id, PostId, Number, Title, Slug, Summary, Body, Tags, CoverUrl, CoverAlt, CreatedAtUtc)
                 SELECT Id, Id, 1, Title, Slug, Summary, Body, Tags, CoverUrl, CoverAlt, UpdatedAtUtc FROM posts;
@@ -68,8 +68,8 @@ namespace Blog.Infrastructure.Persistence.Migrations
             migrationBuilder.DropTable(
                 name: "post_revisions");
 
-            // Pierde el historial y las programaciones (los borradores quedan como borradores). DROP COLUMN nativo de
-            // SQLite, como en AddTranslations: DropColumn reconstruiría la tabla posts.
+            // Loses the history and the schedules (drafts stay drafts). SQLite's native DROP COLUMN, as in
+            // AddTranslations: DropColumn would rebuild the posts table.
             migrationBuilder.Sql("ALTER TABLE posts DROP COLUMN ScheduledAtUtc;");
         }
     }

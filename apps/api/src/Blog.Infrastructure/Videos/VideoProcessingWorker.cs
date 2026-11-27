@@ -7,10 +7,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Blog.Infrastructure.Videos;
 
-/// <summary>Cola en memoria de videos por procesar.</summary>
+/// <summary>In-memory queue of videos to process.</summary>
 internal sealed class ChannelVideoQueue : IVideoQueue
 {
-    // Sin límite: solo encola el admin (una persona) y cada ítem es un id y una ruta. Un solo lector: el worker.
+    // Unbounded: only the admin (one person) enqueues and each item is an id and a path. A single reader: the worker.
     private readonly Channel<VideoJob> _jobs = Channel.CreateUnbounded<VideoJob>(new UnboundedChannelOptions { SingleReader = true });
 
     public void Enqueue(VideoJob job) => _jobs.Writer.TryWrite(job);
@@ -19,8 +19,8 @@ internal sealed class ChannelVideoQueue : IVideoQueue
 }
 
 /// <summary>
-/// Único consumidor de la cola: procesa un video a la vez (cada uno en su propio scope, con su DbContext). Al
-/// arrancar, antes de aceptar pedidos, resuelve los videos que un reinicio dejó a medias.
+/// The only consumer of the queue: processes one video at a time (each in its own scope, with its DbContext). On start,
+/// before accepting requests, it resolves the videos a restart left half done.
 /// </summary>
 internal sealed class VideoProcessingWorker(
     ChannelVideoQueue queue,
@@ -52,8 +52,8 @@ internal sealed class VideoProcessingWorker(
             }
             catch (Exception exception)
             {
-                // El video ya quedó como fallido; acá se registran los detalles y se sigue con el próximo.
-                logger.LogError(exception, "Falló el procesamiento del video {VideoId}.", job.VideoId);
+                // The video is already marked as failed; here the details are logged and it goes on with the next one.
+                logger.LogError(exception, "Processing of video {VideoId} failed.", job.VideoId);
             }
         }
     }

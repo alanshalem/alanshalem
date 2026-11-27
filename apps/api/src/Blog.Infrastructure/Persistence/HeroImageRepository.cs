@@ -12,7 +12,7 @@ internal sealed class HeroImageRepository(BlogDbContext db) : IHeroImageReposito
     public Task<HeroImage?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         WithMedia.FirstOrDefaultAsync(image => image.Id == id, cancellationToken);
 
-    // Id es un Guid v7 (ordenable por tiempo): desempata dos altas en el mismo instante.
+    // Id is a v7 Guid (time-ordered): it breaks the tie between two additions at the same instant.
     public async Task<IReadOnlyList<HeroImage>> ListAsync(CancellationToken cancellationToken) =>
         await WithMedia
             .AsNoTracking()

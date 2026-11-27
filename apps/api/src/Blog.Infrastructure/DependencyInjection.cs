@@ -13,10 +13,10 @@ namespace Blog.Infrastructure;
 
 public static class DependencyInjection
 {
-    // Relativa a la carpeta de trabajo: en desarrollo, la data/ del proyecto; en el contenedor se configura otra.
+    // Relative to the working directory: in development, the project's data/; the container configures another one.
     private const string DefaultConnectionString = "Data Source=data/blog.db";
 
-    /// <summary>La cadena de conexión de la base: la de la API y la del modo backup de la línea de comandos.</summary>
+    /// <summary>The database connection string: the API's and the command-line backup mode's.</summary>
     public static string ConnectionStringOf(IConfiguration configuration) =>
         configuration.GetConnectionString("Blog") ?? DefaultConnectionString;
 
@@ -37,26 +37,26 @@ public static class DependencyInjection
         services.AddScoped<IVideoAssetRepository, VideoAssetRepository>();
         services.AddSingleton<IClock, SystemClock>();
 
-        // Singleton: guarda en memoria la época de las sesiones, que se consulta en cada pedido con sesión.
+        // Singleton: keeps in memory the session epoch, which is checked on every request with a session.
         services.AddSingleton<IAdminSessionEpoch, AdminSessionEpoch>();
         services.AddSingleton<IMediaStorage, DiskMediaStorage>();
 
-        // Singleton: su semáforo es el que garantiza que se procese una sola imagen a la vez en todo el proceso.
+        // Singleton: its semaphore is what guarantees a single image is processed at a time in the whole process.
         services.AddSingleton<IImageProcessor, NetVipsImageProcessor>();
 
-        // Videos: un único worker consume la cola, así se procesa un video a la vez (ffmpeg usa mucha CPU).
-        // El worker saca VideoProcessor (Application) del contenedor: lo registra la API junto a los otros casos de uso.
+        // Videos: a single worker consumes the queue, so one video is processed at a time (ffmpeg uses a lot of CPU).
+        // The worker takes VideoProcessor (Application) from the container: the API registers it with the other use cases.
         services.AddSingleton<IVideoTranscoder, FfmpegVideoTranscoder>();
         services.AddSingleton<IVideoStaging, DiskVideoStaging>();
         services.AddSingleton<ChannelVideoQueue>();
         services.AddSingleton<IVideoQueue>(provider => provider.GetRequiredService<ChannelVideoQueue>());
         services.AddHostedService<VideoProcessingWorker>();
 
-        // Publicación programada: saca PostService (Application) del contenedor, como el worker de videos.
+        // Scheduled publishing: takes PostService (Application) from the container, like the video worker.
         services.AddHostedService<ScheduledPublishingWorker>();
 
-        // Regeneración del sitio: todos los casos de uso y la publicación programada piden por el trigger durable (marca
-        // en la base + envío HTTP); el worker reintenta la marca que el builder no aceptó.
+        // Site regeneration: every use case and the scheduled publishing request it through the durable trigger (a mark
+        // in the database + an HTTP send); the worker retries the mark the builder did not accept.
         services.AddScoped<DurableSiteBuildTrigger>();
         services.AddScoped<ISiteBuildTrigger>(provider => provider.GetRequiredService<DurableSiteBuildTrigger>());
         services.AddHostedService<SiteRebuildWorker>();

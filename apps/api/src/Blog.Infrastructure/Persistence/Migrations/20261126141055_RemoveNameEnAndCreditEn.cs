@@ -10,9 +10,10 @@ namespace Blog.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // El nombre del sitio y el crédito del hero son uno solo en los dos idiomas (L12, L13): salen las versiones en
-            // inglés que sumó AddTranslations. DROP COLUMN nativo de SQLite (en vez de DropColumn, que reconstruye la tabla
-            // con PRAGMA foreign_keys fuera de la transacción): todo el Up es una sola transacción, igual que en AddVideoEdit.
+            // The site name and the hero credit are proper names, one single field for both languages: the English
+            // versions AddTranslations added go away. SQLite's native DROP COLUMN (instead of DropColumn, which
+            // rebuilds the table with PRAGMA foreign_keys outside the transaction): the whole Up is one transaction,
+            // as in AddVideoEdit.
             migrationBuilder.Sql("ALTER TABLE site_settings DROP COLUMN NameEn;");
             migrationBuilder.Sql("ALTER TABLE hero_images DROP COLUMN CreditEn;");
         }
@@ -20,7 +21,7 @@ namespace Blog.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Vuelven vacías (null = el sitio en inglés usa el de español): el texto que tenían no se guardó.
+            // They come back empty (null = the English site uses the Spanish one): the text they had was not kept.
             migrationBuilder.AddColumn<string>(
                 name: "NameEn",
                 table: "site_settings",

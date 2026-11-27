@@ -23,14 +23,14 @@ using Microsoft.Extensions.Logging;
 namespace Blog.Tests;
 
 /// <summary>
-/// Base SQLite real en un archivo temporal (fuera del repo), armada con el mismo AddInfrastructure que usa la API.
-/// Sin pooling: así no queda ningún handle abierto y la carpeta se puede borrar al terminar.
+/// Real SQLite database in a temporary file (outside the repo), built with the same AddInfrastructure the API uses.
+/// No pooling: this way no handle is left open and the folder can be deleted at the end.
 /// </summary>
 internal sealed class SqliteTestDatabase : IAsyncDisposable
 {
     private readonly string _directory;
 
-    /// <param name="configure">Reemplazos para la prueba (dobles, registradores de logs), aplicados después de AddInfrastructure.</param>
+    /// <param name="configure">Replacements for the test (doubles, log recorders), applied after AddInfrastructure.</param>
     public SqliteTestDatabase(Action<IServiceCollection>? configure = null)
     {
         _directory = Path.Combine(Path.GetTempPath(), "blog-tests-" + Guid.NewGuid().ToString("N"));
@@ -53,8 +53,8 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
         services.AddInfrastructure(configuration);
         services.AddSingleton<ILoggerProvider>(Logs);
 
-        // Los casos de uso que el proceso en segundo plano saca del contenedor (como en Program.cs), con el reloj y
-        // el builder de la prueba.
+        // The use cases the background process takes from the container (as in Program.cs), with the test's clock and
+        // builder.
         services.AddSingleton<IClock>(Clock);
         services.AddSingleton<ISiteBuildTrigger>(Build);
         services.AddScoped<PostService>();
@@ -67,33 +67,33 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
 
     public string FilePath { get; }
 
-    /// <summary>Carpeta de media de esta prueba (dentro de la carpeta temporal que se borra al terminar).</summary>
+    /// <summary>This test's media folder (inside the temporary folder deleted at the end).</summary>
     public string MediaDirectory { get; }
 
-    /// <summary>Originales de video en espera y salidas de ffmpeg de esta prueba.</summary>
+    /// <summary>This test's waiting video originals and ffmpeg outputs.</summary>
     public string VideoWorkDirectory { get; }
 
     public ServiceProvider Services { get; }
 
-    /// <summary>El proceso de videos en segundo plano, tal como lo registra AddInfrastructure (sin arrancar).</summary>
+    /// <summary>The background video process, as AddInfrastructure registers it (not started).</summary>
     public IHostedService VideoWorker => Services.GetServices<IHostedService>().OfType<VideoProcessingWorker>().Single();
 
-    /// <summary>El que publica los posts programados, tal como lo registra AddInfrastructure (sin arrancar).</summary>
+    /// <summary>The one that publishes the scheduled posts, as AddInfrastructure registers it (not started).</summary>
     public ScheduledPublishingWorker SchedulerWorker => Services.GetServices<IHostedService>().OfType<ScheduledPublishingWorker>().Single();
 
-    /// <summary>El que reintenta el rebuild pendiente, tal como lo registra AddInfrastructure (sin arrancar).</summary>
+    /// <summary>The one that retries the pending rebuild, as AddInfrastructure registers it (not started).</summary>
     public SiteRebuildWorker RebuildWorker => Services.GetServices<IHostedService>().OfType<SiteRebuildWorker>().Single();
 
     public CountingBuildTrigger Build { get; } = new();
 
-    /// <summary>Todo lo que registran los servicios de esta prueba.</summary>
+    /// <summary>Everything this test's services log.</summary>
     public CapturingLoggerProvider Logs { get; } = new();
 
     public FixedClock Clock { get; } = new();
 
     public Task InitializeAsync() => DatabaseInitializer.InitializeAsync(Services);
 
-    /// <summary>Corre la acción en un scope nuevo (DbContext limpio): lo que lee viene de la base, no del change tracker.</summary>
+    /// <summary>Runs the action in a new scope (clean DbContext): what it reads comes from the database, not the change tracker.</summary>
     public async Task<T> InScopeAsync<T>(Func<IServiceProvider, Task<T>> action)
     {
         await using var scope = Services.CreateAsyncScope();
@@ -106,7 +106,7 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
     public Task<T> WithSettingsAsync<T>(Func<SiteSettingsService, Task<T>> action) =>
         InScopeAsync(provider => action(new SiteSettingsService(provider.GetRequiredService<ISiteSettingsRepository>(), Build)));
 
-    /// <summary>MediaService con el pipeline real (NetVips), el disco real y la base real.</summary>
+    /// <summary>MediaService with the real pipeline (NetVips), the real disk and the real database.</summary>
     public Task<T> WithMediaAsync<T>(Func<MediaService, Task<T>> action) =>
         InScopeAsync(provider => action(new MediaService(
             provider.GetRequiredService<IImageProcessor>(),
@@ -128,13 +128,13 @@ internal sealed class SqliteTestDatabase : IAsyncDisposable
     public Task<T> WithVideoProcessorAsync<T>(Func<VideoProcessor, Task<T>> action) =>
         InScopeAsync(provider => action(provider.GetRequiredService<VideoProcessor>()));
 
-    /// <summary>Lo que hay en la carpeta de trabajo de video (originales en espera, salidas de ffmpeg).</summary>
+    /// <summary>What is in the video work folder (waiting originals, ffmpeg outputs).</summary>
     public IReadOnlyList<string> VideoWorkFiles() =>
         Directory.Exists(VideoWorkDirectory)
             ? Directory.EnumerateFileSystemEntries(VideoWorkDirectory, "*", SearchOption.AllDirectories).ToList()
             : [];
 
-    /// <summary>Archivos bajo la carpeta de media, con ruta relativa y barras "/" (como en la URL).</summary>
+    /// <summary>Files under the media folder, with a relative path and "/" separators (as in the URL).</summary>
     public IReadOnlyList<string> MediaFiles() =>
         Directory.Exists(MediaDirectory)
             ? Directory.EnumerateFiles(MediaDirectory, "*", SearchOption.AllDirectories)
@@ -229,7 +229,7 @@ public class MigrationTests
         {
             var db = provider.GetRequiredService<BlogDbContext>();
             Assert.Empty(await db.Database.GetPendingMigrationsAsync());
-            // Si el modelo cambia sin generar una migración nueva, esto falla (y Migrate() también lo haría al arrancar).
+            // If the model changes without generating a new migration, this fails (and Migrate() would too on start).
             Assert.False(db.Database.HasPendingModelChanges());
             return true;
         });
@@ -253,7 +253,7 @@ public class MigrationTests
     public async Task Upgrading_from_InitialCreate_keeps_posts_and_settings_and_drops_the_old_hero_columns()
     {
         await using var database = new SqliteTestDatabase();
-        // Base como la dejó la primera versión con migraciones, con datos reales adentro.
+        // A database as the first version with migrations left it, with real data inside.
         await database.InScopeAsync(async provider =>
         {
             var db = provider.GetRequiredService<BlogDbContext>();
@@ -315,7 +315,7 @@ public class MigrationTests
         Assert.Equal(new DateTime(2026, 11, 25, 11, 0, 0, DateTimeKind.Utc), hero.CreatedAt);
         Assert.Null(hero.Video);
         Assert.Equal((assetId, 1600, 900, "#102030"), (hero.Media.Id, hero.Media.Width, hero.Media.Height, hero.Media.Color));
-        // Una foto existente no es animada: sigue teniendo sus variantes AVIF y WebP.
+        // An existing photo is not animated: it still has its AVIF and WebP variants.
         Assert.Equal(
             MediaVariant.For(1600).Select(variant => variant.Format),
             hero.Media.Variants.Select(variant => variant.Format));
@@ -335,7 +335,7 @@ public class MigrationTests
         var posterId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e11");
         var videoId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e12");
         var contentHash = new string('e', MediaAsset.HashLength);
-        // $$: las llaves sueltas son el JSON de las fuentes; las dobles, los valores de la prueba.
+        // $$: the single braces are the JSON of the sources; the double ones, the test's values.
         await database.ExecuteAsync($$"""
             INSERT INTO media_assets (Id, Hash, Width, Height, IsAnimated, Color, Placeholder, CreatedAtUtc)
             VALUES ('{{posterId.ToString().ToUpperInvariant()}}', '{{new string('f', MediaAsset.HashLength)}}', 1920, 1080, 0, '#102030',
@@ -351,7 +351,7 @@ public class MigrationTests
         Assert.Equal(VideoStatus.Ready, video.Status);
         Assert.Equal(new VideoEditDto(0, 12.5, VideoFade.None, 1), video.Edit);
         Assert.Equal(12.5, video.DurationSeconds);
-        // Conserva el hash del original: sus archivos siguen en la misma ruta.
+        // It keeps the original's hash: its files stay at the same path.
         Assert.Equal($"/media/videos/{contentHash}/1080.av1.mp4", Assert.Single(video.Sources).Url);
         Assert.DoesNotContain("DurationSeconds", await database.ListAsync("SELECT name FROM pragma_table_info('video_assets')"));
     }
@@ -403,7 +403,7 @@ public class MigrationTests
         var hero = Assert.Single(await database.WithHeroImagesAsync(heroes => heroes.ListAsync(default)));
         Assert.Equal((heroId, "Nebulosa", "Foto: Ana", (string?)null), (hero.Id, hero.Alt, hero.Credit, hero.AltEn));
 
-        // Un post existente ya puede sumar su versión en inglés con el mismo slug.
+        // An existing post can now add its English version with the same slug.
         var english = await database.WithPostsAsync(posts => posts.CreateTranslationAsync(firstId, new CreateTranslationRequest("en"), default));
         Assert.Equal((first.TranslationGroupId, "uno"), (english.TranslationGroupId, english.Slug));
     }
@@ -443,7 +443,7 @@ public class MigrationTests
         var other = Assert.Single(await database.WithPostsAsync(posts => posts.ListRevisionsAsync(secondId, default)));
         Assert.Equal((1, "Two"), (other.Number, other.Title));
 
-        // El primer guardado después de actualizar ya se puede deshacer: sigue la numeración.
+        // The first save after upgrading can already be undone: the numbering goes on.
         await database.WithPostsAsync(posts => posts.UpdateAsync(firstId, new SavePostRequest("Uno 2", "uno", null, "x", null), default));
         Assert.Equal([2, 1], (await database.WithPostsAsync(posts => posts.ListRevisionsAsync(firstId, default))).Select(item => item.Number));
     }
@@ -458,7 +458,7 @@ public class MigrationTests
             await db.GetService<IMigrator>().MigrateAsync("AddPostRevisionsAndScheduling");
             return true;
         });
-        // "editado" se editó el 22 y se publicó el 24: UpdatedAtUtc es la publicación, la última versión es la edición.
+        // "editado" was edited on the 22nd and published on the 24th: UpdatedAtUtc is the publication, the latest version is the edit.
         var edited = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e41").ToString().ToUpperInvariant();
         var withoutRevisions = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e42").ToString().ToUpperInvariant();
         await database.ExecuteAsync($"""
@@ -493,8 +493,8 @@ public class MigrationTests
             await db.GetService<IMigrator>().MigrateAsync("AddPendingSiteRebuild");
             return true;
         });
-        // El nombre y el crédito son uno solo en los dos idiomas (L12, L13): NameEn y CreditEn se van, aunque tuvieran
-        // texto; lo demás queda igual.
+        // The name and the credit are proper names, one single field for both languages: NameEn and CreditEn go away,
+        // even if they had text; everything else stays the same.
         var assetId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e51");
         var heroId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e52");
         await database.ExecuteAsync($"""
@@ -540,7 +540,7 @@ public class MigrationTests
 
         await database.InitializeAsync();
 
-        // Una sola fila, en la época 0: las cookies emitidas antes no la traen y no entran (hay que volver a iniciar sesión).
+        // A single row, at epoch 0: the cookies issued before do not carry it and do not get in (logging in again is needed).
         Assert.Equal(["1:0"], await database.ListAsync("SELECT Id || ':' || Epoch FROM admin_session"));
         Assert.Equal(post.Id, (await database.WithPostsAsync(posts => posts.GetAsync(post.Id, default))).Id);
     }
@@ -552,15 +552,15 @@ public class MigrationTests
     public async Task Initialize_refuses_a_legacy_database_created_without_migrations()
     {
         await using var database = new SqliteTestDatabase();
-        // Así creaba la base la v0.1: EnsureCreated, sin tabla de historial de migraciones.
+        // This is how v0.1 created the database: EnsureCreated, without a migration history table.
         await database.InScopeAsync(provider => provider.GetRequiredService<BlogDbContext>().Database.EnsureCreatedAsync());
 
         var error = await Assert.ThrowsAsync<InvalidOperationException>(database.InitializeAsync);
 
-        Assert.Contains("sin migraciones", error.Message, StringComparison.Ordinal);
+        Assert.Contains("without migrations", error.Message, StringComparison.Ordinal);
         Assert.Contains("blog.db.bak", error.Message, StringComparison.Ordinal);
         Assert.Contains(database.FilePath, error.Message, StringComparison.Ordinal);
-        // No se tocó: ni se migró ni se borró.
+        // It was not touched: neither migrated nor deleted.
         Assert.True(File.Exists(database.FilePath));
         Assert.DoesNotContain("__EFMigrationsHistory", await database.TablesAsync());
     }
@@ -601,7 +601,7 @@ public class PostPersistenceTests
             created.Id, WithCover("Con portada", "https://images.example.com/b.jpg", null), default));
         Assert.Equal("https://images.example.com/b.jpg", updated.CoverUrl);
         Assert.Null(updated.CoverAlt);
-        // Equivalent y no Equal: Tags es una lista nueva en cada lectura (el record la compararía por referencia).
+        // Equivalent and not Equal: Tags is a new list on every read (the record would compare it by reference).
         Assert.Equivalent(updated, await database.WithPostsAsync(posts => posts.GetAsync(created.Id, default)), strict: true);
     }
 
@@ -681,7 +681,7 @@ public class TranslationPersistenceTests
         var original = await database.WithPostsAsync(posts => posts.CreateAsync(new SavePostRequest("Hola", null, null, "cuerpo", null), default));
         var group = original.TranslationGroupId.ToString().ToUpperInvariant();
 
-        // Lo que dejaría pasar una carrera entre dos pedidos: los índices únicos tienen la última palabra.
+        // What a race between two requests would let through: the unique indexes have the last word.
         var sameLanguage = await Assert.ThrowsAsync<SqliteException>(() => database.ExecuteAsync($"""
             INSERT INTO posts (Id, TranslationGroupId, Slug, Title, Summary, Body, Tags, Lang, Status, CreatedAtUtc, UpdatedAtUtc)
             VALUES ('{Guid.NewGuid().ToString().ToUpperInvariant()}', '{group}', 'otro', 'Otro', '', '', '[]', 'es', 'Draft',
@@ -731,7 +731,7 @@ public class SiteSettingsPersistenceTests
         var saved = await database.WithSettingsAsync(settings => settings.SaveAsync(SiteSettingsServiceTests.FullRequest(), default));
 
         await Assert.ThrowsAsync<DomainException>(() => database.WithSettingsAsync(settings =>
-            settings.SaveAsync(SiteSettingsServiceTests.FullRequest("Cambiado") with { Email = "no-es-mail" }, default)));
+            settings.SaveAsync(SiteSettingsServiceTests.FullRequest("Cambiado") with { Email = "not-an-email" }, default)));
 
         Assert.Equal(saved, await database.WithSettingsAsync(settings => settings.GetAsync(default)));
         Assert.Equal(1, database.Build.Requests);
@@ -748,7 +748,7 @@ public class SiteSettingsPersistenceTests
         var tooLongBio = await Assert.ThrowsAsync<DomainException>(() => database.WithSettingsAsync(settings =>
             settings.SaveAsync(request with { BioEn = new string('a', SiteSettingsContent.MaxBioLength + 1) }, default)));
 
-        // El nombre es uno solo en los dos idiomas (L12).
+        // The name is a proper name: one single field for both languages.
         Assert.Equal(("Alan Shalem", "I write about .NET", "Hi, I'm **Alan**."), (saved.Name, saved.TaglineEn, saved.BioEn));
         Assert.Equal("La bio en inglés no puede superar 2000 caracteres.", tooLongBio.Message);
         Assert.Equal(saved, await database.WithSettingsAsync(settings => settings.GetAsync(default)));

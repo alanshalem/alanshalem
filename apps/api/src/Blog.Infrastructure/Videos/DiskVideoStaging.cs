@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace Blog.Infrastructure.Videos;
 
-/// <summary>Originales de video en la carpeta de trabajo: se copian por partes, sin cargar 200 MB en memoria.</summary>
+/// <summary>Video originals in the work folder: copied in chunks, without loading 200 MB in memory.</summary>
 internal sealed class DiskVideoStaging(IOptions<VideoOptions> options) : IVideoStaging
 {
     private const int CopyBufferSize = 1024 * 1024;
@@ -24,7 +24,7 @@ internal sealed class DiskVideoStaging(IOptions<VideoOptions> options) : IVideoS
         {
             await using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, CopyBufferSize, useAsync: true);
             int read;
-            // Hasta maxBytes + 1: alcanza para que el caso de uso sepa que se pasó, sin copiar el resto.
+            // Up to maxBytes + 1: enough for the use case to know it went over, without copying the rest.
             while (total <= maxBytes
                    && (read = await content.ReadAsync(buffer.AsMemory(0, (int)Math.Min(buffer.Length, maxBytes + 1 - total)), cancellationToken)) > 0)
             {

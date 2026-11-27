@@ -11,7 +11,7 @@ namespace Blog.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // ----- Posts: grupos de traducción y slug único por idioma -----
+            // ----- Posts: translation groups and slug unique per language -----
             migrationBuilder.DropIndex(
                 name: "IX_posts_Slug",
                 table: "posts");
@@ -23,9 +23,9 @@ namespace Blog.Infrastructure.Persistence.Migrations
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
-            // Cada post existente queda solo en su propio grupo. SQLite no genera Guids, así que se usa el Id del post: es
-            // único y ya tiene el formato con que EF guarda un Guid. Va antes del índice único: con el valor por defecto
-            // compartido, dos posts chocarían.
+            // Each existing post stays alone in its own group. SQLite does not generate Guids, so the post's Id is
+            // used: it is unique and already has the format EF stores a Guid with. It goes before the unique index:
+            // with the shared default value, two posts would collide.
             migrationBuilder.Sql("UPDATE posts SET TranslationGroupId = Id;");
 
             migrationBuilder.CreateIndex(
@@ -40,7 +40,7 @@ namespace Blog.Infrastructure.Persistence.Migrations
                 columns: new[] { "TranslationGroupId", "Lang" },
                 unique: true);
 
-            // ----- Textos en inglés de ajustes y hero (null = el sitio usa los de español) -----
+            // ----- English texts of settings and hero (null = the site uses the Spanish ones) -----
             migrationBuilder.AddColumn<string>(
                 name: "NameEn",
                 table: "site_settings",
@@ -80,11 +80,11 @@ namespace Blog.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Pierde las versiones en otro idioma como tales (quedan como posts sueltos). Si dos comparten slug en
-            // distinto idioma, el índice único de Slug no se puede recrear: hay que renombrar uno antes de volver atrás.
-            // DROP COLUMN nativo de SQLite (en vez de DropColumn, que reconstruye la tabla con PRAGMA foreign_keys fuera
-            // de la transacción), igual que en AddVideoEdit; los índices se quitan antes porque SQLite no borra una
-            // columna indexada.
+            // Loses the versions in another language as such (they stay as standalone posts). If two share a slug in
+            // different languages, the unique Slug index cannot be recreated: one must be renamed before going back.
+            // SQLite's native DROP COLUMN (instead of DropColumn, which rebuilds the table with PRAGMA foreign_keys
+            // outside the transaction), as in AddVideoEdit; the indexes are dropped first because SQLite does not drop
+            // an indexed column.
             migrationBuilder.DropIndex(
                 name: "IX_posts_Lang_Slug",
                 table: "posts");

@@ -13,7 +13,7 @@ internal sealed class MediaAssetRepository(BlogDbContext db) : IMediaAssetReposi
     public Task<MediaAsset?> GetByHashAsync(string hash, CancellationToken cancellationToken) =>
         db.MediaAssets.FirstOrDefaultAsync(asset => asset.Hash == hash, cancellationToken);
 
-    // Id es un Guid v7 (ordenable por tiempo): desempata dos subidas en el mismo instante.
+    // Id is a v7 Guid (time-ordered): it breaks the tie between two uploads at the same instant.
     public async Task<IReadOnlyList<MediaAsset>> ListAsync(CancellationToken cancellationToken) =>
         await db.MediaAssets
             .AsNoTracking()
@@ -31,7 +31,7 @@ internal sealed class MediaAssetRepository(BlogDbContext db) : IMediaAssetReposi
         }
         catch (DbUpdateException exception) when (SqliteConventions.IsConstraintViolation(exception))
         {
-            // La búsqueda previa por hash no es atómica: si dos subidas iguales chocan, el índice único decide.
+            // The earlier lookup by hash is not atomic: if two equal uploads collide, the unique index decides.
             throw new ConflictException(MessageKeys.MediaUploadConflict);
         }
     }

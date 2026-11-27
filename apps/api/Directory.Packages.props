@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <!-- Las versiones viven acá, una sola vez: los .csproj solo nombran el paquete. -->
+    <!-- Versions live here, only once: the .csproj files only name the package. -->
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
   <ItemGroup>

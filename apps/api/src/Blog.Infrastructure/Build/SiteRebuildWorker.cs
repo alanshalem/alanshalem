@@ -5,25 +5,25 @@ using Microsoft.Extensions.Logging;
 namespace Blog.Infrastructure.Build;
 
 /// <summary>
-/// Reintenta la regeneración pendiente (<see cref="DurableSiteBuildTrigger"/>): al arrancar, la que dejó una ejecución
-/// anterior, y después cada <see cref="Interval"/> mientras el builder no la acepte. Sin nada pendiente, solo lee una fila.
+/// Retries the pending regeneration (<see cref="DurableSiteBuildTrigger"/>): on start, the one a previous run left,
+/// and then every <see cref="Interval"/> while the builder does not accept it. With nothing pending, it only reads a row.
 /// </summary>
 internal sealed class SiteRebuildWorker(IServiceScopeFactory scopes, ILogger<SiteRebuildWorker> logger) : PeriodicWorker(logger)
 {
     /// <summary>
-    /// Un minuto: el sitio se pone al día poco después de que el builder vuelve, y un builder caído recibe un solo
-    /// pedido por minuto.
+    /// One minute: the site catches up shortly after the builder comes back, and a builder that is down gets a single
+    /// request per minute.
     /// </summary>
     public static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 
     protected override TimeSpan Period => Interval;
 
-    protected override string Work => "el reintento de la regeneración del sitio";
+    protected override string Work => "pending site rebuild retry";
 
-    /// <summary>Una vuelta: a lo sumo un pedido al builder.</summary>
+    /// <summary>One round: at most one request to the builder.</summary>
     internal async Task RetryPendingAsync(CancellationToken cancellationToken)
     {
-        // Scope propio: el trigger usa el DbContext, que es por scope.
+        // A scope of its own: the trigger uses the DbContext, which is scoped.
         await using var scope = scopes.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<DurableSiteBuildTrigger>().RetryPendingAsync(cancellationToken);
     }

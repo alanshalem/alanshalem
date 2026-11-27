@@ -1,55 +1,55 @@
 # syntax=docker/dockerfile:1
-# Contexto de build: apps/api. Dos destinos con la misma base (SDK) y el mismo ffmpeg:
-#   runtime (el último, el que usa docker-compose.yml): la imagen de producción.
-#   dev (compose.dev.yml): SDK + ffmpeg para `dotnet watch`, con el código montado desde tu disco.
+# Build context: apps/api. Two targets with the same base (SDK) and the same ffmpeg:
+#   runtime (the last one, used by docker-compose.yml): the production image.
+#   dev (compose.dev.yml): SDK + ffmpeg for `dotnet watch`, with the code mounted from your disk.
 
-# ffmpeg y ffprobe estáticos (sin dependencias del sistema): 9.1 con SVT-AV1 4.3.0 y x264. El digest fija los bytes
-# exactos (Docker los verifica al bajarlos). Ubuntu 24.04 trae ffmpeg 6.1 con SVT-AV1 1.7: los parámetros de
-# FfmpegVideoTranscoder se calibraron con SVT-AV1 4.x, y el paquete suma ~580 MB de dependencias contra ~290 MB de estos.
-# Para actualizar: elegir un tag nuevo de https://hub.docker.com/r/mwader/static-ffmpeg y poner su digest.
+# Static ffmpeg and ffprobe (no system dependencies): 9.1 with SVT-AV1 4.3.0 and x264. The digest pins the exact bytes
+# (Docker verifies them when pulling). Ubuntu 24.04 ships ffmpeg 6.1 with SVT-AV1 1.7: the FfmpegVideoTranscoder
+# parameters were calibrated with SVT-AV1 4.x, and the package adds ~580 MB of dependencies against ~290 MB for these.
+# To update: pick a new tag from https://hub.docker.com/r/mwader/static-ffmpeg and set its digest.
 FROM mwader/static-ffmpeg:9.1@sha256:dd09509d8c2152bfa601c8c20e3dd166bde906d37951b9f7e8bbd922267f5ac9 AS ffmpeg
 
-# Imágenes base fijadas por digest (bytes exactos, verificados al bajarlas): un rebuild no cambia de versión por su
-# cuenta. Para actualizar: tag nuevo y su digest con `docker buildx imagetools inspect <imagen:tag>`. SDK y runtime van
-# en la misma versión de .NET (10.0.15).
+# Base images pinned by digest (exact bytes, verified when pulling): a rebuild does not change version on its own. To
+# update: new tag and its digest with `docker buildx imagetools inspect <image:tag>`. SDK and runtime use the same .NET
+# version (10.0.15).
 FROM mcr.microsoft.com/dotnet/sdk:10.0.404@sha256:8c6edfb26c85153f236d26efebd9ad349aec403583f343f201ee67838b23658d AS sdk
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1
 
-# ---------- Desarrollo ----------
-# Sin COPY del código: compose.dev.yml monta apps/api y guarda bin/obj y los paquetes NuGet en volúmenes.
+# ---------- Development ----------
+# No COPY of the code: compose.dev.yml mounts apps/api and keeps bin/obj and the NuGet packages in volumes.
 FROM sdk AS dev
 COPY --from=ffmpeg /ffmpeg /ffprobe /usr/local/bin/
 WORKDIR /repo/apps/api
 ENV ASPNETCORE_URLS=http://+:5090
-# --no-launch-profile: el entorno y la URL salen de las variables de arriba y de compose.dev.yml, no de launchSettings
-# (que escucha en localhost y desde fuera del contenedor no se llegaría).
+# --no-launch-profile: the environment and the URL come from the variables above and from compose.dev.yml, not from
+# launchSettings (which listens on localhost and could not be reached from outside the container).
 CMD ["dotnet", "watch", "--project", "src/Blog.Api", "--non-interactive", "--no-launch-profile"]
 
-# ---------- Producción ----------
+# ---------- Production ----------
 FROM sdk AS build
 WORKDIR /src
 
-# Primero solo los .csproj y props: la capa de `restore` queda cacheada mientras no cambien las dependencias, y la caché
-# de NuGet (montada, no queda en la imagen) evita volver a bajar los paquetes que no cambiaron cuando sí cambian.
+# First only the .csproj and props files: the `restore` layer stays cached while the dependencies do not change, and the
+# NuGet cache (mounted, not kept in the image) avoids downloading again the packages that did not change when they do.
 COPY global.json Directory.Build.props Directory.Packages.props Blog.slnx ./
 COPY src/Blog.Domain/Blog.Domain.csproj src/Blog.Domain/
 COPY src/Blog.Application/Blog.Application.csproj src/Blog.Application/
 COPY src/Blog.Infrastructure/Blog.Infrastructure.csproj src/Blog.Infrastructure/
 COPY src/Blog.Api/Blog.Api.csproj src/Blog.Api/
-# -r linux-x64: solo las bibliotecas nativas de esta plataforma (libvips, SQLite); sin él se copian las de todas (~50 MB).
+# -r linux-x64: only the native libraries of this platform (libvips, SQLite); without it those of every platform are copied (~50 MB).
 RUN --mount=type=cache,id=blog-nuget,target=/root/.nuget/packages \
     dotnet restore src/Blog.Api/Blog.Api.csproj -r linux-x64
 
 COPY src/ src/
-# Sin --no-restore a propósito: la capa de restore puede seguir cacheada aunque BuildKit haya purgado la caché de NuGet
-# (`docker builder prune`), y entonces faltan los paquetes. Con la caché intacta, este restore no hace nada (segundos);
-# si se purgó, vuelve a bajar lo que falta en vez de fallar hasta un `--no-cache`.
+# No --no-restore on purpose: the restore layer may still be cached even if BuildKit purged the NuGet cache
+# (`docker builder prune`), and then the packages are missing. With the cache intact, this restore does nothing
+# (seconds); if it was purged, it downloads what is missing instead of failing until a `--no-cache`.
 RUN --mount=type=cache,id=blog-nuget,target=/root/.nuget/packages \
     dotnet publish src/Blog.Api/Blog.Api.csproj -c Release -o /app -r linux-x64 --self-contained false -p:UseAppHost=false
 
-# Ubuntu (glibc, no Alpine): trae ICU, necesario para normalizar acentos al generar slugs, y lo que necesita la libvips
-# que viene en NetVips.Native.linux-x64.
+# Ubuntu (glibc, not Alpine): it ships ICU, needed to normalize accents when generating slugs, and what the libvips that
+# comes in NetVips.Native.linux-x64 needs.
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.15@sha256:aac50ceef10391e78a899e3d2ccd00bbafa2dcb56ccf4586cbccf00edb84fc21 AS runtime
 COPY --from=ffmpeg /ffmpeg /ffprobe /usr/local/bin/
 WORKDIR /app
@@ -59,7 +59,7 @@ ENV ASPNETCORE_URLS=http://+:8080 \
     DOTNET_gcServer=0 \
     DOTNET_TieredPGO=0
 
-# Usuario sin privilegios (viene incluido en las imágenes oficiales de .NET).
+# Unprivileged user (included in the official .NET images).
 USER $APP_UID
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "Blog.Api.dll"]

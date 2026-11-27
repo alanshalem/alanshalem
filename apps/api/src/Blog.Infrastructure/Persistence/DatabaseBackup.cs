@@ -4,37 +4,38 @@ using Microsoft.Data.Sqlite;
 namespace Blog.Infrastructure.Persistence;
 
 /// <summary>
-/// Copia de respaldo de la base con la API de backup de SQLite: es una foto consistente de un instante aunque la API
-/// esté escribiendo (con WAL, la lectura no frena a la escritura), cosa que copiar el archivo a mano no garantiza.
+/// Backup copy of the database with SQLite's backup API: it is a consistent snapshot of one instant even while the API
+/// is writing (with WAL, reading does not block writing), which copying the file by hand does not guarantee.
 /// </summary>
 public static class DatabaseBackup
 {
-    // Cuánto espera la copia si la base está ocupada un instante (una escritura que termina, otra conexión que la abre).
-    // La API de backup no reintenta sola: sin esto, una copia que coincide con una escritura falla con "database is locked".
+    // How long the copy waits if the database is busy for a moment (a write finishing, another connection opening it).
+    // The backup API does not retry by itself: without this, a copy that coincides with a write fails with "database is
+    // locked".
     private const int BusyTimeoutMilliseconds = 10_000;
 
-    /// <summary>blog-{UTC yyyyMMddTHHmmssZ}.db: ordenado por nombre es ordenado por fecha, que es lo que rota el script.</summary>
+    /// <summary>blog-{UTC yyyyMMddTHHmmssZ}.db: sorted by name is sorted by date, which is what the script rotates.</summary>
     public static string FileNameFor(DateTime nowUtc) =>
         $"blog-{nowUtc.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture)}.db";
 
-    /// <summary>Crea la carpeta si falta y escribe la copia en un archivo nuevo, que nunca reemplaza a otro.</summary>
-    /// <returns>La ruta completa de la copia.</returns>
-    /// <exception cref="IOException">Si ya existe una copia con ese nombre (no se toca) o no se puede escribir.</exception>
-    /// <exception cref="FileNotFoundException">Si la base no existe (no se crea una vacía para copiarla).</exception>
-    /// <exception cref="SqliteException">Si la base no se puede leer.</exception>
+    /// <summary>Creates the folder if missing and writes the copy to a new file, which never replaces another one.</summary>
+    /// <returns>The full path of the copy.</returns>
+    /// <exception cref="IOException">If a copy with that name already exists (it is not touched) or it cannot be written.</exception>
+    /// <exception cref="FileNotFoundException">If the database does not exist (an empty one is not created to copy it).</exception>
+    /// <exception cref="SqliteException">If the database cannot be read.</exception>
     public static async Task<string> CreateAsync(string connectionString, string directory, DateTime nowUtc, CancellationToken cancellationToken)
     {
         var source = new SqliteConnectionStringBuilder(connectionString) { Mode = SqliteOpenMode.ReadWrite, Pooling = false };
         if (!File.Exists(source.DataSource))
         {
-            throw new FileNotFoundException("La base de datos no existe.", Path.GetFullPath(source.DataSource));
+            throw new FileNotFoundException("The database does not exist.", Path.GetFullPath(source.DataSource));
         }
 
         Directory.CreateDirectory(directory);
         var path = Path.Combine(Path.GetFullPath(directory), FileNameFor(nowUtc));
 
-        // CreateNew reserva el nombre de forma atómica: si ya hay una copia (dos corridas en el mismo segundo), falla
-        // sin tocarla.
+        // CreateNew reserves the name atomically: if there is already a copy (two runs in the same second), it fails
+        // without touching it.
         await new FileStream(path, FileMode.CreateNew).DisposeAsync();
         try
         {
@@ -45,12 +46,12 @@ public static class DatabaseBackup
             await ExecuteAsync(from, $"PRAGMA busy_timeout={BusyTimeoutMilliseconds};", cancellationToken);
             from.BackupDatabase(to);
 
-            // La copia trae el modo WAL de la base; en DELETE queda un solo archivo, que se mueve y se restaura tal cual.
+            // The copy brings the database's WAL mode; in DELETE it is a single file, which is moved and restored as is.
             await ExecuteAsync(to, "PRAGMA journal_mode=DELETE;", cancellationToken);
         }
         catch
         {
-            // Una copia a medias no es una copia: que no quede nada que parezca un respaldo válido.
+            // A half-written copy is not a copy: nothing that looks like a valid backup must be left behind.
             File.Delete(path);
             throw;
         }

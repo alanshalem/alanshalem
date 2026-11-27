@@ -11,13 +11,13 @@ internal sealed class HeroImageConfiguration : IEntityTypeConfiguration<HeroImag
         builder.ToTable("hero_images");
         builder.HasKey(image => image.Id);
 
-        // Restrict: un asset en uso por el hero no se puede borrar por accidente (y borrar la foto no toca el asset).
+        // Restrict: an asset used by the hero cannot be deleted by accident (and deleting the photo does not touch the asset).
         builder.HasOne(image => image.Media)
             .WithMany()
             .HasForeignKey(image => image.MediaAssetId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Opcional (null = foto). Restrict por lo mismo: borrar el ítem no toca el video, y un video en uso no se borra.
+        // Optional (null = photo). Restrict for the same reason: deleting the item does not touch the video, and a video in use is not deleted.
         builder.HasOne(image => image.Video)
             .WithMany()
             .HasForeignKey(image => image.VideoAssetId)

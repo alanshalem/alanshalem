@@ -10,8 +10,8 @@ namespace Blog.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Los videos ya procesados no tenían edición: se procesaron enteros y con corte directo, que es justo lo que
-            // describen estos valores (el fin es su duración). Conservan su hash, así que sus archivos siguen valiendo.
+            // Videos already processed had no edit: they were processed whole and with a hard cut, which is exactly
+            // what these values describe (the end is their duration). They keep their hash, so their files stay valid.
             migrationBuilder.AddColumn<double>(
                 name: "TrimStart",
                 table: "video_assets",
@@ -43,16 +43,16 @@ namespace Blog.Infrastructure.Persistence.Migrations
 
             migrationBuilder.Sql("UPDATE video_assets SET TrimEnd = DurationSeconds;");
 
-            // La duración pasa a derivarse de la edición. DROP COLUMN nativo de SQLite (en vez de DropColumn, que EF
-            // resuelve reconstruyendo la tabla con PRAGMA foreign_keys fuera de la transacción): todo el Up es una sola
-            // transacción, igual que en AddHeroVideos.
+            // The duration becomes derived from the edit. SQLite's native DROP COLUMN (instead of DropColumn, which EF
+            // handles by rebuilding the table with PRAGMA foreign_keys outside the transaction): the whole Up is one
+            // transaction, as in AddHeroVideos.
             migrationBuilder.Sql("ALTER TABLE video_assets DROP COLUMN DurationSeconds;");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Vuelve a guardar la duración final (la que se perdería con la edición) y quita las columnas de edición.
+            // Stores the final duration again (the one that would be lost with the edit) and drops the edit columns.
             migrationBuilder.AddColumn<double>(
                 name: "DurationSeconds",
                 table: "video_assets",

@@ -11,7 +11,7 @@ internal sealed class MediaAssetConfiguration : IEntityTypeConfiguration<MediaAs
         builder.ToTable("media_assets");
         builder.HasKey(asset => asset.Id);
 
-        // Único: es lo que hace que la misma imagen subida dos veces sea un solo asset.
+        // Unique: it is what makes the same image uploaded twice a single asset.
         builder.Property(asset => asset.Hash).IsRequired().HasMaxLength(MediaAsset.HashLength);
         builder.HasIndex(asset => asset.Hash).IsUnique();
 
@@ -19,7 +19,7 @@ internal sealed class MediaAssetConfiguration : IEntityTypeConfiguration<MediaAs
         builder.Property(asset => asset.Placeholder).IsRequired().HasMaxLength(MediaAsset.MaxPlaceholderLength);
         builder.Property(asset => asset.CreatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
 
-        // Se derivan del ancho (MediaVariant): no se guardan, así nunca pueden contradecir a los archivos.
+        // Derived from the width (MediaVariant): not stored, so they can never contradict the files.
         builder.Ignore(asset => asset.Variants);
         builder.Ignore(asset => asset.Url);
     }

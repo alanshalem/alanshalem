@@ -11,9 +11,9 @@ namespace Blog.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // La foto del hero pasa a ser una galería (hero_images). Se usa DROP COLUMN nativo de SQLite (3.35+) en vez
-            // de DropColumn: EF reconstruiría la tabla con PRAGMA foreign_keys fuera de la transacción, y un corte a
-            // mitad de camino dejaría la migración aplicada a medias. Así todo el Up es una sola transacción.
+            // The hero photo becomes a gallery (hero_images). SQLite's native DROP COLUMN (3.35+) is used instead of
+            // DropColumn: EF would rebuild the table with PRAGMA foreign_keys outside the transaction, and an
+            // interruption half way would leave the migration half applied. This way the whole Up is one transaction.
             migrationBuilder.Sql("ALTER TABLE site_settings DROP COLUMN HeroImageAlt;");
             migrationBuilder.Sql("ALTER TABLE site_settings DROP COLUMN HeroImageCredit;");
             migrationBuilder.Sql("ALTER TABLE site_settings DROP COLUMN HeroImageUrl;");

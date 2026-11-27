@@ -44,10 +44,10 @@ namespace Blog.Infrastructure.Persistence.Migrations
                         onDelete: ReferentialAction.Restrict);
                 });
 
-            // La columna nueva con su clave foránea en un solo ADD COLUMN nativo de SQLite (en vez de AddColumn +
-            // AddForeignKey): EF reconstruiría hero_images con PRAGMA foreign_keys fuera de la transacción, y un corte a
-            // mitad de camino dejaría la migración aplicada a medias. Así todo el Up es una sola transacción. Las filas
-            // existentes quedan en NULL: son fotos.
+            // The new column with its foreign key in a single native SQLite ADD COLUMN (instead of AddColumn +
+            // AddForeignKey): EF would rebuild hero_images with PRAGMA foreign_keys outside the transaction, and an
+            // interruption half way would leave the migration half applied. This way the whole Up is one transaction.
+            // Existing rows stay NULL: they are photos.
             migrationBuilder.Sql(
                 "ALTER TABLE hero_images ADD COLUMN VideoAssetId TEXT NULL " +
                 "CONSTRAINT FK_hero_images_video_assets_VideoAssetId REFERENCES video_assets (Id) ON DELETE RESTRICT;");

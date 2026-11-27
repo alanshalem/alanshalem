@@ -15,8 +15,8 @@ internal sealed class VideoAssetRepository(BlogDbContext db) : IVideoAssetReposi
     public Task<VideoAsset?> GetByHashAsync(string hash, CancellationToken cancellationToken) =>
         WithPoster.FirstOrDefaultAsync(video => video.Hash == hash, cancellationToken);
 
-    // Se limpia todo el change tracker, no solo el video: lo que quedó a medias (el póster, las fuentes) tampoco debe
-    // guardarse. Lo usa el proceso de videos, que abre un scope (y un DbContext) por video.
+    // The whole change tracker is cleared, not only the video: what was left half done (the poster, the sources) must
+    // not be saved either. Used by the video process, which opens a scope (and a DbContext) per video.
     public Task<VideoAsset?> ReloadAsync(Guid id, CancellationToken cancellationToken)
     {
         db.ChangeTracker.Clear();
@@ -36,7 +36,7 @@ internal sealed class VideoAssetRepository(BlogDbContext db) : IVideoAssetReposi
         }
         catch (DbUpdateException exception) when (SqliteConventions.IsConstraintViolation(exception))
         {
-            // La búsqueda previa por hash no es atómica: si dos subidas iguales chocan, el índice único decide.
+            // The earlier lookup by hash is not atomic: if two equal uploads collide, the unique index decides.
             throw new ConflictException(MessageKeys.VideoUploadConflict);
         }
     }

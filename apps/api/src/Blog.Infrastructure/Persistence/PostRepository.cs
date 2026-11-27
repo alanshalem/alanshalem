@@ -58,8 +58,8 @@ internal sealed class PostRepository(BlogDbContext db) : IPostRepository
 
     public async Task RemoveRevisionsBeforeAsync(Guid postId, int number, CancellationToken cancellationToken)
     {
-        // Se cargan para borrarlas en el SaveChanges del guardado (y no con ExecuteDelete, que no espera a la
-        // transacción). Al podar en cada guardado, casi siempre es una sola.
+        // Loaded to be deleted in the save's SaveChanges (and not with ExecuteDelete, which does not wait for the
+        // transaction). Pruning on every save, it is almost always just one.
         var old = await db.PostRevisions
             .Where(revision => revision.PostId == postId && revision.Number < number)
             .ToListAsync(cancellationToken);
@@ -88,8 +88,8 @@ internal sealed class PostRepository(BlogDbContext db) : IPostRepository
         }
         catch (DbUpdateException exception) when (SqliteConventions.IsConstraintViolation(exception))
         {
-            // Los chequeos previos (slug por idioma, una versión por idioma) no son atómicos: si dos guardados chocan,
-            // los índices únicos tienen la última palabra.
+            // The earlier checks (slug per language, one version per language) are not atomic: if two saves collide,
+            // the unique indexes have the last word.
             throw new ConflictException(MessageKeys.PostSaveConflict);
         }
     }

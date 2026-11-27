@@ -19,10 +19,10 @@ public sealed class BlogDbContext(DbContextOptions<BlogDbContext> options) : DbC
 
     public DbSet<VideoAsset> VideoAssets => Set<VideoAsset>();
 
-    /// <summary>Una sola fila: la regeneración pendiente (<see cref="DurableSiteBuildTrigger"/>). Interna, como su tipo.</summary>
+    /// <summary>A single row: the pending regeneration (<see cref="DurableSiteBuildTrigger"/>). Internal, like its type.</summary>
     internal DbSet<SiteBuildState> SiteBuildStates => Set<SiteBuildState>();
 
-    /// <summary>Una sola fila: la época de las sesiones del admin (<see cref="AdminSessionEpoch"/>). Interna, como su tipo.</summary>
+    /// <summary>A single row: the admin session epoch (<see cref="AdminSessionEpoch"/>). Internal, like its type.</summary>
     internal DbSet<AdminSessionState> AdminSessionStates => Set<AdminSessionState>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>

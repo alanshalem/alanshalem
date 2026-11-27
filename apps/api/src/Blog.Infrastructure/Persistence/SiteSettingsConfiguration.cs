@@ -11,7 +11,7 @@ internal sealed class SiteSettingsConfiguration : IEntityTypeConfiguration<SiteS
         builder.ToTable("site_settings");
         builder.HasKey(settings => settings.Id);
 
-        // La clave es fija (SiteSettings.SingletonId): no es autoincremental.
+        // The key is fixed (SiteSettings.SingletonId): it is not auto-increment.
         builder.Property(settings => settings.Id).ValueGeneratedNever();
 
         builder.Property(settings => settings.Name).IsRequired().HasMaxLength(SiteSettingsContent.MaxNameLength);

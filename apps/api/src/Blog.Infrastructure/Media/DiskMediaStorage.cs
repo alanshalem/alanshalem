@@ -5,7 +5,7 @@ namespace Blog.Infrastructure.Media;
 
 public sealed class MediaOptions
 {
-    /// <summary>Carpeta donde se guardan las imágenes. En producción Caddy la sirve en /media; en Development, la API.</summary>
+    /// <summary>Folder where the images are stored. In production Caddy serves it at /media; in Development, the API.</summary>
     public string Directory { get; set; } = "data/media";
 }
 
@@ -16,7 +16,7 @@ internal sealed class DiskMediaStorage(IOptions<MediaOptions> options) : IMediaS
         var fullPath = ResolveInsideRoot(relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-        // Se escribe a un temporal y se renombra: quien sirve /media nunca ve un archivo a medio escribir.
+        // Written to a temporary file and renamed: whoever serves /media never sees a half-written file.
         var temporaryPath = $"{fullPath}.{Guid.NewGuid():N}.tmp";
         await File.WriteAllBytesAsync(temporaryPath, content, cancellationToken);
         File.Move(temporaryPath, fullPath, overwrite: true);
@@ -24,14 +24,14 @@ internal sealed class DiskMediaStorage(IOptions<MediaOptions> options) : IMediaS
 
     public bool Exists(string relativePath) => File.Exists(ResolveInsideRoot(relativePath));
 
-    // Segunda barrera (la primera es que el dominio arma las rutas): nada se escribe fuera de la carpeta de media.
+    // Second barrier (the first is that the domain builds the paths): nothing is written outside the media folder.
     private string ResolveInsideRoot(string relativePath)
     {
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(options.Value.Directory));
         var fullPath = Path.GetFullPath(Path.Combine(root, relativePath));
         if (!fullPath.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException("Ruta de media fuera de la carpeta permitida.");
+            throw new InvalidOperationException("Media path outside the allowed folder.");
         }
 
         return fullPath;

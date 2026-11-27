@@ -8,58 +8,58 @@ using Microsoft.Extensions.Options;
 namespace Blog.Infrastructure.Videos;
 
 /// <summary>
-/// Videos del hero con ffprobe y ffmpeg. Cada versión es una corrida aparte de ffmpeg (una a la vez, con hilos
-/// acotados y prioridad baja): decodificar 15 s de nuevo es barato, y así el uso de CPU tiene un techo claro.
-/// Acá viven, una sola vez, los parámetros de codificación y los filtros; qué altos y códecs se generan y qué
-/// significa cada edición lo decide el dominio.
+/// Hero videos with ffprobe and ffmpeg. Each version is a separate ffmpeg run (one at a time, with bounded threads and
+/// low priority): decoding 15 s again is cheap, and this way CPU usage has a clear ceiling.
+/// The encoding parameters and the filters live here, once; which heights and codecs are generated and what each edit
+/// means is decided by the domain.
 /// </summary>
 internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILogger<FfmpegVideoTranscoder> logger) : IVideoTranscoder
 {
-    // Calibrado con un clip de 12 s a 1080p (fractal + patrón de prueba + ruido), midiendo VMAF contra el original
-    // ya filtrado: AV1 preset 4 / CRF 35 ≈ 88,8 y H.264 slow / CRF 24 ≈ 89,1, la misma calidad a la vista. AV1 en
-    // 10 bits y tune=0 no mejoraron calidad por peso y tardaron más; presets más rápidos pesan 10-25 % más.
-    private const int Av1Preset = 4; // 0-13: más bajo comprime más y tarda más
+    // Calibrated with a 12 s 1080p clip (fractal + test pattern + noise), measuring VMAF against the already filtered
+    // original: AV1 preset 4 / CRF 35 ≈ 88.8 and H.264 slow / CRF 24 ≈ 89.1, the same quality to the eye. AV1 in
+    // 10 bits and tune=0 did not improve quality per size and took longer; faster presets weigh 10-25 % more.
+    private const int Av1Preset = 4; // 0-13: lower compresses more and takes longer
     private const int Av1Crf = 35;
     private const string H264Preset = "slow";
     private const int H264Crf = 24;
 
-    // CRF con techo de bitrate: el CRF manda en las escenas fáciles y el techo frena las difíciles (ruido, mucho
-    // movimiento). Es un fondo en loop detrás de texto: un poco menos de detalle en el peor caso no se nota; varios MB
-    // de más en cada visita, sí. H.264 necesita ~1,6× los bits de AV1 para verse igual. En x264 el techo es maxrate
-    // con un búfer de 1 s (es lo que el clip entero puede pasarse del techo); en SVT-AV1, su modo "capped CRF" (mbr),
-    // sin exceso permitido: con su exceso por defecto se pasaba un 30 %, y con 10 % llegaba justo al 10 %. Medido en
-    // 12 s a 1080p: un clip con ruido fuerte bajó de 13,6 MB a 3,1 MB en AV1 (y de 55,8 MB a ~6 MB en H.264); un zoom
-    // lento sobre una imagen con detalle casi no cambió (2,3 → 2,1 MB, VMAF 94).
+    // CRF with a bitrate ceiling: CRF rules the easy scenes and the ceiling holds back the hard ones (noise, a lot of
+    // motion). It is a looping background behind text: a bit less detail in the worst case does not show; several extra
+    // MB on every visit do. H.264 needs ~1.6× the bits of AV1 to look the same. In x264 the ceiling is maxrate with a
+    // 1 s buffer (how much the whole clip may exceed the ceiling); in SVT-AV1, its "capped CRF" mode (mbr), with no
+    // allowed excess: with its default excess it went 30 % over, and with 10 % it reached exactly 10 %. Measured on
+    // 12 s at 1080p: a clip with heavy noise went down from 13.6 MB to 3.1 MB in AV1 (and from 55.8 MB to ~6 MB in
+    // H.264); a slow zoom over a detailed image barely changed (2.3 → 2.1 MB, VMAF 94).
     private const int Av1MaxKbps720 = 1200;
     private const int Av1MaxKbps1080 = 2500;
     private const int Av1MaxOvershootPercent = 0;
     private const double H264BitrateFactor = 1.6;
     private const int H264BufferSeconds = 1;
 
-    // 8 bits 4:2:0: lo que decodifica por hardware cualquier celular, y el único formato H.264 que acepta Safari.
+    // 8-bit 4:2:0: what any phone decodes in hardware, and the only H.264 format Safari accepts.
     private const string PixelFormat = "yuv420p";
 
-    // Mejora suave: hqdn3d quita ruido (sobre todo temporal, que es el que más bits gasta) y unsharp devuelve un poco
-    // de nitidez después de achicar. Valores bajos a propósito: limpiar, no "pintar" el video.
+    // Gentle enhancement: hqdn3d removes noise (above all temporal noise, which spends the most bits) and unsharp gives
+    // back a little sharpness after downscaling. Low values on purpose: clean, not "paint" the video.
     private const string Denoise = "hqdn3d=2:1.5:4:3";
     private const string Sharpen = "unsharp=5:5:0.4:5:5:0";
 
     private const int MaxFramesPerSecond = 30;
 
-    // El VPS lo comparten varias apps: ffmpeg nunca usa más que estos hilos, aunque haya más núcleos.
+    // Several apps share the VPS: ffmpeg never uses more than these threads, even if there are more cores.
     private const int Threads = 2;
 
-    // El póster es el cuadro más representativo entre los primeros (≈ medio segundo): evita un primer cuadro negro
-    // o de transición. JPEG casi sin pérdida: el pipeline de imágenes lo optimiza después.
+    // The poster is the most representative frame among the first ones (≈ half a second): it avoids a black or
+    // transition first frame. Almost lossless JPEG: the image pipeline optimizes it afterwards.
     private const int PosterCandidateFrames = 15;
-    private const int PosterJpegQuality = 2; // 2-31: 2 es casi sin pérdida
+    private const int PosterJpegQuality = 2; // 2-31: 2 is almost lossless
 
     private const int LoggedErrorLength = 2000;
 
     private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(30);
 
-    // Medido en la verificación del hero: un clip de 15 s a 1080p con estos parámetros tardó 211 s en procesarse
-    // entero (todas sus versiones). El tope es por corrida de ffmpeg y deja margen de sobra: solo corta un proceso colgado.
+    // Measured during the hero verification: a 15 s 1080p clip with these parameters took 211 s to process whole (all
+    // its versions). The limit is per ffmpeg run and leaves plenty of margin: it only stops a hung process.
     private static readonly TimeSpan EncodeTimeout = TimeSpan.FromMinutes(10);
 
     public async Task<VideoProbe?> ProbeAsync(string sourcePath, CancellationToken cancellationToken) =>
@@ -95,14 +95,14 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
     }
 
     /// <summary>
-    /// El grafo de filtros de una versión: la mejora suave y, según la edición, el fundido. Recibe el tramo ya
-    /// recortado (con -ss/-t en la entrada), así que sus tiempos empiezan en 0.
+    /// The filter graph of a version: the gentle enhancement and, depending on the edit, the fade. It receives the
+    /// stretch already trimmed (with -ss/-t on the input), so its times start at 0.
     /// <list type="bullet">
-    /// <item>black: fundido de entrada desde negro y de salida a negro, cada uno de FadeSeconds.</item>
-    /// <item>loop: el tramo se parte en el principio (los primeros FadeSeconds) y el resto; el resto se funde con el
-    /// principio al final (xfade). Termina en el cuadro anterior al primero del resto, que es con el que arranca: al
-    /// repetirse no hay salto. Dura el recorte menos FadeSeconds.</item>
-    /// <item>none: corte directo.</item>
+    /// <item>black: fade in from black and fade out to black, each one of FadeSeconds.</item>
+    /// <item>loop: the stretch is split into the start (the first FadeSeconds) and the rest; the rest blends into the
+    /// start at the end (xfade). It ends on the frame before the first one of the rest, which is the one it starts with:
+    /// when it repeats there is no jump. It lasts the trim minus FadeSeconds.</item>
+    /// <item>none: hard cut.</item>
     /// </list>
     /// </summary>
     internal static string FilterGraph(string? frameRate, int height, VideoEdit edit)
@@ -124,8 +124,9 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
     }
 
     /// <summary>
-    /// Mejora suave a ese alto. scale=-2:alto mantiene la proporción con ancho par (lo exige yuv420p); el dominio ya
-    /// garantiza que nunca agranda. fps va primero: menos cuadros que filtrar, y cuadros constantes para xfade.
+    /// Gentle enhancement at that height. scale=-2:height keeps the aspect ratio with an even width (yuv420p requires
+    /// it); the domain already guarantees it never enlarges. fps goes first: fewer frames to filter, and constant
+    /// frames for xfade.
     /// </summary>
     internal static string Enhancement(string? frameRate, int height)
     {
@@ -144,15 +145,15 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
                 "-svtav1-params", $"lp={Threads}:mbr={maxKbps}:mbr-overshoot-pct={Av1MaxOvershootPercent}"],
             VideoCodec.H264 => ["-c:v", "libx264", "-preset", H264Preset, "-crf", Invariant(H264Crf), "-profile:v", "high",
                 "-maxrate", $"{maxKbps}k", "-bufsize", $"{maxKbps * H264BufferSeconds}k", "-threads", Invariant(Threads)],
-            _ => throw new ArgumentOutOfRangeException(nameof(variant), variant.Codec, "Códec de video desconocido."),
+            _ => throw new ArgumentOutOfRangeException(nameof(variant), variant.Codec, "Unknown video codec."),
         });
-        // +faststart: el índice va al principio y el navegador empieza a reproducir sin bajar el archivo entero.
+        // +faststart: the index goes at the start and the browser starts playing without downloading the whole file.
         arguments.AddRange(["-pix_fmt", PixelFormat, "-movflags", "+faststart", "-f", "mp4", output]);
         return arguments;
     }
 
     /// <summary>
-    /// Techo de bitrate de cada versión. Lo que sostiene el fondo es la de 1080p; la de 720p va a pantallas chicas.
+    /// Bitrate ceiling of each version. The one that carries the background is 1080p; 720p goes to small screens.
     /// </summary>
     internal static int MaxKilobitsPerSecond(VideoVariant variant)
     {
@@ -160,15 +161,15 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
         {
             720 => Av1MaxKbps720,
             1080 => Av1MaxKbps1080,
-            _ => throw new ArgumentOutOfRangeException(nameof(variant), variant.Height, "Alto sin techo de bitrate calibrado."),
+            _ => throw new ArgumentOutOfRangeException(nameof(variant), variant.Height, "Height without a calibrated bitrate ceiling."),
         };
         return variant.Codec == VideoCodec.Av1 ? av1 : (int)(av1 * H264BitrateFactor);
     }
 
-    // El póster sale del primer cuadro visible de la edición (después del fundido de entrada en black; donde arranca
-    // el video final en loop), así coincide con lo que se ve cuando empieza a reproducirse. La lectura termina en el fin
-    // del recorte: si no, con un tramo corto (o pocos fps) los candidatos de thumbnail llegarían a lo que se cortó. Si
-    // quedan menos de PosterCandidateFrames, thumbnail elige entre los que hay al terminar la entrada.
+    // The poster comes from the edit's first visible frame (after the fade-in in black; where the final video starts in
+    // loop), so it matches what shows when playback starts. Reading ends at the end of the trim: otherwise, with a
+    // short stretch (or low fps) the thumbnail candidates would reach what was cut. If fewer than PosterCandidateFrames
+    // are left, thumbnail picks among the ones there are when the input ends.
     private static List<string> PosterArguments(string source, StreamInfo stream, int height, VideoEdit edit, string output)
     {
         var arguments = InputArguments(source, edit.FirstVisibleSecond, edit.TrimEnd - edit.FirstVisibleSecond);
@@ -177,10 +178,10 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
         return arguments;
     }
 
-    // Solo la primera pista de video: -an saca el audio, y sin subtítulos, datos, metadatos (GPS, modelo del
-    // teléfono) ni capítulos. ffmpeg aplica solo la rotación que guardan los teléfonos antes de los filtros.
-    // -ss antes de -i busca rápido hasta el cuadro clave previo y decodifica desde ahí descartando hasta el segundo
-    // exacto (el recorte es preciso al cuadro); -t corta la lectura al largo del tramo.
+    // Only the first video track: -an drops the audio, and no subtitles, data, metadata (GPS, phone model) or
+    // chapters. ffmpeg applies only the rotation phones store before the filters.
+    // -ss before -i seeks fast to the previous key frame and decodes from there discarding up to the exact second (the
+    // trim is frame accurate); -t cuts the reading at the length of the stretch.
     private static List<string> InputArguments(string source, double start, double duration) =>
     [
         "-hide_banner", "-nostdin", "-loglevel", "error", "-y",
@@ -191,10 +192,10 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
     ];
 
     /// <summary>
-    /// Los fps de salida, siempre explícitos: deja cuadros constantes (los teléfonos graban con cuadros variables),
-    /// que es lo que necesitan los fundidos para caer en el segundo justo. Más de 30 fps se divide por el menor
-    /// entero que lo deja en 30 o menos (60 → 30, 50 → 25, 120 → 30): se descartan cuadros parejos y el movimiento
-    /// sigue fluido. Null si ffprobe no informa los fps (no se toca lo que no se sabe).
+    /// The output fps, always explicit: it leaves constant frames (phones record with variable frames), which is what
+    /// the fades need to land on the right second. More than 30 fps is divided by the smallest integer that leaves it
+    /// at 30 or less (60 → 30, 50 → 25, 120 → 30): evenly spaced frames are dropped and the motion stays smooth. Null if
+    /// ffprobe does not report the fps (what is unknown is not touched).
     /// </summary>
     private static string? OutputFrameRate(StreamInfo stream)
     {
@@ -217,20 +218,20 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
         }
         catch (TimeoutException exception)
         {
-            logger.LogWarning(exception, "ffmpeg superó el tiempo máximo; se canceló el video.");
+            logger.LogWarning(exception, "ffmpeg exceeded the maximum time; the video was cancelled.");
             throw new VideoProcessingException(MessageKeys.VideoProcessingTimedOut);
         }
 
         if (result.ExitCode != 0)
         {
-            logger.LogWarning("ffmpeg terminó con código {ExitCode}: {Error}", result.ExitCode, Tail(result.Error));
+            logger.LogWarning("ffmpeg exited with code {ExitCode}: {Error}", result.ExitCode, Tail(result.Error));
             throw new VideoProcessingException(MessageKeys.VideoProcessingFailed);
         }
     }
 
     /// <summary>
-    /// Ancho y alto como se ven (con la rotación aplicada), duración del contenedor (la del stream suele faltar en
-    /// MKV/WebM) y fps promedio. Null si no hay una pista de video con tamaño y duración.
+    /// Width and height as seen (with the rotation applied), the container's duration (the stream's is often missing in
+    /// MKV/WebM) and average fps. Null if there is no video track with a size and a duration.
     /// </summary>
     private async Task<StreamInfo?> ProbeStreamAsync(string sourcePath, CancellationToken cancellationToken)
     {
@@ -246,13 +247,13 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
         }
         catch (TimeoutException exception)
         {
-            logger.LogWarning(exception, "ffprobe superó el tiempo máximo; el video se trata como ilegible.");
+            logger.LogWarning(exception, "ffprobe exceeded the maximum time; the video is treated as unreadable.");
             return null;
         }
 
         if (result.ExitCode != 0)
         {
-            logger.LogInformation("ffprobe no pudo leer el video ({ExitCode}): {Error}", result.ExitCode, Tail(result.Error));
+            logger.LogInformation("ffprobe could not read the video ({ExitCode}): {Error}", result.ExitCode, Tail(result.Error));
             return null;
         }
 
@@ -279,7 +280,7 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
         }
 
         var (width, height) = (widthValue.GetInt32(), heightValue.GetInt32());
-        // Un teléfono guarda los píxeles acostados con una rotación de ±90°: se ve con ancho y alto intercambiados.
+        // A phone stores the pixels lying down with a ±90° rotation: it is seen with width and height swapped.
         if (Math.Abs(Rotation(stream)) % 180 == 90)
         {
             (width, height) = (height, width);
@@ -306,7 +307,7 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
         return 0;
     }
 
-    // "30000/1001" → (30000, 1001). "0/0" (desconocido) → null: no se limita lo que no se sabe.
+    // "30000/1001" → (30000, 1001). "0/0" (unknown) → null: what is unknown is not limited.
     private static (long Numerator, long Denominator)? FrameRate(JsonElement stream)
     {
         var parts = stream.TryGetProperty("avg_frame_rate", out var rate) ? rate.GetString()?.Split('/') : null;
@@ -321,7 +322,7 @@ internal sealed class FfmpegVideoTranscoder(IOptions<VideoOptions> options, ILog
 
     private static string Invariant(int value) => value.ToString(CultureInfo.InvariantCulture);
 
-    // Al milisegundo, con punto decimal: es el formato de tiempos que entienden ffmpeg y sus filtros.
+    // To the millisecond, with a decimal point: it is the time format ffmpeg and its filters understand.
     private static string Seconds(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);
 
     private sealed record StreamInfo(int Width, int Height, double DurationSeconds, (long Numerator, long Denominator)? FrameRate);

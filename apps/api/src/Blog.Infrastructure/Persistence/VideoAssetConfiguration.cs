@@ -10,8 +10,8 @@ namespace Blog.Infrastructure.Persistence;
 
 internal sealed class VideoAssetConfiguration : IEntityTypeConfiguration<VideoAsset>
 {
-    // Las fuentes (a lo sumo cuatro) van como arreglo JSON en una columna, igual que las etiquetas de un post: no
-    // justifican una tabla aparte. Se guarda solo lo que no se deriva (códec, alto, bytes); el códec como texto.
+    // The sources (at most four) go as a JSON array in one column, like a post's tags: they do not justify a separate
+    // table. Only what is not derived is stored (codec, height, bytes); the codec as text.
     private static readonly JsonSerializerOptions Json = new() { Converters = { new JsonStringEnumConverter() } };
 
     private static readonly ValueConverter<IReadOnlyList<VideoSource>, string> SourcesConverter = new(
@@ -20,7 +20,7 @@ internal sealed class VideoAssetConfiguration : IEntityTypeConfiguration<VideoAs
             .Select(source => new VideoSource(source.Codec, source.Height, source.Bytes))
             .ToList());
 
-    // Sin comparador EF no puede detectar cambios en la colección (y avisa con un warning).
+    // Without a comparer EF cannot detect changes in the collection (and warns about it).
     private static readonly ValueComparer<IReadOnlyList<VideoSource>> SourcesComparer = new(
         (left, right) => left!.SequenceEqual(right!),
         sources => sources.Aggregate(0, (hash, source) => HashCode.Combine(hash, source.GetHashCode())),
@@ -31,12 +31,12 @@ internal sealed class VideoAssetConfiguration : IEntityTypeConfiguration<VideoAs
         builder.ToTable("video_assets");
         builder.HasKey(video => video.Id);
 
-        // Único: es lo que hace que el mismo video con la misma edición subido dos veces sea un solo asset.
+        // Unique: it is what makes the same video with the same edit uploaded twice a single asset.
         builder.Property(video => video.Hash).IsRequired().HasMaxLength(MediaAsset.HashLength);
         builder.HasIndex(video => video.Hash).IsUnique();
 
-        // La edición es un valor sin identidad propia: sus cuatro campos son columnas de video_assets. La duración final
-        // se deriva de ellos, así que no se guarda.
+        // The edit is a value without an identity of its own: its four fields are columns of video_assets. The final
+        // duration is derived from them, so it is not stored.
         builder.ComplexProperty(video => video.Edit, edit =>
         {
             edit.Property(value => value.TrimStart).HasColumnName(nameof(VideoEdit.TrimStart));
@@ -51,13 +51,13 @@ internal sealed class VideoAssetConfiguration : IEntityTypeConfiguration<VideoAs
         builder.Property(video => video.Sources).HasConversion(SourcesConverter, SourcesComparer).IsRequired();
         builder.Property(video => video.CreatedAtUtc).HasConversion(SqliteConventions.UtcConverter);
 
-        // Restrict: el póster es un MediaAsset común; borrarlo dejaría al video sin imagen de espera.
+        // Restrict: the poster is a regular MediaAsset; deleting it would leave the video without a placeholder image.
         builder.HasOne(video => video.Poster)
             .WithMany()
             .HasForeignKey(video => video.PosterId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Se derivan de las dimensiones (HeroFrame): no se guardan.
+        // Derived from the dimensions (HeroFrame): not stored.
         builder.Ignore(video => video.Warnings);
     }
 

@@ -6,37 +6,37 @@ using NetVips;
 namespace Blog.Infrastructure.Media;
 
 /// <summary>
-/// Pipeline de imágenes con libvips (NetVips). Procesa una imagen a la vez: codificar AVIF usa todos los núcleos y
-/// bastante memoria, y la API comparte el VPS con otras apps.
+/// Image pipeline with libvips (NetVips). Processes one image at a time: encoding AVIF uses every core and quite a lot
+/// of memory, and the API shares the VPS with other apps.
 /// </summary>
 internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logger) : IImageProcessor
 {
-    // Calidad calibrada para fotos: a simple vista igual al original y mucho más liviana que un JPEG.
+    // Quality calibrated for photos: to the naked eye the same as the original and much lighter than a JPEG.
     private const int AvifQuality = 50;
-    private const int AvifEffort = 4; // 0-9: más alto comprime apenas más pero tarda varias veces más
+    private const int AvifEffort = 4; // 0-9: higher compresses barely more but takes several times longer
     private const int WebpQuality = 75;
-    private const int WebpEffort = 6; // 0-6: el máximo; el costo se paga una sola vez, al subir
+    private const int WebpEffort = 6; // 0-6: the maximum; the cost is paid only once, on upload
 
-    private const int PreviewSize = 64; // base chica para calcular el color dominante y el placeholder
+    private const int PreviewSize = 64; // small base to compute the dominant color and the placeholder
 
-    // Del más nítido al más diminuto: se usa el primero que entra en MediaAsset.MaxPlaceholderLength. Uno de 16 px
-    // casi siempre entra; los siguientes cubren las imágenes con mucho detalle, y el último (8 px, calidad mínima)
-    // pesa unas decenas de bytes, así que la subida nunca falla por el placeholder después de codificar todo.
+    // From the sharpest to the tiniest: the first one that fits in MediaAsset.MaxPlaceholderLength is used. A 16 px one
+    // almost always fits; the next ones cover very detailed images, and the last one (8 px, minimum quality) weighs a
+    // few dozen bytes, so the upload never fails over the placeholder after encoding everything.
     private static readonly (int Size, int Quality)[] PlaceholderAttempts = [(16, 30), (16, 10), (12, 10), (8, 0)];
 
-    // Alto "sin límite" (VIPS_MAX_COORD): sin esto, thumbnail encaja la imagen en un cuadrado de ancho × ancho.
+    // "Unlimited" height (VIPS_MAX_COORD): without it, thumbnail fits the image in a width × width square.
     private const int UnboundedHeight = 10_000_000;
 
-    // Los colores se agrupan con 4 bits por canal (16 niveles): el dominante es el grupo con más píxeles.
+    // Colors are grouped with 4 bits per channel (16 levels): the dominant one is the group with the most pixels.
     private const int ColorBucketShift = 4;
     private const int ColorLevels = 256 >> ColorBucketShift;
 
     private const string IccProfileField = "icc-profile-data";
     private const string PagesField = "n-pages";
 
-    // Opciones del loader. fail_on=truncated: un archivo cortado falla al decodificar, en vez de publicarse con la
-    // parte que falta en gris. Tiene que ir acá: el parámetro failOn de thumbnail no le llega al loader.
-    // n=-1: todos los cuadros de un GIF o WebP animado (por defecto se lee solo el primero).
+    // Loader options. fail_on=truncated: a cut-off file fails to decode, instead of being published with the missing
+    // part in gray. It has to go here: thumbnail's failOn parameter does not reach the loader.
+    // n=-1: every frame of an animated GIF or WebP (by default only the first one is read).
     private const string LoadOptions = "fail_on=truncated";
     private const string AnimatedLoadOptions = LoadOptions + ",n=-1";
 
@@ -46,7 +46,7 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
 
     static NetVipsImageProcessor()
     {
-        // La caché de operaciones de libvips ayuda cuando se repiten; acá cada imagen es nueva y solo ocuparía memoria.
+        // libvips' operation cache helps when operations repeat; here every image is new and it would only take memory.
         Cache.Max = 0;
     }
 
@@ -54,7 +54,7 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
     {
         try
         {
-            // NewFromBuffer y Autorot son perezosos: solo se lee la cabecera, ningún píxel.
+            // NewFromBuffer and Autorot are lazy: only the header is read, no pixel.
             using var header = Image.NewFromBuffer(image);
             using var upright = header.Autorot();
             return new ImageSize(upright.Width, upright.Height, PagesOf(header));
@@ -85,11 +85,11 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
         header.GetTypeOf(PagesField) != 0 ? (int)header.Get(PagesField) : 1;
 
     /// <summary>
-    /// Una sola decodificación, al ancho mayor y con shrink-on-load; las demás variantes salen de esta copia en memoria.
-    /// thumbnail rota según el EXIF y convierte el perfil de color embebido a sRGB; Colourspace cubre grises y 16 bits.
-    /// Una animación se lee entera (tira vertical de cuadros con "page-height") y thumbnail achica cada cuadro.
-    /// Solo acá se atrapan errores de libvips: son de decodificación (archivo dañado), no del servidor; igual se
-    /// registran, para distinguir una falla del servidor (falta un loader, sin memoria) de un archivo roto.
+    /// A single decode, at the largest width and with shrink-on-load; the other variants come from this copy in memory.
+    /// thumbnail rotates by the EXIF and converts the embedded color profile to sRGB; Colourspace covers gray and 16 bits.
+    /// An animation is read whole (a vertical strip of frames with "page-height") and thumbnail shrinks each frame.
+    /// Only here are libvips errors caught: they are decoding errors (damaged file), not server errors; they are logged
+    /// anyway, to tell a server failure (a missing loader, out of memory) from a broken file.
     /// </summary>
     private Image? TryDecodeUpright(byte[] original, int width)
     {
@@ -104,7 +104,7 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
                 size: Enums.Size.Down,
                 outputProfile: "srgb");
             using var srgb = thumbnail.Colourspace(Enums.Interpretation.Srgb);
-            // Ya en sRGB, el perfil sobra; sin él, los redimensionados siguientes no vuelven a convertir color.
+            // Already in sRGB, the profile is redundant; without it, the following resizes do not convert color again.
             using var withoutProfile = srgb.Mutate(image => image.Remove(IccProfileField));
             return withoutProfile.CopyMemory();
         }
@@ -116,21 +116,21 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
     }
 
     private void LogUnreadable(VipsException exception) =>
-        logger.LogWarning(exception, "libvips no pudo leer la imagen subida; se responde como archivo dañado.");
+        logger.LogWarning(exception, "libvips could not read the uploaded image; answering as a damaged file.");
 
     private static ProcessedImage EncodeAll(Image master, IReadOnlyList<MediaVariant> variants)
     {
         var files = variants.Select(variant => new EncodedVariant(variant, Encode(master, variant))).ToList();
 
-        // El color y el placeholder salen del primer cuadro (en una animación, master es la tira de todos).
+        // The color and the placeholder come from the first frame (in an animation, master is the strip of all of them).
         using var firstFrame = master.Crop(0, 0, master.Width, master.PageHeight);
         using var thumbnail = firstFrame.ThumbnailImage(PreviewSize, height: PreviewSize);
         using var preview = thumbnail.HasAlpha() ? thumbnail.Flatten(background: White) : thumbnail.Copy();
         return new ProcessedImage(files, DominantColor(preview), Placeholder(preview));
     }
 
-    // keep: None quita EXIF (incluido el GPS), XMP, IPTC y el perfil ICC: el navegador asume sRGB. No toca los
-    // campos de animación (page-height, delay, loop): WebP guarda una tira con page-height como WebP animado.
+    // keep: None strips EXIF (GPS included), XMP, IPTC and the ICC profile: the browser assumes sRGB. It does not touch
+    // the animation fields (page-height, delay, loop): WebP stores a strip with page-height as an animated WebP.
     private static byte[] Encode(Image master, MediaVariant variant)
     {
         using var resized = master.ThumbnailImage(variant.Width, height: UnboundedHeight, size: Enums.Size.Down);
@@ -140,7 +140,7 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
                 q: AvifQuality, effort: AvifEffort, compression: Enums.ForeignHeifCompression.Av1, keep: Enums.ForeignKeep.None),
             MediaFormat.Webp => resized.WebpsaveBuffer(
                 q: WebpQuality, effort: WebpEffort, smartSubsample: true, keep: Enums.ForeignKeep.None),
-            _ => throw new ArgumentOutOfRangeException(nameof(variant), variant.Format, "Formato de media desconocido."),
+            _ => throw new ArgumentOutOfRangeException(nameof(variant), variant.Format, "Unknown media format."),
         };
     }
 
@@ -160,7 +160,7 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
             sums[bucket, 2] += blue;
         }
 
-        // Promedio dentro del grupo ganador: el color real de esa zona, no el centro del grupo.
+        // Average within the winning group: the real color of that area, not the center of the group.
         var dominant = Array.IndexOf(counts, counts.Max());
         var count = counts[dominant];
         return $"#{sums[dominant, 0] / count:x2}{sums[dominant, 1] / count:x2}{sums[dominant, 2] / count:x2}";

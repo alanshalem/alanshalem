@@ -4,15 +4,15 @@ using System.Diagnostics;
 namespace Blog.Infrastructure.Videos;
 
 /// <summary>
-/// Corre ffmpeg/ffprobe con una lista de argumentos (nunca un string para una shell: un nombre de archivo no puede
-/// inyectar opciones ni comandos), con prioridad baja y un tiempo máximo.
+/// Runs ffmpeg/ffprobe with a list of arguments (never a string for a shell: a file name cannot inject options or
+/// commands), with low priority and a maximum time.
 /// </summary>
 internal static class ExternalProcess
 {
     public sealed record Result(int ExitCode, string Output, string Error);
 
-    /// <exception cref="TimeoutException">Si se pasa del tiempo máximo (el proceso se mata con todos sus hijos).</exception>
-    /// <exception cref="Win32Exception">Si el ejecutable no existe: es una falla del servidor, no del archivo.</exception>
+    /// <exception cref="TimeoutException">If it exceeds the maximum time (the process is killed with all its children).</exception>
+    /// <exception cref="Win32Exception">If the executable does not exist: it is a server failure, not a file failure.</exception>
     public static async Task<Result> RunAsync(
         string fileName, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken cancellationToken)
     {
@@ -28,10 +28,10 @@ internal static class ExternalProcess
             startInfo.ArgumentList.Add(argument);
         }
 
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"No se pudo iniciar {fileName}.");
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Could not start {fileName}.");
         LowerPriority(process);
 
-        // Las dos salidas se leen en paralelo: si una se llena sin que nadie la lea, el proceso se bloquea.
+        // Both outputs are read in parallel: if one fills up without anyone reading it, the process blocks.
         var output = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
         var error = process.StandardError.ReadToEndAsync(CancellationToken.None);
 
@@ -46,15 +46,15 @@ internal static class ExternalProcess
             process.Kill(entireProcessTree: true);
             await process.WaitForExitAsync(CancellationToken.None);
             cancellationToken.ThrowIfCancellationRequested();
-            throw new TimeoutException($"{Path.GetFileName(fileName)} superó {timeout.TotalMinutes:0.#} min.");
+            throw new TimeoutException($"{Path.GetFileName(fileName)} exceeded {timeout.TotalMinutes:0.#} min.");
         }
 
         return new Result(process.ExitCode, await output, await error);
     }
 
-    // Prioridad baja: la API, el sitio y las otras apps del VPS siguen respondiendo mientras se codifica. Se baja
-    // apenas arranca (hay un instante a prioridad normal, irrelevante frente a minutos de codificación); si el
-    // proceso ya terminó o el sistema no lo permite, se sigue igual.
+    // Low priority: the API, the site and the other apps on the VPS keep answering while encoding. It is lowered as
+    // soon as it starts (there is an instant at normal priority, irrelevant next to minutes of encoding); if the process
+    // already finished or the system does not allow it, it goes on anyway.
     private static void LowerPriority(Process process)
     {
         try

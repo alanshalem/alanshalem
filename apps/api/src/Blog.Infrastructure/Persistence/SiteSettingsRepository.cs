@@ -20,7 +20,7 @@ internal sealed class SiteSettingsRepository(BlogDbContext db) : ISiteSettingsRe
         }
         catch (DbUpdateException exception) when (SqliteConventions.IsConstraintViolation(exception))
         {
-            // Acá la única constraint posible es la clave fija: dos primeros guardados al mismo tiempo.
+            // Here the only possible constraint is the fixed key: two first saves at the same time.
             throw new ConflictException(MessageKeys.SettingsSaveConflict);
         }
     }

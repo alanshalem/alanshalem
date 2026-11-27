@@ -1,22 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Detalles técnicos: SQLite (EF Core), disco, imágenes (libvips), HTTP hacia el builder, hashing de contraseñas. -->
+  <!-- Technical details: SQLite (EF Core), disk, images (libvips), HTTP to the builder, password hashing. -->
   <ItemGroup>
     <ProjectReference Include="..\Blog.Application\Blog.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Las pruebas verifican los grafos de filtros de ffmpeg, que son un detalle interno del adaptador. -->
+    <!-- The tests check the ffmpeg filter graphs, which are an internal detail of the adapter. -->
     <InternalsVisibleTo Include="Blog.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Trae Options, Logging, DI y IHttpClientFactory sin sumar paquetes sueltos. -->
+    <!-- Brings Options, Logging, DI and IHttpClientFactory without adding loose packages. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-    <!-- libvips: decodifica con shrink-on-load y codifica AVIF/WebP con poca memoria. Los paquetes Native traen la
-         biblioteca ya compilada (con libheif + aom para AVIF) para desarrollo en Windows y para el contenedor Linux. -->
+    <!-- libvips: decodes with shrink-on-load and encodes AVIF/WebP with little memory. The Native packages bring the
+         library already compiled (with libheif + aom for AVIF) for development on Windows and for the Linux container. -->
     <PackageReference Include="NetVips" />
     <PackageReference Include="NetVips.Native.linux-x64" />
     <PackageReference Include="NetVips.Native.win-x64" />
-    <!-- Solo para dotnet-ef (generar migraciones). PrivateAssets: no viaja a la API publicada. -->
+    <!-- Only for dotnet-ef (generating migrations). PrivateAssets: it does not ship with the published API. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

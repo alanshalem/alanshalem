@@ -7,9 +7,10 @@ using Microsoft.Extensions.Logging;
 namespace Blog.Infrastructure.Build;
 
 /// <summary>
-/// El único camino para pedir una regeneración (publicar, ajustes, hero, publicación programada): primero deja la marca
-/// "pendiente" en la base, después la manda, y la borra solo si el builder la aceptó. Si no la aceptó (error, timeout,
-/// la API se apagaba), la marca queda y <see cref="SiteRebuildWorker"/> la reintenta, también después de reiniciar.
+/// The only way to request a regeneration (publishing, settings, hero, scheduled publishing): first it leaves the
+/// "pending" mark in the database, then it sends it, and it clears it only if the builder accepted it. If it did not
+/// (error, timeout, the API was shutting down), the mark stays and <see cref="SiteRebuildWorker"/> retries it, also
+/// after a restart.
 /// </summary>
 internal sealed class DurableSiteBuildTrigger(
     BlogDbContext db,
@@ -24,15 +25,15 @@ internal sealed class DurableSiteBuildTrigger(
     }
 
     /// <summary>
-    /// Si hay una regeneración pendiente, la manda una vez: muchos pedidos fallidos son una sola marca, así que un
-    /// builder caído recibe un pedido por reintento y no una ráfaga.
+    /// If there is a pending regeneration, sends it once: many failed requests are a single mark, so a builder that is
+    /// down gets one request per retry and not a burst.
     /// </summary>
     public async Task RetryPendingAsync(CancellationToken cancellationToken)
     {
         var pending = await Singleton().Select(state => state.PendingRequestId).FirstOrDefaultAsync(cancellationToken);
         if (pending is { } requestId)
         {
-            logger.LogInformation("Se reintenta la regeneración del sitio pendiente.");
+            logger.LogInformation("Retrying the pending site rebuild.");
             await SendAsync(requestId, cancellationToken);
         }
     }
@@ -40,8 +41,9 @@ internal sealed class DurableSiteBuildTrigger(
     private IQueryable<SiteBuildState> Singleton() =>
         db.SiteBuildStates.Where(state => state.Id == SiteBuildState.SingletonId);
 
-    // Sin el token del pedido a propósito: es una escritura corta y, si la API se está apagando, es justo la que no se
-    // puede perder. Si la base falla acá, se registra y se manda igual (la regla del puerto: un rebuild no rompe el guardado).
+    // Without the request's token on purpose: it is a short write and, if the API is shutting down, it is exactly the
+    // one that must not be lost. If the database fails here, it is logged and sent anyway (the port's rule: a rebuild
+    // does not break the save).
     private async Task MarkPendingAsync(Guid requestId)
     {
         try
@@ -50,7 +52,7 @@ internal sealed class DurableSiteBuildTrigger(
         }
         catch (DbException exception)
         {
-            logger.LogError(exception, "No se pudo marcar la regeneración como pendiente: si el builder no la acepta, no se reintenta.");
+            logger.LogError(exception, "Could not mark the site rebuild as pending: if the builder does not accept it, it is not retried.");
         }
     }
 
@@ -58,21 +60,21 @@ internal sealed class DurableSiteBuildTrigger(
     {
         if (!await sender.SendAsync(cancellationToken))
         {
-            logger.LogInformation("La regeneración del sitio queda pendiente; se reintenta en {Interval}.", SiteRebuildWorker.Interval);
+            logger.LogInformation("The site rebuild stays pending; retrying in {Interval}.", SiteRebuildWorker.Interval);
             return;
         }
 
         try
         {
-            // Solo la marca de este pedido: si mientras tanto llegó otro, el nuevo sigue pendiente hasta su propio OK.
+            // Only this request's mark: if another one arrived meanwhile, the new one stays pending until its own OK.
             await Singleton()
                 .Where(state => state.PendingRequestId == requestId)
                 .ExecuteUpdateAsync(set => set.SetProperty(state => state.PendingRequestId, (Guid?)null), CancellationToken.None);
         }
         catch (DbException exception)
         {
-            // La marca queda: a lo sumo se pide una regeneración de más, nunca una de menos.
-            logger.LogWarning(exception, "El builder aceptó la regeneración pero no se pudo borrar la marca de pendiente.");
+            // The mark stays: at most one extra regeneration is requested, never one too few.
+            logger.LogWarning(exception, "The builder accepted the site rebuild but the pending mark could not be cleared.");
         }
     }
 }

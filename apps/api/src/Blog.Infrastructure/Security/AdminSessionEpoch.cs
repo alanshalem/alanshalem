@@ -6,22 +6,23 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Blog.Infrastructure.Security;
 
 /// <summary>
-/// La época de las sesiones del admin: un número guardado en la base que cada cookie lleva desde que se inicia la
-/// sesión. Revocar lo sube, y desde ese momento ninguna cookie emitida antes entra, aunque alguien la haya copiado
-/// (cerrar sesión borra la cookie del navegador, pero no la vuelve inválida). Cerrar sesión lo usa; un cambio de
-/// contraseña también tiene que usarlo.
+/// The admin session epoch: a number stored in the database that each cookie carries from the moment the session
+/// starts. Revoking raises it, and from then on no cookie issued before gets in, even if someone copied it (logging out
+/// deletes the cookie from the browser, but does not make it invalid). Logout uses it; a password change must use it
+/// too.
 /// </summary>
 /// <remarks>
-/// Se consulta en cada pedido con sesión, así que vive en memoria y solo se lee de la base la primera vez. Revocar
-/// actualiza la base y la memoria juntas; si algo falla a mitad de camino, la memoria queda vacía y se relee. Alcanza porque la API corre en un único proceso; con varias instancias,
-/// cada una tendría que volver a leer la base.
+/// It is checked on every request with a session, so it lives in memory and is read from the database only the first
+/// time. Revoking updates the database and the memory together; if anything fails half way, the memory is left empty
+/// and read again. That is enough because the API runs in a single process; with several instances, each one would
+/// have to read the database again.
 /// </remarks>
 internal sealed class AdminSessionEpoch(IServiceScopeFactory scopes) : IAdminSessionEpoch
 {
     // Not read yet, or a revocation failed half way: the next read goes to the database. Stored epochs start at 0.
     private const int Unknown = -1;
 
-    // Un solo cambio a la vez: así una lectura lenta de la base no puede pisar en memoria una época ya revocada.
+    // One change at a time: this way a slow database read cannot overwrite in memory an epoch already revoked.
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     // Written only while holding the gate; volatile so the lock-free read in CurrentAsync always sees the latest value.
@@ -52,14 +53,14 @@ internal sealed class AdminSessionEpoch(IServiceScopeFactory scopes) : IAdminSes
         }
     }
 
-    /// <summary>Invalida todas las sesiones emitidas hasta ahora.</summary>
+    /// <summary>Invalidates every session issued so far.</summary>
     public async Task RevokeAllAsync(CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            // Falla cerrado: se olvida la época en memoria ANTES de subirla en la base. Si el UPDATE se guarda pero la
-            // relectura falla, la próxima consulta vuelve a la base y ya no acepta las cookies revocadas.
+            // Fails closed: the epoch in memory is forgotten BEFORE raising it in the database. If the UPDATE is saved
+            // but the re-read fails, the next check goes back to the database and no longer accepts the revoked cookies.
             _current = Unknown;
             await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<BlogDbContext>();

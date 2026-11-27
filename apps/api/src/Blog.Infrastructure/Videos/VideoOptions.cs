@@ -2,14 +2,14 @@ namespace Blog.Infrastructure.Videos;
 
 public sealed class VideoOptions
 {
-    /// <summary>Ejecutable de ffmpeg (con libsvtav1 y libx264). Por defecto, el del PATH.</summary>
+    /// <summary>ffmpeg executable (with libsvtav1 and libx264). By default, the one on the PATH.</summary>
     public string FfmpegPath { get; set; } = "ffmpeg";
 
     public string FfprobePath { get; set; } = "ffprobe";
 
     /// <summary>
-    /// Originales en espera y salidas de ffmpeg. Nunca dentro de Media:Directory: lo que hay ahí se publica, y el
-    /// original trae audio y metadatos. Se vacía en cada arranque.
+    /// Waiting originals and ffmpeg outputs. Never inside Media:Directory: what is there gets published, and the
+    /// original carries audio and metadata. Emptied on every start.
     /// </summary>
     public string WorkDirectory { get; set; } = "data/video-work";
 }

@@ -8,11 +8,12 @@ namespace Blog.Infrastructure.Persistence;
 public static class DatabaseInitializer
 {
     /// <summary>
-    /// Crea la carpeta de la base si falta, aplica las migraciones de EF Core pendientes y activa WAL
-    /// (lecturas y escritura concurrentes sin bloquearse).
+    /// Creates the database folder if missing, applies the pending EF Core migrations and enables WAL
+    /// (concurrent reads and writes without blocking each other).
     /// </summary>
     /// <exception cref="InvalidOperationException">
-    /// Si la base fue creada por la v0.1 (EnsureCreated, sin historial de migraciones): no se migra ni se borra sola.
+    /// If the database was created by v0.1 (EnsureCreated, without migration history): it is neither migrated nor
+    /// deleted automatically.
     /// </exception>
     public static async Task InitializeAsync(IServiceProvider services, CancellationToken cancellationToken = default)
     {
@@ -36,8 +37,8 @@ public static class DatabaseInitializer
     }
 
     /// <summary>
-    /// La v0.1 creaba el esquema con EnsureCreated: hay tabla posts pero no __EFMigrationsHistory. Migrate() intentaría
-    /// crear posts de nuevo y fallaría a mitad de camino, así que se corta antes con un mensaje claro.
+    /// v0.1 created the schema with EnsureCreated: there is a posts table but no __EFMigrationsHistory. Migrate() would
+    /// try to create posts again and fail half way, so it stops earlier with a clear message.
     /// </summary>
     private static async Task EnsureNotLegacyAsync(BlogDbContext db, string dataSource, CancellationToken cancellationToken)
     {
@@ -49,12 +50,12 @@ public static class DatabaseInitializer
             var hasHistory = await TableExistsAsync(connection, "__EFMigrationsHistory", cancellationToken);
             if (hasPosts && !hasHistory)
             {
-                var path = string.IsNullOrEmpty(dataSource) ? "(sin nombre)" : Path.GetFullPath(dataSource);
+                var path = string.IsNullOrEmpty(dataSource) ? "(unnamed)" : Path.GetFullPath(dataSource);
                 throw new InvalidOperationException(
-                    $"La base de datos \"{path}\" fue creada por una versión anterior sin migraciones (EnsureCreated) " +
-                    "y no se puede actualizar automáticamente. Hacé una copia de respaldo o renombrala " +
-                    "(por ejemplo a blog.db.bak) y volvé a arrancar la API: se va a crear una base nueva con el esquema actual. " +
-                    "No se borró ni se modificó nada.");
+                    $"The database \"{path}\" was created by an earlier version without migrations (EnsureCreated) " +
+                    "and cannot be upgraded automatically. Back it up or rename it " +
+                    "(for example to blog.db.bak) and start the API again: a new database with the current schema will be created. " +
+                    "Nothing was deleted or changed.");
             }
         }
         finally

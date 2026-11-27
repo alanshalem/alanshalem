@@ -6,25 +6,26 @@ using Microsoft.Extensions.Logging;
 namespace Blog.Infrastructure.Scheduling;
 
 /// <summary>
-/// Publica los borradores programados cuya hora llegó. Revisa apenas arranca (pone al día lo que venció con la API
-/// apagada) y después cada <see cref="Interval"/>. La hora la decide <see cref="IClock"/>; el temporizador solo marca
-/// cuándo volver a mirar.
+/// Publishes the scheduled drafts whose time has come. Checks as soon as it starts (catching up on what came due while
+/// the API was down) and then every <see cref="Interval"/>. The time is decided by <see cref="IClock"/>; the timer only
+/// marks when to look again.
 /// </summary>
 internal sealed class ScheduledPublishingWorker(IServiceScopeFactory scopes, ILogger<ScheduledPublishingWorker> logger)
     : PeriodicWorker(logger)
 {
-    /// <summary>Un post sale a lo sumo esto después de su hora: sobra para un blog, y la consulta sobre los posts es barata.</summary>
+    /// <summary>A post goes out at most this long after its time: plenty for a blog, and the query on the posts is cheap.</summary>
     public static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
 
     protected override TimeSpan Period => Interval;
 
-    protected override string Work => "la revisión de posts programados";
+    protected override string Work => "scheduled posts check";
 
     /// <summary>
-    /// Una revisión: publica cada vencido en su propio scope (si uno falla, se registra y se sigue con los demás; se
-    /// reintenta en la próxima) y, si salió alguno, pide un solo rebuild: el builder regenera el sitio entero igual.
+    /// One check: publishes each due post in its own scope (if one fails, it is logged and the others go on; it is
+    /// retried on the next one) and, if any went out, requests a single rebuild: the builder regenerates the whole site
+    /// anyway.
     /// </summary>
-    /// <returns>Cuántos se publicaron.</returns>
+    /// <returns>How many were published.</returns>
     internal async Task<int> PublishDueAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<Guid> due;
@@ -40,24 +41,24 @@ internal sealed class ScheduledPublishingWorker(IServiceScopeFactory scopes, ILo
             {
                 try
                 {
-                    // Scope propio: un DbContext que quedó con un guardado fallido no arrastra a los posts siguientes.
+                    // A scope of its own: a DbContext left with a failed save does not drag the following posts along.
                     await using var scope = scopes.CreateAsyncScope();
                     if (await scope.ServiceProvider.GetRequiredService<PostService>().PublishIfDueAsync(id, cancellationToken))
                     {
                         published++;
-                        logger.LogInformation("Se publicó el post programado {PostId}.", id);
+                        logger.LogInformation("Published the scheduled post {PostId}.", id);
                     }
                 }
                 catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
                 {
-                    logger.LogError(exception, "No se pudo publicar el post programado {PostId}; se reintenta en la próxima revisión.", id);
+                    logger.LogError(exception, "Could not publish the scheduled post {PostId}; retrying on the next check.", id);
                 }
             }
         }
         finally
         {
-            // También si la API se apaga a mitad de la tanda: los ya publicados dejan su rebuild pendiente (el trigger
-            // guarda la marca aunque el token esté cancelado) y se pide al volver a arrancar.
+            // Also if the API shuts down half way through the batch: the ones already published leave their rebuild
+            // pending (the trigger stores the mark even if the token is cancelled) and it is requested on the next start.
             if (published > 0)
             {
                 await using var scope = scopes.CreateAsyncScope();

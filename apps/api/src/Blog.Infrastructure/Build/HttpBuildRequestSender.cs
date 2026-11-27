@@ -6,32 +6,32 @@ namespace Blog.Infrastructure.Build;
 
 public sealed class BuilderOptions
 {
-    /// <summary>URL interna del servicio builder, ej: http://builder:4000</summary>
+    /// <summary>Internal URL of the builder service, e.g. http://builder:4000</summary>
     public string Url { get; set; } = string.Empty;
 
-    /// <summary>Secreto compartido: la API se lo manda al builder, y el builder se lo manda a la API para leer los posts.</summary>
+    /// <summary>Shared secret: the API sends it to the builder, and the builder sends it to the API to read the posts.</summary>
     public string Token { get; set; } = string.Empty;
 }
 
-/// <summary>El envío de un pedido de regeneración al builder. No guarda nada: de no perderlo se ocupa <see cref="DurableSiteBuildTrigger"/>.</summary>
+/// <summary>Sending a regeneration request to the builder. It stores nothing: <see cref="DurableSiteBuildTrigger"/> makes sure it is not lost.</summary>
 internal interface IBuildRequestSender
 {
-    /// <summary>Nunca lanza: un builder caído, lento o que responde con error es false.</summary>
-    /// <returns>Si el builder aceptó el pedido.</returns>
+    /// <summary>Never throws: a builder that is down, slow or answers with an error is false.</summary>
+    /// <returns>Whether the builder accepted the request.</returns>
     Task<bool> SendAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>
-/// Le pide al builder que regenere el sitio. El builder responde 202 enseguida y construye en segundo plano,
-/// y junta varios pedidos seguidos en una sola construcción. Si no responde o responde con error, se registra un
-/// warning y se informa que no lo aceptó: el pedido queda pendiente y se reintenta.
+/// Asks the builder to regenerate the site. The builder answers 202 right away and builds in the background, and it
+/// merges several requests in a row into a single build. If it does not answer or answers with an error, a warning is
+/// logged and it reports that it was not accepted: the request stays pending and is retried.
 /// </summary>
 internal sealed class HttpBuildRequestSender(
     HttpClient http,
     IOptions<BuilderOptions> options,
     ILogger<HttpBuildRequestSender> logger) : IBuildRequestSender
 {
-    /// <summary>Corto: guardar un post no debe quedarse esperando a un builder que no responde (se reintenta después).</summary>
+    /// <summary>Short: saving a post must not wait for a builder that does not answer (it is retried later).</summary>
     public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
     public async Task<bool> SendAsync(CancellationToken cancellationToken)
@@ -39,8 +39,8 @@ internal sealed class HttpBuildRequestSender(
         var settings = options.Value;
         if (string.IsNullOrWhiteSpace(settings.Url))
         {
-            // Sin builder (desarrollo) no hay nadie que pueda aceptarlo nunca: se da por hecho para no reintentar en vano.
-            logger.LogWarning("Builder:Url no está configurado; el sitio no se regenera.");
+            // Without a builder (development) nobody can ever accept it: it counts as done so it is not retried in vain.
+            logger.LogWarning("Builder:Url is not configured; the site is not regenerated.");
             return true;
         }
 
@@ -52,15 +52,15 @@ internal sealed class HttpBuildRequestSender(
             using var response = await http.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                logger.LogWarning("El builder respondió {StatusCode} al pedir una regeneración.", (int)response.StatusCode);
+                logger.LogWarning("The builder answered {StatusCode} to a rebuild request.", (int)response.StatusCode);
             }
 
             return response.IsSuccessStatusCode;
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException)
         {
-            // TaskCanceledException: se pasó del timeout, o la API se está apagando.
-            logger.LogWarning(exception, "No se pudo contactar al builder.");
+            // TaskCanceledException: the timeout passed, or the API is shutting down.
+            logger.LogWarning(exception, "Could not reach the builder.");
             return false;
         }
     }

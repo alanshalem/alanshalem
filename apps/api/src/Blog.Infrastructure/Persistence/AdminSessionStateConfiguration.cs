@@ -11,7 +11,7 @@ internal sealed class AdminSessionStateConfiguration : IEntityTypeConfiguration<
         builder.ToTable("admin_session");
         builder.HasKey(state => state.Id);
 
-        // Clave fija y la fila ya existe desde la migración: leer y revocar son un SELECT y un UPDATE.
+        // Fixed key and the row exists since the migration: reading and revoking are a SELECT and an UPDATE.
         builder.Property(state => state.Id).ValueGeneratedNever();
         builder.HasData(new AdminSessionState { Id = AdminSessionState.SingletonId, Epoch = 0 });
     }

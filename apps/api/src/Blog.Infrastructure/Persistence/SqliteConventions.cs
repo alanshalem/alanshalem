@@ -4,13 +4,13 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Blog.Infrastructure.Persistence;
 
-/// <summary>Detalles de SQLite que comparten todas las configuraciones y repositorios.</summary>
+/// <summary>SQLite details shared by every configuration and repository.</summary>
 internal static class SqliteConventions
 {
-    // Código de error de SQLite para "violación de constraint" (índice único, NOT NULL, etc.).
+    // SQLite error code for "constraint violation" (unique index, NOT NULL, etc.).
     private const int ConstraintError = 19;
 
-    // SQLite guarda DateTime como texto y al leerlo devuelve Kind=Unspecified; así lo marcamos siempre como UTC.
+    // SQLite stores DateTime as text and reads it back with Kind=Unspecified; this way we always mark it as UTC.
     public static readonly ValueConverter<DateTime, DateTime> UtcConverter =
         new(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 

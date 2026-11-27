@@ -11,7 +11,7 @@ internal sealed class SiteBuildStateConfiguration : IEntityTypeConfiguration<Sit
         builder.ToTable("site_build_state");
         builder.HasKey(state => state.Id);
 
-        // Clave fija (SiteBuildState.SingletonId), y la fila ya existe desde la migración: marcar y borrar son un UPDATE.
+        // Fixed key (SiteBuildState.SingletonId), and the row exists since the migration: marking and clearing are an UPDATE.
         builder.Property(state => state.Id).ValueGeneratedNever();
         builder.HasData(new SiteBuildState { Id = SiteBuildState.SingletonId });
     }

@@ -4,11 +4,11 @@ using Microsoft.EntityFrameworkCore.Design;
 namespace Blog.Infrastructure.Persistence;
 
 /// <summary>
-/// Solo para la herramienta dotnet-ef (generar migraciones): arma el DbContext sin levantar la API.
-/// `migrations add` no abre la base; la cadena de conexión solo elige el proveedor (SQLite).
-/// Uso, desde apps/api:
+/// Only for the dotnet-ef tool (generating migrations): builds the DbContext without starting the API.
+/// `migrations add` does not open the database; the connection string only picks the provider (SQLite).
+/// Usage, from apps/api:
 ///   dotnet tool restore
-///   dotnet ef migrations add NombreDelCambio --project src/Blog.Infrastructure --output-dir Persistence/Migrations
+///   dotnet ef migrations add NameOfTheChange --project src/Blog.Infrastructure --output-dir Persistence/Migrations
 /// </summary>
 internal sealed class DesignTimeBlogDbContextFactory : IDesignTimeDbContextFactory<BlogDbContext>
 {
