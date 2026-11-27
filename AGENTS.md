@@ -7,7 +7,8 @@ copies — never edit them by hand.
 ## What this is
 
 A personal, bilingual (Spanish/English) blog for a small shared VPS. The repo is also the owner's GitHub profile:
-the root `README.md` is the profile page and the project README is `.github/README.md`. Code is MIT; posts, photos
+the root `README.md` is the profile page and the project README is `docs/README.md` (GitHub shows
+`.github/README.md` before the root one, on the profile too, so nothing may live there). Code is MIT; posts, photos
 and videos are not (see `LICENSE`). Visitors only ever get pre-built static files: **they never touch the API or the
 database**, so the site stays up even if the API is down.
 
@@ -63,7 +64,7 @@ docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env u
 SHA): jobs `node` (install, typecheck, `pnpm test`, admin build, `agents:check`), `dotnet` (`-warnaserror` build + all
 tests inside the `dev` target of `apps/api/Dockerfile`, real ffmpeg), `infra` (`docker compose config -q` for the three
 stacks, `caddy validate`), `images` (build the three production images, Trivy) and `security` (gitleaks over the full
-history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to run locally are in `.github/README.md`
+history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to run locally are in `docs/README.md`
 "How to verify"; the VPS runbook (deploy, update, rollback, backups, monitoring) is its "Operations" section.
 
 ## Non-negotiable rules

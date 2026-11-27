@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { postsMarkdown, replaceMarked } from '../src/readme.ts';
 
@@ -66,5 +67,14 @@ describe('postsMarkdown', () => {
 
   it('without posts, a "coming soon" line', () => {
     assert.equal(postsMarkdown([]), '<sub>The blog is on its way — new posts will show up here.</sub>');
+  });
+});
+
+describe('README placement', () => {
+  it('only the profile README is in a place GitHub shows (.github/ wins over the root, on the profile too)', () => {
+    const root = new URL('../../../', import.meta.url);
+    assert.equal(existsSync(new URL('.github/README.md', root)), false, 'move the project README to docs/');
+    assert.equal(existsSync(new URL('README.md', root)), true);
+    assert.equal(existsSync(new URL('docs/README.md', root)), true);
   });
 });

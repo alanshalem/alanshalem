@@ -21,7 +21,7 @@ description: "How this blog runs in Docker and on the VPS, covering the dev comp
   `docker build --tag blog-api apps/api && docker run --rm -it blog-api hash-password`); ≥ 12 characters, typed without
   echo; paste it in single quotes (it has `$`).
 - The operations runbook (first deploy, update, rollback, backups, logs, rotation, firewall, disk, monitoring) lives in
-  `.github/README.md` "Operations": keep it in sync with the scripts and compose files.
+  `docs/README.md` "Operations": keep it in sync with the scripts and compose files.
 
 ## Secrets and env files
 
@@ -167,7 +167,7 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
       needs.
 - [ ] No secret or real hash in any committed file; only `infra/local.env` test values.
 - [ ] Memory/CPU/pids changes measured (`docker stats`) and recorded in the compose comment.
-- [ ] Operations changed (scripts, variables, ports)? Update `.github/README.md` "Operations"; ports also in
+- [ ] Operations changed (scripts, variables, ports)? Update `docs/README.md` "Operations"; ports also in
       `infra/test/ports.test.ts`.
 
 ## Anti-patterns seen here

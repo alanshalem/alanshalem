@@ -40,7 +40,7 @@ pnpm typecheck                              # tsc / astro check: run it too, tes
 | `images` | `docker compose build <service>` for api, builder, caddy + Trivy (CRITICAL/HIGH with a fix fails) |
 | `security` | `pnpm audit --prod --audit-level high`, `dotnet list package --vulnerable --include-transitive`, gitleaks over the full history |
 
-The exact local commands are in `.github/README.md` "How to verify" (the API one copies the code into the container,
+The exact local commands are in `docs/README.md` "How to verify" (the API one copies the code into the container,
 so Windows bind mounts and your `bin/`/`obj/` are not involved). A test that only passes on your machine is not done.
 
 ## node --test conventions (TypeScript, no test dependencies)
