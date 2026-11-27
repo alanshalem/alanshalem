@@ -27,6 +27,7 @@ Admin ─► API ─► SQLite ; publish ─► durable rebuild request ─► b
 | `apps/admin` | Admin SPA under `/admin/`; native Markdown editor | React 19 + Vite |
 | `apps/builder` | Dependency-free Node service: runs `astro build`, precompresses, swaps `current` | Node ≥ 22.18 |
 | `packages/markdown` | Own Markdown renderer (no deps, no raw HTML); used by site and admin preview | TypeScript |
+| `packages/math` | TeX → MathML injected into the renderer's `math` option; `postBodyOptions(lang)` = how a post body renders on site and preview | TypeScript, Temml |
 | `packages/tokens` | Design tokens (`tokens.css`, the single source) and `.prose` styles | CSS |
 | `infra` | `docker-compose.yml` (VPS), `compose.dokploy.yml` (behind Dokploy's Traefik: production + staging), `compose.local.yml` + `local.env` (local prod copy), `compose.dev.yml`, `caddy/Caddyfile`, `backup.sh` / `restore.sh`, guard tests in `test/` | Docker, Caddy 2, Dokploy |
 | `.github` | project `README.md`, `workflows/ci.yml` (CI), `workflows/profile.yml` (profile images), `dependabot.yml` | GitHub Actions |
@@ -40,7 +41,7 @@ Requirements without Docker: Node ≥ 22.18 (tests run `.ts` directly), pnpm 10,
 
 ```bash
 pnpm install                      # commit pnpm-lock.yaml; Docker builds use --frozen-lockfile
-pnpm test                         # every workspace (markdown, web, admin, builder) + test:profile/agents/infra
+pnpm test                         # every workspace (markdown, math, web, admin, builder) + test:profile/agents/infra
 pnpm typecheck                    # tsc / astro check
 pnpm agents:check                 # skill copies in sync
 cd apps/api && dotnet build -warnaserror && dotnet test   # --filter "Category!=Ffmpeg" skips the real-ffmpeg tests
@@ -128,7 +129,8 @@ history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to r
 - Use case → `Blog.Application/<Area>/<Area>Service.cs`; adapter → `Blog.Infrastructure`; route → `Blog.Api/Endpoints`.
 - Site logic → pure `apps/web/src/lib/*.ts`; `.astro` files only render.
 - Admin: HTTP only in `src/api/client.ts`; rules in pure `.ts` modules; state in `use*.ts` hooks; UI in `.tsx`.
-- Markdown syntax → `packages/markdown` (site and preview share `POST_BODY_RENDER_OPTIONS`).
+- Markdown syntax → `packages/markdown` (site and preview share `postBodyOptions(lang)` of `packages/math`, which
+  spreads `POST_BODY_RENDER_OPTIONS` and adds the TeX renderer).
 - Colors/fonts/spacing → `packages/tokens/src/tokens.css`. Caching/headers → `infra/caddy/Caddyfile`.
 
 ## Before you finish
