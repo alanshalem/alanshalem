@@ -13,6 +13,7 @@ const files = [
   'infra/caddy/Caddyfile',
   'infra/caddy/Dockerfile',
   'infra/compose.dev.yml',
+  'infra/compose.dokploy.yml',
   'infra/compose.local.yml',
   'infra/docker-compose.yml',
   'infra/local.env',

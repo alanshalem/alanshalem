@@ -101,6 +101,11 @@ jobs:
           ADMIN_PASSWORD_HASH: ci-placeholder-not-a-hash
           BUILDER_TOKEN: ci-placeholder-not-a-token-ci-placeholder
 
+      - name: docker compose config (Dokploy)
+        working-directory: infra
+        run: docker compose -f docker-compose.yml -f compose.dokploy.yml config -q
+        env: *compose-placeholders
+
       - name: docker compose config (local production copy)
         working-directory: infra
         run: docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env config -q
@@ -110,7 +115,8 @@ jobs:
         run: docker compose -f compose.dev.yml --env-file local.env config -q
 
       # With the image's Caddy (the digest-pinned reference comes from infra/caddy/Dockerfile, it is not repeated here),
-      # in the two forms the compose starts it: a domain with an ACME email (VPS) and :80 without email (local copy).
+      # in the forms the compose starts it: a domain with an ACME email (VPS), :80 without email (local copy) and :80 behind
+# Dokploy's Traefik as staging (trusted proxies, noindex).
       - name: caddy validate
         run: |
           image=$(sed -n 's/^FROM \(caddy:[^ ]*\).*/\1/p' infra/caddy/Dockerfile)
@@ -121,6 +127,8 @@ jobs:
           }
           validate --env SITE_ADDRESS=blog.example.com --env 'CADDY_ACME_EMAIL=email ci@example.com'
           validate --env SITE_ADDRESS=:80
+          validate --env SITE_ADDRESS=:80 --env SITE_ENV=staging \
+            --env 'CADDY_TRUSTED_PROXIES=trusted_proxies static private_ranges'
 
   images:
     name: Image ${{ matrix.service }} (build, vulnerability scan)

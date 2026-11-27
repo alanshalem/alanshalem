@@ -9,6 +9,7 @@ const exists = (path: string): boolean => existsSync(new URL(`../../${path}`, im
 
 const prod = read('infra/docker-compose.yml');
 const dev = read('infra/compose.dev.yml');
+const dokploy = exists('infra/compose.dokploy.yml') ? read('infra/compose.dokploy.yml') : '';
 
 /** Meaningful lines (no comments or blank lines), with their indentation. */
 const lines = (text: string): string[] => text.split('\n').filter((line) => line.trim() !== '' && !line.trim().startsWith('#'));
@@ -114,7 +115,8 @@ describe('docker-compose.yml (VPS)', () => {
 
   it('the ACME email is optional: Caddy gets the whole option or nothing', () => {
     assert.match(service(prod, 'caddy'), /CADDY_ACME_EMAIL: \$\{ACME_EMAIL:\+email \$\{ACME_EMAIL\}\}/);
-    assert.match(read('infra/caddy/Caddyfile'), /^\{\n\t\{\$CADDY_ACME_EMAIL\}\n\}$/m);
+    // First in the global options (the rest of the block: infra/test/caddy.test.ts).
+    assert.match(read('infra/caddy/Caddyfile'), /^\{\n\t\{\$CADDY_ACME_EMAIL\}\n/m);
   });
 
   it('no SITE_NAME / SITE_TAGLINE / SITE_AUTHOR: the site reads them from the API', () => {
@@ -129,6 +131,55 @@ describe('docker-compose.yml (VPS)', () => {
     assert.match(prod, /^x-builder-token: &builder-token \$\{BUILDER_TOKEN:\?[^}]+\}$/m);
     assert.match(service(prod, 'api'), /^\s+Builder__Token: \*builder-token$/m);
     assert.match(service(prod, 'builder'), /^\s+BUILDER_TOKEN: \*builder-token$/m);
+  });
+
+  it('a VPS without Dokploy keeps Caddy on 80/443 (TCP and UDP) and its TLS address from .env', () => {
+    const ports = lines(block(service(prod, 'caddy'), 'ports', 4)).map((line) => line.trim().replace(/\s+#.*$/, ''));
+    assert.deepEqual(ports, ['- "80:80"', '- "443:443"', '- "443:443/udp"']);
+    assert.match(service(prod, 'caddy'), /^\s+SITE_ADDRESS: \$\{SITE_ADDRESS:\?[^}]+\}$/m);
+  });
+
+  it('the site environment reaches Caddy and is production unless set (staging turns indexing off)', () => {
+    assert.match(block(service(prod, 'caddy'), 'environment', 4), /^\s+SITE_ENV: \$\{SITE_ENV:-production\}$/m);
+  });
+
+  it('Caddy trusts no forwarding proxy by default: only the Dokploy override sets one', () => {
+    assert.doesNotMatch(prod, /CADDY_TRUSTED_PROXIES/);
+    assert.doesNotMatch(prod, /dokploy-network/);
+  });
+});
+
+describe('compose.dokploy.yml (behind Dokploy and its Traefik)', () => {
+  it('only overrides Caddy', () => {
+    assert.deepEqual(services(dokploy), ['caddy']);
+  });
+
+  it('Caddy publishes no port: Traefik owns 80/443 on the VPS', () => {
+    assert.match(service(dokploy, 'caddy'), /^\s+ports: !reset \[\]$/m);
+  });
+
+  it('Caddy answers plain HTTP on :80 and never requests certificates (Traefik terminates TLS)', () => {
+    assert.match(block(service(dokploy, 'caddy'), 'environment', 4), /^\s+SITE_ADDRESS: ":80"$/m);
+  });
+
+  it('Caddy believes the X-Forwarded-* that Traefik sends (private ranges only), so the API sees the visitor', () => {
+    assert.match(
+      block(service(dokploy, 'caddy'), 'environment', 4),
+      /^\s+CADDY_TRUSTED_PROXIES: trusted_proxies static private_ranges$/m,
+    );
+  });
+
+  it('Caddy joins the external dokploy-network and keeps the private network it shares with the API', () => {
+    const networks = lines(block(service(dokploy, 'caddy'), 'networks', 4)).map((line) => line.trim());
+    assert.deepEqual(networks, ['- default', '- dokploy-network']);
+    assert.match(block(dokploy, 'networks'), /^ {2}dokploy-network:\n {4}external: true$/m);
+  });
+
+  it('the Dokploy command in its header is the one the README runbook gives', () => {
+    const command = /^# {3}(compose -p <appName> .+)$/m.exec(dokploy)?.[1];
+    assert.ok(command, 'missing the Dokploy command in the header');
+    assert.match(command, / --env-file infra\/\.env -f infra\/docker-compose\.yml -f infra\/compose\.dokploy\.yml up -d --build --remove-orphans$/);
+    assert.ok(read('docs/README.md').includes(command), 'docs/README.md must give the same command');
   });
 });
 

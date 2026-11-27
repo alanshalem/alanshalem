@@ -1,17 +1,18 @@
 ---
 name: docker-and-deploy
-description: "How this blog runs in Docker and on the VPS, covering the dev compose with live reload, the local production copy on :8080, the hardened production compose (pinned digests, no-new-privileges, dropped capabilities, read-only filesystems, capped logs, healthchecks and start order), the Dockerfiles with dev and prod targets, the whitelist .dockerignore, Caddy rules for caching, security headers, the /api/internal block, the language redirect and 404s, the atomic builder, backups and restore, the CI jobs that validate infra and scan images, and how to validate every infra change with real Caddy and Docker. Use when touching infra/, any Dockerfile, the builder, Caddyfile, environment variables, ports, healthchecks, backups, deployment, Dependabot or the local dev environment, including Windows dev issues."
+description: "How this blog runs in Docker and on the VPS, covering the dev compose with live reload, the local production copy on :8080, the Dokploy deploy (compose.dokploy.yml behind Traefik, staging and production, basic auth, noindex), the hardened production compose (pinned digests, no-new-privileges, dropped capabilities, read-only filesystems, capped logs, healthchecks and start order), the Dockerfiles with dev and prod targets, the whitelist .dockerignore, Caddy rules for caching, security headers, the /api/internal block, the language redirect and 404s, the atomic builder, backups and restore, the CI jobs that validate infra and scan images, and how to validate every infra change with real Caddy and Docker. Use when touching infra/, any Dockerfile, the builder, Caddyfile, environment variables, ports, healthchecks, backups, deployment, Dependabot or the local dev environment, including Windows dev issues."
 ---
 
 # Docker, Caddy and deploy
 
-## Three ways to run it
+## Ways to run it
 
 | Goal | Command | Notes |
 |---|---|---|
+| Dokploy on srv2192513 (production + staging) | Dokploy runs `compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans` from the repo root | project `<appName>` (one Compose service per environment); Traefik on 80/443 does TLS; Caddy on :80 in `dokploy-network` |
 | Dev, only Docker installed (repo root) | `docker compose -f infra/compose.dev.yml --env-file infra/local.env up --build` | project `blog-dev`; API :5090 (`dotnet watch`), admin :5173 (Vite HMR), site :4321 (`astro dev`); code mounted, deps/bin/obj/NuGet/data in volumes |
 | Local production copy (from `infra/`) | `docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env up -d --build` | project `blog-local`; same images, caps and volumes as the VPS; HTTP only on `127.0.0.1:${LOCAL_PORT}` (8080) |
-| VPS (from `infra/`) | `docker compose --env-file .env up -d --build` | project `blog`; Caddy with automatic TLS on 80/443 |
+| VPS without Dokploy (from `infra/`) | `docker compose --env-file .env up -d --build` | project `blog`; Caddy with automatic TLS on 80/443 |
 
 - `--env-file` goes on **every** command of a project (`up`, `logs`, `ps`, `down`); without it compose names the
   missing variable and stops (accepted trade-off: one env file for dev and the local copy, no silent defaults).
@@ -31,6 +32,11 @@ description: "How this blog runs in Docker and on the VPS, covering the dev comp
   admin password hash and the optional `ACME_EMAIL` (compose turns it into `CADDY_ACME_EMAIL=email …` or nothing: Caddy
   rejects an empty `email`). It is gitignored; never read, print or commit it — nor the template itself: agents leave
   `.env.example` to the user.
+- Under Dokploy the values live in the service's Environment tab; Dokploy writes them to `infra/.env` on every deploy
+  (next to the compose path) as `KEY="value"` with `$` escaped, after `APP_NAME` and `COMPOSE_PROJECT_NAME=<appName>`.
+  A single-quoted hash pasted there arrives intact (dotenv strips the quotes, verified). It also carries
+  `COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml`, so any `docker compose --env-file .env` from that `infra/`
+  (and `backup.sh` / `restore.sh`) targets that environment's stack.
 - CI has no `.env`: the VPS compose is validated and built with placeholder values in the step `env`, never secrets.
 - The API validates required options on start (`Admin:PasswordHash`, `Builder:Token` ≥ 32 chars): fail fast.
 - `BUILDER_TOKEN` is required once, in the `x-builder-token` anchor (`&builder-token`, `${BUILDER_TOKEN:?…}`), and the
@@ -39,7 +45,7 @@ description: "How this blog runs in Docker and on the VPS, covering the dev comp
 ## Images
 
 Every base image is **pinned by digest** (a rebuild never changes version on its own): ffmpeg 9.1 static (SVT-AV1 4.3 +
-x264, `mwader/static-ffmpeg`), .NET SDK 10.0.404 / aspnet 10.0.15, `node:22.23.5-slim` (one `ARG NODE_IMAGE`, the same in
+x264, `mwader/static-ffmpeg`), .NET SDK 11.0.100 / aspnet 11.0.0 (Ubuntu 26.04), `node:22.23.5-slim` (one `ARG NODE_IMAGE`, the same in
 `apps/builder/Dockerfile` and `infra/caddy/Dockerfile`: `infra/test/compose.test.ts` compares them), `caddy:2.11.9-alpine`
 and `busybox` in the compose. To update: new tag + `docker buildx imagetools inspect <image:tag>`; Dependabot proposes
 updates weekly (`.github/dependabot.yml`, one grouped PR for the three Dockerfile folders). CI's node job reads the Node
@@ -86,7 +92,41 @@ references into the workflow.
   `--max-old-space-size=768`. Caddy `128m`. Caps are limits, not measurements: check with `docker stats`.
 - Volumes: `api_data` (SQLite, keys, `Video__WorkDirectory`, `tmp`, `backups`), `media` (mounted `:nocopy`), `site`
   (releases + `current`), `caddy_data`, `caddy_config`.
-- If the VPS already has a reverse proxy on 80/443, put it in front of this Caddy on an internal network.
+- If the VPS already has a reverse proxy on 80/443, put it in front of this Caddy on an internal network (what
+  `compose.dokploy.yml` does for Traefik).
+
+## Behind Dokploy (`infra/compose.dokploy.yml`)
+
+Dokploy v0.31.4 (Traefik v3.7, Swarm on the host, overlay `dokploy-network`) deploys a Compose service by cloning the
+branch (`git clone --branch <b> --depth 1`) into `/etc/dokploy/compose/<appName>/code`, rewriting the compose path
+file (yaml parse with merge keys, then Traefik labels and `dokploy-network` on the domain's service) and running its
+command. It reads **one** compose file, so the override goes in through the custom command (Advanced → Command); the
+base file stays the plain-VPS one and CI keeps validating it.
+
+- The override only touches Caddy: `ports: !reset []` (Traefik owns 80/443 TCP+UDP), `SITE_ADDRESS: ":80"` (no ACME),
+  `CADDY_TRUSTED_PROXIES: trusted_proxies static private_ranges`, networks `default` + external `dokploy-network`.
+  The API and the builder stay only on the stack's private network. `!reset` lives in the override on purpose: Dokploy
+  re-serializes the base file and would drop a custom YAML tag there.
+- Type **Docker Compose**, never Stack (no `build`). Isolated Deployments off (it would add every service to a
+  Traefik-reachable network). Domain: service `caddy`, port 80, HTTPS + Let's Encrypt; a domain change needs a redeploy.
+- Client IP chain: Traefik drops visitor-sent `X-Forwarded-*` and sends one address; Caddy trusts private ranges only
+  under Dokploy (it publishes no port there, so only containers on its networks reach it) and forwards
+  `X-Forwarded-For {client_ip}` alone, which the API (KnownNetworks, ForwardLimit 1) uses for the login rate limit.
+  `X-Forwarded-Proto: https` passes through the same way.
+- Staging: `SITE_ENV=staging` → Caddy adds `X-Robots-Tag: noindex, nofollow` everywhere and serves a disallow-all
+  `robots.txt`; basic auth is a Traefik `basicAuth` middleware in `/etc/dokploy/traefik/dynamic/` (bcrypt, VPS only)
+  referenced from the domain's Middlewares field as `alanshalem-staging-auth@file` (Dokploy's Security tab is for
+  Applications only). `removeHeader: true` keeps `Authorization` away from the API.
+- Triggers: staging on push to `master` (skips `[skip ci]` commits); production on tag, which deploys the **branch
+  head**, not the tagged commit.
+- Volumes are `<appName>_<volume>`: per environment, kept across deploys (`--remove-orphans` never removes volumes);
+  deleting the service with "delete volumes" ticked runs `down --volumes`.
+- `init-permissions` (one-shot) and the `depends_on` conditions behave as with plain compose; Dokploy uses `up -d`
+  without `--wait`, so a deploy reports success once the containers start: check `ps` / the Logs tab for `healthy`.
+- Verified end to end locally with Traefik v3.7.19 + docker provider on a `dokploy-network`, the base file rewritten
+  the way Dokploy does, staging and production side by side: 401 without credentials, noindex only on staging, the
+  API logging the client Traefik saw (a visitor-sent X-Forwarded-For ignored), 429 after 10 failed logins, and
+  `backup.sh` + `restore.sh --apply` finding the stack from its env file alone.
 - Ports are written in files that cannot import each other: `infra/test/ports.test.ts` fails when one changes alone.
   API: the Dockerfile's `ASPNETCORE_URLS` (runtime and dev), its own `healthcheck` command, the Caddyfile and the
   compose files; builder: its config default, its `EXPOSE` and the URL the API calls. Change a port everywhere at once.
@@ -114,15 +154,28 @@ sizes); a helper used by one script lives in that script.
   claim); the README "Update" section says so.
 - Rollback of a release = restore the backup taken before updating: migrations run at startup and `Down` migrations are
   not supported.
-- Tested by `infra/test/backup.test.ts` with a fake `docker` on the PATH (skipped on Windows; runs in CI) and once end to
-  end with real Docker.
+- Under Dokploy: root's cron runs `/etc/dokploy/compose/<appName>/code/infra/backup.sh` with a `BACKUP_DIR` per
+  environment (one shared folder would rotate the other environment's snapshots away); the script needs no change.
+  Dokploy's Volume Backups are not a substitute (a live SQLite copy can be inconsistent; keys must stay out).
+- Tested by `infra/test/backup.test.ts` with a fake `docker` on the PATH (skipped on Windows; runs in CI) and end to end
+  with real Docker (plain compose and the Dokploy shape).
 
 ## Caddy rules that must not regress (`infra/caddy/Caddyfile`)
 
 - `/api/internal` → `respond @internal 404` with `no-store`, **inside** `handle /api/*` and before `reverse_proxy`
   (a top-level `respond` never ran because `handle` is evaluated first; security fix `48f0158`).
 - `/api/admin/*` → `>Cache-Control "no-store"`. Health check `/api/health` every 2 s, 3 fails.
-- Global options first and only `{$CADDY_ACME_EMAIL}` (the whole `email …` option or nothing).
+- Global options first: `{$CADDY_ACME_EMAIL}` (the whole `email …` option or nothing) and `servers {
+  {$CADDY_TRUSTED_PROXIES} }` (empty = trust nobody, the plain VPS; the Dokploy override fills it). No
+  `trusted_proxies_strict`: it skips every trusted (private) address, and a visitor Traefik sees as Docker's gateway
+  became Traefik's IP in the API.
+- `reverse_proxy api:8080` sends `header_up X-Forwarded-For {client_ip}`: one address, the visitor (identical to
+  Caddy's default when nothing is trusted).
+- Staging: `@staging expression {env.SITE_ENV} == "staging"` is defined **once in the site block** (defining it in
+  the `(security)` snippet, imported twice, makes Caddy reject the file); the snippet uses it with a deferred
+  `header @staging >X-Robots-Tag "noindex, nofollow"` (so errors get it and it beats the admin's `noindex`), and
+  `handle @staging_robots` answers `/robots.txt` with `Disallow: /`. `SITE_ENV` comes from the base compose
+  (`${SITE_ENV:-production}`).
 - `(security)`: HSTS, nosniff, Referrer-Policy, Permissions-Policy, `X-Frame-Options DENY`, COOP `same-origin`, `-Server`,
   plus CORP `same-origin` as a separate `header` (inside the deferred `-Server` block it overrode `/media`'s CORP
   `cross-origin`, which RSS readers need). `/admin/*` adds `X-Robots-Tag "noindex"`.
@@ -158,7 +211,8 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
 ## Checklist
 
 - [ ] Compose/Dockerfile change brought up for real (dev or local copy) and the affected URLs checked.
-- [ ] `pnpm test:infra` green and `docker compose ... config -q` for the three stacks (CI's infra job runs both).
+- [ ] `pnpm test:infra` green and `docker compose ... config -q` for the four stacks: VPS, Dokploy
+      (`-f docker-compose.yml -f compose.dokploy.yml`), local copy and dev (CI's infra job runs the other three).
 - [ ] Caddy change: test updated + real Caddy validation + headers verified with `curl -I`.
 - [ ] New files needed by an image added to the `.dockerignore` whitelist.
 - [ ] New or updated image pinned by digest; both `NODE_IMAGE` references equal; Trivy (CI `images` job) finds no
@@ -179,3 +233,5 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
 - Unbounded `json-file` logs (the default driver) that fill the VPS disk; fixed with the capped `local` driver.
 - Caddy gated on the API's health: a sick API would keep the static site down. Caddy waits only for `service_started`.
 - Re-owning all media recursively on every `up` (slow); `init-permissions` now fixes only what differs.
+- `trusted_proxies_strict` behind Traefik: with a private client address the API saw Traefik's IP (all visitors would
+  share one login rate limit). Caught by the Dokploy-shaped end-to-end, not by `caddy validate`.

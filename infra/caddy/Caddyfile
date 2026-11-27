@@ -1,12 +1,23 @@
 # Caddy: automatic TLS (Let's Encrypt), HTTP/2 and HTTP/3, and it serves EVERYTHING public straight from disk.
 # The API only answers /api (login, editor, image uploads). Visitors never reach .NET or Node.
 #
-# SITE_ADDRESS = your domain (e.g. blog.mydomain.com). To test locally: localhost
+# SITE_ADDRESS = your domain (e.g. blog.mydomain.com). To test locally: localhost. Behind Dokploy's Traefik (which
+# terminates TLS): :80, set by infra/compose.dokploy.yml.
+# SITE_ENV = production (default) or staging: staging asks crawlers not to index anything (see the snippet below).
 
 # Global options. CADDY_ACME_EMAIL carries the whole option (`email you@example.com`) or nothing: docker-compose.yml
 # builds it from ACME_EMAIL, which is optional, and Caddy rejects an `email` without a value.
 {
 	{$CADDY_ACME_EMAIL}
+	# Whom Caddy believes X-Forwarded-For and X-Forwarded-Proto from. Nobody by default: on a VPS without another proxy
+	# Caddy is the edge and the visitor is whoever connects. Behind Dokploy's Traefik, compose.dokploy.yml fills
+	# CADDY_TRUSTED_PROXIES with the whole option (`trusted_proxies static ...`) so the visitor's IP and https reach the
+	# API. Not trusted_proxies_strict: Traefik drops the X-Forwarded-* a visitor sends and forwards exactly one address,
+	# and strict parsing skips every trusted (private) address, so a visitor Traefik sees with a private address (Docker's
+	# gateway) would turn into Traefik's own IP.
+	servers {
+		{$CADDY_TRUSTED_PROXIES}
+	}
 }
 
 # Security headers of every response. In a snippet because the error routes (handle_errors) do not go through the site
@@ -29,10 +40,16 @@
 	# it. Outside the block above on purpose: a block with `-Server` is applied deferred, when the response is written,
 	# and it would win over /media's.
 	header Cross-Origin-Resource-Policy "same-origin"
+	# Staging (SITE_ENV=staging) is never indexed, not even what a crawler reaches past the basic auth. Deferred (>) so
+	# it replaces the admin's own X-Robots-Tag "noindex" instead of losing to it. Production sends nothing new. @staging
+	# is defined once in the site block (handle_errors sees it too; defining it here would define it twice).
+	header @staging >X-Robots-Tag "noindex, nofollow"
 }
 
 {$SITE_ADDRESS:localhost} {
 	import security
+	# SITE_ENV comes from docker-compose.yml (production unless set).
+	@staging expression {env.SITE_ENV} == "staging"
 
 	# ---------- API ----------
 	# No request_body max_size on purpose: Caddy neither limits nor buffers the body (it streams it), and the only cap is
@@ -53,6 +70,10 @@
 		header @admin >Cache-Control "no-store"
 		encode zstd gzip
 		reverse_proxy api:8080 {
+			# Only the visitor's IP, alone: the API believes X-Forwarded-For from Caddy and reads one address (the login
+			# rate limit and the logs). {client_ip} is the address that connected, or, behind a trusted proxy (Traefik),
+			# the visitor it reported; Caddy's default would append the proxy's address after it.
+			header_up X-Forwarded-For {client_ip}
 			# If the API goes down, Caddy stops sending it traffic and answers 503 instead of hanging. Every 2 s: after
 			# a start or a deploy (the first check usually lands while .NET is starting), /api is back within a few
 			# seconds and not 30. 3 failures in a row to take it out: a single slow check does not leave it out.
@@ -119,6 +140,21 @@
 		@english header_regexp Accept-Language (?i)^\s*en\b
 		redir @english /en/ 302
 		redir * /es/ 302
+	}
+
+	# ---------- Staging: robots.txt disallows everything ----------
+	# Production serves the robots.txt the site generates (with its sitemap); staging must not be crawled at all.
+	@staging_robots {
+		path /robots.txt
+		expression {env.SITE_ENV} == "staging"
+	}
+	handle @staging_robots {
+		header Content-Type "text/plain; charset=utf-8"
+		header Cache-Control "no-cache"
+		respond <<TXT
+			User-agent: *
+			Disallow: /
+			TXT 200
 	}
 
 	# ---------- Public site (static HTML) ----------

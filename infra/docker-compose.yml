@@ -1,6 +1,8 @@
 # The whole blog with one command:   docker compose --env-file .env up -d --build
 # (run from the infra/ folder)
 #
+# Behind Dokploy (its Traefik owns 80/443 and TLS): this same file plus compose.dokploy.yml, which only changes Caddy.
+#
 # Resources sized for a shared VPS: every service has a memory cap, the build runs at low priority and visitors only
 # reach Caddy (static files). The caps below are limits, not measured usage: measure with `docker stats` after the first
 # deploy and adjust.
@@ -85,6 +87,9 @@ services:
       # Optional: email for Let's Encrypt notices (expirations, certificate problems). Caddy does not accept an empty
       # `email`, so the Caddyfile gets the whole option or nothing.
       CADDY_ACME_EMAIL: ${ACME_EMAIL:+email ${ACME_EMAIL}}
+      # production or staging: staging answers every request with X-Robots-Tag "noindex, nofollow" and a robots.txt
+      # that disallows everything (Caddyfile, @staging).
+      SITE_ENV: ${SITE_ENV:-production}
     # Root inside the container, but with no capabilities except opening ports 80/443, and with no-new-privileges.
     # Without root it would need high ports, and Caddy's HTTP→HTTPS redirect would then include that port.
     cap_add:

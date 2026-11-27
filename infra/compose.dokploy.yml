@@ -1,0 +1,32 @@
+# Behind Dokploy (srv2192513): the same docker-compose.yml (images, caps, healthchecks, volumes) with Caddy moved
+# behind Dokploy's Traefik, which owns ports 80/443 (TCP and UDP) and terminates TLS with Let's Encrypt. Only Caddy
+# changes; visitors get the same responses. Dokploy runs it with this custom command (service → Advanced → Command;
+# <appName> is the service's App Name, shown in its General tab):
+#
+#   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans
+#
+# Dokploy writes infra/.env from the Environment tab (adding COMPOSE_PROJECT_NAME=<appName>); with
+# COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml there too, backup.sh and restore.sh (run from infra/) find this
+# stack on their own. Runbook: docs/README.md, "Operations (Dokploy)".
+
+services:
+  caddy:
+    # Traefik already publishes 80/443 on the VPS: this Caddy publishes nothing.
+    ports: !reset []
+    environment:
+      # Plain HTTP for any host name: Caddy requests no certificate (Traefik terminates TLS and forwards http).
+      SITE_ADDRESS: ":80"
+      # Traefik is now Caddy's client: Caddy believes the X-Forwarded-For and X-Forwarded-Proto it sends, so the API
+      # keeps seeing the visitor's IP (login rate limit, logs) and https. private_ranges and not one subnet: without
+      # published ports only containers on Caddy's two networks reach it, and Swarm picks (and may change) the
+      # dokploy-network subnet.
+      CADDY_TRUSTED_PROXIES: trusted_proxies static private_ranges
+    # Traefik reaches Caddy over dokploy-network (Dokploy's domain labels point it there); the API and the builder stay
+    # only on this stack's private network.
+    networks:
+      - default
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true

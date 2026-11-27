@@ -20,6 +20,8 @@ Admin ──► API ──► SQLite
               └─ on publish ──► Builder ──► astro build ──► releases/<timestamp>/ ──► `current` symlink (atomic swap)
 ```
 
+On the VPS, Dokploy's Traefik sits in front of Caddy and terminates TLS (see "Operations").
+
 The home hero rotates on every visit between photos and short videos (≤ 15 s) uploaded from Settings. Every image is
 stored optimized (AVIF + WebP at several widths, no metadata, with libvips) and every video is trimmed, stripped of its
 audio and encoded with ffmpeg to AV1 + H.264 at 720p and 1080p.
@@ -33,9 +35,9 @@ barely works at rest and the site stays up even if the API goes down.
 | `packages/tokens` | Design tokens (`tokens.css`, the single source) and the `.prose` styles. |
 | `apps/admin` | React 19 + Vite. Native Markdown editor (`<textarea>` + pure command functions). |
 | `apps/web` | Astro 7, static output. Reads the posts from the API at build time. |
-| `apps/api` | .NET 10, Clean Architecture (Domain / Application / Infrastructure / Api), EF Core + SQLite. |
+| `apps/api` | .NET 11, Clean Architecture (Domain / Application / Infrastructure / Api), EF Core + SQLite. |
 | `apps/builder` | Dependency-free Node service: receives the build request, generates the site and swaps `current` atomically. |
-| `infra` | `docker-compose.yml` (VPS), `compose.local.yml` + `local.env` (local copy), `compose.dev.yml` (development), `caddy/` (Caddyfile and Caddy's Dockerfile, which also builds the admin), `backup.sh` / `restore.sh`. |
+| `infra` | `docker-compose.yml` (VPS), `compose.dokploy.yml` (the same behind Dokploy's Traefik), `compose.local.yml` + `local.env` (local copy), `compose.dev.yml` (development), `caddy/` (Caddyfile and Caddy's Dockerfile, which also builds the admin), `backup.sh` / `restore.sh`. |
 | `infra/test` | Guards for the compose files, the Dockerfiles, the ports and the Caddyfile, and the backup scripts with a fake `docker` (`pnpm test:infra`). |
 | `tooling/profile` | Generator of the profile README images (`assets/profile/`); run by the `profile.yml` Action. |
 | `tooling/agents` | Copies the skills to each agent and checks them (`pnpm agents:sync`, `pnpm agents:check`). |
@@ -44,7 +46,7 @@ barely works at rest and the site stays up even if the API goes down.
 
 ## Local development
 
-Requirements: Node ≥ 22.18, pnpm 10, .NET SDK 10 and, for hero videos, `ffmpeg` and `ffprobe` with `libsvtav1`
+Requirements: Node ≥ 22.18, pnpm 10, .NET SDK 11 and, for hero videos, `ffmpeg` and `ffprobe` with `libsvtav1`
 (SVT-AV1 4.x, the version the encoding was calibrated with) and `libx264`. The API looks for them on the PATH;
 otherwise set `Video:FfmpegPath` and `Video:FfprobePath`. Videos being processed live in `Video:WorkDirectory`
 (default `data/video-work`, never inside `Media:Directory`). libvips is not needed: it ships in the NuGet package.
@@ -157,10 +159,104 @@ tests that create symlinks; in CI (Linux) they all run.
 
 ## Operations (VPS)
 
-Every command runs from `infra/` with `--env-file .env` (without it, compose names the missing variable and does
-nothing).
+Production (`alanshalem.com`) and staging (`staging.alanshalem.com`) run on **Dokploy** (srv2192513): its Traefik owns
+ports 80/443 and the Let's Encrypt certificates, and this stack's Caddy listens on :80 inside `dokploy-network`
+(`infra/compose.dokploy.yml`). Visitors get the same responses as with Caddy at the edge. The same
+`docker-compose.yml` also runs on a plain VPS with only Docker, where Caddy does TLS itself ("First deploy (VPS without
+Dokploy)" below).
 
-### First deploy
+Every command runs from `infra/` with `--env-file .env` (without it, compose names the missing variable and does
+nothing). Under Dokploy, `infra/` is `/etc/dokploy/compose/<appName>/code/infra` (as root): the `.env` Dokploy writes
+there names the project (`COMPOSE_PROJECT_NAME=<appName>`) and both compose files (`COMPOSE_FILE`), so the commands and
+scripts below find that environment's stack as they are.
+
+### Dokploy: first deploy (once per environment)
+
+Each environment is its own Dokploy Compose service: its own project name (`<appName>`), volumes, database, media,
+session keys and builder token. Nothing is shared between staging and production.
+
+1. DNS: `A` records for `alanshalem.com` and `staging.alanshalem.com` pointing to the VPS IP.
+2. Dokploy → Settings → Git → GitHub: connect the GitHub account (GitHub App) with access to this repository.
+3. Projects → Create Project `alanshalem`, with two environments, `production` and `staging`. In each one: Create
+   Service → Compose, type **Docker Compose** (not Stack: Stack cannot `build`), provider GitHub, this repository,
+   branch `master`, Compose Path `./infra/docker-compose.yml`. Leave Isolated Deployments off. Save.
+4. Advanced → Command, with the App Name shown in the General tab (Dokploy deploys this exact command; it adds
+   `compose.dokploy.yml`, which takes Caddy off 80/443 and puts it behind Traefik):
+
+   ```text
+   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans
+   ```
+
+5. Environment (Dokploy writes it to `infra/.env` on every deploy; edit it here, never on the server). Staging:
+
+   ```bash
+   SITE_ADDRESS=:80
+   SITE_URL=https://staging.alanshalem.com
+   SITE_ENV=staging
+   BUILDER_TOKEN=...
+   ADMIN_PASSWORD_HASH='pbkdf2-sha256$...'
+   COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml
+   ```
+
+   - Production: `SITE_URL=https://alanshalem.com` and no `SITE_ENV` line (the default is `production`).
+   - `BUILDER_TOKEN`: `openssl rand -hex 32`, a different one per environment.
+   - `ADMIN_PASSWORD_HASH`: in single quotes (it contains `$`), generated on your machine with
+     `docker build --tag blog-api apps/api && docker run --rm -it blog-api hash-password` (12 characters or more,
+     typed without echo).
+   - `COMPOSE_FILE` is for the commands and scripts run on the VPS (`backup.sh`, `restore.sh`, `docker compose ...`);
+     Dokploy's own deploy passes the files in its command. `ACME_EMAIL` is not used: Traefik requests the
+     certificates.
+6. Domains → Add Domain: Service Name `caddy`, Host `staging.alanshalem.com` (or `alanshalem.com`), Path `/`,
+   Container Port `80`, HTTPS on, Certificate Provider Let's Encrypt. Staging also gets the basic auth middleware
+   (next section).
+7. Deploy and follow the deployment log: `init-permissions` runs once and exits with 0 (it is a one-shot), then `api`
+   becomes healthy and `builder` starts and builds the site. Open `https://<domain>/admin/`, create a post and
+   publish it.
+8. Automatic deploys, in General: staging with Auto Deploy on and the trigger on push (branch `master`); production
+   with Auto Deploy on and the trigger on tag (see "Dokploy: release flow").
+
+### Dokploy: staging basic auth and noindex
+
+Staging asks for a user and password in Traefik (before anything reaches this stack) and, with `SITE_ENV=staging`,
+Caddy adds `X-Robots-Tag: noindex, nofollow` to every response and serves a `robots.txt` that disallows everything.
+The password never goes to git: only its bcrypt hash, and only on the VPS.
+
+1. On your machine, the hash (the password is typed twice, without echo):
+   `docker run --rm -it httpd:2.4-alpine htpasswd -nB staging` → `staging:$2y$05$...`.
+2. Dokploy → Traefik File System → `dynamic/` (on the VPS: `/etc/dokploy/traefik/dynamic/`), new file
+   `alanshalem-staging-auth.yml` (Traefik reloads it on its own; `$` stays as is in this file):
+
+   ```yaml
+   http:
+     middlewares:
+       alanshalem-staging-auth:
+         basicAuth:
+           removeHeader: true   # the API never sees the Authorization header
+           users:
+             - "staging:$2y$05$..."
+   ```
+
+3. Staging service → Domains → `staging.alanshalem.com` → Middlewares: add `alanshalem-staging-auth@file`, save, and
+   Deploy (a Compose service applies domain changes on the next deploy).
+4. Check: `curl -I https://staging.alanshalem.com/` answers 401; with `-u staging` it answers 302 with
+   `X-Robots-Tag: noindex, nofollow`.
+
+Why in Traefik and not in Caddy: Dokploy attaches middlewares to a Compose domain, and Traefik checks the password
+before the request reaches the blog. Dokploy's Security tab (basic auth form) exists only for Applications.
+
+### Dokploy: release flow
+
+- Push to `master` → staging deploys on its own. It does not wait for CI: check the run is green before trusting
+  staging. Commits whose message carries `[skip ci]` (the daily profile images) deploy nothing.
+- When staging is right: `git tag vYYYY.MM.DD && git push origin vYYYY.MM.DD` → production deploys. **Dokploy deploys
+  the head of the configured branch, not the tagged commit** (it clones `--branch master --depth 1`): tag the head of
+  `master` that staging validated and do not push anything else before the production deploy starts.
+- Before tagging, a backup of production (`sh backup.sh` in its `infra/`): it is the only way back (see Rollback).
+- Each deploy rebuilds the images and recreates what changed; the volumes stay. Migrations run when the API starts and
+  a failed build never touches the published site.
+- Dokploy's Deployments tab keeps the logs of each deploy; its Logs tab, the containers' logs.
+
+### First deploy (VPS without Dokploy)
 
 1. Docker with the compose plugin, and the domain's DNS pointing to the VPS IP.
 2. `cp .env.example .env` and fill it in (`.env` is not versioned; never commit it):
@@ -180,9 +276,12 @@ nothing).
    debounced and run with `nice` and a heap cap so they do not get in the way of the other apps.
 
 If the VPS already has another reverse proxy on 80/443, do not bring this Caddy up as is: put yours in front and point
-it at the `caddy` container over an internal network. The API publishes no ports: only Caddy and the builder reach it.
+it at the `caddy` container over an internal network, as `compose.dokploy.yml` does for Traefik (no published ports,
+`SITE_ADDRESS=:80`, `CADDY_TRUSTED_PROXIES`). The API publishes no ports: only Caddy and the builder reach it.
 
 ### Update
+
+Under Dokploy an update is a push (staging) or a tag (production): see "Dokploy: release flow". Without Dokploy:
 
 ```bash
 sh backup.sh                                   # always first: it is the only way back (see Rollback)
@@ -200,8 +299,8 @@ version carry no epoch, so the new API rejects them: sign in again after the upd
 ### Rollback
 
 There are no `Down` migrations: going back to a previous version means **restoring the backup** taken before
-updating. First the previous code (`git checkout <commit>` and `docker compose --env-file .env build`), then the
-backup from that moment:
+updating. First the previous code (`git checkout <commit>` and `docker compose --env-file .env build`; under Dokploy, a
+revert on `master` and a new tag, deployed), then the backup from that moment:
 
 ```bash
 sh restore.sh /var/backups/blog/daily/<UTC>            # checks the snapshot and shows what it would do; changes nothing
@@ -223,6 +322,19 @@ user that runs Docker:
 15 3 * * * BACKUP_RCLONE_REMOTE=secret:blog sh /path/to/the/repo/infra/backup.sh >> /var/log/blog-backup.log 2>&1
 ```
 
+Under Dokploy, in root's crontab, one line per environment with its own `BACKUP_DIR` (two environments in one folder
+would rotate each other's snapshots). The script reads the `.env` Dokploy wrote next to it, so it finds that
+environment's stack; it exists after the first deploy, and a deploy re-clones the folder, so keep backups away from
+deploy times:
+
+```cron
+15 3 * * * BACKUP_DIR=/var/backups/alanshalem BACKUP_RCLONE_REMOTE=secret:alanshalem sh /etc/dokploy/compose/<appName>/code/infra/backup.sh >> /var/log/alanshalem-backup.log 2>&1
+```
+
+`restore.sh` the same way (`BACKUP_DIR=... sh /etc/dokploy/compose/<appName>/code/infra/restore.sh <snapshot>`).
+Dokploy's Volume Backups do not replace this: they copy the volume as it is, and a SQLite database being written can
+be copied half-way; `backup.sh` asks the API for a consistent copy and leaves the session keys out on purpose.
+
 - Without `BACKUP_RCLONE_REMOTE`, the backup stays only on the VPS: if the disk is lost, everything is lost. Set up a
   remote copy with rclone: a **`crypt`** remote (`rclone config` → crypt) on top of whatever S3, B2, Drive… you use.
   The backup holds the database (with the admin hash and the drafts): the script rejects an unencrypted remote unless
@@ -231,7 +343,8 @@ user that runs Docker:
 - Test the restore now and then: `sh restore.sh <snapshot>` (without `--apply`) checks that the snapshot is sound.
 - On a new VPS: the repo, the previous `.env` (keep it somewhere else: it is not in the backup),
   `rclone copy "$BACKUP_RCLONE_REMOTE" /var/backups/blog`, `docker compose --env-file .env build` and `restore.sh` as
-  above.
+  above. Under Dokploy: create the service and deploy it once ("Dokploy: first deploy", with the previous values), copy
+  the backup with rclone and run its `restore.sh`.
 
 ### Logs
 
@@ -258,16 +371,17 @@ it): check its logs.
 ### Rotate the admin password and the builder token
 
 - Password: generate the new hash (as in the first deploy), replace `ADMIN_PASSWORD_HASH` in `.env` and run
-  `docker compose --env-file .env up -d api`. Then sign in to the admin with the new password and log out: logging out
+  `docker compose --env-file .env up -d api` (under Dokploy: in the service's Environment tab, then Deploy). Then sign in to the admin with the new password and log out: logging out
   invalidates every open session (a copied cookie too).
 - Token: `openssl rand -hex 32`, replace `BUILDER_TOKEN` in `.env` and run `docker compose --env-file .env up -d` (the
-  API and the builder read it at startup).
+  API and the builder read it at startup; under Dokploy: Environment tab, then Deploy).
 
 ### Firewall
 
 Open only SSH, 80/tcp and 443 (tcp and udp, HTTP/3). For example with ufw: `ufw allow OpenSSH`, `ufw allow 80/tcp`,
 `ufw allow 443`, `ufw enable` (or the VPS provider's firewall). Careful: Docker opens the ports it publishes in
-iptables without going through ufw; here only Caddy publishes them (80 and 443).
+iptables without going through ufw; here only Caddy publishes them (80 and 443). Under Dokploy only its Traefik
+publishes 80/443; this stack publishes nothing.
 
 ### Disk
 
@@ -283,7 +397,10 @@ There is no internal monitoring. Set up an external availability check (any upti
 
 - `https://your-domain/` (the static site: what visitors see),
 - `https://your-domain/api/health/ready` (the API and the database: the admin),
-- the TLS certificate expiration (Caddy renews it on its own; the alert tells you if renewal fails).
+- the TLS certificate expiration (Caddy renews it on its own; under Dokploy, Traefik; the alert tells you if renewal
+  fails).
+
+Staging is behind basic auth: a check there needs the credentials (or watch production only).
 
 ## Security (what is implemented)
 
@@ -292,7 +409,8 @@ There is no internal monitoring. Set up an external availability check (any upti
 - Password with PBKDF2-SHA256 (600k iterations), 12 characters or more; only the hash goes in `.env`.
 - CSRF: mandatory `X-Requested-With: blog-admin` header on the admin routes.
 - Login rate limit: 10 attempts / 15 min per IP (the real IP: `X-Forwarded-For` is only believed when it comes from the
-  Docker networks, `ForwardedHeaders:KnownNetworks`).
+  Docker networks, `ForwardedHeaders:KnownNetworks`). Caddy sends the API one address, the visitor's; behind Dokploy it
+  is the one Traefik reports (Caddy trusts it with `CADDY_TRUSTED_PROXIES`; Traefik drops what a visitor sends).
 - Image uploads validated by *magic bytes* (PNG, JPG, GIF, WebP, AVIF), max 8 MB; SVG rejected on purpose.
 - Videos (MP4, MOV, WebM, MKV) validated by *magic bytes* and ffprobe, max 200 MB and 15 s; the original (with audio
   and metadata) never reaches `/media`.

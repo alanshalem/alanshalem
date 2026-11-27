@@ -22,20 +22,20 @@ Admin ─► API ─► SQLite ; publish ─► durable rebuild request ─► b
 
 | Path | What | Stack |
 |---|---|---|
-| `apps/api` | Clean Architecture: `Blog.Domain` / `Blog.Application` / `Blog.Infrastructure` / `Blog.Api`, xUnit tests in `tests/Blog.Tests` | .NET 10, EF Core + SQLite, NetVips, ffmpeg |
+| `apps/api` | Clean Architecture: `Blog.Domain` / `Blog.Application` / `Blog.Infrastructure` / `Blog.Api`, xUnit tests in `tests/Blog.Tests` | .NET 11, EF Core + SQLite, NetVips, ffmpeg |
 | `apps/web` | Public site, 100% static, reads the API at build time; logic in `src/lib/*.ts` | Astro 7 |
 | `apps/admin` | Admin SPA under `/admin/`; native Markdown editor | React 19 + Vite |
 | `apps/builder` | Dependency-free Node service: runs `astro build`, precompresses, swaps `current` | Node ≥ 22.18 |
 | `packages/markdown` | Own Markdown renderer (no deps, no raw HTML); used by site and admin preview | TypeScript |
 | `packages/tokens` | Design tokens (`tokens.css`, the single source) and `.prose` styles | CSS |
-| `infra` | `docker-compose.yml` (VPS), `compose.local.yml` + `local.env` (local prod copy), `compose.dev.yml`, `caddy/Caddyfile`, `backup.sh` / `restore.sh`, guard tests in `test/` | Docker, Caddy 2 |
+| `infra` | `docker-compose.yml` (VPS), `compose.dokploy.yml` (behind Dokploy's Traefik: production + staging), `compose.local.yml` + `local.env` (local prod copy), `compose.dev.yml`, `caddy/Caddyfile`, `backup.sh` / `restore.sh`, guard tests in `test/` | Docker, Caddy 2, Dokploy |
 | `.github` | project `README.md`, `workflows/ci.yml` (CI), `workflows/profile.yml` (profile images), `dependabot.yml` | GitHub Actions |
 | `tooling` | `dev-watch.ts` (polling watcher), `agents/` (skill sync + check), `profile/` (profile README SVG generator) | Node |
 | `docs/design` | `DESIGN-SYSTEM.md` (tokens live only in `packages/tokens`) | — |
 
 ## Run, test, build
 
-Requirements without Docker: Node ≥ 22.18 (tests run `.ts` directly), pnpm 10, .NET SDK 10, and for hero videos
+Requirements without Docker: Node ≥ 22.18 (tests run `.ts` directly), pnpm 10, .NET SDK 11, and for hero videos
 `ffmpeg`/`ffprobe` with `libsvtav1` and `libx264` on the PATH (or `Video:FfmpegPath` / `Video:FfprobePath`).
 
 ```bash
@@ -59,6 +59,11 @@ docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env u
 ```
 
 `--env-file` goes on every command of those projects (`up`, `logs`, `down`). Details: skill `docker-and-deploy`.
+
+Deploy: Dokploy on srv2192513 runs `docker-compose.yml` + `compose.dokploy.yml` (Caddy on :80 inside
+`dokploy-network`, Traefik does TLS), one Compose service per environment: push to `master` → staging
+(`staging.alanshalem.com`, basic auth in Traefik, `SITE_ENV=staging` = noindex), git tag → production
+(`alanshalem.com`). Runbook: `docs/README.md` "Operations". Never deploy, tag or push without the user.
 
 **How to verify = CI.** `.github/workflows/ci.yml` runs on every push and PR to `master` (read-only, actions pinned by
 SHA): jobs `node` (install, typecheck, `pnpm test`, admin build, `agents:check`), `dotnet` (`-warnaserror` build + all
