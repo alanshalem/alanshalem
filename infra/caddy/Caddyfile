@@ -113,6 +113,8 @@
 	}
 
 	# ---------- Admin panel (React SPA, already built) ----------
+	# Typed without the trailing slash, the address still opens the panel instead of the site's 404.
+	redir /admin /admin/ 308
 	handle_path /admin/* {
 		root * /srv/admin
 		# The panel has nothing to index: not even the login screen shows up in a search engine.

@@ -153,3 +153,7 @@ test('/media does not serve the restore staging folder', () => {
   // restore.sh stages the files in /media/.restoring before moving them into place: it must never be visible.
   assert.match(directiveText(block('handle_path /media/* {')), /file_server \{\s*hide \.restoring\s*\}/);
 });
+
+test('/admin without the trailing slash redirects to the admin instead of a 404', () => {
+  assert.match(directiveText(caddy), /^redir \/admin \/admin\/ 308$/m);
+});
