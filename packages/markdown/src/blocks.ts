@@ -1,10 +1,12 @@
 import { escapeHtml } from './escape.ts';
 import { plainInline, renderFigure, renderInline, type InlineContext } from './inline.ts';
 import { CALLOUT_KINDS, type CalloutKind, type Labels } from './labels.ts';
+import { displayMathAt } from './math.ts';
 import type { Heading } from './types.ts';
 
 /**
- * Block renderer: headings, paragraphs, figures, lists, quotes, callouts, code, tables and rules.
+ * Block renderer: headings, paragraphs, figures, lists, quotes, callouts, code, tables, rules and, with the `math`
+ * option, display math (`$$` blocks and ```` ```math ```` fences).
  *
  * Works on an array of lines. Containers (quotes, list items) strip their prefix from the lines and call
  * themselves recursively.
@@ -114,9 +116,17 @@ export function renderBlocks(lines: string[], ctx: BlockContext): string {
 
     const fence = FENCE_OPEN.exec(line);
     if (fence) {
-      const result = parseFence(lines, i, fence);
+      const result = parseFence(lines, i, fence, ctx);
       out.push(result.html);
       i = result.next;
+      continue;
+    }
+
+    const mathSlot = ctx.inline.math;
+    const math = mathSlot ? displayMathAt(lines, i) : null;
+    if (mathSlot && math) {
+      out.push(mathSlot(math.tex, true));
+      i = math.next;
       continue;
     }
 
@@ -164,7 +174,12 @@ export function renderBlocks(lines: string[], ctx: BlockContext): string {
 
 /* ------------------------------- Code ------------------------------- */
 
-function parseFence(lines: string[], start: number, open: RegExpExecArray): { html: string; next: number } {
+function parseFence(
+  lines: string[],
+  start: number,
+  open: RegExpExecArray,
+  ctx: BlockContext,
+): { html: string; next: number } {
   const fence = open[1] ?? '```';
   const language = open[2] ?? '';
   const code: string[] = [];
@@ -180,6 +195,9 @@ function parseFence(lines: string[], start: number, open: RegExpExecArray): { ht
     code.push(stripIndent(line, openIndent));
     i += 1;
   }
+
+  // ```math is display math (GitHub's syntax) when the option is on; without it, a code block like any other.
+  if (language === 'math' && ctx.inline.math) return { html: ctx.inline.math(code.join('\n'), true), next: i };
 
   const classAttr = SAFE_LANGUAGE.test(language) ? ` class="language-${escapeHtml(language)}"` : '';
   // A long line scrolls horizontally: tabindex makes it keyboard scrollable (WCAG 2.1.1).
@@ -210,6 +228,7 @@ function parseParagraph(lines: string[], start: number, ctx: BlockContext): { ht
   while (i < lines.length) {
     const line = lines[i] ?? '';
     if (isBlank(line) || startsBlock(line)) break;
+    if (ctx.inline.math && displayMathAt(lines, i)) break;
     collected.push(line);
     i += 1;
   }

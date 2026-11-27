@@ -9,7 +9,8 @@ description: "Rules of the dependency-free Markdown renderer in packages/markdow
 
 - Zero runtime dependencies. Public API in `src/index.ts`: `renderMarkdown`, `blockStartLines`,
   `POST_BODY_RENDER_OPTIONS`, `excerpt`, `readingTimeMinutes`, `readingTimeOfText`, `wordCount`, `toPlainText`,
-  `slugify`, `escapeHtml`, `unescapeHtml`, `sanitizeUrl`, types `Heading`, `Lang`, `RenderOptions`, `RenderResult`.
+  `slugify`, `escapeHtml`, `unescapeHtml`, `sanitizeUrl`, types `Heading`, `Lang`, `MathRenderer`, `RenderOptions`,
+  `RenderResult`.
   `test/escape.test.ts` pins that exact list: adding or removing an export is a deliberate change to that test.
 - `unescapeHtml` is the exact inverse of `escapeHtml` (one table in `src/escape.ts`, decoded in one pass): plain text
   uses it, and any site or admin code that needs the text back imports it instead of keeping its own copy.
@@ -28,11 +29,14 @@ description: "Rules of the dependency-free Markdown renderer in packages/markdow
   control characters and spaced-out schemes (`java script:`) are rejected. External links get
   `rel="noopener noreferrer"` (`isExternalUrl`).
 - Do not add an "allow HTML" option. If a feature seems to need HTML, add Markdown syntax that renders it.
+- The one injected HTML is the `math` option's output (a `MathRenderer`): the renderer passes it the raw TeX and puts
+  its result in the page as is, so that function owns its safety. The only one wired in is `renderTex` of
+  `@blog/math` (Temml with `trust: false`; see that package for its security tests).
 
 ## Options are opt-in
 
 `RenderOptions` (`src/types.ts`): `headingOffset`, `minHeadingLevel`, `lang` (`'es'` default), `smartTypography`,
-`figures`. New behavior that changes existing output is an option that defaults to off, so old content renders the
+`figures`, `math`. New behavior that changes existing output is an option that defaults to off, so old content renders the
 same; preservation tests pin that.
 
 ```ts
@@ -51,13 +55,23 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
 - Callouts: `> [!NOTE]`, `> [!TIP]` (rendered "Puntos clave" / "Key takeaways"), `> [!WARNING]`. Labels per language
   live in one table in `src/labels.ts` (`CALLOUT_KINDS`, `labelsFor`).
 - Figures: an image alone in its paragraph with a title, `![alt](url "caption")` → `<figure>` + `<figcaption>`.
+- Math (only with the `math` option, a `(tex, display) => html` function; undefined = `$` is plain text): inline
+  `$...$` with pandoc's rule — the opening `$` is not followed by whitespace, the first `$` after it closes only if it
+  is not preceded by whitespace nor followed by a digit, so `cuesta $5 y $10` stays text; `\$` is a literal dollar
+  (inside math too); a `$$` run inside a paragraph is text. Never inside code spans, code blocks, link destinations,
+  autolinks or bare URLs. Display math: a `$$` line, the TeX and a closing `$$` line (no blank line in between; it
+  interrupts a paragraph), a one-line `$$ tex $$`, or a ```` ```math ```` fence; it is a top-level block (counts in
+  `blockStarts`) wrapped in `<div class="math-display" tabindex="0">`. Formulas leave `<$n>` slots while rendering
+  (`src/math.ts`; user text cannot forge one, every `<` is escaped) filled at the end: the injected HTML for `html`,
+  the TeX source for `text`. Smart typography and emphasis never look inside a formula.
 - Smart typography by language: quotes, dashes, ellipsis — never inside code, URLs or attributes. What counts as a
   word character is one predicate, `isWordChar` (`src/typography.ts`), shared by smart quotes and the `_` emphasis
   rule in `src/inline.ts`.
 
 ## Accessible output
 
-- `<pre tabindex="0">` (scrollable code is keyboard reachable, WCAG 2.1.1).
+- `<pre tabindex="0">` (scrollable code is keyboard reachable, WCAG 2.1.1); display math likewise in
+  `<div class="math-display" tabindex="0">`.
 - Tables wrapped in `<div class="table-wrap" tabindex="0" role="region" aria-label="Tabla|Table">`.
 - Heading ids are unique per document (the internal `createSlugger`).
 
@@ -65,7 +79,8 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
 
 - A consumer that already rendered reads the result instead of re-parsing: the admin's single preview render feeds
   the preview, the counter (`text`), the outline (`headings` + `blockStarts`) and the scroll sync (`blockStarts`).
-- `blockStartLines(source)` = `renderMarkdown(source).blockStarts` (options never move block boundaries) and
+- `blockStartLines(source)` = `renderMarkdown(source).blockStarts` (only `math` moves block boundaries: it adds
+  display math blocks; the admin reads its preview render's `blockStarts`, which has them) and
   `toPlainText(source)` = `renderMarkdown(source).text`; use them only when there is no render result at hand.
 - `wordCount(plainText)` and `readingTimeOfText(plainText, wpm = 200)` (minimum 1) apply the site's formula to a text
   already computed; `readingTimeMinutes(markdown)` = `readingTimeOfText(toPlainText(markdown))`.
@@ -76,7 +91,7 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
 ## Tests
 
 `packages/markdown/test/*.test.ts` (node --test): `render.test.ts`, `blocks.test.ts`, `extensions.test.ts`,
-`accessibility.test.ts`, `escape.test.ts` (the public API list, `escapeHtml`/`unescapeHtml` round trip). For each change: a RED test for the new syntax, plus a test proving Markdown that does not
+`accessibility.test.ts`, `math.test.ts`, `escape.test.ts` (the public API list, `escapeHtml`/`unescapeHtml` round trip). For each change: a RED test for the new syntax, plus a test proving Markdown that does not
 use it renders exactly as before.
 
 ## Checklist

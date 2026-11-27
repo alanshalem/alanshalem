@@ -1,10 +1,11 @@
 import { escapeHtml } from './escape.ts';
-import { isWordChar, smartenText } from './typography.ts';
+import type { MathSlot } from './math.ts';
+import { BARE_URL, isWordChar, smartenText } from './typography.ts';
 import { isExternalUrl, sanitizeUrl } from './url.ts';
 
 /**
- * Inline renderer: **bold**, *italic*, ~~strikethrough~~, `code`, [links](url), ![images](url), <autolinks>
- * and footnote references [^id].
+ * Inline renderer: **bold**, *italic*, ~~strikethrough~~, `code`, [links](url), ![images](url), <autolinks>,
+ * footnote references [^id] and, with the `math` option, $TeX$.
  *
  * A simple parser (it does not implement CommonMark's full delimiter algorithm): emphasis closes with a
  * delimiter run of the SAME length as the one that opened it. Predictable, and it covers what blog writing uses.
@@ -20,10 +21,13 @@ export interface InlineContext {
   smartTypography: boolean;
   /** HTML of the `[^id]` reference, or null when it has no definition (then it stays literal text). */
   footnoteRef: (id: string) => string | null;
+  /** With the `math` option: the slot of a formula (math.ts). Null without it, and then `$` is plain text. */
+  math: MathSlot | null;
 }
 
-// Characters that can start syntax. Everything else is copied, escaped, in one go.
+// Characters that can start syntax. Everything else is copied, escaped, in one go. `$` only with the math option.
 const SPECIAL = /[\\`!\[<*_~\n]/g;
+const SPECIAL_WITH_MATH = /[\\`!\[<*_~\n$]/g;
 const ASCII_PUNCTUATION = /[!-/:-@[-`{-~]/;
 const AUTOLINK = /<((?:https?:\/\/|mailto:)[^\s<>]+)>/y;
 const FOOTNOTE_REF = /\[\^([^\]\s]+)\]/y;
@@ -31,10 +35,11 @@ const FOOTNOTE_REF = /\[\^([^\]\s]+)\]/y;
 export function renderInline(source: string, ctx: InlineContext, insideLink = false): string {
   let html = '';
   let i = 0;
+  const special = ctx.math ? SPECIAL_WITH_MATH : SPECIAL;
 
   while (i < source.length) {
-    SPECIAL.lastIndex = i;
-    const match = SPECIAL.exec(source);
+    special.lastIndex = i;
+    const match = special.exec(source);
     const next = match ? match.index : source.length;
 
     if (next > i) {
@@ -107,9 +112,88 @@ function parseSpecial(source: string, i: number, ctx: InlineContext, insideLink:
     case '_':
     case '~':
       return parseEmphasis(source, i, ctx, insideLink);
+    case '$':
+      return ctx.math ? parseMath(source, i, ctx.math) : null;
     default:
       return null;
   }
+}
+
+const DOLLAR_RUN = /\$+/y;
+const DIGIT = /\d/;
+const BARE_URL_AT = new RegExp(BARE_URL.source, 'iy');
+const HAS_BARE_URL = new RegExp(BARE_URL.source, 'i');
+
+const dollarRun = (source: string, i: number): number => {
+  DOLLAR_RUN.lastIndex = i;
+  return DOLLAR_RUN.exec(source)?.[0].length ?? 1;
+};
+
+/** The `$` at `i` as a formula (its slot), or the whole `$` run as text. */
+function parseMath(source: string, i: number, slot: MathSlot): Parsed {
+  const formula = findMath(source, i);
+  if (formula) return { html: slot(formula.tex, false), end: formula.end };
+  const run = dollarRun(source, i);
+  return { html: '$'.repeat(run), end: i + run };
+}
+
+/**
+ * `$tex$` at `i`, with pandoc's rule so prices stay text: the opening `$` is not followed by whitespace, and the first
+ * `$` after it closes only if it is not preceded by whitespace nor followed by a digit (`$5 y $10` is text). `\$` is a
+ * literal dollar, outside and inside math. A `$$` run inside a paragraph is text: display math is a block (blocks.ts).
+ * The closing `$` is never looked for inside code spans, autolinks, links or bare URLs. Pure: it only finds.
+ */
+function findMath(source: string, i: number): { tex: string; end: number } | null {
+  if (dollarRun(source, i) > 1 || isSpaceOrEdge(source[i + 1]) || insideBareUrl(source, i)) return null;
+
+  let j = i + 1;
+  while (j < source.length) {
+    const char = source[j];
+    if (char === '\\') {
+      j += 2;
+      continue;
+    }
+    const skipped = skipLiteralSpan(source, j);
+    if (skipped > j) {
+      j = skipped;
+      continue;
+    }
+    if (char === '$') {
+      const closes = source[j + 1] !== '$' && !isSpaceOrEdge(source[j - 1]) && !DIGIT.test(source[j + 1] ?? '');
+      return closes ? { tex: source.slice(i + 1, j), end: j + 1 } : null;
+    }
+    j += 1;
+  }
+  return null;
+}
+
+/** Is the `$` at `i` part of a bare URL (`https://e.com/$x`)? A URL is one token: look back to the last space. */
+function insideBareUrl(source: string, i: number): boolean {
+  let start = i;
+  while (start > 0 && !/\s/.test(source[start - 1] ?? '')) start -= 1;
+  return HAS_BARE_URL.test(source.slice(start, i));
+}
+
+/**
+ * Where a span whose `$`s are never math ends, if one starts at `j` (a closed code span, an autolink, a link or a
+ * bare URL); `j` itself when none does.
+ */
+function skipLiteralSpan(source: string, j: number): number {
+  const char = source[j];
+  if (char === '`') {
+    const code = parseCodeSpan(source, j);
+    return code.html.startsWith('<code>') ? code.end : j;
+  }
+  if (char === '<') {
+    AUTOLINK.lastIndex = j;
+    return AUTOLINK.exec(source) ? AUTOLINK.lastIndex : j;
+  }
+  if (char === '[') return parseLinkTarget(source, j)?.end ?? j;
+  if (isSpaceOrEdge(source[j - 1])) {
+    BARE_URL_AT.lastIndex = j;
+    return BARE_URL_AT.exec(source) ? BARE_URL_AT.lastIndex : j;
+  }
+  return j;
 }
 
 /** `code` with backtick runs of any length. If it never closes, the run is shown literally. */
@@ -313,6 +397,11 @@ function parseEmphasis(source: string, i: number, ctx: InlineContext, insideLink
     }
     if (char === '`') {
       j = parseCodeSpan(source, j).end;
+      continue;
+    }
+    // A formula is one unit: an emphasis delimiter inside it neither closes nor opens anything.
+    if (char === '$' && ctx.math) {
+      j = findMath(source, j)?.end ?? j + dollarRun(source, j);
       continue;
     }
     if (char === delimiter) {

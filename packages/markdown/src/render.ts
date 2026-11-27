@@ -2,6 +2,7 @@ import { renderBlocks } from './blocks.ts';
 import { createFootnotes, extractFootnoteDefinitions } from './footnotes.ts';
 import type { InlineContext } from './inline.ts';
 import { labelsFor } from './labels.ts';
+import { createFormulas } from './math.ts';
 import { plainTextOf } from './plainText.ts';
 import { createSlugger } from './slug.ts';
 import type { RenderOptions, RenderResult } from './types.ts';
@@ -20,9 +21,11 @@ export function renderMarkdown(source: string, options: RenderOptions = {}): Ren
 
   const { lines, definitions } = extractFootnoteDefinitions(source.replace(/\r\n?/g, '\n').split('\n'));
   const footnotes = createFootnotes(definitions, labels);
+  const formulas = options.math ? createFormulas(options.math) : null;
   const inline: InlineContext = {
     smartTypography: options.smartTypography ?? false,
     footnoteRef: footnotes.reference,
+    math: formulas?.slot ?? null,
   };
 
   const body = renderBlocks(lines, {
@@ -40,11 +43,13 @@ export function renderMarkdown(source: string, options: RenderOptions = {}): Ren
   const section = footnotes.renderSection(inline);
   const html = section ? `${body}\n${section}` : body;
 
-  return { html, headings, blockStarts, text: plainTextOf(html) };
+  if (!formulas) return { html, headings, blockStarts, text: plainTextOf(html) };
+  return { html: formulas.html(html), headings, blockStarts, text: plainTextOf(formulas.textHtml(html)) };
 }
 
 /**
- * `renderMarkdown(source).blockStarts`: options never move block boundaries, so none are taken.
+ * `renderMarkdown(source).blockStarts`: the boundaries without options (only `math` moves them, adding display math
+ * blocks), so none are taken.
  * A caller that also needs the HTML uses the render result instead, without a second pass.
  */
 export function blockStartLines(source: string): number[] {
