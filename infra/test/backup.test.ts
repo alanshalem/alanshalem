@@ -29,6 +29,12 @@ up)
 		exit 1
 	fi
 	exit 0 ;;
+stop)
+	if [ -n "$FAKE_STOP_FAIL" ] && [ -e "$FAKE_ROOT/up-failed" ]; then
+		echo "Cannot connect to the Docker daemon" >&2
+		exit 1
+	fi
+	exit 0 ;;
 esac
 case " $* " in *' -euc '*) ;; *) exit 0 ;; esac      # stop, init-permisos, request-build: solo se registran
 for last; do :; done                    # el script es el último argumento
@@ -511,6 +517,18 @@ describe('backup.sh y restore.sh', { skip }, () => {
       const swap = log.findIndex((line, index) => index > firstUp && line.includes('mv .restoring/blog.db blog.db'));
       assert.ok(firstUp >= 0 && stop > firstUp && stop < swap, 'la vuelta atrás nunca cambia la base con la API en marcha');
       assert.equal(readDb(live('blog.db')), 'base nueva');
+    });
+
+    it('si en la vuelta atrás no se puede parar la API, no cambia la base y dice cómo terminar a mano', async () => {
+      const snapshot = await backupThenChange();
+
+      const result = await sh('restore.sh', [snapshot, '--apply'], { FAKE_UP_FAIL: '1', FAKE_STOP_FAIL: '1' });
+
+      assert.equal(result.code, 1);
+      const [pre] = await preRestore();
+      assert.match(result.stderr, new RegExp(`no se pudo volver a poner la copia previa sola\\. A mano: sh restore\\.sh ${backups}/${pre} --apply`));
+      assert.equal((await calls()).match(/mv \.restoring\/blog\.db blog\.db/g)?.length, 1, 'un solo cambio de base: el del restore');
+      assert.equal(readDb(live('blog.db')), 'base de prueba');
     });
 
     it('rechaza un snapshot con la base dañada (integrity_check) sin tocar nada', async () => {
