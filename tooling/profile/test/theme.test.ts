@@ -48,6 +48,8 @@ describe('cssColors', () => {
       --page: var(--ink);
       --alias: var(--page);
       --broken: var(--missing);
+      --loop-a: var(--loop-b);
+      --loop-b: var(--loop-a);
     }
     .paper { --page: #ffffff; }
   `;
@@ -67,6 +69,10 @@ describe('cssColors', () => {
     assert.throws(() => colorOf('nope'), { message: 'tokens.css has no --nope' });
     assert.throws(() => colorOf('commented'), { message: 'tokens.css has no --commented' });
     assert.throws(() => colorOf('broken'), { message: 'tokens.css has no --missing' });
+  });
+
+  it('fails on a var() cycle instead of overflowing the stack', () => {
+    assert.throws(() => colorOf('loop-a'), { message: 'tokens.css has a var() cycle: --loop-a -> --loop-b -> --loop-a' });
   });
 });
 

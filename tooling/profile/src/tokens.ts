@@ -9,12 +9,16 @@ export function cssColors(css: string): (name: string) => string {
   const declarations = root.matchAll(/--([\w-]+):\s*([^;]+);/g);
   const properties = new Map([...declarations].map(([, name, value]) => [name!, value!.trim()]));
 
-  const colorOf = (name: string): string => {
+  const colorOf = (name: string, seen: readonly string[] = []): string => {
+    if (seen.includes(name)) {
+      const chain = [...seen, name].map((property) => `--${property}`).join(' -> ');
+      throw new Error(`tokens.css has a var() cycle: ${chain}`);
+    }
     const value = properties.get(name);
     if (value === undefined) throw new Error(`tokens.css has no --${name}`);
     const reference = /^var\(--([\w-]+)\)$/.exec(value)?.[1];
-    if (reference) return colorOf(reference);
+    if (reference) return colorOf(reference, [...seen, name]);
     return value.toLowerCase().replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/, '#$1$1$2$2$3$3');
   };
-  return colorOf;
+  return (name) => colorOf(name);
 }
