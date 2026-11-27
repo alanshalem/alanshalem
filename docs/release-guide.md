@@ -292,8 +292,9 @@ without touching the site.
    ```
 
 4. **[Dokploy]** In each environment (`staging` and `production`), the environment's own variables (shared by its
-   services, not a service's Environment tab): `IMAGE_TAG=sha-<a published commit>`. The workflow overwrites it on
-   every deploy; the first value only keeps the next step's reference resolvable.
+   services, not a service's Environment tab): `IMAGE_TAG=sha-<a published commit>`. Optional: the workflow
+   writes this variable before every deploy (checked on the first deploy, which ran without it); set it only if you
+   deploy from the Dokploy panel before the workflow ever ran.
 5. **[Dokploy]** In both services (`staging` → `blog` and `production` → `blog`), Environment tab: add this line as
    is and Save. Dokploy replaces it with the environment's `IMAGE_TAG` variable, which the workflow sets on every
    deploy (that variable list holds only this line; the workflow replaces it whole):
