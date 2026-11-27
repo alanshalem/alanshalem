@@ -1,5 +1,5 @@
-# Integración continua: los mismos comandos que se corren a mano antes de commitear (README del proyecto, "Cómo
-# verificar"). Un job por tema, en paralelo; ninguno publica nada ni usa secretos del repo.
+# Continuous integration: the same commands that are run by hand before committing (project README, "How to
+# verify"). One job per topic, in parallel; none publishes anything or uses the repo's secrets.
 name: CI
 
 on:
@@ -8,11 +8,11 @@ on:
   pull_request:
     branches: [master]
 
-# Solo leer el código: ningún job escribe en el repo, en issues ni en paquetes.
+# Read the code only: no job writes to the repo, to issues or to packages.
 permissions:
   contents: read
 
-# Un push nuevo a la misma rama (o al mismo PR) cancela la corrida anterior, que ya quedó vieja.
+# A new push to the same branch (or the same PR) cancels the previous run, which is already stale.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -22,7 +22,7 @@ jobs:
     name: Node (typecheck, tests, admin build, skills)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # corepack baja pnpm en el primer `pnpm`: sin preguntar (no hay terminal), como en las imágenes.
+    # corepack downloads pnpm on the first `pnpm`: without asking (there is no terminal), as in the images.
     env: &corepack-env
       COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
     steps:
@@ -30,8 +30,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # El Node de las imágenes de producción (apps/builder/Dockerfile, el mismo que infra/caddy/Dockerfile: lo compara
-      # un test de infra/test): una sola versión que actualizar, y CI prueba con la que corre en el VPS.
+      # The Node of the production images (apps/builder/Dockerfile, the same as infra/caddy/Dockerfile: a test in
+      # infra/test compares them): one version to update, and CI tests with the one that runs on the VPS.
       - &node-version
         name: Node version of the production images
         id: node
@@ -44,10 +44,10 @@ jobs:
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: ${{ steps.node.outputs.version }}
-          # Sin caché: pnpm todavía no está instalado acá (lo trae corepack en el paso siguiente).
+          # No cache: pnpm is not installed yet here (corepack brings it in the next step).
           package-manager-cache: false
 
-      # pnpm en la versión exacta de "packageManager" (package.json), como en las imágenes.
+      # pnpm at the exact "packageManager" version (package.json), as in the images.
       - &pnpm
         name: pnpm from packageManager
         run: corepack enable
@@ -67,14 +67,14 @@ jobs:
         with:
           persist-credentials: false
 
-      # El destino `dev` de apps/api/Dockerfile: el SDK y el ffmpeg 9.1 (SVT-AV1 + x264) fijados por digest, los mismos
-      # que la imagen de producción. Así corren también los tests Category=Ffmpeg.
+      # The `dev` target of apps/api/Dockerfile: the SDK and ffmpeg 9.1 (SVT-AV1 + x264) pinned by digest, the same as
+      # the production image. That way the Category=Ffmpeg tests run too.
       - name: API dev image (SDK + ffmpeg)
         run: docker build --target dev --tag blog-api-dev apps/api
 
-      # El mismo comando que el README da para tu PC: la API montada de solo lectura y copiada adentro sin bin/, obj/ ni la
-      # base de desarrollo (nada escribe en el repo, y en Windows compilar sobre la carpeta montada falla al copiar archivos).
-      # --no-build: se prueban los mismos binarios que compilaron sin warnings.
+      # The same command the README gives for your PC: the API mounted read-only and copied inside without bin/, obj/ or
+      # the development database (nothing writes to the repo, and on Windows building on the mounted folder fails while
+      # copying files). --no-build: the tests run the same binaries that built without warnings.
       - name: dotnet build -warnaserror && dotnet test
         run: >-
           docker run --rm --volume "$PWD/apps/api:/src:ro" blog-api-dev sh -euc
@@ -90,8 +90,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # El compose del VPS exige sus variables: acá van valores de mentira (no hay .env en CI, ni debe haberlo). Solo en
-      # este paso: en los otros dos mandan los de infra/local.env.
+      # The VPS compose requires its variables: placeholder values go here (there is no .env in CI, nor should there
+      # be). Only in this step: in the other two, the infra/local.env values apply.
       - name: docker compose config (VPS)
         working-directory: infra
         run: docker compose -f docker-compose.yml config -q
@@ -109,8 +109,8 @@ jobs:
         working-directory: infra
         run: docker compose -f compose.dev.yml --env-file local.env config -q
 
-      # Con el Caddy de la imagen (la referencia fijada por digest sale de infra/caddy/Dockerfile, no se repite acá), en
-      # las dos formas en que lo arranca el compose: dominio con correo de ACME (VPS) y :80 sin correo (copia local).
+      # With the image's Caddy (the digest-pinned reference comes from infra/caddy/Dockerfile, it is not repeated here),
+      # in the two forms the compose starts it: a domain with an ACME email (VPS) and :80 without email (local copy).
       - name: caddy validate
         run: |
           image=$(sed -n 's/^FROM \(caddy:[^ ]*\).*/\1/p' infra/caddy/Dockerfile)
@@ -135,15 +135,15 @@ jobs:
         with:
           persist-credentials: false
 
-      # Contexto, Dockerfile y destino salen del compose del VPS (una sola definición). Sin push: queda local como
-      # blog-<servicio>, el nombre que le pone compose.
+      # Context, Dockerfile and target come from the VPS compose (a single definition). No push: it stays local as
+      # blog-<service>, the name compose gives it.
       - name: docker compose build ${{ matrix.service }}
         working-directory: infra
         run: docker compose -f docker-compose.yml build ${{ matrix.service }}
         env: *compose-placeholders
 
-      # Solo lo grave y con arreglo publicado: lo que no tiene fix no se puede corregir actualizando la imagen
-      # (Dependabot propone las bases nuevas).
+      # Only what is serious and has a published fix: what has no fix cannot be corrected by updating the image
+      # (Dependabot proposes the new bases).
       - name: Trivy (CRITICAL/HIGH with a fix)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -151,7 +151,7 @@ jobs:
           version: v0.70.0
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          # Excepciones con motivo y vencimiento (ver el archivo): vencidas, el CI vuelve a fallar.
+          # Exceptions with a reason and an expiry (see the file): once expired, CI fails again.
           trivyignores: .trivyignore
           exit-code: '1'
 
@@ -163,20 +163,20 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          fetch-depth: 0 # toda la historia: un secreto borrado en un commit posterior sigue publicado
+          fetch-depth: 0 # the whole history: a secret deleted in a later commit is still published
           persist-credentials: false
 
       - *node-version
       - *setup-node
       - *pnpm
 
-      # Los tres chequeos corren aunque falle otro (`!cancelled()`): cada uno informa lo suyo.
+      # The three checks run even if another one fails (`!cancelled()`): each reports its own.
       - name: pnpm audit (production dependencies)
         if: ${{ !cancelled() }}
         run: pnpm audit --prod --audit-level high
 
-      # `dotnet list package --vulnerable` sale con 0 aunque encuentre algo: se falla si lista algún paquete. Con el SDK
-      # fijado de apps/api/Dockerfile (destino sdk) y la API copiada adentro, como en el job dotnet.
+      # `dotnet list package --vulnerable` exits with 0 even when it finds something: fail if it lists any package. With
+      # the pinned SDK of apps/api/Dockerfile (sdk target) and the API copied inside, as in the dotnet job.
       - name: dotnet list package --vulnerable --include-transitive
         if: ${{ !cancelled() }}
         run: |
@@ -189,8 +189,8 @@ jobs:
             exit 1
           fi
 
-      # La imagen oficial (MIT), fijada por digest: revisa todos los commits, sin token ni licencia (la gitleaks-action
-      # pide licencia según la cuenta y en un push solo revisa los commits nuevos).
+      # The official image (MIT), pinned by digest: it scans every commit, with no token or license (gitleaks-action
+      # asks for a license depending on the account and on a push only scans the new commits).
       - name: gitleaks (full history)
         if: ${{ !cancelled() }}
         uses: docker://ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f

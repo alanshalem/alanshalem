@@ -1,11 +1,11 @@
-# Actualizaciones de dependencias: un PR por ecosistema y semana (menores y parches juntos; una mayor va sola, para
-# revisarla aparte). Cada PR pasa por CI (.github/workflows/ci.yml) antes de entrar.
-# cooldown: una versión recién publicada espera unos días antes del PR, por si resulta rota o maliciosa (ya pasó con
-# acciones y paquetes populares).
+# Dependency updates: one PR per ecosystem and week (minors and patches together; a major goes alone, to review it
+# separately). Every PR goes through CI (.github/workflows/ci.yml) before it is merged.
+# cooldown: a just-published version waits a few days before the PR, in case it turns out broken or malicious (it has
+# happened with popular actions and packages).
 version: 2
 
 updates:
-  # pnpm (workspace entero: el lockfile está en la raíz).
+  # pnpm (the whole workspace: the lockfile is at the root).
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -19,7 +19,7 @@ updates:
     commit-message:
       prefix: build(deps)
 
-  # Versiones centralizadas en apps/api/Directory.Packages.props.
+  # Versions centralized in apps/api/Directory.Packages.props.
   - package-ecosystem: nuget
     directory: /apps/api
     schedule:
@@ -33,8 +33,8 @@ updates:
     commit-message:
       prefix: build(deps)
 
-  # Imágenes base fijadas por digest. Un solo PR para las tres carpetas: Node va en dos Dockerfiles (apps/builder e
-  # infra/caddy) y un test de infra/test exige que sea el mismo.
+  # Base images pinned by digest. A single PR for the three folders: Node is in two Dockerfiles (apps/builder and
+  # infra/caddy) and a test in infra/test requires it to be the same.
   - package-ecosystem: docker
     directories:
       - /apps/api
@@ -51,7 +51,7 @@ updates:
     commit-message:
       prefix: build(infra)
 
-  # La imagen de init-permissions (busybox) en el compose del VPS.
+  # The init-permissions image (busybox) in the VPS compose.
   - package-ecosystem: docker-compose
     directory: /infra
     schedule:
@@ -62,7 +62,7 @@ updates:
     commit-message:
       prefix: build(infra)
 
-  # Acciones fijadas por SHA (CI y Profile): Dependabot actualiza el SHA y el comentario con la versión.
+  # Actions pinned by SHA (CI and Profile): Dependabot updates the SHA and the version comment.
   - package-ecosystem: github-actions
     directory: /
     schedule:
