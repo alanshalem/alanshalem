@@ -30,8 +30,12 @@ jobs:
     permissions:
       contents: write
     steps:
-      # Keeps the credentials (the default): the last step pushes with them.
+      # Keeps the credentials (the default): the last step pushes with them. master only accepts pull requests (the
+      # "master" ruleset); this deploy key is the one allowed to push straight to it (docs/release-guide.md, "Branch
+      # protection"). Without the secret, checkout falls back to the run's token, which the ruleset rejects.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ssh-key: ${{ secrets.PROFILE_DEPLOY_KEY }}
 
       # The Node of the production images, read the same way as in ci.yml (a workflow cannot reuse another one's
       # steps): one version to update, apps/builder/Dockerfile.
