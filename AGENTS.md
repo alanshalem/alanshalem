@@ -26,15 +26,11 @@ Admin ─► API ─► SQLite ; publish ─► durable rebuild request ─► b
 | `apps/admin` | Admin SPA under `/admin/`; native Markdown editor | React 19 + Vite |
 | `apps/builder` | Dependency-free Node service: runs `astro build`, precompresses, swaps `current` | Node ≥ 22.18 |
 | `packages/markdown` | Own Markdown renderer (no deps, no raw HTML); used by site and admin preview | TypeScript |
-| `packages/tokens` | Design tokens (`tokens.css`, `tokens.json`) and `.prose` styles | CSS |
+| `packages/tokens` | Design tokens (`tokens.css`, the single source) and `.prose` styles | CSS |
 | `infra` | `docker-compose.yml` (VPS), `compose.local.yml` + `local.env` (local prod copy), `compose.dev.yml`, `caddy/Caddyfile`, `backup.sh` / `restore.sh`, guard tests in `test/` | Docker, Caddy 2 |
 | `.github` | project `README.md`, `workflows/ci.yml` (CI), `workflows/profile.yml` (profile images), `dependabot.yml` | GitHub Actions |
 | `tooling` | `dev-watch.ts` (polling watcher), `agents/` (skill sync + check), `profile/` (profile README SVG generator) | Node |
 | `docs/design` | `DESIGN-SYSTEM.md` (tokens live only in `packages/tokens`) | — |
-| `odd/tasks/*.md` | One file per feature: `## Specs` (S#, the user's literal asks), `## Tasks`, `## Log` (L#: decisions, contracts, lessons) | — |
-
-Before changing a feature, read its `odd/tasks/<feature>.md` up to and including `## Log`: specs and logged decisions
-win over anything you assume (contracts, quoted texts, error messages are exact).
 
 ## Run, test, build
 
@@ -68,7 +64,7 @@ SHA): jobs `node` (install, typecheck, `pnpm test`, admin build, `agents:check`)
 tests inside the `dev` target of `apps/api/Dockerfile`, real ffmpeg), `infra` (`docker compose config -q` for the three
 stacks, `caddy validate`), `images` (build the three production images, Trivy) and `security` (gitleaks over the full
 history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to run locally are in `.github/README.md`
-"Cómo verificar"; the VPS runbook (deploy, update, rollback, backups, monitoring) is its "Operación" section.
+"How to verify"; the VPS runbook (deploy, update, rollback, backups, monitoring) is its "Operations" section.
 
 ## Non-negotiable rules
 
@@ -107,8 +103,11 @@ history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to r
   no speculative fields; **Clean Architecture** — domain has no framework, ports in Application, adapters in
   Infrastructure, endpoints only map; pure modules + thin render/hook layers in the front ends (CUPID: composable,
   predictable, domain-named); **GRASP** — the expert owns the rule (the domain validates, Caddy decides caching).
-- Match the surrounding code: comments, test names and UI copy are in Rioplatense Spanish ("Guardá", "Entrá");
-  commit messages and these agent docs are in English.
+- English is the repository standard: code, identifiers, comments, tests (names and test-only strings), docs, skills,
+  logs, exceptions, script and CLI output, and commit messages. Spanish only where readers or the admin see Spanish:
+  the `es` dictionaries, the Spanish entries of the message catalog, Spanish routes and slugs (`/es/articulos`,
+  `/es/temas`), and Spanish fixtures that assert Spanish output. Spanish UI copy is Rioplatense with voseo
+  ("Guardá", "Entrá").
 - Windows is a dev platform: dev servers use polling (`tooling/dev-watch.ts`) and `strictPort`; builder symlink tests
   may fail with EPERM there.
 
@@ -124,11 +123,11 @@ history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to r
 ## Before you finish
 
 - [ ] Failing test first, now green; focused suite, then `pnpm test` / `pnpm typecheck` / `dotnet test` as touched; the
-      CI jobs you touched reproduced locally (README "Cómo verificar").
+      CI jobs you touched reproduced locally (README "How to verify").
 - [ ] Both languages covered (dictionary keys, `En` fields, routes); accessible names and keyboard path checked.
 - [ ] Infra changes run for real (Caddy validated, compose brought up), not only text-tested.
 - [ ] Docs that describe the change updated in the same commit (README, `DESIGN-SYSTEM.md`, skills + `node
-      tooling/agents/sync.ts`); the feature's `odd/tasks` Log records results and decisions.
+      tooling/agents/sync.ts`).
 - [ ] `git status` shows only intended files: no scratch dirs, caches, databases or secrets.
 
 ## Commits and review
@@ -154,4 +153,4 @@ history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to r
 | `media-pipeline` | images or videos: upload, processing, storage, serving, rendering |
 | `testing-tdd` | writing or running tests in any part of the repo |
 | `docker-and-deploy` | Docker, compose, Caddy, the builder, VPS deploy, local dev environment |
-| `commit-and-review` | preparing commits, splitting work, review findings, updating `odd/tasks` logs |
+| `commit-and-review` | preparing commits, splitting work for review, handling review findings |

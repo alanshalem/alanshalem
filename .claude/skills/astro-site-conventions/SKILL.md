@@ -20,15 +20,20 @@ description: "Conventions of the public Astro 7 site in apps/web, which is fully
   pure, exported function in `src/lib/<topic>.ts` with a test in `test/<topic>.test.ts` (node --test).
 - `.astro` files import those functions and render. If you are writing an `if` chain or string building in a page,
   move it to `src/lib`.
-- Examples: `lib/hero.ts` (`resolveHero`, `localizeHeroImage`), `lib/cover.ts` (effective cover = `coverUrl` →
-  first Markdown image → generative SVG from `lib/generative.ts`), `lib/settings.ts` (`toSiteSettings` with fallbacks),
-  `lib/posts.ts` (`toBlogPost`, `postsIn`, `tagsOf`, `alternatesByGroup`).
+- Examples: `lib/hero.ts` (`resolveHero`, `localizeHeroImage`, `heroShareImage` for `og:image`), `lib/cover.ts`
+  (effective cover = `coverUrl` → first Markdown image → generative SVG from `lib/generative.ts`), `lib/settings.ts`
+  (`toSiteSettings` with fallbacks), `lib/posts.ts` (`toBlogPost`, `postsIn`, `postsByYear` for the archive,
+  `readNextFor` for "Seguir leyendo" / "Keep reading", `homeSections` for what the home shows, `tagsOf`,
+  `alternatesByGroup`).
+- `toBlogPost` renders each body **once** (`renderMarkdown` with `POST_BODY_RENDER_OPTIONS` and the post's `lang`)
+  and takes the HTML, the headings and the reading time from that result (`readingTimeOfText(text)`, the same formula
+  as the admin preview). Do not render or strip the same body again for another field.
 
 ## Reading the API
 
 ```ts
 const getApiSettings = oncePerBuild(() =>
-  getInternal<Partial<ApiSettings>>('/api/internal/settings', 'los ajustes del sitio'),
+  getInternal<ApiSettings>('/api/internal/settings', 'the site settings'),
 );
 ```
 

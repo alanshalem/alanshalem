@@ -1,193 +1,192 @@
-# Sistema de diseño — extraído de federicocarrone.com
+# Design system — extracted from federicocarrone.com
 
-Medido el 2026-11-24 sobre la home, en 5 viewports (390 · 768 · 1024 · 1440 · 1920). Los valores salen de `main.css` (`:root`) y de los estilos computados del DOM, no de estimaciones visuales.
+Measured on 2026-11-24 on the home page, at 5 viewports (390 · 768 · 1024 · 1440 · 1920). The values come from `main.css` (`:root`) and from the computed styles of the DOM, not from visual estimates.
 
-Archivos:
-- Los tokens tienen una sola fuente, la que usan sitio y admin: `packages/tokens/src/tokens.css` (CSS custom
-  properties + `@font-face` + base tipográfica) y `packages/tokens/src/tokens.json` (los mismos en formato W3C DTCG,
-  para Style Dictionary, Tokens Studio, etc.). Los valores de abajo son la medición de referencia; donde el blog los
-  cambió (contraste, overlays), mandan los de `packages/tokens`.
-- `reference/` — full-page por viewport (`*-fullpage.png`); no se versiona (`.gitignore`).
+Files:
+- The tokens have a single source, the one the site, the admin and the profile images use:
+  `packages/tokens/src/tokens.css` (CSS custom properties + `@font-face` + typographic base). The values below are the
+  reference measurement; where the blog changed them (contrast, overlays), `packages/tokens` wins.
+- `reference/` — full-page screenshot per viewport (`*-fullpage.png`); not versioned (`.gitignore`).
 
 ---
 
-## 1. Carácter del diseño
+## 1. Character of the design
 
-Editorial, sobrio, oscuro. Tres ideas que sostienen todo lo demás:
+Editorial, sober, dark. Three ideas hold up everything else:
 
-1. **Tres voces tipográficas con roles fijos**: Gloock (display) para títulos de contenido, Pagella (serif de lectura) para texto y para el H1 del hero, Hanken Grotesk (UI) para todo lo "de interfaz" (nav, labels, meta, footer).
-2. **Casi sin decoración**: radios `0`, sin sombras, sin gradientes salvo el overlay de imágenes. La jerarquía la dan tamaño, tipografía, color de texto y reglas de 1px.
-3. **Tres niveles de texto** sobre fondo casi negro: principal `#ededea`, secundario `#c8c8c2`, terciario `#8e8e88`.
+1. **Three type voices with fixed roles**: Gloock (display) for content titles, Pagella (reading serif) for text and for the hero H1, Hanken Grotesk (UI) for everything "interface" (nav, labels, meta, footer).
+2. **Almost no decoration**: radius `0`, no shadows, no gradients except the image overlay. Hierarchy comes from size, typeface, text color and 1px rules.
+3. **Three text levels** on a near-black background: primary `#ededea`, secondary `#c8c8c2`, tertiary `#8e8e88`.
 
 ## 2. Color
 
-| Token semántico | Valor | Uso |
+| Semantic token | Value | Use |
 |---|---|---|
-| `bg-page` | `#0a0a0b` | Fondo de página (coincide con `theme-color`) |
-| `bg-surface` | `#141416` | Tiles, paneles, mapa del grafo |
-| `bg-surface-alt` | `#1b1b1e` | Superficie alternativa |
-| `bg-code` | `#131316` | Bloques de código |
-| `text-primary` | `#ededea` | Títulos y cuerpo |
-| `text-secondary` | `#c8c8c2` | Dek / bajadas |
-| `text-tertiary` | `#8e8e88` | Labels, meta, créditos, footer |
-| `border-subtle` | `#2a2a2d` | Reglas de sección, listas, footer |
-| `link-accent` | `#9db2ff` | Links dentro de artículos |
-| `link-underline-hover` | `#c4d0ff` | Subrayado en hover/focus |
-| dataviz | `#a9c98a` `#8fa7d9` `#e08f6a` | Nodos del grafo de ideas |
+| `bg-page` | `#0a0a0b` | Page background (matches `theme-color`) |
+| `bg-surface` | `#141416` | Tiles, panels, graph map |
+| `bg-surface-alt` | `#1b1b1e` | Alternative surface |
+| `bg-code` | `#131316` | Code blocks |
+| `text-primary` | `#ededea` | Titles and body |
+| `text-secondary` | `#c8c8c2` | Deks / standfirsts |
+| `text-tertiary` | `#8e8e88` | Labels, meta, credits, footer |
+| `border-subtle` | `#2a2a2d` | Section rules, lists, footer |
+| `link-accent` | `#9db2ff` | Links inside articles |
+| `link-underline-hover` | `#c4d0ff` | Underline on hover/focus |
+| dataviz | `#a9c98a` `#8fa7d9` `#e08f6a` | Nodes of the ideas graph |
 
-Overlay de imágenes (hero y tiles): degradé vertical de `rgba(10,10,11,.55)` arriba → transparente a 22% → `.1` a 45% → `.94` abajo, para que el texto se lea sobre cualquier foto.
+Image overlay (hero and tiles): vertical gradient from `rgba(10,10,11,.55)` at the top → transparent at 22% → `.1` at 45% → `.94` at the bottom, so text reads over any photo.
 
-**En este blog (actualizado, plataforma-calidad U1/U6).** Sobre fotos claras ese degradé dejaba el texto en 1–3:1, así que se reemplazó por franjas medidas en `rem` desde cada borde (lo que tapan tiene alto fijo) y un velo que sigue al texto. Los valores viven en `packages/tokens/src/tokens.css` y los verifica `apps/web/test/contrast.test.ts`:
+**In this blog (updated).** Over light photos that gradient left text at 1–3:1, so it was replaced by bands measured in `rem` from each edge (what they cover has a fixed height) and a veil that follows the text. The values live in `packages/tokens/src/tokens.css` and are checked by `apps/web/test/contrast.test.ts`:
 
-| Token | Valor | Dónde |
+| Token | Value | Where |
 |---|---|---|
-| `overlay-hero` | arriba `.72` → `.62` a 4,5rem → 0 a 12rem; abajo `.94` → `.7` a 12rem → 0 a 20rem | Hero de la home y portada del artículo: franja de cabecera (marca, menú, ES \| EN) y franja inferior (crédito, Reproducir/Pausar) |
-| `overlay-hero-text` | 0 → `.7` en `overlay-hero-text-fade` (8rem) | Velo detrás del bloque de texto del hero, de la portada y de los tiles de temas: sigue al texto (un título de 4 líneas también queda cubierto) |
-| `overlay-tile` | el degradé original de arriba | Tiles de temas, debajo del velo |
+| `overlay-hero` | top `.72` → `.62` at 4.5rem → 0 at 12rem; bottom `.94` → `.7` at 12rem → 0 at 20rem | Home hero and article cover: header band (brand, menu, ES \| EN) and bottom band (credit, Play/Pause) |
+| `overlay-hero-text` | 0 → `.7` over `overlay-hero-text-fade` (8rem) | Veil behind the text block of the hero, the cover and the topic tiles: it follows the text (a 4-line title is covered too) |
+| `overlay-tile` | the original gradient above | Topic tiles, under the veil |
 
-Con una foto blanca detrás, `text-primary` llega a 4,5:1 desde `.62` y `text-secondary` desde ~`.70`; por eso crédito, fecha y meta sobre imágenes van en `text-secondary`, nunca en `text-tertiary`. Sin sombras de texto: el contraste lo da el velo. Medido en Chrome: hero y artículo ≥ 5,19:1 en 63 elementos; tiles de temas ≥ 9,1:1 (antes 1,7:1 con un nombre de tema de 3 líneas).
+With a white photo behind, `text-primary` reaches 4.5:1 from `.62` and `text-secondary` from ~`.70`; that is why credit, date and meta over images use `text-secondary`, never `text-tertiary`. No text shadows: the veil provides the contrast. Measured in Chrome: hero and article ≥ 5.19:1 across 63 elements; topic tiles ≥ 9.1:1 (1.7:1 before, with a 3-line topic name).
 
-**Acento sobre la hoja blanca.** Dentro de `.paper`, `link-accent` y `link-underline-hover` pasan a `periwinkle-700` (`#3b5bdb`, 5,7:1 sobre blanco) para el foco y el subrayado de hover: los acentos claros del tema oscuro quedaban en 2,1:1 y 1,5:1 (WCAG 1.4.11).
+**Accent on the white sheet.** Inside `.paper`, `link-accent` and `link-underline-hover` become `periwinkle-700` (`#3b5bdb`, 5.7:1 on white) for focus and the hover underline: the light accents of the dark theme were at 2.1:1 and 1.5:1 (WCAG 1.4.11).
 
-## 3. Tipografía
+## 3. Typography
 
-| Rol | Familia | Peso | Tamaño | Interlineado |
+| Role | Family | Weight | Size | Line height |
 |---|---|---|---|---|
-| H1 hero | Pagella | 400 | `clamp(2.4rem, 5.6vw, 4.6rem)` | 1.02 |
-| Dek hero | Pagella | 400 | `clamp(1.05rem, 1.35vw, 1.25rem)` | 1.45–1.55 |
-| Título nota destacada | Gloock | 400 | `clamp(2rem, 3.6vw, 3rem)` | 1.05 |
-| Título card | Gloock | 400 | 1.6rem (25.6px) | 1.12 |
-| Título tile / serie | Gloock | 400 | 1.8rem (28.8px) | 1.08 |
-| Título lista numerada | Gloock | 400 | 1.4rem (22.4px) | 1.2 |
-| Marca (header / footer) | Gloock | 400 | 1.5rem / 1.75rem | — |
-| Cuerpo | Pagella | 400 | 1.1875rem (19px) | 1.55 |
-| Dek de card | Pagella | 400 | 1rem | 1.5 |
-| Dek nota destacada | Pagella | 400 | 1.15rem | 1.5 |
-| Nav / links de entrada | Hanken Grotesk | 500 / 400 | 0.95rem | 1.55 |
-| Label (eyebrow, h2 de sección) | Hanken Grotesk | 600 | 0.75rem, MAYÚSCULAS, tracking .12em | 1.55 |
-| Meta (fecha · lectura) | Hanken Grotesk | 400 | 0.8125rem | 1.55 |
-| Crédito de foto | Hanken Grotesk | 400 | 0.75rem | 1.5 |
+| Hero H1 | Pagella | 400 | `clamp(2.4rem, 5.6vw, 4.6rem)` | 1.02 |
+| Hero dek | Pagella | 400 | `clamp(1.05rem, 1.35vw, 1.25rem)` | 1.45–1.55 |
+| Featured note title | Gloock | 400 | `clamp(2rem, 3.6vw, 3rem)` | 1.05 |
+| Card title | Gloock | 400 | 1.6rem (25.6px) | 1.12 |
+| Tile / series title | Gloock | 400 | 1.8rem (28.8px) | 1.08 |
+| Numbered list title | Gloock | 400 | 1.4rem (22.4px) | 1.2 |
+| Brand (header / footer) | Gloock | 400 | 1.5rem / 1.75rem | — |
+| Body | Pagella | 400 | 1.1875rem (19px) | 1.55 |
+| Card dek | Pagella | 400 | 1rem | 1.5 |
+| Featured note dek | Pagella | 400 | 1.15rem | 1.5 |
+| Nav / entry links | Hanken Grotesk | 500 / 400 | 0.95rem | 1.55 |
+| Label (eyebrow, section h2) | Hanken Grotesk | 600 | 0.75rem, UPPERCASE, tracking .12em | 1.55 |
+| Meta (date · reading time) | Hanken Grotesk | 400 | 0.8125rem | 1.55 |
+| Photo credit | Hanken Grotesk | 400 | 0.75rem | 1.5 |
 | Footer | Hanken Grotesk | 400 | 0.9rem | 1.55 |
 
-Nota sobre las fuentes: el sitio las sirve self-hosted (`/fonts/*.woff2`, subset latin, `font-display: swap`). Gloock y Hanken Grotesk son OFL (están en Google Fonts / Fontsource). "Pagella" probablemente sea TeX Gyre Pagella (clon de Palatino, licencia libre GUST) pero **no lo pude verificar**; confirmalo antes de usarla, o usá Palatino/TeX Gyre Pagella directamente.
+A note on the fonts: the site self-hosts them (`/fonts/*.woff2`, latin subset, `font-display: swap`). Gloock and Hanken Grotesk are OFL (on Google Fonts / Fontsource). "Pagella" is probably TeX Gyre Pagella (a Palatino clone, free GUST license) but **I could not verify it**; confirm it before using it, or use Palatino/TeX Gyre Pagella directly.
 
-## 4. Espaciado y layout
+## 4. Spacing and layout
 
-Escala en rem, con los valores que realmente aparecen: `0.25 · 0.5 · 0.7 · 0.9 · 1 · 1.1 · 1.25 · 1.5 · 1.75 · 2 · 2.5 · 2.75 · 3 · 3.5 · 5 · 7`.
+A rem scale, with the values that actually appear: `0.25 · 0.5 · 0.7 · 0.9 · 1 · 1.1 · 1.25 · 1.5 · 1.75 · 2 · 2.5 · 2.75 · 3 · 3.5 · 5 · 7`.
 
-- **Gutter lateral**: `clamp(1rem, 3.75vw, 3rem)` → 16px en mobile, 48px desde ~1280px.
-- **Secciones**: `padding-top: 5rem`, gap de `1.75rem` entre el encabezado de sección (label + link a la derecha + regla de 1px) y el contenido.
-- **Hero**: ocupa todo el viewport (`min-height: 100vh`), contenido pegado abajo, `padding: 7rem gutter 3.5rem`, texto con `max-width: 58rem`, imagen `object-fit: cover` a pantalla completa con el overlay.
-- **Ancho de contenido**: fluido, **sin max-width** en la home (a 1920 el contenido mide 1824px). Las páginas de lectura usan una columna de `35em` (~665px).
-- **Esquinas**: `0`. **Sombras**: ninguna. **Bordes**: 1px `#2a2a2d`.
+- **Side gutter**: `clamp(1rem, 3.75vw, 3rem)` → 16px on mobile, 48px from ~1280px.
+- **Sections**: `padding-top: 5rem`, a `1.75rem` gap between the section header (label + link on the right + 1px rule) and the content.
+- **Hero**: fills the viewport (`min-height: 100vh`), content at the bottom, `padding: 7rem gutter 3.5rem`, text with `max-width: 58rem`, full-screen `object-fit: cover` image with the overlay.
+- **Content width**: fluid, **no max-width** on the home page (at 1920 the content is 1824px wide). Reading pages use a `35em` column (~665px).
+- **Corners**: `0`. **Shadows**: none. **Borders**: 1px `#2a2a2d`.
 
-### Comportamiento por viewport (observado)
+### Behavior per viewport (observed)
 
-| Elemento | 390 | 768 | 1024 | 1440 | 1920 |
+| Element | 390 | 768 | 1024 | 1440 | 1920 |
 |---|---|---|---|---|---|
 | Gutter | 16 | 28.8 | 38.4 | 48 | 48 |
-| H1 hero | 38.4px | 43px | 57.3px | 73.6px | 73.6px |
-| Nav | botón ☰ | botón ☰ | links visibles | links | links |
+| Hero H1 | 38.4px | 43px | 57.3px | 73.6px | 73.6px |
+| Nav | ☰ button | ☰ button | visible links | links | links |
 | "Start here" | 1 col | 1 col | 1 col | 2 col | 3 col |
-| Nota destacada | 1 col | 1 col | 2 col (1.5fr / 1fr) | 2 col | 2 col |
-| Cards | 1 col | 2 col (la 3ª baja) | 2 col (la 3ª baja) | 3 en fila | 3 en fila |
-| Explore (grafo + 3 paneles) | 1 col | 1 col | 2 col (1.5fr / 1fr) | 2 col | 2 col |
-| "Try an idea" (paneles) | 1 col | 2 col (el 3º baja) | 3 col | 3 col | 3 col |
-| Series (tiles) | 1 col | 2×2 | 3 + 1 | 4 en fila | 4 en fila |
-| Library (posters) | 8 en fila (≈32px c/u) | 8 en fila | 8 en fila | 8 en fila | 8 en fila |
+| Featured note | 1 col | 1 col | 2 col (1.5fr / 1fr) | 2 col | 2 col |
+| Cards | 1 col | 2 col (the 3rd wraps) | 2 col (the 3rd wraps) | 3 in a row | 3 in a row |
+| Explore (graph + 3 panels) | 1 col | 1 col | 2 col (1.5fr / 1fr) | 2 col | 2 col |
+| "Try an idea" (panels) | 1 col | 2 col (the 3rd wraps) | 3 col | 3 col | 3 col |
+| Series (tiles) | 1 col | 2×2 | 3 + 1 | 4 in a row | 4 in a row |
+| Library (posters) | 8 in a row (≈32px each) | 8 in a row | 8 in a row | 8 in a row | 8 in a row |
 | Footer | 2 col | 2 col | 4 col (2fr 1fr 1fr 1fr) | 4 col | 4 col |
 
-Reglas CSS detectadas que lo explican: `cards` = `auto-fill minmax(18rem,1fr)` a partir de `75em` y 2 columnas por debajo; `tiles` = `auto-fill minmax(16rem,1fr)`, gap 1.25rem; `start-list` = `auto-fill minmax(min(100%,22rem),1fr)` con gap `0 2.5rem`. En el 1024 y en la lista numerada hay overrides por media query cuyo valor exacto no terminé de aislar: los números de la tabla son lo **observado**, no necesariamente la regla.
+CSS rules found that explain it: `cards` = `auto-fill minmax(18rem,1fr)` from `75em` and 2 columns below; `tiles` = `auto-fill minmax(16rem,1fr)`, gap 1.25rem; `start-list` = `auto-fill minmax(min(100%,22rem),1fr)` with gap `0 2.5rem`. At 1024 and in the numbered list there are media-query overrides whose exact value I did not fully isolate: the numbers in the table are what was **observed**, not necessarily the rule.
 
-## 5. Componentes
+## 5. Components
 
-**Header / nav.** Fila flex, `padding: 1.5rem gutter`, transparente sobre el hero. Links Hanken 15.2px peso 500, color `text-primary`, sin subrayado. A la derecha, selector de idioma `EN | ES` separado por una línea vertical; el idioma activo en blanco, el otro atenuado. Por debajo de ~900px los links se reemplazan por un botón ☰ cuadrado con borde `1px rgba(237,237,234,.4)`.
+**Header / nav.** Flex row, `padding: 1.5rem gutter`, transparent over the hero. Hanken links 15.2px weight 500, color `text-primary`, no underline. On the right, an `EN | ES` language selector separated by a vertical line; the active language in white, the other dimmed. Below ~900px the links are replaced by a square ☰ button with a `1px rgba(237,237,234,.4)` border.
 
-*En este blog:* como en la referencia, `ES | EN` va al final de la fila: en desktop marca · links · `ES | EN`; en mobile marca · `ES | EN` · ☰, con el panel desplegado debajo. El HTML sigue ese mismo orden en los dos tamaños, sin `order` en el CSS, para que Tab recorra en el orden en que se lee (WCAG 2.4.3): el menú tiene dos lugares que salen de la misma lista (la fila de links antes de `ES | EN` y el panel después del ☰) y cada tamaño muestra uno solo; el oculto (`display: none`) no se enfoca ni lo anuncia el lector. El panel del ☰ se cierra con Esc (el foco vuelve al botón), con un clic afuera y cuando el foco sale de él. El link de la sección actual va subrayado: `aria-current="page"` en su página y `"true"` dentro de ella (un artículo marca Artículos). El link RSS se anuncia "RSS: feed de artículos nuevos".
+*In this blog:* as in the reference, `ES | EN` goes at the end of the row: on desktop brand · links · `ES | EN`; on mobile brand · `ES | EN` · ☰, with the open panel below. The HTML follows that same order at both sizes, without `order` in the CSS, so Tab moves in reading order (WCAG 2.4.3): the menu has two places that come from the same list (the row of links before `ES | EN` and the panel after the ☰) and each size shows only one; the hidden one (`display: none`) is neither focusable nor announced by screen readers. The ☰ panel closes with Esc (focus returns to the button), with a click outside and when focus leaves it. The link of the current section is underlined: `aria-current="page"` on its page and `"true"` inside it (an article marks Articles). The RSS link is announced as "RSS: feed de artículos nuevos" (Spanish) / "RSS: feed of new articles" (English).
 
-**Hero.** Foto a pantalla completa + overlay. H1 en Pagella, bajada de 2 párrafos (links con subrayado fino), tres links de entrada en Hanken 15.2px ("More about me", "Latest writing", "Simulations") y crédito de foto alineado abajo a la derecha (12px, `text-tertiary`). En mobile el crédito pasa abajo a la izquierda.
+**Hero.** Full-screen photo + overlay. H1 in Pagella, a 2-paragraph dek (links with a thin underline), three entry links in Hanken 15.2px ("More about me", "Latest writing", "Simulations") and a photo credit aligned bottom right (12px, `text-tertiary`). On mobile the credit moves to the bottom left.
 
-*En este blog:* el crédito va en `text-secondary` (ver §2). Si el hero es un video hay un botón Reproducir/Pausar (WCAG 2.2.2) cuadrado como el ☰ (borde 1px translúcido, sin radio, mínimo 44 × 44 px), debajo del crédito: con animaciones activadas el video arranca solo y el botón dice "❚❚ Pausar"; con `prefers-reduced-motion: reduce` o Save-Data se ve el póster y "▶ Reproducir". Los dos textos ocupan la misma celda, así el botón no cambia de ancho al alternar.
+*In this blog:* the credit uses `text-secondary` (see §2). If the hero is a video there is a Play/Pause button (WCAG 2.2.2), square like the ☰ (1px translucent border, no radius, at least 44 × 44 px), below the credit: with animations on, the video starts on its own and the button says "❚❚ Pausar" / "❚❚ Pause"; with `prefers-reduced-motion: reduce` or Save-Data the poster shows and "▶ Reproducir" / "▶ Play". Both labels share the same cell, so the button does not change width when it toggles.
 
-**Títulos del cuerpo.** Estándar, como GitHub o Docs: `##` = h2 y `###` = h3; un `#` en el cuerpo también sale como h2 (el h1 es el título del artículo). Lo aplica `POST_BODY_RENDER_OPTIONS` de `@blog/markdown`, el mismo en el sitio y en la vista previa del admin.
+**Body headings.** Standard, like GitHub or Docs: `##` = h2 and `###` = h3; a `#` in the body also renders as h2 (the h1 is the article title). Applied by `POST_BODY_RENDER_OPTIONS` from `@blog/markdown`, the same in the site and in the admin preview.
 
-**Encabezado de sección.** Flex `space-between`, label a la izquierda (estilo label), link o descripción a la derecha (Hanken 14px, `text-secondary`), regla inferior de 1px `border-subtle`, `padding-bottom: .9rem`.
+**Section header.** Flex `space-between`, label on the left (label style), link or description on the right (Hanken 14px, `text-secondary`), 1px bottom rule `border-subtle`, `padding-bottom: .9rem`.
 
-**Lista numerada ("Start here").** Cada ítem: número `01–04` en `text-tertiary`, título en Gloock 22.4px, dek en Pagella `text-tertiary`; `padding: 20px 0` y regla inferior de 1px.
+**Numbered list ("Start here").** Each item: number `01–04` in `text-tertiary`, title in Gloock 22.4px, dek in Pagella `text-tertiary`; `padding: 20px 0` and a 1px bottom rule.
 
-**Nota destacada.** Imagen 16:9 + cuerpo (eyebrow "SERIES · ONE PATH", título Gloock grande, dek, meta, crédito con regla superior). Sin hover más allá del subrayado de links.
+**Featured note.** 16:9 image + body (eyebrow "SERIES · ONE PATH", large Gloock title, dek, meta, credit with a top rule). No hover beyond the link underline.
 
-**Card.** Imagen 16:10, eyebrow, título Gloock 25.6px, dek Pagella 16px (truncado a ~3 líneas con "…"), meta. Gap interno 11.2px. En hover/focus **no** se subraya el título (el sitio lo desactiva explícitamente).
+**Card.** 16:10 image, eyebrow, Gloock title 25.6px, Pagella dek 16px (truncated to ~3 lines with "…"), meta. Inner gap 11.2px. On hover/focus the title is **not** underlined (the site disables it explicitly).
 
-**Panel (Explore / Try an idea).** Fondo `bg-surface`, `padding: 1.25rem`, sin borde ni radio. Título Gloock + dek Pagella. El panel grande del grafo usa los tres colores dataviz sobre `bg-surface`; al hacer hover las líneas suben a opacidad .22.
+**Panel (Explore / Try an idea).** `bg-surface` background, `padding: 1.25rem`, no border or radius. Gloock title + Pagella dek. The large graph panel uses the three dataviz colors on `bg-surface`; on hover the lines go up to opacity .22.
 
-**Tile (serie).** Imagen a sangre completa, aspecto 6:5, overlay degradé, texto abajo a la izquierda: título Gloock 28.8px, subtítulo Hanken 15.2px, meta 13px ("4 episodes · in progress").
+**Tile (series).** Full-bleed image, 6:5 aspect, gradient overlay, text at the bottom left: Gloock title 28.8px, Hanken subtitle 15.2px, meta 13px ("4 episodes · in progress").
 
-**Poster strip.** 8 columnas iguales, gap .9rem, aspecto 2:3.
+**Poster strip.** 8 equal columns, gap .9rem, 2:3 aspect.
 
-**Footer.** `border-top: 1px`, `padding: 2.5rem gutter 3rem`, fondo de página. Columna de marca (Gloock 28px + tagline + nota "Written with an LLM…") y 3 columnas de links bajo labels en mayúsculas (Contact me · Companies · Browse).
+**Footer.** `border-top: 1px`, `padding: 2.5rem gutter 3rem`, page background. Brand column (Gloock 28px + tagline + a "Written with an LLM…" note) and 3 link columns under uppercase labels (Contact me · Companies · Browse).
 
-**Links.** Heredan color; subrayado de 1px con `underline-offset` ~.22em; en hover/focus el subrayado sube a 3px y toma `#c4d0ff`. Los links de marca pasan a blanco en hover. Los links dentro de artículos usan el acento `#9db2ff`.
+**Links.** Inherit color; 1px underline with `underline-offset` ~.22em; on hover/focus the underline grows to 3px and turns `#c4d0ff`. Brand links turn white on hover. Links inside articles use the `#9db2ff` accent.
 
-**Movimiento.** Casi nulo: transiciones cortas (150ms) y `prefers-reduced-motion` respetado.
+**Motion.** Almost none: short transitions (150ms) and `prefers-reduced-motion` respected.
 
-## 6. Qué no pude verificar
+## 6. What I could not verify
 
-- Solo medí la **home**. Páginas de artículo, búsqueda, series, simulaciones y Explore (grafo interactivo) no están relevadas. El CSS global ya trae reglas de lectura (barra de progreso, botón copiar código, anclas de títulos) que no están documentadas acá.
-- **Corrección:** en la primera versión dije que el sitio es solo oscuro. Es falso para las páginas de lectura (artículos, episodios, About, detalle de serie): ahí el cuerpo va sobre una "hoja" blanca. Está documentado en la sección 8. La home y los listados sí son oscuros.
-- Estados `:hover` de cards/tiles: el CSS los neutraliza (sin subrayado); no vi cambios visuales más allá de eso.
-- Las capturas de 1440 y 1920 están **reescaladas** (la herramienta las entrega al ~96% y ~82% del tamaño nativo), así que tienen algo menos de nitidez que las de 390/768/1024. Las grillas y tamaños de este documento salen del DOM, no de esas imágenes.
-- Las capturas tienen costuras de ~1px entre tramos y el cursor del mouse visible en algunos. En mobile la foto de la Tierra queda detrás del texto del hero tal como renderiza la página.
-- Los 8 posters en mobile miden ~32px: es lo que calcula el CSS, no verifiqué si es intencional o un efecto de carga diferida.
+- I only measured the **home page**. Article, search, series, simulations and Explore (interactive graph) pages are not surveyed. The global CSS already has reading rules (progress bar, copy-code button, heading anchors) that are not documented here.
+- **Correction:** in the first version I said the site is dark only. That is false for the reading pages (articles, episodes, About, series detail): there the body sits on a white "sheet". It is documented in section 8. The home page and the listings are dark.
+- `:hover` states of cards/tiles: the CSS neutralizes them (no underline); I saw no visual change beyond that.
+- The 1440 and 1920 screenshots are **rescaled** (the tool delivers them at ~96% and ~82% of native size), so they are slightly less sharp than the 390/768/1024 ones. The grids and sizes in this document come from the DOM, not from those images.
+- The screenshots have ~1px seams between segments and the mouse cursor visible in some. On mobile the Earth photo sits behind the hero text exactly as the page renders.
+- The 8 posters on mobile are ~32px wide: that is what the CSS computes; I did not verify whether it is intentional or an effect of lazy loading.
 
-## 8. Tema "papel" de las páginas de lectura (agregado tras relevar el resto del sitio)
+## 8. "Paper" theme of the reading pages (added after surveying the rest of the site)
 
-Las páginas con `body.has-hero` + `.reading` (artículos, episodios de serie, About, Explore/temas, plan de estudios) combinan **dos superficies**: hero oscuro a pantalla completa arriba, y debajo una hoja blanca (`.paper`) con el texto. Al final vuelve el fondo oscuro para "Read next" y el footer.
+Pages with `body.has-hero` + `.reading` (articles, series episodes, About, Explore/topics, study plan) combine **two surfaces**: a full-screen dark hero at the top, and below it a white sheet (`.paper`) with the text. At the end the dark background returns for "Read next" and the footer.
 
-| Token | Valor | Uso |
+| Token | Value | Use |
 |---|---|---|
-| `paper-bg` | `#ffffff` | Fondo de la hoja de lectura |
-| `paper-text` | `#2c2724` | Texto |
-| `paper-muted` | `#656565` | Links del cuerpo, TOC, tags, labels |
-| `paper-rule` | `#ece9e4` | Reglas, bordes de cita/newsletter/código inline |
-| `paper-border-ui` | `#d9d9d6` | Borde de tags, chips y botones de compartir |
-| `paper-code-bg` | `#f9f9f9` | Código inline y bloque BibTeX |
-| `code-block-bg` / `fg` | `#24292e` / `#e1e4e8` | Bloques de código (tema oscuro tipo GitHub) |
+| `paper-bg` | `#ffffff` | Background of the reading sheet |
+| `paper-text` | `#2c2724` | Text |
+| `paper-muted` | `#656565` | Body links, TOC, tags, labels |
+| `paper-rule` | `#ece9e4` | Rules, borders of quotes/newsletter/inline code |
+| `paper-border-ui` | `#d9d9d6` | Border of tags, chips and share buttons |
+| `paper-code-bg` | `#f9f9f9` | Inline code and the BibTeX block |
+| `code-block-bg` / `fg` | `#24292e` / `#e1e4e8` | Code blocks (GitHub-like dark theme) |
 
-Medidas (a 1440px):
-- Cuerpo: Pagella **17px / 27.2px**, columna de **640px**; padding de la hoja `72px 0 80px`.
-- H1 del hero de artículo: **80px** (`clamp(2.5rem, 6vw, 5rem)`, line-height 1.02). La home usa un tamaño menor (73.6px).
-- H2 del cuerpo: Pagella 25.6px / 28.2px, peso 400.
-- TOC lateral: columna de 224px a la izquierda del texto, Pagella 14px, link activo en negrita y color de texto. Desaparece en mobile y pasa a un índice en línea arriba del texto.
-- Cita en bloque: borde izquierdo 4px, `padding-left: 25.6px`. "Key takeaways" y "The problem / Why existing approaches fail": caja con fondo gris muy claro y borde izquierdo.
-- Código inline: mono 14px, fondo `#f9f9f9`, borde 1px, radio 4px. Bloque: mono 12.8px / 19.2px, radio 2px, scroll horizontal.
-- Cierre del artículo (`.end-matter`, regla superior + 32px): bloque "Cite this" (label 12px mayúsculas + texto + BibTeX), nota "Written with an LLM…" (Hanken 14px), tags (borde 1px, sin radio, 14px), chips "Ideas in this piece" (radio 999px, 13.6px), barra "Share" (X · LinkedIn · Email · Copy link, altura 36px) y caja de newsletter (padding 28px, título Pagella 22.4px, input + botón oscuro).
-- Navegación de serie: dos cajas "Previous episode / Next episode" lado a lado en desktop, apiladas en mobile.
-- "Read next": vuelve al tema oscuro, 3 cards en desktop, 1 columna en mobile.
+Measurements (at 1440px):
+- Body: Pagella **17px / 27.2px**, **640px** column; sheet padding `72px 0 80px`.
+- Article hero H1: **80px** (`clamp(2.5rem, 6vw, 5rem)`, line-height 1.02). The home page uses a smaller size (73.6px).
+- Body H2: Pagella 25.6px / 28.2px, weight 400.
+- Side TOC: a 224px column left of the text, Pagella 14px, active link in bold and text color. It disappears on mobile and becomes an inline index above the text.
+- Block quote: 4px left border, `padding-left: 25.6px`. "Key takeaways" and "The problem / Why existing approaches fail": a box with a very light gray background and a left border.
+- Inline code: mono 14px, `#f9f9f9` background, 1px border, 4px radius. Block: mono 12.8px / 19.2px, 2px radius, horizontal scroll.
+- Article end (`.end-matter`, top rule + 32px): a "Cite this" block (12px uppercase label + text + BibTeX), a "Written with an LLM…" note (Hanken 14px), tags (1px border, no radius, 14px), "Ideas in this piece" chips (radius 999px, 13.6px), a "Share" bar (X · LinkedIn · Email · Copy link, 36px tall) and a newsletter box (padding 28px, Pagella title 22.4px, input + dark button).
+- Series navigation: two "Previous episode / Next episode" boxes side by side on desktop, stacked on mobile.
+- "Read next": back to the dark theme, 3 cards on desktop, 1 column on mobile.
 
-## 9. Cómo se organiza cada pantalla
+## 9. How each screen is organized
 
-El sitio tiene ~147 páginas en inglés (más una copia completa en `/es/`) pero solo ~12 plantillas. Todas comparten header + footer; cambian el hero y el cuerpo.
+The site has ~147 pages in English (plus a full copy under `/es/`) but only ~12 templates. All share header + footer; the hero and the body change.
 
-| Plantilla | Rutas | Estructura (de arriba hacia abajo) |
+| Template | Routes | Structure (top to bottom) |
 |---|---|---|
-| Home | `/` | Hero foto fullscreen → Start here → Latest (1 destacada + 3 cards) → Explore (grafo + 3 paneles) → Try an idea → Series → From the library → footer |
-| Artículo | `/articles/*`, `/about/`, `/talks/*`, `/explore/*`, `/data/*`, `/licenciatura-*` | Hero con foto + título + dek + meta + tags → franja "On the image" (descripción + crédito) → hoja blanca con TOC lateral + texto → cierre (cita, tags, ideas, compartir, newsletter) → Read next → footer |
-| Episodio de serie | `/series/<serie>/<episodio>/` | Igual que artículo + nota de serie, navegación anterior/siguiente y "From the series" |
-| Listado de artículos | `/articles/` | Título + bajada → bloques por año (año grande atenuado a la izquierda, grilla de cards a la derecha) → "Index" en texto con listas por serie |
-| Listado de series | `/series/` | Título + bajada → grilla de tiles verticales (4 por fila en desktop, 2 en tablet, 1 en mobile) |
-| Detalle de serie | `/series/<serie>/` | Hero + franja de imagen → hoja con progreso (puntos, nº de episodios, minutos, estado) → intro → resumen de la tesis en cajas → Reference → Episodes (número + miniatura + título + fecha + dek) |
-| Talks | `/talks/` | Título → grilla de miniaturas de video con título y evento |
-| Library | `/library/` | Título + bajada → una fila por categoría (Anime, Movies, Series, Games, Reading, Music) con título, botones y carrusel horizontal de portadas + contador "+N" → 3 tarjetas finales (Podcasts, Sources, Quotes) |
-| Catálogo (anime, movies, games, music…) | `/anime/`, `/movies/`, … y `/*/backlog/` | Título + intro → chips "On this page" → secciones con tarjetas de portada, puntaje (IMDb / Metacritic), tags y una línea de opinión |
-| Reading | `/reading/` | Columna angosta, filtros por tema, libros apilados con portada grande |
-| Explore | `/explore/` | Hero chico → "Learn the foundations" (3 recorridos numerados) → grafo de ideas → Simulations (por familia, con lista de simulaciones y botón Open) |
-| Topics | `/keywords/`, `/keywords/<tag>/` | Nube de chips con contador; el detalle lista los artículos de ese tag |
-| Search | `/search/` | Título + input; los resultados aparecen al escribir |
-| Quotes | `/quotes/` | Lista centrada de citas grandes en Gloock con autor en mayúsculas |
+| Home | `/` | Fullscreen photo hero → Start here → Latest (1 featured + 3 cards) → Explore (graph + 3 panels) → Try an idea → Series → From the library → footer |
+| Article | `/articles/*`, `/about/`, `/talks/*`, `/explore/*`, `/data/*`, `/licenciatura-*` | Hero with photo + title + dek + meta + tags → "On the image" strip (description + credit) → white sheet with side TOC + text → end matter (cite, tags, ideas, share, newsletter) → Read next → footer |
+| Series episode | `/series/<series>/<episode>/` | Same as article + series note, previous/next navigation and "From the series" |
+| Article listing | `/articles/` | Title + dek → blocks per year (large dimmed year on the left, card grid on the right) → a text "Index" with lists per series |
+| Series listing | `/series/` | Title + dek → grid of vertical tiles (4 per row on desktop, 2 on tablet, 1 on mobile) |
+| Series detail | `/series/<series>/` | Hero + image strip → sheet with progress (dots, number of episodes, minutes, status) → intro → thesis summary in boxes → Reference → Episodes (number + thumbnail + title + date + dek) |
+| Talks | `/talks/` | Title → grid of video thumbnails with title and event |
+| Library | `/library/` | Title + dek → one row per category (Anime, Movies, Series, Games, Reading, Music) with title, buttons and a horizontal carousel of covers + a "+N" counter → 3 final cards (Podcasts, Sources, Quotes) |
+| Catalog (anime, movies, games, music…) | `/anime/`, `/movies/`, … and `/*/backlog/` | Title + intro → "On this page" chips → sections with cover cards, score (IMDb / Metacritic), tags and a one-line opinion |
+| Reading | `/reading/` | Narrow column, filters by topic, stacked books with a large cover |
+| Explore | `/explore/` | Small hero → "Learn the foundations" (3 numbered paths) → ideas graph → Simulations (by family, with a list of simulations and an Open button) |
+| Topics | `/keywords/`, `/keywords/<tag>/` | Cloud of chips with a counter; the detail lists the articles of that tag |
+| Search | `/search/` | Title + input; results appear while typing |
+| Quotes | `/quotes/` | Centered list of large quotes in Gloock with the author in uppercase |
 
-Chequeo técnico relevante para el stack: el sitio está generado con **Zola** (se ve por la clase `zola-anchor` en los títulos) y es 100% estático. La búsqueda se resuelve en el navegador (`/js/search.js`), el newsletter manda un `POST` a Buttondown, las analíticas son Umami y hay feeds RSS y Atom. Es decir: no tiene backend propio.
+Technical check relevant for the stack: the site is generated with **Zola** (visible from the `zola-anchor` class on headings) and is 100% static. Search runs in the browser (`/js/search.js`), the newsletter sends a `POST` to Buttondown, analytics are Umami and there are RSS and Atom feeds. In short: it has no backend of its own.
 
-## 7. Sobre reutilizar el contenido
+## 7. About reusing the content
 
-Esto es el sistema visual (tipografía, color, espaciado, estructura). Los textos, las ilustraciones y los pósters son de su autor o de terceros (los pósters son material con derechos), así que para tu sitio conviene usar el sistema con contenido y fotos propios. La foto Earthrise sí es de dominio público (NASA).
+This is the visual system (typography, color, spacing, structure). The texts, illustrations and posters belong to their author or to third parties (the posters are copyrighted material), so for your site use the system with your own content and photos. The Earthrise photo is in the public domain (NASA).

@@ -1,6 +1,6 @@
 ---
 name: blog-architecture
-description: "Map of this bilingual static blog monorepo (Astro site, React admin, .NET API, Node builder, Caddy) covering where each kind of code lives, how data flows from the admin to published HTML, the HTTP contracts between apps and the single sources of truth. Use when starting any task in this repo, deciding where new code belongs, tracing a bug across apps, or reading odd/tasks feature logs."
+description: "Map of this bilingual static blog monorepo (Astro site, React admin, .NET API, Node builder, Caddy) covering where each kind of code lives, how data flows from the admin to published HTML, the HTTP contracts between apps and the single sources of truth. Use when starting any task in this repo, deciding where new code belongs, tracing a bug across apps, or changing a contract between apps."
 ---
 
 # Blog architecture
@@ -51,9 +51,9 @@ Caddy ─► /srv/site/current (HTML) · /srv/media (uploads) · /srv/admin (SPA
   ProblemDetails with `title`, `detail` in the request language and a stable `code` (the message key).
 - `/api/internal/*`: builder only (Bearer `Builder:Token`/`BUILDER_TOKEN`, ≥ 32 chars). Returns published posts,
   settings, media index and hero items for the build.
-- DTO shapes are recorded in the feature logs (for example `odd/tasks/hero-galeria.md` L10, L13, L19 for media and
-  video, `odd/tasks/multiidioma.md` L4 for translations). Changing a DTO means changing API, admin `api/types.ts` and
-  web `lib/*.ts` interfaces in the same task.
+- DTO shapes are defined by the API (`Blog.Application/<Area>/<Area>Dtos.cs`) and mirrored by the admin
+  (`api/types.ts`) and the site (`lib/*.ts` interfaces); media and video DTOs are summarized in skill `media-pipeline`.
+  Changing a DTO means changing all three in the same task.
 
 ## Single sources of truth (do not duplicate)
 
@@ -66,10 +66,10 @@ Caddy ─► /srv/site/current (HTML) · /srv/media (uploads) · /srv/admin (SPA
 | Markdown block boundaries | `renderMarkdown(...).blockStarts` (or `blockStartLines()`) from `@blog/markdown` | the admin scroll sync and outline read it from the single preview render (a copied regex drifted in 3 cases) |
 | Body render options | `POST_BODY_RENDER_OPTIONS` (`packages/markdown/src/presets.ts`) | site and admin preview both spread it |
 | Editor actions | `apps/admin/src/editor/actions.ts` | toolbar, palette, shortcuts and help read the same list |
-| Design tokens | `packages/tokens/src/tokens.css` | `apps/web/test/contrast.test.ts` |
+| Design tokens | `packages/tokens/src/tokens.css` | `apps/web/test/contrast.test.ts`; the profile SVGs read the same file (`tooling/profile/src/theme.ts`) |
 | Dev file watching | `tooling/dev-watch.ts` | used by both Vite configs |
 | Agent skills | `.agents/skills/` | `node tooling/agents/sync.ts --check` |
-| How a change is verified | `.github/workflows/ci.yml` (jobs node, dotnet, infra, images, security) | README "Cómo verificar" lists the same commands |
+| How a change is verified | `.github/workflows/ci.yml` (jobs node, dotnet, infra, images, security) | README "How to verify" lists the same commands |
 | Base images and their versions | the Dockerfiles (pinned by digest) | CI reads Node and Caddy from them; `infra/test/compose.test.ts` |
 
 ## CI and dependency updates
@@ -82,13 +82,6 @@ all tests in the API dev image, real ffmpeg), **infra** (`docker compose config 
 refreshes the profile images. `.github/dependabot.yml` proposes npm, NuGet, Docker, compose and actions updates weekly.
 A red CI is a failed task, not a flaky one: reproduce it locally with the README commands.
 
-## Feature logs (`odd/tasks/*.md`)
-
-Each feature has `## Specs` (S#: the user's literal request and chosen options), `## Tasks` (ID, specs, route, state,
-commit) and `## Log` (L#: evidence, decisions, contracts, review findings, lessons). Read it to the end of the Log
-before touching that feature; later L# entries correct earlier ones (for example `multiidioma.md` L12 removed
-`nameEn`). Specs and logged contracts are authoritative over summaries.
-
 ## Checklist
 
 - [ ] New public behavior is computed at build time; no runtime fetch from the public site.
@@ -96,7 +89,7 @@ before touching that feature; later L# entries correct earlier ones (for example
 - [ ] Content changes that affect public pages call `ISiteBuildTrigger.RequestBuildAsync`.
 - [ ] Any fact you need already has an owner in the table above; reuse it instead of re-declaring it.
 - [ ] DTO changes are applied in API, admin types and web lib types together.
-- [ ] A new check, app or image is wired into CI (`ci.yml`) and the README "Cómo verificar" in the same commit.
+- [ ] A new check, app or image is wired into CI (`ci.yml`) and the README "How to verify" in the same commit.
 
 ## Anti-patterns seen here
 

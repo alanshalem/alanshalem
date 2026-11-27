@@ -10,13 +10,14 @@ Where each area is tested. Add to the existing file of the area before creating 
 | `blocks.test.ts` | block boundaries (`blockStartLines`), fences, lists, tables |
 | `extensions.test.ts` | footnotes, callouts, figures, smart typography per language, preservation of old output |
 | `accessibility.test.ts` | focusable `<pre>`, table regions, heading levels |
+| `escape.test.ts` | the exact public API list (`createSlugger` internal), `unescapeHtml` as the inverse of `escapeHtml`, plain text decoding |
 
 ## apps/web/test
 
 | File | Covers |
 |---|---|
 | `api.test.ts` | `getInternal`, `oncePerBuild` (once per build, every render in dev) |
-| `posts.test.ts`, `fixtures.ts` | API post → `BlogPost`, per-language lists, tags, alternates |
+| `posts.test.ts`, `fixtures.ts` | API post → `BlogPost` (one render, reading time from its text), per-language lists, archive by year, read next, home sections, tags, alternates |
 | `i18n.test.ts` | languages, `paths`, switcher, hreflang, dictionary parity, dates |
 | `settings.test.ts` | `toSiteSettings` fallbacks (En → es → env → dictionary) and URL/email validation |
 | `hero.test.ts` | hero resolution, rotation script (≤ 800 bytes), video and play/pause behavior |
@@ -37,7 +38,8 @@ Where each area is tested. Add to the existing file of the area before creating 
 | `a11y.test.ts` | accessible names, roving toolbar, Tab leaving the editor, page titles |
 | `commands.test.ts`, `editor-*.test.ts` | editor commands, actions registry, HTML→Markdown paste, search, scroll sync |
 | `lint.test.ts`, `seo.test.ts`, `autosave.test.ts`, `history.test.ts`, `schedule.test.ts`, `versions.test.ts` | post tools |
-| `hero.test.ts`, `heroSize.test.ts`, `heroVideo.test.ts`, `videoEdit.test.ts` | hero gallery, size rule, video states, trim/fade |
+| `postForm.test.ts` | post ↔ editor form fields (`toPostForm`, `toPostInput`, `EMPTY_POST_FORM`) |
+| `hero.test.ts`, `heroGrid.test.ts`, `heroSize.test.ts`, `heroVideo.test.ts`, `videoEdit.test.ts` | hero gallery, size rule, video states and warnings, trim/fade |
 | `limits.test.ts` | admin limits equal the C# domain constants |
 | `settings.test.ts`, `siteUrl.test.ts`, `unsaved.test.ts` | settings validation, "Ver sitio" URL, unsaved-changes guard |
 
@@ -64,12 +66,14 @@ Where each area is tested. Add to the existing file of the area before creating 
 |---|---|
 | `compose.test.ts` | compose services, hardening, healthchecks, capped logs, start order; Dockerfiles (digests, same Node, builder without package managers) |
 | `caddy.test.ts` | production Caddyfile additions (ACME email option, COOP/CORP, admin noindex) |
+| `ports.test.ts` | the API port across its Dockerfile, healthcheck command, Caddyfile and compose (production and dev); the builder port across its config, Dockerfile and the URL the API calls |
 | `backup.test.ts` | `backup.sh` / `restore.sh` with a fake `docker` (skipped on Windows) |
 
 ## tooling/profile/test
 
 `github.test.ts` (public API reads), `metrics.test.ts` (streaks, languages, rank), `rss.test.ts`, `readme.test.ts` (marked
-section rewrite, latest posts), `profile.test.ts` (rendered SVGs), `theme.test.ts`, `type.test.ts` (text to paths).
+section rewrite, latest posts), `profile.test.ts` (rendered SVGs), `theme.test.ts` (card colors equal `tokens.css`,
+text contrast), `type.test.ts` (text to paths).
 
 ## tooling/agents/test
 

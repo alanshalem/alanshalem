@@ -19,9 +19,9 @@ Blog.Api ──► Blog.Application ──► Blog.Domain
 - **Infrastructure** (`src/Blog.Infrastructure`): `internal sealed` adapters (repositories, `DiskMediaStorage`,
   `NetVipsImageProcessor`, `FfmpegVideoTranscoder`, workers), all wired in `DependencyInjection.cs`.
 - **Api** (`src/Blog.Api`): `Program.cs` (CLI modes first, options validated on start, auth, CSRF middleware, rate
-  limit, groups), `Endpoints/*Endpoints.cs`, `Cli/` (command-line modes), `Security/` (session, rate limit, trusted
-  proxies, builder token), `Http/` (`ApiExceptionHandler`, `LocalizedProblems`, `RequestLanguage`,
-  `StoredMessageJsonConverter`).
+  limit, groups), `Endpoints/*Endpoints.cs`, `Cli/` (command-line modes), `Security/` (session, password hasher
+  `Pbkdf2PasswordHasher`, rate limit, trusted proxies, builder token), `Http/` (`ApiExceptionHandler`,
+  `LocalizedProblems`, `RequestLanguage`, `StoredMessageJsonConverter`, `UserMessageJsonConverter`).
 
 ## Domain model
 
@@ -59,7 +59,11 @@ throw new ConflictException(MessageKeys.PostSlugTaken,                          
   its own status, so both environments answer the same.
 - Messages stored for later (a video's processing error) are a `StoredMessage` holding the **key**, not text; the API
   writes it in the reader's language (`StoredMessageJsonConverter`). Old rows with Spanish text are shown as they are.
-- Log and exception `Message` text stays Spanish (default language).
+- Messages computed on the fly and returned in a DTO (a hero video's size warnings) travel as `UserMessage` and are
+  written in the request language by the write-only `UserMessageJsonConverter` (JSON stays `string[]`). A request
+  without `Accept-Language` (the builder) gets Spanish. Never call `UserMessage.ToString()` for text sent to a client.
+- Log lines and developer exception `Message` texts are English (they are for operators, not readers); only the
+  catalog's Spanish entries are Spanish.
 
 ## Use cases
 
@@ -87,9 +91,12 @@ throw new ConflictException(MessageKeys.PostSlugTaken,                          
   A new mode gets a test of its output and exit codes (`HashPasswordCommandTests`, `BackupCommandTests`,
   `Http/HealthHttpTests`) and its row here.
 - Admin session (`Security/AdminSession.cs`): cookie `__Host-admin` carries the `session_epoch` claim. Logout with a valid
-  session calls `AdminSessionEpoch.RevokeAllAsync` (Infrastructure, persisted in the database, cached in memory): every
-  cookie issued before, even a copied one, is rejected. Revocation **fails closed** if refreshing the cached epoch fails. A restored database brings back an older epoch,
-  so `infra/restore.sh` always starts with a fresh Data Protection key ring (old cookies cannot even be decrypted).
+  session calls `IAdminSessionEpoch.RevokeAllAsync` (port in `Blog.Application/Abstractions/Ports.cs`; the internal
+  `AdminSessionEpoch` adapter in Infrastructure persists it in the database and caches it in a volatile int): every
+  cookie issued before, even a copied one, is rejected. Revocation **fails closed** if refreshing the cached epoch
+  fails. Api code depends on the port, never on `Blog.Infrastructure.Security`. A restored database brings back an
+  older epoch, so `infra/restore.sh` always starts with a fresh Data Protection key ring (old cookies cannot even be
+  decrypted).
   Failed logins are logged with the client IP only.
 - Trusted proxies (`Security/TrustedProxies.cs`): `X-Forwarded-For`/`-Proto` are believed only from
   `ForwardedHeaders:KnownNetworks` (CIDR list; default the Docker private ranges + loopback). An invalid CIDR stops the
@@ -136,7 +143,7 @@ dotnet test
 
 ## Style
 
-- XML doc comments and inline comments in Spanish explaining *why*; file-scoped namespaces; primary constructors
+- XML doc comments and inline comments in English explaining *why*; file-scoped namespaces; primary constructors
   for services and adapters; `CancellationToken` on every async method.
 - Tests: xUnit, names `Subject_does_this_when_that` (skill `testing-tdd`).
 
@@ -153,8 +160,8 @@ dotnet test
 
 ## Anti-patterns seen here
 
-- Generic conflict text in a repository instead of a specific key (rediseno-editorial L7).
-- A `nameof` pointing to the wrong argument in a guard (hero-galeria L23 R2-misleading-argname).
-- Comments that cite a spec id ("S12") without stating the rule (L23): write the rule.
-- Swallowing a `VipsException` without logging (L14 R4-silent-vips-catch).
-- Reporting success before verifying files exist on disk (dedupe without file check, L14/L20).
+- Generic conflict text in a repository instead of a specific key.
+- A `nameof` pointing to the wrong argument in a guard (review R2-misleading-argname).
+- Comments that cite a spec id without stating the rule: write the rule.
+- Swallowing a `VipsException` without logging (review R4-silent-vips-catch).
+- Reporting success before verifying files exist on disk (dedupe without a file check).

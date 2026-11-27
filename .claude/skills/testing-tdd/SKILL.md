@@ -8,11 +8,11 @@ description: "Test-first workflow and test tooling of this repo, covering RED th
 ## The loop
 
 1. **RED**: write a behavior-level test through the public surface (exported function, HTTP endpoint, CLI) and run it
-   to see it fail for the right reason (a missing export counts: `L17` "RED (export inexistente) → GREEN").
+   to see it fail for the right reason (a missing export counts: "RED (missing export) → GREEN").
 2. **GREEN**: the smallest change that passes.
 3. **PRESERVE**: for each existing behavior that shares the changed code, one test proving it still holds
    (renderer changes: Markdown that does not use the feature renders exactly as before).
-4. **REFACTOR** with the suite green. Record the counts in the feature log (`API 476, admin 342, web 147`).
+4. **REFACTOR** with the suite green. Report the counts before and after (`API 476, admin 342, web 147`).
 
 A regression gets a test that fails on the old code first. Example: `apps/web/test/caddyfile.test.ts` accepts
 `CADDYFILE=<path>` to prove it catches the pre-`48f0158` file.
@@ -40,7 +40,7 @@ pnpm typecheck                              # tsc / astro check: run it too, tes
 | `images` | `docker compose build <service>` for api, builder, caddy + Trivy (CRITICAL/HIGH with a fix fails) |
 | `security` | `pnpm audit --prod --audit-level high`, `dotnet list package --vulnerable --include-transitive`, gitleaks over the full history |
 
-The exact local commands are in `.github/README.md` "Cómo verificar" (the API one copies the code into the container,
+The exact local commands are in `.github/README.md` "How to verify" (the API one copies the code into the container,
 so Windows bind mounts and your `bin/`/`obj/` are not involved). A test that only passes on your machine is not done.
 
 ## node --test conventions (TypeScript, no test dependencies)
@@ -48,8 +48,8 @@ so Windows bind mounts and your `bin/`/`obj/` are not involved). A test that onl
 - `import assert from 'node:assert/strict'` and `describe`/`it`/`test` from `node:test`. No Jest/Vitest.
 - Files run with Node type stripping: erasable TypeScript only, imports with `.ts`.
 - Test pure modules directly; read sibling files with `new URL('../src/x', import.meta.url)`.
-- Describe/it names follow the surrounding language (Spanish in apps and packages) and cite the spec when useful
-  (`describe('idiomas fijos (L3)')`).
+- Describe/it names are English and state the rule they prove (`describe('fixed languages')`), never an id from
+  private notes. Strings that assert Spanish output stay Spanish (they are what readers see).
 - Guard tests on text are fine when the rule lives in text: CSS rules (`site-css.test.ts`, `contrast.test.ts`
   computes WCAG ratios from tokens), the Caddyfile (`caddyfile.test.ts`), C# constants (`apps/admin/test/limits.test.ts`
   parses `Blog.Domain/*.cs`).
@@ -75,13 +75,15 @@ so Windows bind mounts and your `bin/`/`obj/` are not involved). A test that onl
 | API message catalog es ↔ en | `MessageCatalogTests.cs` |
 | Skill source ↔ generated copies | `tooling/agents/test/sync.test.ts` (and `node tooling/agents/sync.ts --check`) |
 | Node of the builder image ↔ Node of the Caddy image | `infra/test/compose.test.ts` |
+| API and builder ports across Dockerfiles, C#, TypeScript, Caddyfile and compose | `infra/test/ports.test.ts` |
+| Profile SVG colors ↔ `tokens.css` | `tooling/profile/test/theme.test.ts` |
+| Markdown public exports ↔ the documented list | `packages/markdown/test/escape.test.ts` |
 
 ## Infra changes: text test + real run
 
 The Caddyfile and compose tests pin intent, but **only a real Caddy and Docker prove behavior**: run `caddy validate`
 (or the Caddy image) and hit the routes (`curl -I`) for status and headers; `docker compose config -q` and bring the
-stack up. Lesson (`plataforma-calidad.md` L10): `try_files @html …` passed the text test but Caddy does not accept a
-matcher there. Shell scripts (`infra/backup.sh`, `restore.sh`) are tested through a fake `docker` on the PATH
+stack up. Lesson: `try_files @html …` passed the text test but Caddy does not accept a matcher there. Shell scripts (`infra/backup.sh`, `restore.sh`) are tested through a fake `docker` on the PATH
 (`infra/test/backup.test.ts`) and once for real against the local production copy.
 
 ## Scratch and side effects

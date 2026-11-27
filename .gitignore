@@ -8,7 +8,7 @@ bin/
 obj/
 *.user
 
-# Datos y secretos: nunca al repo
+# Data and secrets: never in the repo
 .env
 .env.*
 !.env.example
@@ -17,23 +17,23 @@ data/
 *.db-shm
 *.db-wal
 
-# Capturas de referencia de un sitio de terceros: solo para consulta local, no se versionan
+# Reference screenshots of a third-party site: local reference only, not versioned
 docs/design/reference/
 
-# Specs y bitácoras del trabajo con agentes (odd/tasks): quedan solo en esta PC, no se publican (decisión L9).
+# Local agent notes, never committed
 odd/
 
-# Índices, cachés y salidas de herramientas
+# Tool indexes, caches and outputs
 .codegraph/
 TestResults/
 coverage/
 *.log
 
-# Editores
+# Editors
 .vscode/
 .idea/
 
-# Claves privadas y certificados: nunca al repo
+# Private keys and certificates: never in the repo
 *.pem
 *.key
 *.p12

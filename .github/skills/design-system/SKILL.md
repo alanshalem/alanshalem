@@ -6,8 +6,9 @@ description: "The editorial dark design system shared by the blog site, the admi
 # Design system
 
 Full reference: `docs/design/DESIGN-SYSTEM.md` (measured values, components, per-viewport behavior). Tokens:
-`packages/tokens/src/tokens.css` (CSS custom properties + `@font-face`), `tokens.json` (DTCG), `prose.css` (post
-bodies). Site styles: `apps/web/src/styles/site.css`; admin: `apps/admin/src/admin.css`. Both import `@blog/tokens`.
+`packages/tokens/src/tokens.css` (CSS custom properties + `@font-face`), the single source, and `prose.css` (post
+bodies). Site styles: `apps/web/src/styles/site.css`; admin: `apps/admin/src/admin.css`. Both import `@blog/tokens`;
+the profile SVGs (`tooling/profile/src/theme.ts`) read their colors from the same `tokens.css`.
 
 ## Character (keep these three)
 
@@ -24,7 +25,7 @@ bodies). Site styles: `apps/web/src/styles/site.css`; admin: `apps/admin/src/adm
 ```
 
 - Never hard-code a color, font stack or spacing that a token already names. New value → add the token to
-  `tokens.css` (and `tokens.json`), then use it.
+  `tokens.css`, then use it.
 - Labels/eyebrows: Hanken 600, 0.75rem, uppercase, tracking .12em. Meta: Hanken 0.8125rem.
 - Links: inherit color, 1px underline with offset ~.22em; hover/focus underline 3px `#c4d0ff`. In articles the
   accent is `#9db2ff`; inside `.paper` the accent becomes `periwinkle-700` `#3b5bdb` (contrast on white).
@@ -35,7 +36,7 @@ bodies). Site styles: `apps/web/src/styles/site.css`; admin: `apps/admin/src/adm
 
 - Dark pages (home, listings) use `bg-page`, panels `bg-surface` `#141416`.
 - Reading pages: dark full-screen hero, then the white `.paper` sheet (`paper-bg` `#fff`, `paper-text` `#2c2724`),
-  then dark again for "Seguir leyendo" and the footer. Code blocks use the GitHub-dark pair `#24292e` / `#e1e4e8`.
+  then dark again for "Seguir leyendo" ("Keep reading") and the footer. Code blocks use the GitHub-dark pair `#24292e` / `#e1e4e8`.
 - Text over photos: `overlay-hero` bands (top and bottom, sized in rem) plus the `overlay-hero-text` veil behind the
   text block; topic tiles add `overlay-tile`. Values are guarded by `apps/web/test/contrast.test.ts` (worst case: a
   white photo). Over images use `text-primary`/`text-secondary` only.
@@ -53,7 +54,7 @@ system with the owner's own texts and photos; never copy third-party text, image
 
 ## Checklist
 
-- [ ] Only tokens; any new value added to `tokens.css` + `tokens.json`.
+- [ ] Only tokens; any new value added to `tokens.css`.
 - [ ] Right typeface for the role; no radius, no shadow, rules are 1px `border-subtle`.
 - [ ] Over photos: overlay tokens + primary/secondary text; contrast test still green.
 - [ ] Inside `.paper`: paper tokens and the dark-on-white accent.
@@ -63,5 +64,6 @@ system with the owner's own texts and photos; never copy third-party text, image
 
 - `text-shadow` to rescue contrast (forbidden; `site-css.test.ts` fails on it) — use the veil.
 - Light-theme accents reused on the white sheet (2.1:1 and 1.5:1 focus/underline) before `periwinkle-700`.
-- Keeping a second copy of the tokens: `packages/tokens/src/tokens.css` and `tokens.json` are the only source (a
-  `docs/design/tokens.json` copy drifted and was removed).
+- Keeping a second copy of the tokens: `packages/tokens/src/tokens.css` is the only source. A `docs/design/tokens.json`
+  copy drifted and was removed, and so did `packages/tokens/src/tokens.json` (a hand-kept DTCG mirror that ended up
+  with entries the CSS did not have and a value that differed).

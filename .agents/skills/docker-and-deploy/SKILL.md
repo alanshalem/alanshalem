@@ -14,14 +14,14 @@ description: "How this blog runs in Docker and on the VPS, covering the dev comp
 | VPS (from `infra/`) | `docker compose --env-file .env up -d --build` | project `blog`; Caddy with automatic TLS on 80/443 |
 
 - `--env-file` goes on **every** command of a project (`up`, `logs`, `ps`, `down`); without it compose names the
-  missing variable and stops (accepted trade-off, review R4-compose-dev-requires-envfile).
+  missing variable and stops (accepted trade-off: one env file for dev and the local copy, no silent defaults).
 - Ports in use: `API_PORT`, `ADMIN_PORT`, `WEB_PORT` (dev), `LOCAL_PORT` (local copy, also adjusts `SITE_URL`).
 - `down -v` deletes the project's volumes, database included. Ask before running it.
 - Password hash: `docker compose ... run --rm --no-deps api hash-password` (before the first `.env` exists:
   `docker build --tag blog-api apps/api && docker run --rm -it blog-api hash-password`); ≥ 12 characters, typed without
   echo; paste it in single quotes (it has `$`).
 - The operations runbook (first deploy, update, rollback, backups, logs, rotation, firewall, disk, monitoring) lives in
-  `.github/README.md` "Operación": keep it in sync with the scripts and compose files.
+  `.github/README.md` "Operations": keep it in sync with the scripts and compose files.
 
 ## Secrets and env files
 
@@ -33,6 +33,8 @@ description: "How this blog runs in Docker and on the VPS, covering the dev comp
   `.env.example` to the user.
 - CI has no `.env`: the VPS compose is validated and built with placeholder values in the step `env`, never secrets.
 - The API validates required options on start (`Admin:PasswordHash`, `Builder:Token` ≥ 32 chars): fail fast.
+- `BUILDER_TOKEN` is required once, in the `x-builder-token` anchor (`&builder-token`, `${BUILDER_TOKEN:?…}`), and the
+  API and the builder both read that anchor, in production and in dev.
 
 ## Images
 
@@ -64,12 +66,12 @@ references into the workflow.
 
 - **Hardening** (`x-service` anchor on every service): `no-new-privileges`, `cap_drop: ALL` (each service adds back only
   what it needs), `pids_limit` 256 (API 512: ffmpeg + .NET threads measured at 84; builder 128: `astro build` peaked at 29;
-  `init-permisos` 32). Caddy and the API
+  `init-permissions` 32). Caddy and the API
   are `read_only` with a `tmpfs` `/tmp`; the API's upload bodies and libvips temp files go to `/data/tmp`
   (`ASPNETCORE_TEMP`, `TMPDIR`) on disk, not in the RAM cap.
 - **Caddy runs as root with only `NET_BIND_SERVICE`**: without root it would need high ports and the HTTP→HTTPS redirect
   would carry that port. The API (uid 1654) and the builder (`node`, uid 1000) never run as root.
-- `init-permisos` (busybox, `CHOWN` + `DAC_OVERRIDE`) creates `/data/tmp` and `/data/backups` and fixes ownership only of
+- `init-permissions` (busybox, `CHOWN` + `DAC_OVERRIDE`) creates `/data/tmp` and `/data/backups` and fixes ownership only of
   what has another owner (`find ! -user … -exec chown`), so an `up` never rewrites all the media; then exits.
 - **Logs are capped**: `x-logging` uses the `local` driver, at most 5 × 10 MB per container (prod and dev). The API logs
   one JSON line per event (`Logging__Console__FormatterName=json`); `docker compose logs` works as before.
@@ -85,8 +87,14 @@ references into the workflow.
 - Volumes: `api_data` (SQLite, keys, `Video__WorkDirectory`, `tmp`, `backups`), `media` (mounted `:nocopy`), `site`
   (releases + `current`), `caddy_data`, `caddy_config`.
 - If the VPS already has a reverse proxy on 80/443, put it in front of this Caddy on an internal network.
+- Ports are written in files that cannot import each other: `infra/test/ports.test.ts` fails when one changes alone.
+  API: the Dockerfile's `ASPNETCORE_URLS` (runtime and dev), its own `healthcheck` command, the Caddyfile and the
+  compose files; builder: its config default, its `EXPOSE` and the URL the API calls. Change a port everywhere at once.
 
 ## Backups and restore (`infra/backup.sh`, `infra/restore.sh`, shared `infra/backup-common.sh`)
+
+`backup-common.sh` holds only what both scripts use (compose wrapper, logging, the API backup and its verification,
+sizes); a helper used by one script lives in that script.
 
 - `backup.sh` (daily by cron, see its header): the database through the API's `backup` mode (consistent SQLite backup
   while serving) and only the new media (**never the Data Protection keys**), into `BACKUP_DIR` (default `/var/backups/blog`);
@@ -100,8 +108,10 @@ references into the workflow.
   requests a build (`node src/request-build.ts`); a failure after the stop puts the previous copy back (also with new
   keys). Why no keys: a snapshot predates a logout, and its keys plus its stored session epoch would make a revoked
   cookie valid again. Every restore logs the admin out; never add the keys back to the backup.
-- The scripts' headers are the reference for variables and folder layout; the README "Operación" section is the
+- The scripts' headers are the reference for variables and folder layout; the README "Operations" section is the
   runbook. Change the three together.
+- Deploying the version that introduces the session epoch logs the admin out once (older cookies carry no epoch
+  claim); the README "Update" section says so.
 - Rollback of a release = restore the backup taken before updating: migrations run at startup and `Down` migrations are
   not supported.
 - Tested by `infra/test/backup.test.ts` with a fake `docker` on the PATH (skipped on Windows; runs in CI) and once end to
@@ -157,7 +167,8 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
       needs.
 - [ ] No secret or real hash in any committed file; only `infra/local.env` test values.
 - [ ] Memory/CPU/pids changes measured (`docker stats`) and recorded in the compose comment.
-- [ ] Operations changed (scripts, variables, ports)? Update `.github/README.md` "Operación".
+- [ ] Operations changed (scripts, variables, ports)? Update `.github/README.md` "Operations"; ports also in
+      `infra/test/ports.test.ts`.
 
 ## Anti-patterns seen here
 
@@ -167,4 +178,4 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
 - Comments claiming a "low priority" compose setting that does not exist (priority is `nice` in the process).
 - Unbounded `json-file` logs (the default driver) that fill the VPS disk; fixed with the capped `local` driver.
 - Caddy gated on the API's health: a sick API would keep the static site down. Caddy waits only for `service_started`.
-- Re-owning all media recursively on every `up` (slow); `init-permisos` now fixes only what differs.
+- Re-owning all media recursively on every `up` (slow); `init-permissions` now fixes only what differs.

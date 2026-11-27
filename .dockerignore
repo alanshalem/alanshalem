@@ -1,7 +1,7 @@
-# Contexto de build = raíz del monorepo (imagen de Caddy con el admin, imagen del builder y la base Node de desarrollo).
-# Lista blanca: solo entra lo que los Dockerfiles copian. Así el contexto pesa KB y no cientos de MB, ningún secreto ni
-# dato local (.env, SQLite, media) puede colarse en una imagen, y tocar algo ajeno (docs/, odd/, la API, que tiene su
-# propio contexto) no invalida la caché.
+# Build context = monorepo root (the Caddy image with the admin, the builder image and the Node development base).
+# Whitelist: only what the Dockerfiles copy gets in. That keeps the context at KBs instead of hundreds of MB, no secret
+# or local data (.env, SQLite, media) can slip into an image, and touching something unrelated (docs/, the API, which
+# has its own context) does not invalidate the cache.
 *
 !package.json
 !pnpm-lock.yaml
@@ -14,8 +14,8 @@
 !apps/builder
 !infra/caddy/Caddyfile
 
-# Dentro de lo permitido, nada generado en tu PC (node_modules de Windows, builds) ni tests: las imágenes instalan y
-# compilan lo suyo.
+# Within what is allowed, nothing generated on your machine (Windows node_modules, builds) and no tests: the images
+# install and build their own.
 **/node_modules
 **/dist
 **/.astro

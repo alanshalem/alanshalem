@@ -5,8 +5,8 @@ description: "How this blog handles uploaded images and hero videos end to end, 
 
 # Media pipeline (images and videos)
 
-Contracts are in `odd/tasks/hero-galeria.md` L10 (images), L13 (video), L19 + L26 (trim/fade). Read them before
-changing a DTO.
+The DTOs below are the contracts between the API (`Blog.Application/Media`, `Blog.Application/Videos`), the admin
+(`api/types.ts`) and the site (`lib/media.ts`, `lib/hero.ts`). Change all three together.
 
 ## Images (every upload: hero, covers, post images)
 
@@ -41,7 +41,9 @@ changing a DTO.
 
 - Rejected if not landscape (width < 6/5 × height, integer comparison) or smaller than 1280×720; accepted with a
   warning under 1920×1080. Guide text: "Ideal: 1920×1080 o más, horizontal 16:9". Covers and post images have no rule.
-- The admin pre-checks with the same numbers from `apps/admin/src/limits.ts` (`heroFrame`, `video`).
+- The admin pre-checks with the same numbers from `apps/admin/src/limits.ts` (`heroFrame`, `video`). Size warnings in
+  the admin always come from its own rule (`checkHeroSize` in `hero/heroSize.ts`), in the UI language; for an uploaded
+  video it is applied to the size the API measured (`videoWarnings` in `hero/heroVideo.ts`).
 
 ## Rendering on the site
 
@@ -63,7 +65,7 @@ changing a DTO.
 - Development: the API serves `/media` from `Media:Directory` only in Development; Vite and `astro dev` proxy `/media`
   to it.
 - Resources: encoding a 15 s 1080p video takes ~3.5 min and peaks ~1.3 GiB; the API container has `mem_limit 1536m`,
-  `cpus 2.0` (user decision, hero-galeria L27).
+  `cpus 2.0` (the owner's decision).
 
 ## Checklist
 
@@ -75,8 +77,8 @@ changing a DTO.
 
 ## Anti-patterns seen here
 
-- Animated GIF/WebP silently losing animation; placeholder without a size cap (→ 500) (hero-galeria L14).
-- Marking a video Ready without checking its files; `MarkFailed` after `MarkReady` masking the real error (L20).
-- Poster taken from a frame after `TrimEnd` (L23 R3-004).
+- Animated GIF/WebP silently losing animation; placeholder without a size cap (→ 500).
+- Marking a video Ready without checking its files; `MarkFailed` after `MarkReady` masking the real error.
+- Poster taken from a frame after `TrimEnd` (review R3-004).
 - `/media` 404s cached as immutable for a year (fixed with `no-store` in `handle_errors`).
 - A comment saying "≈1 minute" for an encode measured at 211 s: measure, then write the number.

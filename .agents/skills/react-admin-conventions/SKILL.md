@@ -15,7 +15,7 @@ description: "Conventions of the React 19 + Vite admin in apps/admin, where src/
 
 | Kind | Naming | May import | Tested by |
 |---|---|---|---|
-| Pure rules | `heroSize.ts`, `lint.ts`, `commands.ts`, `schedule.ts`, `versions.ts` | other pure modules, `i18n.ts` types | `test/*.test.ts` with node --test |
+| Pure rules | `heroSize.ts`, `lint.ts`, `commands.ts`, `schedule.ts`, `versions.ts`, `postForm.ts` | other pure modules, `i18n.ts` types | `test/*.test.ts` with node --test |
 | Hooks | `useHeroImages.ts`, `useAutosave.ts`, `useUnsavedGuard.ts` | React, `api/client.ts`, pure modules | through their pure parts |
 | Components | `HeroGallery.tsx`, `Banner.tsx`, `PageHead.tsx` | hooks, pure modules, `useUiLanguage` | — (keep them dumb) |
 
@@ -30,6 +30,9 @@ description: "Conventions of the React 19 + Vite admin in apps/admin, where src/
   `X-Requested-With: blog-admin` (CSRF), `Accept-Language` from `setApiLanguage(lang)` (set by the UI language
   provider when the ES | EN selector changes), JSON or `FormData`, `ApiError(status, message)` on failure with the
   ProblemDetails text from `problem.ts`.
+- `errorMessage(caught, fallback)` (`api/problem.ts`) is the one way to turn a caught value into text: an `Error`'s own
+  message (an `ApiError` already carries the localized API text), else `fallback`. Do not repeat
+  `caught instanceof Error ? …` in hooks or pages.
 - `types.ts` mirrors the API DTOs. No UI decisions in `src/api/`.
 
 ## Texts (i18n)
@@ -41,6 +44,9 @@ description: "Conventions of the React 19 + Vite admin in apps/admin, where src/
   `formatTime` of the `I18n` object (es-AR 24 h, en-US).
 - Error texts from the API already come localized (the admin sends `Accept-Language`); switch on behavior by status
   or `code`, never by text. See skill `bilingual-i18n`.
+- Hero size warnings (photos and videos) come from the admin's own `checkHeroSize` (`hero/heroSize.ts`) in the UI
+  language; for an uploaded video `videoWarnings` (`hero/heroVideo.ts`) applies it to the size the API measured. The
+  API's `video.warnings` text is not shown, so the admin has one source for what it says.
 
 ## Single sources inside the admin
 
@@ -48,9 +54,11 @@ description: "Conventions of the React 19 + Vite admin in apps/admin, where src/
   the shortcuts help (Ctrl+/) are generated from it. Adding an action = one entry here.
 - `src/limits.ts` mirrors API validation limits for early feedback (`maxLength`, counters, guides); the API stays
   the authority. `test/limits.test.ts` reads the C# constants.
-- `src/languages.ts` lists languages; `src/siteUrl.ts` gives the public site URL ("Ver sitio"), `/` in production and
+- `src/languages.ts` lists languages; `src/siteUrl.ts` gives the public site URL ("Ver sitio" / "View site"), `/` in production and
   `http://localhost:4321/` injected by `vite.config.ts` only for `vite dev`.
 - `useSaveShortcut.ts` is the only Ctrl+S binding; `navigation/useUnsavedGuard.ts` the only leave guard.
+- `posts/postForm.ts` (pure) turns a `Post` into the editor's text fields (`toPostForm`, `EMPTY_POST_FORM`) and those
+  fields back into the `PostInput` that is saved (`toPostInput`); the editor page keeps only state and rendering.
 
 ## Editor
 
@@ -85,6 +93,10 @@ description: "Conventions of the React 19 + Vite admin in apps/admin, where src/
 
 - Copied block regexes in `scrollSync` drifted from the renderer in 3 cases (fixed in `ad9b10d`).
 - Ctrl+S and `beforeunload` handlers duplicated across pages (unified in `0c6ae73`).
-- Limits and image types duplicated between admin and API with different wording (L4 principle 1).
+- Limits and image types duplicated between admin and API with different wording (now `limits.ts`, tested against
+  the C#).
+- The API's Spanish-only video size warnings overwriting the admin's localized one (the admin now shows only its own
+  `checkHeroSize` text).
+- The same `caught instanceof Error ? caught.message : …` copied into ten hooks and pages (now `errorMessage`).
 - Vite serving a stale module on Windows (`client.ts` without `ApiError`): fixed for good with polling (`71261e3`).
-- "Ver sitio" pointing at the admin's own Vite port in dev (`b636678`).
+- "Ver sitio" ("View site") pointing at the admin's own Vite port in dev (`b636678`).

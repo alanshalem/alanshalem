@@ -9,7 +9,11 @@ description: "Rules of the dependency-free Markdown renderer in packages/markdow
 
 - Zero runtime dependencies. Public API in `src/index.ts`: `renderMarkdown`, `blockStartLines`,
   `POST_BODY_RENDER_OPTIONS`, `excerpt`, `readingTimeMinutes`, `readingTimeOfText`, `wordCount`, `toPlainText`,
-  `createSlugger`, `slugify`, `escapeHtml`, `sanitizeUrl`, types `Heading`, `Lang`, `RenderOptions`, `RenderResult`.
+  `slugify`, `escapeHtml`, `unescapeHtml`, `sanitizeUrl`, types `Heading`, `Lang`, `RenderOptions`, `RenderResult`.
+  `test/escape.test.ts` pins that exact list: adding or removing an export is a deliberate change to that test.
+- `unescapeHtml` is the exact inverse of `escapeHtml` (one table in `src/escape.ts`, decoded in one pass): plain text
+  uses it, and any site or admin code that needs the text back imports it instead of keeping its own copy.
+- `createSlugger` stays internal (`src/slug.ts`): only the renderer needs per-document unique ids.
 - `renderMarkdown(source, options)` returns `{ html, headings, blockStarts, text }` from **one pass**: `headings` feed
   the article TOC (ids are the anchors); `blockStarts` is the line (from 0) where each top-level block starts (one per
   top-level HTML element; the footnotes section is not a block); `text` is the plain text of that `html` (what is
@@ -47,13 +51,15 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
 - Callouts: `> [!NOTE]`, `> [!TIP]` (rendered "Puntos clave" / "Key takeaways"), `> [!WARNING]`. Labels per language
   live in one table in `src/labels.ts` (`CALLOUT_KINDS`, `labelsFor`).
 - Figures: an image alone in its paragraph with a title, `![alt](url "caption")` → `<figure>` + `<figcaption>`.
-- Smart typography by language: quotes, dashes, ellipsis — never inside code, URLs or attributes.
+- Smart typography by language: quotes, dashes, ellipsis — never inside code, URLs or attributes. What counts as a
+  word character is one predicate, `isWordChar` (`src/typography.ts`), shared by smart quotes and the `_` emphasis
+  rule in `src/inline.ts`.
 
 ## Accessible output
 
 - `<pre tabindex="0">` (scrollable code is keyboard reachable, WCAG 2.1.1).
 - Tables wrapped in `<div class="table-wrap" tabindex="0" role="region" aria-label="Tabla|Table">`.
-- Heading ids are unique per document (`createSlugger`).
+- Heading ids are unique per document (the internal `createSlugger`).
 
 ## Structure helpers
 
@@ -70,7 +76,7 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
 ## Tests
 
 `packages/markdown/test/*.test.ts` (node --test): `render.test.ts`, `blocks.test.ts`, `extensions.test.ts`,
-`accessibility.test.ts`. For each change: a RED test for the new syntax, plus a test proving Markdown that does not
+`accessibility.test.ts`, `escape.test.ts` (the public API list, `escapeHtml`/`unescapeHtml` round trip). For each change: a RED test for the new syntax, plus a test proving Markdown that does not
 use it renders exactly as before.
 
 ## Checklist
@@ -86,4 +92,4 @@ use it renders exactly as before.
 - A pasted `#II.` (no space) is a paragraph, not a heading; the post linter flags it rather than the renderer guessing.
 - Copying renderer regexes into the admin (drifted; replaced by `blockStartLines`, `ad9b10d`).
 - Five Markdown passes per editor update (preview, two plain-text, two `blockStartLines`; ~58 ms on a 100 KB post):
-  replaced by the one render's `blockStarts` and `text` (~17 ms; perfil-skills-produccion L8, P3-14).
+  replaced by the one render's `blockStarts` and `text` (~17 ms).

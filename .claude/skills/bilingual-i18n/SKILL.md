@@ -7,7 +7,7 @@ description: "How Spanish (default) and English work across this repo, covering 
 
 Two fixed languages: `es` (principal, default) and `en`. Defined once per app — `Blog.Domain/Language.cs`,
 `apps/web/src/lib/i18n.ts` (`LANGS`, `DEFAULT_LANG`), `apps/admin/src/languages.ts`. Do not generalize to N
-languages or add an i18n library (KISS/YAGNI, `odd/tasks/multiidioma.md` L3).
+languages or add an i18n library (KISS/YAGNI: the two languages are fixed).
 
 ## Decide where a text belongs
 
@@ -15,7 +15,7 @@ languages or add an i18n library (KISS/YAGNI, `odd/tasks/multiidioma.md` L3).
 |---|---|---|
 | Post content | One `Post` row per language, joined by `translationGroupId`; each has its own slug, status, tags | `/es/articulos/mi-post/` ↔ `/en/articles/my-post/` |
 | Customizable outside posts | Spanish field + `En` field; `null`/empty `En` → Spanish | `tagline`/`taglineEn`, `bio`/`bioEn`, hero `alt`/`altEn` |
-| A proper name | ONE field for both languages, no `En` | site/author `name` (`multiidioma.md` L12: "mi nombre es uno solo"), hero photo `credit` (L13: "Sí, un solo crédito") |
+| A proper name | ONE field for both languages, no `En` | site/author `name` (the owner's name is one and the same in both languages), hero photo `credit` (one credit per photo) |
 | Fixed UI text | Dictionary entry in both languages with the same key | site `ui(lang).readNext`, admin `t('nav.settings')`, API `MessageKeys.PostTitleRequired` |
 | Language-neutral | No translation | email, social links, files |
 
@@ -24,11 +24,13 @@ Fallback is resolved where the text is used: `toSiteSettings` in `apps/web/src/l
 
 ## Translations are manual
 
-- No machine translation anywhere (S2 of multiidioma: "Solo manual").
-- "Crear versión en inglés/español" creates a **draft** in the other language copying the original text as a starting
-  point (same initial slug; if taken there, `{slug}-{lang}`; 409 only if that is taken too).
-- The admin warns "Sin traducir" while title or body equal the original, and "Desactualizada" when the original's
-  `contentUpdatedAt` (content changes only, not publish/unpublish) is newer than the translation's.
+- No machine translation anywhere: every translation is written by hand (the owner's decision).
+- "Crear versión en inglés/español" (en: "Create English/Spanish version") creates a **draft** in the other language
+  copying the original text as a starting point (same initial slug; if taken there, `{slug}-{lang}`; 409 only if that
+  is taken too).
+- The admin warns "Sin traducir" ("Not translated") while title or body equal the original, and "Desactualizada"
+  ("Out of date") when the original's `contentUpdatedAt` (content changes only, not publish/unpublish) is newer than
+  the translation's.
 - Slugs are unique per language: unique index `(Lang, Slug)`. A post's language cannot change after creation.
 
 ## Dictionaries and parity
@@ -64,6 +66,8 @@ Fallback is resolved where the text is used: `toSiteSettings` in `apps/web/src/l
 ## Copy style
 
 - Spanish is Rioplatense with voseo, like the existing texts ("Entrá", "Guardá"). English is US.
+- Only reader/admin-facing text is Spanish (the `es` dictionaries, the Spanish catalog entries, Spanish routes and
+  slugs, fixtures that assert Spanish output). Code, comments, tests, logs and docs are in English.
 - Accessible names start with the visible text in both languages (WCAG 2.5.3).
 
 ## Checklist
@@ -78,6 +82,6 @@ Fallback is resolved where the text is used: `toSiteSettings` in `apps/web/src/l
 
 - Comparing `updatedAt` for "Desactualizada": publishing changed it and flagged translations wrongly (fixed with
   `contentUpdatedAt`, `bcb49bc`).
-- Adding an English variant of a proper name (`nameEn` and the hero `creditEn`, reverted by the user in L12–L13).
+- Adding an English variant of a proper name (`nameEn` and the hero `creditEn`, both reverted by the owner).
 - `redir /es/ 302` in Caddy (the path is read as a matcher); it must be `redir * /es/ 302` (`2326627`).
-- Hard-coded Spanish strings in the admin after it became bilingual (editor-pro S6).
+- Hard-coded Spanish strings in the admin after it became bilingual.
