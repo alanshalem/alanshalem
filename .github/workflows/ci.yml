@@ -109,8 +109,12 @@ jobs:
         run: |
           config=$(IMAGE_TAG=sha-ci-placeholder docker compose -f docker-compose.yml -f compose.dokploy.yml config --format json)
           jq -e '.services | [.api, .builder, .caddy] | all((has("build") | not) and (.image | endswith(":sha-ci-placeholder")) and .pull_policy == "missing")' <<<"$config"
-          if docker compose -f docker-compose.yml -f compose.dokploy.yml config -q; then
+          if errors=$(docker compose -f docker-compose.yml -f compose.dokploy.yml config -q 2>&1); then
             echo "::error::compose.dokploy.yml started without IMAGE_TAG"
+            exit 1
+          fi
+          if ! grep -q 'required variable IMAGE_TAG is missing a value' <<<"$errors"; then
+            echo "::error::compose.dokploy.yml failed without IMAGE_TAG, but not because of it: $errors"
             exit 1
           fi
         env: *compose-placeholders
@@ -196,9 +200,13 @@ jobs:
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/blog-$SERVICE:sha-$GITHUB_SHA"
           echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           trap 'docker logout ghcr.io' EXIT
-          if docker manifest inspect "$image" >/dev/null 2>&1; then
+          # Only "not found" means unpublished: any other answer (GHCR down, a rate limit) might hide an existing tag.
+          if output=$(docker manifest inspect "$image" 2>&1 >/dev/null); then
             echo "$image already published, not overwritten" | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
+          elif ! grep -qi 'manifest unknown\|no such manifest\|not found' <<<"$output"; then
+            echo "::error::Could not check whether $image exists, so it is not pushed (re-run the job): $output"
+            exit 1
           fi
           echo "FROM blog-$SERVICE" | docker build --tag "$image" \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \

@@ -152,14 +152,19 @@ it.
   `alanshalem-staging-proxy-secret@file` (Dokploy's Security tab is for Applications only). `removeHeader: true`
   keeps `Authorization` away from the API.
 - Deploys (`.github/workflows/deploy.yml`, runbook `docs/release-guide.md`): a green CI run of a push to `master` →
-  staging with `sha-<that commit>`; a `v*` tag → production with the tag's commit (refused unless that commit's whole
-  CI run on `master` passed and its three images pull anonymously); `workflow_dispatch` with an older tag = rollback.
-  Each run calls Dokploy's API (`x-api-key`, REST form `GET /api/compose.one?composeId=…`, JSON `POST`s; all through
-  one `dokploy()` function): `environment.update` (IMAGE_TAG), `compose.update` (the command above with the
+  staging with `sha-<that commit>`, skipped as "superseded by a newer master commit" when a newer commit of `master`
+  has a CI run (a re-run never moves staging backwards; `[skip ci]` commits on top do not count); a `v*` tag →
+  production with the tag's commit (refused unless that commit's whole CI run on `master` passed and its three images
+  pull anonymously); `workflow_dispatch` with an older tag = rollback (a production dispatch waives the green-run
+  check only when GitHub no longer has any CI run of the commit, retention; the images must still pull). Runs are
+  titled `Deploy <version> to <environment>` (`run-name`) so the release guide watches the right one. Each run calls
+  Dokploy's API (`x-api-key`, REST form `GET /api/compose.one?composeId=…`, JSON `POST`s; all through one
+  `dokploy()` function; reads retry no answer/429/5xx 3 times, writes are sent once): `environment.update` (IMAGE_TAG), `compose.update` (the command above with the
   `appName` read from `compose.one`, the branch = the tag or `master`, `autoDeploy: false`), `compose.deploy`, then
   polls `deployment.allByCompose` until the new deployment is `done` or `error`, and smoke-tests the domain
   (production 200 on `/api/health/ready`; staging 401 from Traefik's basic auth, which only routes to a healthy
-  Caddy). Dokploy's own webhook deploys nothing (autoDeploy off): it used to deploy the **branch head** on a tag,
+  Caddy). Dokploy's own webhook deploys nothing (autoDeploy off, by hand once before `deploy.yml` reaches `master`,
+  then by every run): it used to deploy the **branch head** on a tag,
   not the tagged commit. `infra/test/deploy-workflow.test.ts` pins triggers, environments, permissions and that the
   API key is never printed.
 - Volumes are `<appName>_<volume>`: per environment, kept across deploys (`--remove-orphans` never removes volumes);

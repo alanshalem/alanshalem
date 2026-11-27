@@ -200,7 +200,9 @@ describe('compose.dokploy.yml (behind Dokploy and its Traefik)', () => {
   it('CI runs the real compose on the override: images with a placeholder IMAGE_TAG, and a refusal without one', () => {
     const ci = read('.github/workflows/ci.yml');
     assert.match(ci, /IMAGE_TAG=sha-ci-placeholder docker compose -f docker-compose\.yml -f compose\.dokploy\.yml config/);
-    assert.match(ci, /if docker compose -f docker-compose\.yml -f compose\.dokploy\.yml config -q/);
+    // The refusal must be the one for IMAGE_TAG, not any other compose error.
+    assert.match(ci, /if errors=\$\(docker compose -f docker-compose\.yml -f compose\.dokploy\.yml config -q 2>&1\); then/);
+    assert.match(ci, /grep -q 'required variable IMAGE_TAG is missing a value' <<<"\$errors"/);
   });
 
   it('Caddy publishes no port: Traefik owns 80/443 on the VPS', () => {

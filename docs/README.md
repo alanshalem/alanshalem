@@ -361,8 +361,9 @@ steps, one action at a time: [guide Phases 7–9](vps-guide.md#8-phase-7--projec
 
    The full list of checks, with the expected output of each:
    [guide 10.2 and 10.3](vps-guide.md#102-check-from-your-pc).
-9. Automatic deploys come from GitHub, not from Dokploy's webhook: the deploy workflow turns Auto Deploy off and sets
-   the branch on every deploy (see "Dokploy: release flow"). Its GitHub environments, the API key and the public
+9. Automatic deploys come from GitHub, not from Dokploy's webhook: turn Auto Deploy off in General (before the deploy
+   workflow reaches `master`, or the webhook races it); the workflow keeps it off and sets the branch on every deploy
+   (see "Dokploy: release flow"). Its GitHub environments, the API key and the public
    packages are a one-time setup: [release guide 10](release-guide.md#10-one-time-setup).
 
 **Confirmed on the first real production deploy.** Compose domains have the Middlewares field and it reaches Caddy's
@@ -386,7 +387,8 @@ Build once, promote by tag. Step by step: [release-guide.md](release-guide.md).
 
 - CI builds and scans the three images once per commit on `master` and publishes them as
   `ghcr.io/alanshalem/blog-<service>:sha-<commit>`. When that CI run is green, the deploy workflow deploys staging
-  with them. `[skip ci]` commits (the daily profile images) run no CI, so they publish and deploy nothing.
+  with them, unless a newer commit of `master` already has a CI run ("superseded": staging never moves backwards).
+  `[skip ci]` commits (the daily profile images) run no CI, so they publish and deploy nothing.
 - A `v*` tag deploys production with the images of the tag's commit: exactly what staging ran, never a rebuild and
   never "the head of `master`". A tag on a commit without a green CI run (a `[skip ci]` one) fails before touching
   Dokploy.

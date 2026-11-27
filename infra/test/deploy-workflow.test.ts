@@ -44,6 +44,41 @@ function scripts(text: string): string[] {
   return found;
 }
 
+/** The branch of a `case` in a script: from the `label)` line to its `;;`, at the label's indentation. */
+function caseBranch(text: string, label: string): string {
+  const all = text.split('\n');
+  const start = all.findIndex((line) => line.trim() === `${label})`);
+  assert.ok(start >= 0, `missing case ${label}`);
+  const depth = indent(all[start]!);
+  const end = all.findIndex((line, index) => index > start && line.trim() === ';;' && indent(line) === depth + 2);
+  assert.ok(end > start, `unterminated case ${label}`);
+  return all.slice(start + 1, end).join('\n');
+}
+
+/** The grep pattern a script uses to tell "this image does not exist" from any other registry failure. */
+const notFoundPattern = (text: string): string | undefined => /grep -qi '([^']*manifest unknown[^']*)'/.exec(text)?.[1];
+
+describe('ci.yml publish never repoints a published tag', () => {
+  const publish = scripts(ci).find((run) => run.includes('docker push'));
+
+  it('an existing tag is kept; only "not found" publishes; any other registry failure stops before the push', () => {
+    assert.ok(publish, 'missing the publish step');
+    assert.match(
+      publish,
+      /if output=\$\(docker manifest inspect "\$image" 2>&1 >\/dev\/null\); then\n\s+echo "\$image already published, not overwritten"[^\n]*\n\s+exit 0\n/,
+    );
+    const guard = /elif ! grep -qi '[^']+' <<<"\$output"; then\n\s+echo "::error::[^\n]+"\n\s+exit 1\n\s+fi/.exec(publish);
+    assert.ok(guard, 'a failure other than "not found" must fail the step');
+    assert.ok(guard.index < publish.indexOf('docker push'), 'the guard runs before the push');
+    assert.match(publish, /trap 'docker logout ghcr\.io' EXIT/);
+  });
+
+  it('CI and the deploy plan read "not found" the same way', () => {
+    assert.ok(notFoundPattern(publish ?? ''));
+    assert.equal(notFoundPattern(deploy), notFoundPattern(publish ?? ''));
+  });
+});
+
 describe('deploy.yml triggers', () => {
   const on = block(deploy, 'on');
 
@@ -63,6 +98,28 @@ describe('deploy.yml triggers', () => {
   it('only a commit whose whole CI run on master passed is deployed (the images job publishes on its own)', () => {
     assert.match(deploy, /actions\/workflows\/ci\.yml\/runs\?head_sha=\$sha&branch=master&event=push&status=success/);
     assert.match(deploy, /gh run list --workflow CI --branch master --status success --limit 1 --json headSha -q '\.\[0\]\.headSha'/);
+  });
+
+  it('a rollback by hand may deploy a tag whose CI run GitHub deleted (retention), never a tag push', () => {
+    // Waived only when no CI run of the commit is left at all (a failed run still blocks), only for a production
+    // dispatch, and the next step still requires the three images to pull anonymously.
+    assert.match(deploy, /any=\$\(gh api "repos\/\$GITHUB_REPOSITORY\/actions\/workflows\/ci\.yml\/runs\?head_sha=\$sha&branch=master&event=push&per_page=1"/);
+    assert.match(deploy, /if \[ "\$EVENT" = workflow_dispatch \] && \[ "\$environment" = production \] && \[ "\$any" = 0 \]; then\n\s+echo "::notice::[^\n]*retention[^\n]*images[^\n]*"/);
+    assert.doesNotMatch(caseBranch(deploy, 'push'), /any=|waive/);
+  });
+
+  it('a green CI of an older master commit (a re-run) is skipped as superseded; a staging dispatch is not', () => {
+    const fromCi = caseBranch(deploy, 'workflow_run');
+    assert.match(fromCi, /head=\$\(gh api "repos\/\$GITHUB_REPOSITORY\/commits\/master" --jq '\.sha'\)/);
+    // Commits without CI on top ([skip ci], the profile images) do not supersede: the newest CI run of master decides.
+    assert.match(fromCi, /newest=\$\(gh api "repos\/\$GITHUB_REPOSITORY\/actions\/workflows\/ci\.yml\/runs\?branch=master&event=push&per_page=1"/);
+    assert.match(fromCi, /if \[ "\$head" != "\$sha" \] && \[ "\$newest" != "\$sha" \]; then\n\s+echo "::notice::[^\n]*superseded by a newer master commit[^\n]*"\n\s+echo "deploy=false" >>"\$GITHUB_OUTPUT"\n\s+exit 0\n/);
+    assert.doesNotMatch(caseBranch(deploy, 'workflow_dispatch'), /superseded/);
+    // Skipped means skipped: neither the image check nor the deploy job runs.
+    const jobs = block(deploy, 'jobs');
+    assert.match(block(jobs, 'deploy', 2), /^ {4}if: needs\.plan\.outputs\.deploy == 'true'$/m);
+    assert.match(block(jobs, 'plan', 2), /- name: The three images exist in GHCR\n\s+if: steps\.plan\.outputs\.deploy == 'true'/);
+    assert.match(deploy, /echo "deploy=true"/);
   });
 
   it('running it by hand redeploys a tag (or, on staging, a commit): the rollback', () => {
@@ -90,7 +147,11 @@ describe('deploy.yml jobs', () => {
     const job = block(jobs, 'deploy', 2);
     assert.match(job, /^ {4}environment: \$\{\{ needs\.plan\.outputs\.environment \}\}$/m);
     assert.match(job, /^ {6}group: deploy-\$\{\{ needs\.plan\.outputs\.environment \}\}\n {6}cancel-in-progress: false$/m);
-    assert.match(job, /^ {4}timeout-minutes: \d+$/m);
+    // Longer than its own waits (another deploy, then this one, then the smoke test): the job reports its own error.
+    const timeout = Number(/^ {4}timeout-minutes: (\d+)$/m.exec(job)?.[1]);
+    const waits = [...job.matchAll(/deadline=\$\(\(SECONDS \+ (\d+) \* 60\)\)/g)].reduce((sum, m) => sum + Number(m[1]), 0);
+    assert.ok(waits >= 30, `waits ${waits}`);
+    assert.ok(timeout > waits + 5, `timeout-minutes ${timeout} must exceed the ${waits} minutes of waits plus the smoke test`);
     // The plan only ever names these two environments.
     const named = new Set([...deploy.matchAll(/\benvironment=(\w+)/g)].map((m) => m[1]));
     assert.deepEqual([...named].sort(), ['production', 'staging']);
@@ -110,6 +171,20 @@ describe('deploy.yml jobs', () => {
 
   it('autodeploy stays off: only this workflow deploys, with the version it names', () => {
     assert.match(deploy, /autoDeploy: false/);
+  });
+
+  it('reads from Dokploy retry a transient failure (no answer, 429, 5xx); writes are sent once', () => {
+    assert.match(deploy, /\[ "\$method" = GET \] && attempts=4/);
+    assert.match(deploy, /000 \| 429 \| 5\?\?\)/);
+    assert.match(deploy, /sleep \$\(\(attempt \* 5\)\)/);
+  });
+
+  it('each run is titled with its version and environment, so the release guide can watch the right one', () => {
+    assert.match(deploy, /^run-name: >-\n/m);
+    for (const title of ["'Deploy {0} to {1}', inputs.ref, inputs.environment", "'Deploy {0} to production', github.ref_name", "'Deploy sha-{0} to staging', github.event.workflow_run.head_sha"]) {
+      assert.ok(deploy.includes(`format(${title})`), title);
+    }
+    assert.match(read('docs/release-guide.md'), /select\(\.displayTitle == \\"Deploy v2026\.11\.27 to production\\"\)/);
   });
 });
 
@@ -139,7 +214,7 @@ describe('deploy.yml secrets', () => {
     }
   });
 
-  it('every action is pinned by commit SHA', () => {
-    for (const match of deploy.matchAll(/uses: (\S+)/g)) assert.match(match[1]!, /@[0-9a-f]{40}$/, match[1]);
+  it('runs no action at all: bash, curl, jq and gh from the runner, so nothing third-party sees the key', () => {
+    assert.doesNotMatch(deploy, /^\s*(- )?uses:/m);
   });
 });

@@ -38,14 +38,21 @@ The rules behind it:
    and publishes them as `ghcr.io/alanshalem/blog-<service>:sha-<commit>`. A published tag is never overwritten. The
    VPS never builds anything.
 2. **Staging waits for CI.** The Deploy workflow (`.github/workflows/deploy.yml`) starts when the CI run of a push to
-   `master` ends green and deploys that commit's images. A red run deploys nothing.
+   `master` ends green and deploys that commit's images. A red run deploys nothing. A green run of a commit that is
+   no longer the newest one CI ran on `master` (a re-run of an older CI, or a slow run overtaken by a newer merge) is
+   skipped with the notice "superseded by a newer master commit": staging never moves backwards.
 3. **The tag chooses what production runs**: the images of the tag's commit, never a rebuild and never "the head of
    `master`". Pushing or merging after tagging changes nothing. The workflow refuses a tag whose commit has no green
    CI run (for example a `[skip ci]` commit such as the daily profile images, which runs no CI and publishes
    nothing).
-4. **Only the workflow deploys.** It turns Dokploy's Auto Deploy off on every deploy; Dokploy's webhook does nothing.
-   Pressing **Deploy** in the panel redeploys the version the workflow last set.
+4. **Only the workflow deploys.** Auto Deploy is off in both Dokploy services (by hand once,
+   [10](#10-one-time-setup), and again by the workflow on every deploy), so Dokploy's webhook does nothing. Pressing
+   **Deploy** in the panel redeploys the version the workflow last set.
 5. **Rollback is a deploy of an older tag**: its images are still in GHCR. No revert, no rebuild.
+6. **One deploy at a time per environment, one waiting.** A second deploy for the same environment waits for the
+   running one; GitHub keeps only **one** waiting run per environment, so a third one replaces the waiting one
+   (GitHub marks it cancelled). Pushing two tags quickly can therefore skip the first: check the Actions tab, and run
+   the workflow again for the tag you want ([6](#6-rollback) shows how).
 
 What one deploy does (the job summary of each run lists the environment, version, commit and the three images):
 
@@ -75,11 +82,19 @@ Every change reaches `master` through a pull request ([9](#9-branch-protection))
 
 2. **[GitHub]** CI runs on the pull request. Red → fix, push again to the same branch.
 3. **[GitHub]** After the merge, CI runs again on `master` and publishes the images; when it is green the Deploy
-   workflow deploys staging. Follow it:
+   workflow deploys staging. Follow both runs of that commit (each Deploy run is titled
+   `Deploy <version> to <environment>`, so the filter finds the one of your commit, not just the newest):
 
    ```bash
-   gh run watch "$(gh run list --workflow deploy.yml --limit 1 --json databaseId -q '.[0].databaseId')"
+   git fetch origin && sha=$(git rev-parse origin/master)        # the merge commit
+   gh run watch "$(gh run list --workflow CI --commit "$sha" --json databaseId -q '.[0].databaseId')"
+   sleep 15   # the Deploy run starts a few seconds after CI ends
+   gh run watch "$(gh run list --workflow deploy.yml --json databaseId,displayTitle \
+     -q "[.[] | select(.displayTitle == \"Deploy sha-$sha to staging\")][0].databaseId")"
    ```
+
+   No Deploy run, or one that ends with "superseded by a newer master commit": a newer merge is on its way to
+   staging ([8](#8-if-it-fails)).
 
 4. **[Browser]** `https://staging.alanshalem.com` (user `staging`): check what you changed, and `/admin/` if you
    touched the admin. Staging has its own data: create what you need to test there.
@@ -119,11 +134,17 @@ Do it when staging shows exactly what you want in production.
 
    Second release on the same day: `v2026.11.27.2`, then `.3`… Tags are never moved or reused: a new release is a new
    tag.
-4. **[PC]** Watch the production deploy until it is green:
+4. **[PC]** Watch the production deploy of that tag until it is green (the run is titled
+   `Deploy v2026.11.27 to production`):
 
    ```bash
-   gh run watch "$(gh run list --workflow deploy.yml --event push --limit 1 --json databaseId -q '.[0].databaseId')"
+   sleep 10   # GitHub takes a few seconds to start it
+   gh run watch "$(gh run list --workflow deploy.yml --event push --json databaseId,displayTitle \
+     -q "[.[] | select(.displayTitle == \"Deploy v2026.11.27 to production\")][0].databaseId")"
    ```
+
+   An empty result: the run has not started yet (run it again) or it was replaced while waiting
+   ([rule 6](#1-how-it-works)); check Actions → Deploy.
 
 5. **[Dokploy]** Optional: `alanshalem` → `production` → `blog` → **Deployments** shows an entry titled
    `v2026.11.27`, `Done`.
@@ -165,12 +186,18 @@ compose files come from the same tag:
 ```bash
 git tag --list 'v*' --sort=-creatordate | head -5                      # the previous release
 gh workflow run deploy.yml -f environment=production -f ref=v2026.11.20
-gh run watch "$(gh run list --workflow deploy.yml --event workflow_dispatch --limit 1 --json databaseId -q '.[0].databaseId')"
+sleep 10
+gh run watch "$(gh run list --workflow deploy.yml --event workflow_dispatch --json databaseId,displayTitle \
+  -q "[.[] | select(.displayTitle == \"Deploy v2026.11.20 to production\")][0].databaseId")"
 ```
 
 Or GitHub → Actions → Deploy → **Run workflow** → environment `production`, ref `v2026.11.20`. Production only takes
 a tag; staging also takes a full 40-character commit SHA. Then fix forward on `master` and release a new tag. Tags
 from before the images were published cannot be deployed this way (the workflow says so).
+
+An old tag whose CI run GitHub already deleted (runs are kept for a limited time) still deploys this way: the plan
+says "the green-run check is waived for this rollback" and deploys it only if its three images pull. A tag push
+always needs the green run.
 
 **Data** (a migration or an action damaged posts, settings or media): restore the backup of step 3.2 with `restore.sh`
 ([README "Rollback"](README.md#rollback)), after the code rollback. Everything written after that backup is lost, and
@@ -190,13 +217,16 @@ Dependabot opens pull requests with updates every week.
 | Symptom | Cause | What to do |
 | --- | --- | --- |
 | A merge into `master`, no staging deploy | CI on `master` was red or cancelled by a newer push, or the commit had `[skip ci]` | Actions → CI: fix and merge again; a newer green run deploys |
+| Deploy run green but skipped: "superseded by a newer master commit" | A newer commit of `master` has a CI run (a re-run of an older CI, or two merges close together) | Nothing: the newer commit deploys when its CI is green. To force an older commit: `gh workflow run deploy.yml -f environment=staging -f ref=<full sha>` |
+| A tag's Deploy run shows as cancelled, never started | Another tag was pushed while it waited (one waiting run per environment, [rule 6](#1-how-it-works)) | Run it again for the tag you want ([6](#6-rollback)) |
 | Deploy run fails in Plan: "has no green CI run on master" | The tag points at a `[skip ci]` commit (the profile bot) or at a commit whose CI failed | Tag the latest green commit instead (section 3, step 1 gives its SHA) |
 | Deploy run fails in Plan: "does not exist" | Images missing for that commit (from before publishing, or its publish step failed) | Re-run that commit's CI, or tag the latest green commit |
 | Deploy run fails in Plan: "cannot be read anonymously" | The GHCR packages are private (the first publish always is) | [10](#10-one-time-setup), step 1 |
 | "… is not set in the staging environment" | A variable or the secret is missing from that GitHub environment | [10](#10-one-time-setup), step 3 |
 | "Dokploy … answered 401" (or 403) | `DOKPLOY_API_KEY` is wrong, expired or revoked | New key in Dokploy, then `gh secret set DOKPLOY_API_KEY --env <environment>` ([10](#10-one-time-setup), step 2) |
 | "Dokploy: error" | The deploy failed on the VPS | Dokploy → the environment → `blog` → **Deployments** → the entry named after the version: its log names the cause (rows below) |
-| Dokploy log: `required variable IMAGE_TAG is missing a value` | The service's Environment tab lacks `IMAGE_TAG=${{environment.IMAGE_TAG}}` | [10](#10-one-time-setup), step 4; run the workflow again |
+| Dokploy log: `required variable IMAGE_TAG is missing a value` | The service's Environment tab lacks `IMAGE_TAG=${{environment.IMAGE_TAG}}`, or the environment has no `IMAGE_TAG` | [10](#10-one-time-setup), steps 4 and 5; run the workflow again |
+| A deploy appears in Dokploy right after a merge, before CI ends | Auto Deploy is still on in that service: Dokploy's webhook deployed the head of `master` | [10](#10-one-time-setup), step 0: turn it off; run the workflow again |
 | Dokploy log: `pull access denied`, `denied` or `unauthorized` from `ghcr.io` | The packages are not public | [10](#10-one-time-setup), step 1; run the workflow again |
 | Dokploy log ends `container …-api-1 is unhealthy` | The API did not start: a bad environment value (for example a short `BUILDER_TOKEN`) or a failed migration | `blog` → **Logs** → `api`: the first error line names it; fix the Environment tab, run the workflow again |
 | Dokploy log: `container …-caddy-1 is unhealthy` | Caddy refused its configuration (for example a `SITE_ENV` typo) | **Logs** → `caddy`; fix, run again. The domain answers 404 until then |
@@ -229,9 +259,13 @@ reaches staging only once CI on `master` is green, and production only through a
 
 ## 10. One-time setup
 
-Once, after CI on `master` published the first images and before the first run of the Deploy workflow. Until it is
-done, a run fails in Plan or at the first Dokploy call, without touching the site.
+Once, after CI on `master` published the first images and **before the pull request that adds `deploy.yml` is
+merged** (its merge is the first staging deploy). Until it is done, a run fails in Plan or at the first Dokploy call,
+without touching the site.
 
+0. **[Dokploy]** First, in both services (`staging` → `blog` and `production` → `blog`): General → **Auto Deploy**
+   off → Save. Otherwise Dokploy's own webhook deploys on the merge too (the head of `master`, with whatever
+   `IMAGE_TAG` it has) and races the workflow. The workflow keeps it off on every deploy afterwards.
 1. **[GitHub]** Dokploy pulls the three packages (`blog-api`, `blog-builder`, `blog-caddy`) without credentials, so
    they must be public. Here they inherit the public visibility of this repository through the source label the CI
    adds (checked: an anonymous pull works). Check from your PC, logged out of `ghcr.io`:
@@ -268,8 +302,8 @@ done, a run fails in Plan or at the first Dokploy call, without touching the sit
    IMAGE_TAG=${{environment.IMAGE_TAG}}
    ```
 
-6. **Nothing to do for Auto Deploy, the branch or the command**: the workflow sets them (Auto Deploy off) on every
-   deploy.
+6. **Nothing to do for the branch or the command**: the workflow sets them on every deploy (and Auto Deploy off
+   again).
 7. **[PC]** First deploys: staging with the latest green commit, then production with a first tag (section 3):
 
    ```bash

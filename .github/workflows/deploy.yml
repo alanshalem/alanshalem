@@ -3,6 +3,11 @@
 # deploys staging; a pushed v* tag deploys production with the images of the tag's commit, the ones staging ran; running
 # it by hand with an older tag is the rollback. Step by step: docs/release-guide.md.
 name: Deploy
+# The title names the version and the environment, so a run can be found by it (docs/release-guide.md).
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch' && format('Deploy {0} to {1}', inputs.ref, inputs.environment) ||
+  github.event_name == 'push' && format('Deploy {0} to production', github.ref_name) ||
+  format('Deploy sha-{0} to staging', github.event.workflow_run.head_sha) }}
 
 on:
   workflow_run:
@@ -45,6 +50,7 @@ jobs:
       version: ${{ steps.plan.outputs.version }}
       sha: ${{ steps.plan.outputs.sha }}
       branch: ${{ steps.plan.outputs.branch }}
+      deploy: ${{ steps.plan.outputs.deploy }}
     steps:
       # environment: staging or production. version: the tag, or sha-<commit> for a staging deploy of a commit.
       # branch: what Dokploy clones for the compose files; a tag for a release (the files of the deployed commit), master
@@ -75,6 +81,18 @@ jobs:
           case $EVENT in
             workflow_run)
               environment=staging sha=$RUN_SHA version="sha-$RUN_SHA" branch=master
+              # A re-run of an older CI must not move staging backwards, and Dokploy clones master for the compose
+              # files: deploy only the newest commit of master that CI ran on. Commits without CI on top of it ([skip ci],
+              # the profile images, which touch no compose file) do not supersede it.
+              head=$(gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq '.sha')
+              newest=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=master&event=push&per_page=1" \
+                --jq '.workflow_runs[0].head_sha // ""')
+              if [ "$head" != "$sha" ] && [ "$newest" != "$sha" ]; then
+                echo "::notice::$version superseded by a newer master commit ($newest): staging gets that one once its CI is green"
+                echo "deploy=false" >>"$GITHUB_OUTPUT"
+                exit 0
+              fi
+              [ "$head" = "$sha" ] || echo "master moved on ($head) only through commits without CI: deploying $version"
               ;;
             push)
               environment=production version=$GITHUB_REF_NAME branch=$GITHUB_REF_NAME
@@ -103,14 +121,24 @@ jobs:
           green=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&branch=master&event=push&status=success&per_page=1" \
             --jq '.total_count')
           if [ "$green" = 0 ]; then
-            echo "::error::$version points at commit $sha, which has no green CI run on master: CI did not publish it (for" >&2
-            echo "::error::example a [skip ci] commit, the daily profile images) or its run failed. Tag the latest commit with a" >&2
-            echo "::error::green CI run instead (docs/release-guide.md, 'Release to production'):" >&2
-            echo "::error::sha=\$(gh run list --workflow CI --branch master --status success --limit 1 --json headSha -q '.[0].headSha')" >&2
-            echo "::error::git tag vYYYY.MM.DD \"\$sha\" && git push origin vYYYY.MM.DD" >&2
-            exit 1
+            # GitHub deletes runs after the retention period: an old release tag has no run left, though its images are
+            # still in GHCR. A production rollback by hand may then deploy it; the next step still requires the three
+            # images to pull anonymously. A failed run still blocks, and a tag push always needs the green run.
+            any=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&branch=master&event=push&per_page=1" \
+              --jq '.total_count')
+            if [ "$EVENT" = workflow_dispatch ] && [ "$environment" = production ] && [ "$any" = 0 ]; then
+              echo "::notice::No CI run of $sha is left (GitHub deleted it after the retention period): the green-run check is waived for this rollback of $version, and the next step requires its three images to pull anonymously"
+            else
+              echo "::error::$version points at commit $sha, which has no green CI run on master: CI did not publish it (for" >&2
+              echo "::error::example a [skip ci] commit, the daily profile images) or its run failed. Tag the latest commit with a" >&2
+              echo "::error::green CI run instead (docs/release-guide.md, 'Release to production'):" >&2
+              echo "::error::sha=\$(gh run list --workflow CI --branch master --status success --limit 1 --json headSha -q '.[0].headSha')" >&2
+              echo "::error::git tag vYYYY.MM.DD \"\$sha\" && git push origin vYYYY.MM.DD" >&2
+              exit 1
+            fi
           fi
           {
+            echo "deploy=true"
             echo "environment=$environment"
             echo "version=$version"
             echo "sha=$sha"
@@ -121,6 +149,7 @@ jobs:
       # Anonymously, the way Dokploy pulls them: a missing image or a private package fails here, before Dokploy is
       # touched, instead of halfway through a deploy.
       - name: The three images exist in GHCR
+        if: steps.plan.outputs.deploy == 'true'
         env:
           SHA: ${{ steps.plan.outputs.sha }}
           VERSION: ${{ steps.plan.outputs.version }}
@@ -154,8 +183,11 @@ jobs:
   deploy:
     name: Deploy ${{ needs.plan.outputs.version }} to ${{ needs.plan.outputs.environment }}
     needs: plan
+    if: needs.plan.outputs.deploy == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # More than its own waits (up to 15 min for another deploy, 15 for this one, about 1 for the smoke test), so a
+    # stuck deploy ends with the workflow's message, not GitHub's timeout.
+    timeout-minutes: 40
     # The environment holds the Dokploy service ids, the site URL and the API key (docs/release-guide.md,
     # "One-time setup"). The job needs no GitHub permission: it reads no code.
     environment: ${{ needs.plan.outputs.environment }}
@@ -190,8 +222,10 @@ jobs:
           # Every call to Dokploy's API goes through here (its REST form: GET with query parameters, POST with a JSON body,
           # the key in the x-api-key header). The key reaches curl as config on stdin, never on a command line. Only the
           # status and Dokploy's error message are printed on failure: bodies carry the service's environment.
+          # A read that gets no answer, 429 or 5xx is retried 3 times (5, 10, 15 s); a write is sent once, since
+          # Dokploy may have applied it before failing (a second compose.deploy would queue a second deploy).
           dokploy() { # dokploy GET|POST <procedure> [query string | JSON body]
-            local method=$1 procedure=$2 data=${3:-} url response status body
+            local method=$1 procedure=$2 data=${3:-} url response status body attempt=1 attempts=1
             url="${DOKPLOY_URL%/}/api/$procedure"
             local args=(--silent --show-error --max-time 30 --write-out '\n%{http_code}' --header 'Accept: application/json')
             if [ "$method" = GET ]; then
@@ -199,11 +233,29 @@ jobs:
             else
               args+=(--request POST --header 'Content-Type: application/json' --data "$data")
             fi
-            response=$(printf 'header = "x-api-key: %s"\n' "$DOKPLOY_API_KEY" | curl --config - "${args[@]}" "$url") ||
+            [ "$method" = GET ] && attempts=4
+            while :; do
+              if response=$(printf 'header = "x-api-key: %s"\n' "$DOKPLOY_API_KEY" | curl --config - "${args[@]}" "$url"); then
+                status=${response##*$'\n'}
+                body=${response%$'\n'*}
+              else
+                status=000 body=
+              fi
+              case $status in
+                000 | 429 | 5??)
+                  if [ $attempt -lt $attempts ]; then
+                    echo "::warning::Dokploy $procedure: $([ "$status" = 000 ] && echo 'no answer' || echo "answered $status"), retrying in $((attempt * 5)) s" >&2
+                    sleep $((attempt * 5))
+                    attempt=$((attempt + 1))
+                    continue
+                  fi
+                  ;;
+              esac
+              break
+            done
+            if [ "$status" = 000 ]; then
               fail "Dokploy $procedure: no answer from $DOKPLOY_URL"
-            status=${response##*$'\n'}
-            body=${response%$'\n'*}
-            if [ "$status" = 401 ] || [ "$status" = 403 ]; then
+            elif [ "$status" = 401 ] || [ "$status" = 403 ]; then
               fail "Dokploy $procedure answered $status: DOKPLOY_API_KEY of the $ENVIRONMENT environment is wrong or revoked"
             elif [ "$status" != 200 ]; then
               fail "Dokploy $procedure answered $status: $(jq -r '.message? // empty' <<<"$body" 2>/dev/null | head -c 300)"
