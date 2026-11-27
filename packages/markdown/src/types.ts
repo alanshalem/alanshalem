@@ -1,3 +1,5 @@
+import type { MathRenderer } from './math.ts';
+
 /** A document heading, for building the side table of contents (TOC). */
 export interface Heading {
   /** Final level in the HTML (with `headingOffset` and `minHeadingLevel` already applied). */
@@ -35,6 +37,13 @@ export interface RenderOptions {
    * Defaults to false for the same reason as smartTypography.
    */
   figures?: boolean;
+  /**
+   * TeX math, GitHub's syntax: `$...$` inline (pandoc's rule: `$5 y $10` stays text), `$$` blocks and ```` ```math ````
+   * fences as display math. The renderer finds the formulas and this function turns each into HTML; its output goes
+   * into the page as is, so it must be safe (the site and the admin inject @blog/math's). Undefined by default, and
+   * then `$` is plain text as always.
+   */
+  math?: MathRenderer;
 }
 
 export interface RenderResult {
@@ -46,6 +55,16 @@ export interface RenderResult {
    * drift from it: the admin uses it for the synced scroll and the heading outline.
    */
   blockStarts: number[];
-  /** The plain text of `html` (what is read, without marks): word counter and reading minutes. */
+  /**
+   * Finer scroll anchors, in document order: the line (from 0) of each top-level block (as `blockStarts`) and of each
+   * list item at any depth (also inside quotes and callouts), so one per top-level element and one per `<li>` of the
+   * HTML outside the footnotes section. Nondecreasing: a list and its first item share a line. Same pass as the
+   * render: the admin pairs it with those elements so the preview follows the editor inside long lists.
+   */
+  anchorLines: number[];
+  /**
+   * The plain text of `html` (what is read, without marks): word counter and reading minutes. A formula contributes
+   * its TeX source.
+   */
   text: string;
 }

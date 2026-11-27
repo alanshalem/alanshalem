@@ -1,7 +1,12 @@
-Self-hosted fonts (latin subset, woff2)
+Self-hosted fonts (woff2; latin subsets, except the math font)
 
 - Gloock (gloock-latin.woff2) — SIL Open Font License 1.1. Source: @fontsource/gloock.
 - Hanken Grotesk (hanken-grotesk-latin.woff2) — SIL Open Font License 1.1. Source: @fontsource-variable/hanken-grotesk.
 - TeX Gyre Pagella (pagella-*-latin.woff2) — GUST Font License (https://www.gust.org.pl/projects/e-foundry/licenses).
   Origin: https://mirrors.ctan.org/fonts/tex-gyre/opentype/ (texgyrepagella-{regular,italic,bold}.otf),
   subset with fontTools.subset to the latin range and converted to woff2.
+- TeX Gyre Pagella Math (pagella-math.woff2) — GUST Font License (https://www.gust.org.pl/projects/e-foundry/licenses).
+  Origin: https://mirrors.ctan.org/fonts/tex-gyre-math/opentype/texgyrepagella-math.otf
+  (sha256 1f9e010f60e947d0e925910009b2ea85ad54edc7cefb106f8cdefb9ffd1d5f2f), converted to woff2 with fontTools
+  4.60.1 + brotli, not subset: formulas need the MATH table and its stretchy variants and assemblies, and a subset
+  only saved 5%. Only pages with a formula download it (the `math` element is its only user).

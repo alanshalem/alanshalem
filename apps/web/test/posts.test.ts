@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { renderMarkdown } from '@blog/markdown';
+import { postBodyOptions } from '@blog/math';
 import * as postsModule from '../src/lib/posts.ts';
 import { alternatesByGroup, postPath, postsIn, tagsOf, toBlogPost, type ApiPost } from '../src/lib/posts.ts';
 
@@ -56,6 +58,13 @@ describe('toBlogPost: body Markdown extensions in the post language', () => {
   });
   it('a body title still goes down one level (the <h1> is the post title)', () => {
     assert.match(toBlogPost(apiPost({ body: '# Uno' })).html, /^<h2 id="uno">Uno<\/h2>$/);
+  });
+  it('TeX math is MathML, rendered with the post body options the admin preview uses (@blog/math)', () => {
+    const body = 'Tasa ($\\text{tiempo}^{-1}$), cuesta $5 y $10.\n\n$$\n\\mu - \\sigma^2/2\n$$';
+    const post = toBlogPost(apiPost({ lang: 'en', body }));
+    assert.equal(post.html, renderMarkdown(body, postBodyOptions('en')).html);
+    assert.match(post.html, /^<p>Tasa <span class="math-nowrap">\(<math><msup><mtext>tiempo<\/mtext>/);
+    assert.match(post.html, /cuesta \$5 y \$10\.<\/p>\n<div class="math-display" tabindex="0"><math display="block"/);
   });
 });
 

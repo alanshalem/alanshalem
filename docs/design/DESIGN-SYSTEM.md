@@ -67,6 +67,14 @@ With a white photo behind, `text-primary` reaches 4.5:1 from `.62` and `text-sec
 | Meta (date · reading time) | Hanken Grotesk | 400 | 0.8125rem | 1.55 |
 | Photo credit | Hanken Grotesk | 400 | 0.75rem | 1.5 |
 | Footer | Hanken Grotesk | 400 | 0.9rem | 1.55 |
+| Formulas (MathML, post bodies) | Pagella Math (`--font-math`) | 400 | inherits the body | inherits |
+
+Formulas: TeX in a post body renders as MathML (`packages/math`) set in **TeX Gyre Pagella Math** (GUST Font
+License), Pagella's math companion, so a formula matches the reading text. It is self-hosted
+(`/fonts/pagella-math.woff2`) and only `.prose math` uses it, so only pages with a formula download it; formulas take
+the text color. A long display formula scrolls inside its own focusable box (`.math-display`); text written against
+an inline formula (`($x$),`) stays on its line (`.math-nowrap`); invalid TeX shows its source in `.math-error`.
+Rules in `packages/tokens/src/prose.css`, the face in `tokens.css`.
 
 A note on the fonts: the site self-hosts them (`/fonts/*.woff2`, latin subset, `font-display: swap`). Gloock and Hanken Grotesk are OFL (on Google Fonts / Fontsource). "Pagella" is probably TeX Gyre Pagella (a Palatino clone, free GUST license) but **I could not verify it**; confirm it before using it, or use Palatino/TeX Gyre Pagella directly.
 

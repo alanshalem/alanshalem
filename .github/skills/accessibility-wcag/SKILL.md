@@ -15,7 +15,8 @@ and then verified in a real browser.
 |---|---|---|
 | 1.4.3 Contrast | Text over photos sits on measured overlays (`overlay-hero` bands in rem, `overlay-hero-text` veil); credit, date and meta over images use `text-secondary`, never `text-tertiary`; no text shadows | `packages/tokens/src/tokens.css`, `apps/web/test/contrast.test.ts` |
 | 1.4.11 Non-text contrast | Focus and hover underline inside `.paper` switch to `periwinkle-700` (5.7:1 on white); admin input borders ≥ 3:1 | `tokens.css`, `admin.css` |
-| 2.1.1 Keyboard | Scrollable regions are focusable: `<pre tabindex="0">`, `.table-wrap` with `tabindex="0" role="region" aria-label` | `packages/markdown/src/blocks.ts` |
+| 2.1.1 Keyboard | Scrollable regions are focusable: `<pre tabindex="0">`, `.table-wrap` with `tabindex="0" role="region" aria-label`, display math in `<div class="math-display" tabindex="0">` (a long formula scrolls in its own box), all with a visible focus outline | `packages/markdown/src/blocks.ts`, `math.ts`, `packages/tokens/src/prose.css` |
+| 1.3.1 / 4.1.2 Math | Formulas are MathML (Temml, `packages/math`): screen readers read them natively, no image or script | `packages/math/src/index.ts` |
 | 2.1.2 No trap | Tab leaves the editor textarea (Tab indents only inside lists; see `tabLeavesEditor`); toolbar uses roving focus with arrows | `apps/admin/src/editor/shortcuts.ts`, `roving.ts` |
 | 2.2.2 Pause | Autoplaying hero video has a ❚❚ Pausar / ▶ Reproducir (en: Pause / Play) button (min 2.75rem square; the visible label is the name, icons `aria-hidden`; both labels share one grid cell so the width does not jump) | `apps/web/src/pages/[lang]/index.astro`, `lib/hero-rotation.ts`, `i18n.ts` `heroPlay`/`heroPause` |
 | 2.3.3 / motion | `prefers-reduced-motion: reduce` or Save-Data → poster + Play (the inserted video starts only on click); transitions ≤ 150 ms | `lib/hero-rotation.ts`, admin `usePrefersReducedMotion.ts` |
@@ -54,7 +55,7 @@ Esc (focus back to ☰), outside click and focus leaving.
 ## Anti-patterns seen here
 
 - Nav at 2.58:1 and h1 at 2.83:1 over a light photo with the original gradient (replaced by the measured overlays).
-- `<pre>` and tables with scroll but unreachable by keyboard.
+- `<pre>`, tables and long display formulas with scroll but unreachable by keyboard.
 - Accessible names that did not contain the visible text (ES/EN selector, H2/H3/1. buttons).
 - 40 Tab presses to reach the textarea; toolbar without arrow keys (fixed to 8 in `0c6ae73`).
 - A single "Admin" title for every view and focus left behind on navigation.

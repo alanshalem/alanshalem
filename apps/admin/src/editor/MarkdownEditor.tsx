@@ -40,8 +40,8 @@ interface Props {
   lang: Lang;
   /** Uploads the image and returns its URL. If not passed, the editor does not accept images. */
   onUploadImage?: (file: File) => Promise<string>;
-  /** `value` already rendered as on the site (usePostPreview): the HTML and its blocks, for the synced scroll. */
-  preview: Pick<RenderResult, 'html' | 'blockStarts'>;
+  /** `value` already rendered as on the site (usePostPreview): the HTML and its anchor lines, for the synced scroll. */
+  preview: Pick<RenderResult, 'html' | 'blockStarts' | 'anchorLines'>;
   /** The other version already rendered: with it "Ver el original al lado" shows up. */
   original: { html: string; lang: Lang } | null;
   stats: DocumentStats;
@@ -89,7 +89,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
   const showingOriginal = comparing && original !== null;
   const shown = showingOriginal ? original : { html: preview.html, lang };
   const originalLabel = showingOriginal ? t('editor.original', { lang: t(`lang.inSentence.${original.lang}`) }) : null;
-  const onEditorScroll = useScrollSync(textareaRef, previewRef, view === 'split', shown.html, preview.blockStarts);
+  const onEditorScroll = useScrollSync(textareaRef, previewRef, view === 'split', shown.html, preview);
 
   const actions = useMemo(
     () => availableActions(editorActions(lang), { canUpload: upload.canUpload, canCompare: original !== null }),

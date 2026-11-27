@@ -13,8 +13,9 @@ const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
   [/\.\.\./g, '…'],
 ];
 
-// Bare URLs in the text are not links, but changing their "--" or "..." would break them when copied.
-const BARE_URL = /(?:https?:\/\/|mailto:|www\.)[^\s"']+/gi;
+// Bare URLs in the text are not links, but changing their "--" or "..." would break them when copied (and their `$`
+// is never math: inline.ts).
+export const BARE_URL = /(?:https?:\/\/|mailto:|www\.)[^\s"']+/gi;
 
 // Before an opening quote: start, whitespace, an opening sign or an already converted quote/dash.
 const OPENING_CONTEXT = /[\s([{¡¿“‘–—]/u;

@@ -21,7 +21,7 @@ A regression gets a test that fails on the old code first. Example: `apps/web/te
 
 ```bash
 pnpm test                                   # every workspace + test:profile + test:agents + test:infra
-pnpm --filter @blog/web test                # one workspace: @blog/markdown, @blog/admin, @blog/web, @blog/builder
+pnpm --filter @blog/web test                # one workspace: @blog/markdown, @blog/math, @blog/admin, @blog/web, @blog/builder
 pnpm test:agents                            # skill sync + validator (tooling/agents/test)
 pnpm test:profile                           # profile SVG generator (tooling/profile/test)
 pnpm test:infra                             # compose, Dockerfiles, Caddyfile, backup/restore scripts (infra/test)
@@ -78,6 +78,8 @@ so Windows bind mounts and your `bin/`/`obj/` are not involved). A test that onl
 | API and builder ports across Dockerfiles, C#, TypeScript, Caddyfile and compose | `infra/test/ports.test.ts` |
 | Profile SVG colors ↔ `tokens.css` | `tooling/profile/test/theme.test.ts` |
 | Markdown public exports ↔ the documented list | `packages/markdown/test/escape.test.ts` |
+| Site and admin preview body options (math included) | `packages/math/test/math.test.ts` ("post body wiring") |
+| Renderer `anchorLines` ↔ the preview elements the scroll sync measures | `packages/markdown/test/blocks.test.ts`, `apps/admin/test/editor-scroll.test.ts` |
 
 ## Infra changes: text test + real run
 

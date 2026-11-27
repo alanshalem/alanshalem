@@ -46,6 +46,7 @@ barely works at rest and the site stays up even if the API goes down.
 | Folder | What it is |
 |---|---|
 | `packages/markdown` | Own Markdown renderer, no dependencies. Used by the admin (preview) and by Astro, so **the preview is identical to the published page**. |
+| `packages/math` | TeX → MathML with Temml (no runtime script). Injected into `packages/markdown`'s `math` option by both the admin preview and the site build (`postBodyOptions`), so formulas look the same in both. |
 | `packages/tokens` | Design tokens (`tokens.css`, the single source) and the `.prose` styles. |
 | `apps/admin` | React 19 + Vite. Native Markdown editor (`<textarea>` + pure command functions). |
 | `apps/web` | Astro 7, static output. Reads the posts from the API at build time. |
@@ -601,7 +602,8 @@ Staging is behind basic auth: a check there needs the credentials (or watch prod
 - Videos (MP4, MOV, WebM, MKV) validated by *magic bytes* and ffprobe, max 200 MB and 15 s; the original (with audio
   and metadata) never reaches `/media`.
 - Markdown **does not accept raw HTML** (everything is escaped) and URLs pass an allowlist (`http`, `https`, `mailto`,
-  `tel`, relative).
+  `tel`, relative). TeX math (`$...$`, `$$` blocks, ```` ```math ````) renders with Temml with `trust: false`: no
+  links, images, classes or styles from TeX; invalid TeX shows its escaped source.
 - `/api/internal` (used by the builder) requires a Bearer token and Caddy blocks it from outside.
 - Containers with `no-new-privileges`, no Linux capabilities except the ones needed, `pids_limit` and memory caps;
   Caddy and the API with a read-only filesystem; the API and the builder do not run as root (Caddy does, but only with

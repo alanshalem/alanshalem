@@ -7,10 +7,17 @@ Where each area is tested. Add to the existing file of the area before creating 
 | File | Covers |
 |---|---|
 | `render.test.ts` | inline/block rendering, escaping (no raw HTML), URL allowlist, headings and ids |
-| `blocks.test.ts` | block boundaries (`blockStartLines`), fences, lists, tables |
+| `blocks.test.ts` | block boundaries (`blockStartLines`), scroll anchors (`anchorLines`: blocks + every list item), fences, lists, tables |
+| `math.test.ts` | the `math` option with a fake renderer: pandoc's `$` rule, display blocks, slots, plain paths (heading text, alt) carrying the TeX, the linear no-wrap pass, output without the option unchanged |
 | `extensions.test.ts` | footnotes, callouts, figures, smart typography per language, preservation of old output |
 | `accessibility.test.ts` | focusable `<pre>`, table regions, heading levels |
 | `escape.test.ts` | the exact public API list (`createSlugger` internal), `unescapeHtml` as the inverse of `escapeHtml`, plain text decoding |
+
+## packages/math/test
+
+| File | Covers |
+|---|---|
+| `math.test.ts` | the public API, `renderTex` (Temml → MathML), security (`trust: false`, no `\href`/`\url`/`\html*`, invalid TeX → escaped `code.math-error`), `postBodyOptions` wiring shared by site and preview |
 
 ## apps/web/test
 

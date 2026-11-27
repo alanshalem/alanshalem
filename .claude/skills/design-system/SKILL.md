@@ -13,7 +13,8 @@ the profile SVGs (`tooling/profile/src/theme.ts`) read their colors from the sam
 ## Character (keep these three)
 
 1. **Three type voices, fixed roles**: Gloock (display) for content titles and the brand; TeX Gyre Pagella (reading
-   serif) for body text, deks and the hero h1; Hanken Grotesk (UI) for nav, labels, meta, buttons, footer.
+   serif) for body text, deks and the hero h1; Hanken Grotesk (UI) for nav, labels, meta, buttons, footer. Formulas
+   (MathML) use TeX Gyre Pagella Math (`--font-math`), Pagella's math companion: the reading voice, not a fourth one.
 2. **Almost no decoration**: radius `0`, **no shadows** (box or text), no gradients except the photo overlays.
    Hierarchy comes from size, typeface, text color and 1px rules (`border-subtle` `#2a2a2d`).
 3. **Three text levels** on `bg-page` `#0a0a0b`: primary `#ededea`, secondary `#c8c8c2`, tertiary `#8e8e88`.
@@ -37,6 +38,9 @@ the profile SVGs (`tooling/profile/src/theme.ts`) read their colors from the sam
 - Dark pages (home, listings) use `bg-page`, panels `bg-surface` `#141416`.
 - Reading pages: dark full-screen hero, then the white `.paper` sheet (`paper-bg` `#fff`, `paper-text` `#2c2724`),
   then dark again for "Seguir leyendo" ("Keep reading") and the footer. Code blocks use the GitHub-dark pair `#24292e` / `#e1e4e8`.
+- Formulas on the sheet take the text color; display math is centered in its own focusable box that scrolls
+  horizontally on narrow screens (`.math-display`), and TeX that does not compile shows its source as code in
+  `--paper-error` with a wavy underline (6.5:1 on white; `apps/web/test/contrast.test.ts`).
 - Text over photos: `overlay-hero` bands (top and bottom, sized in rem) plus the `overlay-hero-text` veil behind the
   text block; topic tiles add `overlay-tile`. Values are guarded by `apps/web/test/contrast.test.ts` (worst case: a
   white photo). Over images use `text-primary`/`text-secondary` only.
@@ -46,6 +50,10 @@ the profile SVGs (`tooling/profile/src/theme.ts`) read their colors from the sam
 - Self-hosted woff2, latin subset, `font-display: swap`, served from `/fonts/`. Gloock and Hanken come from npm
   (`pnpm --filter @blog/web fonts`); Pagella files are versioned in `apps/web/public/fonts/` with `LICENSES.txt`
   (GUST license). Do not add external font CDNs.
+- `pagella-math.woff2` (TeX Gyre Pagella Math, GUST, from CTAN) is the whole font, not subset: formulas need its MATH
+  table with the stretchy variants and assemblies. Only `.prose math` uses `--font-math`, so only pages with a formula
+  download it (`apps/web/test/math-css.test.ts`). The admin gets every font from the same `/fonts/` (Caddy in
+  production, the `devFonts` middleware of `vite.config.ts` in development).
 
 ## Reuse, do not copy content
 

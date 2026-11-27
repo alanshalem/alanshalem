@@ -1,5 +1,4 @@
 import {
-  POST_BODY_RENDER_OPTIONS,
   readingTimeOfText,
   renderMarkdown,
   wordCount,
@@ -7,18 +6,20 @@ import {
   type RenderOptions,
   type RenderResult,
 } from '@blog/markdown';
+import { postBodyOptions } from '@blog/math';
 import type { Lang } from '../languages.ts';
 import { isTopLevelHeading } from './markdownSource.ts';
 
 /**
- * The options the site renders a post body with (POST_BODY_RENDER_OPTIONS of @blog/markdown, the same the build uses,
- * plus the post's language): the preview is what gets published (## = h2, ### = h3, quotes, figures, callout titles).
+ * The options the site renders a post body with (`postBodyOptions` of @blog/math, the same the build uses: the post
+ * body preset of @blog/markdown, TeX math and the post's language): the preview is what gets published (## = h2,
+ * ### = h3, quotes, figures, callout titles, formulas).
  */
-export const previewOptions = (lang: Lang): RenderOptions => ({ ...POST_BODY_RENDER_OPTIONS, lang });
+export const previewOptions = (lang: Lang): RenderOptions => postBodyOptions(lang);
 
 /**
  * The single render per update: besides the HTML it brings `text` (counter), `headings` + `blockStarts` (outline) and
- * `blockStarts` (synced scroll), all from the same pass.
+ * `anchorLines` with `blockStarts` as its fallback (synced scroll), all from the same pass.
  */
 export const renderPreview = (markdown: string, lang: Lang): RenderResult => renderMarkdown(markdown, previewOptions(lang));
 

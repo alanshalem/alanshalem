@@ -1,0 +1,22 @@
+{
+  "name": "@blog/math",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TeX -> MathML for post bodies (Temml), injected into @blog/markdown by the site build and the admin preview.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@blog/markdown": "workspace:*",
+    "temml": "0.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^7.0.2"
+  }
+}
