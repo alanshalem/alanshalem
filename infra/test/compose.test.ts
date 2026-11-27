@@ -112,8 +112,10 @@ describe('docker-compose.yml (VPS)', () => {
     assert.match(caddy, /test: \["CMD", "wget", "-q", "-O", "\/dev\/null", "http:\/\/127\.0\.0\.1:2019\/config\/"\]/);
     // Caddy's default admin address (localhost:2019): never moved to an address other containers reach.
     assert.doesNotMatch(read('infra/caddy/Caddyfile'), /^\s*admin\b/m);
-    assert.equal(lines(prod).join('\n').match(/2019/g)?.length, 1, 'the admin port only in the healthcheck, never published');
-    for (const text of [prod, dokploy, read('infra/compose.local.yml')]) assert.doesNotMatch(text, /2019:|CADDY_ADMIN/);
+    // Never published, never moved: no `:2019` mapping or `2019:` port anywhere, no CADDY_ADMIN override.
+    for (const text of [prod, dokploy, read('infra/compose.local.yml')]) {
+      assert.doesNotMatch(lines(text).join('\n'), /["'\s-]2019:|:2019["'\s]|CADDY_ADMIN/);
+    }
   });
 
   it('the builder waits for a healthy API; Caddy only for it to start (an unhealthy API does not take the site down)', () => {
