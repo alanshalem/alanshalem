@@ -5,30 +5,30 @@ import { LIMITS } from '../limits.ts';
 import { cleanOptional, tooLongMessage } from '../settings/validate.ts';
 
 /*
- * Reglas puras de una foto del hero, espejo del contrato de la API (L10): sirven para avisar antes de enviar.
- * La API sigue siendo la autoridad y sus errores (ProblemDetails) se muestran igual. Los textos, del `I18n` recibido.
+ * Pure rules of a hero photo, mirroring the API contract: they warn before sending. The API stays the authority and
+ * its errors (ProblemDetails) are shown anyway. Texts come from the received `I18n`.
  */
 
-/** El texto alternativo en inglés tiene el mismo límite que su par en español (L4); el crédito es uno solo (L13). */
+/** The English alt text has the same limit as its Spanish counterpart; the credit is a single field. */
 export const HERO_IMAGE_LIMITS = {
   alt: LIMITS.heroImage.alt,
   credit: LIMITS.heroImage.credit,
   altEn: LIMITS.heroImage.alt,
 } as const satisfies Record<keyof HeroImageInput, number>;
 
-/** Lo que editan los inputs de la tarjeta: todo texto (los `null` de la API se ven como vacío). */
+/** What the card's inputs edit: all text (the API's `null` shows as empty). */
 export type HeroImageFields = { [K in keyof HeroImageInput]: string };
 export type HeroImageErrors = Partial<Record<keyof HeroImageInput, string>>;
 export type HeroImageValidation = { ok: true; input: HeroImageInput } | { ok: false; errors: HeroImageErrors };
 
-/** Lo guardado como texto de los inputs; sin ítem guardado (una foto nueva), todo vacío. */
+/** The saved values as input text; without a saved item (a new photo), all empty. */
 export const toHeroImageFields = (saved?: HeroImageInput): HeroImageFields => ({
   alt: saved?.alt ?? '',
   credit: saved?.credit ?? '',
   altEn: saved?.altEn ?? '',
 });
 
-/** Valida todos los campos a la vez (para marcarlos juntos) y devuelve el cuerpo listo para el POST/PUT. */
+/** Validates every field at once (to flag them together) and returns the body ready for the POST/PUT. */
 export function validateHeroImage(fields: HeroImageFields, i18n: I18n): HeroImageValidation {
   const errors: HeroImageErrors = {};
   const optional = (key: 'credit' | 'altEn', subject: MessageKey): string | null => {
@@ -50,9 +50,9 @@ export function validateHeroImage(fields: HeroImageFields, i18n: I18n): HeroImag
 }
 
 /**
- * "Descartar" de un archivo en curso pregunta antes solo si se pierde trabajo hecho (P3, L4): un video que la API está
- * procesando o un archivo ya subido que falta describir. En el editor, en cola, subiendo o con error se descarta
- * directo, como antes. `null` = no preguntar.
+ * "Descartar" on a file in progress asks first only if finished work would be lost: a video the API is processing or
+ * an already uploaded file still to be described. In the editor, queued, uploading or failed it is discarded right
+ * away. `null` = do not ask.
  */
 export function discardConfirmation(upload: Pick<PendingUpload, 'status' | 'fileName'>, { t }: I18n): string | null {
   return upload.status === 'processing' || upload.status === 'uploaded'
@@ -60,13 +60,13 @@ export function discardConfirmation(upload: Pick<PendingUpload, 'status' | 'file
     : null;
 }
 
-/** La variante WebP más liviana: alcanza para una miniatura y evita bajar la foto de 1600 px. */
+/** The lightest WebP variant: enough for a thumbnail and avoids downloading the 1600 px photo. */
 export function thumbnailUrl(media: MediaAsset): string {
   const webp = media.variants.filter((variant) => variant.format === 'webp');
   if (webp.length === 0) return media.url;
   return webp.reduce((smallest, variant) => (variant.width < smallest.width ? variant : smallest)).url;
 }
 
-/** Orden de subida (el mismo que usa el sitio: la primera es la de `<noscript>` y `og:image`). */
+/** Upload order (the same the site uses: the first one is the `<noscript>` and `og:image` one). */
 export const inUploadOrder = (images: readonly HeroImage[]): HeroImage[] =>
   [...images].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));

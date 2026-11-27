@@ -1,4 +1,4 @@
-/** Foto del textarea en un momento dado. `start`/`end` son offsets de selección (start === end = cursor). */
+/** Snapshot of the textarea at a given moment. `start`/`end` are selection offsets (start === end = caret). */
 export interface EditorState {
   value: string;
   start: number;
@@ -6,11 +6,11 @@ export interface EditorState {
 }
 
 /**
- * Un cambio de texto declarativo: reemplazar [from, to) por `insert` y dejar la selección en
- * [selectStart, selectEnd] (coordenadas del texto YA editado).
+ * A declarative text change: replace [from, to) with `insert` and leave the selection at [selectStart, selectEnd]
+ * (coordinates of the ALREADY edited text).
  *
- * Los comandos son funciones puras (estado -> edición) para poder testearlos sin navegador.
- * Aplicar la edición al textarea es un paso aparte (ver applyEdit.ts).
+ * Commands are pure functions (state -> edit) so they can be tested without a browser.
+ * Applying the edit to the textarea is a separate step (see applyEdit.ts).
  */
 export interface TextEdit {
   from: number;
@@ -20,5 +20,5 @@ export interface TextEdit {
   selectEnd: number;
 }
 
-/** Devuelve `null` cuando el comando no aplica; el componente entonces deja el comportamiento nativo. */
+/** Returns `null` when the command does not apply; the component then keeps the native behavior. */
 export type Command = (state: EditorState) => TextEdit | null;

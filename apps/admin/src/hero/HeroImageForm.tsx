@@ -12,29 +12,29 @@ import {
 } from './heroImage.ts';
 
 interface Props {
-  /** Lo que va arriba de los campos (título y estado de un archivo en curso, o el resumen del recorte de un video). */
+  /** What goes above the fields (title and status of a file in progress, or a video's trim summary). */
   head?: ReactNode;
-  /** El id del título que nombra al formulario, si lo hay. */
+  /** The id of the heading that names the form, if any. */
   labelledBy?: string | undefined;
-  /** Valores guardados; sin ellos es un ítem nuevo. */
+  /** Saved values; without them it is a new item. */
   saved?: HeroImageInput | undefined;
-  /** false mientras el archivo sigue en la fila o subiendo (todavía no hay asset al que asociar el texto). */
+  /** false while the file is still queued or uploading (there is no asset to attach the text to yet). */
   canSave?: boolean | undefined;
-  /** Error que viene de afuera del formulario (el chequeo de tamaño, la subida o el proceso del video). */
+  /** Error from outside the form (the size check, the upload or the video processing). */
   error?: string | null | undefined;
   /** Non-blocking warnings (below the ideal size), already in the UI language. */
   warnings?: readonly string[] | undefined;
   saveLabel: string;
   onSave: (input: HeroImageInput) => Promise<void>;
   remove: { label: string; tone: 'ghost' | 'danger'; onClick: () => Promise<void> | void };
-  /** Avisa si hay cambios sin guardar (el panel lateral pregunta antes de cerrar o pasar a otro ítem). */
+  /** Reports whether there are unsaved changes (the side panel asks before closing or moving to another item). */
   onDirtyChange?: ((dirty: boolean) => void) | undefined;
-  /** Se anuncia al guardar y queda a la vista hasta el próximo cambio (en el panel: el aviso de la página queda inerte). */
+  /** Announced on save and visible until the next change (in the panel: the page's notice is inert). */
   doneText?: string | undefined;
 }
 
-// Cada texto alternativo junto a su versión en inglés; el crédito es uno solo (multiidioma L13). El ejemplo del campo
-// en inglés está en inglés: muestra qué escribir ahí, en cualquier idioma de la interfaz.
+// Each alt text next to its English version; the credit is a single field. The English field's example is in English:
+// it shows what to write there, in any UI language.
 const FIELDS: readonly { key: keyof HeroImageInput; label: MessageKey; placeholder: MessageKey }[] = [
   { key: 'alt', label: 'image.alt', placeholder: 'hero.altPlaceholder' },
   { key: 'altEn', label: 'hero.altEn', placeholder: 'hero.altEnPlaceholder' },
@@ -42,9 +42,9 @@ const FIELDS: readonly { key: keyof HeroImageInput; label: MessageKey; placehold
 ];
 
 /**
- * Los textos de un ítem del hero (texto alternativo en español e inglés y crédito) con Guardar y Eliminar/Descartar.
- * Lo usan la tarjeta de un archivo en curso (POST) y el panel lateral de un ítem guardado (PUT): el formulario no se
- * duplica. Es su propio <form>: Enter guarda ese ítem y nada más.
+ * The texts of a hero item (Spanish and English alt text and credit) with Guardar and Eliminar/Descartar.
+ * Used by the card of a file in progress (POST) and the side panel of a saved item (PUT): the form is not duplicated.
+ * It is its own <form>: Enter saves that item and nothing else.
  */
 export function HeroImageForm({
   head,
@@ -74,7 +74,7 @@ export function HeroImageForm({
 
   useEffect(() => onDirtyChange?.(dirty), [dirty, onDirtyChange]);
 
-  // Una acción a la vez; el mensaje de la API (ProblemDetails) queda en el formulario.
+  // One action at a time; the API message (ProblemDetails) stays in the form.
   const run = async (kind: 'save' | 'remove', action: () => Promise<void> | void): Promise<void> => {
     setRunning(kind);
     setFailure(null);
@@ -97,7 +97,7 @@ export function HeroImageForm({
     }
     void run('save', async () => {
       await onSave(result.input);
-      // Lo que quedó guardado (recortado) pasa a ser el punto de partida de la próxima edición.
+      // What was saved (trimmed) becomes the starting point of the next edit.
       setFields(toHeroImageFields(result.input));
       setDone(true);
     });
@@ -151,7 +151,7 @@ export function HeroImageForm({
         </p>
       )}
       {doneText !== undefined && (
-        // La región existe desde el principio: así el lector de pantalla anuncia el texto cuando aparece.
+        // The region exists from the start: so the screen reader announces the text when it appears.
         <p className="field-status" role="status">
           {done ? doneText : ''}
         </p>

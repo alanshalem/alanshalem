@@ -2,22 +2,22 @@ import { useEffect, useRef, useState } from 'react';
 import type { VideoEdit } from '../api/types.ts';
 import { previewFrame, previewLoopStart, type PreviewFrame } from './videoEdit.ts';
 
-// Margen para dar por terminado el tramo: el último cuadro puede caer un poco antes del fin (un cuadro a 20 fps).
+// Margin to consider the segment finished: the last frame may land a bit before the end (one frame at 20 fps).
 const END_TOLERANCE_SECONDS = 0.05;
-// Desfase tolerado entre los dos videos del loop: más se nota; resincronizar por menos trabaría la reproducción.
+// Tolerated drift between the loop's two videos: more is noticeable; resyncing for less would stutter playback.
 const SYNC_TOLERANCE_SECONDS = 0.25;
 const STILL: PreviewFrame = { curtainOpacity: 0, overlay: null };
 
 const play = (video: HTMLVideoElement): void => {
-  // El navegador puede negar la reproducción (pestaña en segundo plano, ahorro de energía): queda en pausa.
+  // The browser may refuse to play (background tab, power saving): it stays paused.
   video.play().catch(() => undefined);
 };
 
 /**
- * Reproduce solo el tramo elegido, en loop, y dibuja encima la aproximación del fundido (L19) cuadro a cuadro con
- * requestAnimationFrame. Escribe estilos directo en los elementos (opacidad, posición del cabezal) en lugar de
- * pasar por el estado de React: son 60 cambios por segundo que no cambian nada más de la pantalla.
- * `animate` = false (reduced motion) sigue respetando el tramo pero no anima el fundido.
+ * Plays only the chosen segment, looped, and draws the fade approximation on top frame by frame with
+ * requestAnimationFrame. It writes styles straight to the elements (opacity, playhead position) instead of going
+ * through React state: 60 changes per second that change nothing else on screen.
+ * `animate` = false (reduced motion) still honors the segment but does not animate the fade.
  */
 export function useRangePreview(edit: VideoEdit, cue: { seconds: number }, durationSeconds: number, animate: boolean) {
   const mainRef = useRef<HTMLVideoElement>(null);
@@ -64,7 +64,7 @@ export function useRangePreview(edit: VideoEdit, cue: { seconds: number }, durat
     };
 
     frame = requestAnimationFrame(tick);
-    // Al cambiar el tramo, al descartar o al salir de la página: no queda ningún cuadro programado.
+    // On segment change, discard or leaving the page: no frame stays scheduled.
     return () => cancelAnimationFrame(frame);
   }, [edit, durationSeconds, animate]);
 
@@ -82,7 +82,7 @@ export function useRangePreview(edit: VideoEdit, cue: { seconds: number }, durat
     playheadRef,
     playing,
     togglePlay,
-    /** Para el `<video>` principal: el botón refleja el estado real (autoplay, pausa del sistema). */
+    /** For the main `<video>`: the button reflects the real state (autoplay, system pause). */
     playbackEvents: { onPlay: () => setPlaying(true), onPause: () => setPlaying(false) },
   };
 }

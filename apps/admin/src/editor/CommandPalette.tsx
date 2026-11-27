@@ -12,7 +12,7 @@ interface Props {
   onClose: () => void;
 }
 
-/** Ctrl+P (S2): todas las acciones del registro con búsqueda difusa. Combobox + listbox (patrón ARIA). */
+/** Ctrl+P: every registry action with fuzzy search. Combobox + listbox (ARIA pattern). */
 export function CommandPalette({ actions, mac, onRun, onClose }: Props) {
   const { t } = useUiLanguage();
   const [query, setQuery] = useState('');
@@ -20,7 +20,7 @@ export function CommandPalette({ actions, mac, onRun, onClose }: Props) {
   const listId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Después del showModal() del Modal (los efectos del hijo corren antes), que enfoca el primer botón; antes de pintar.
+  // After the Modal's showModal() (the child's effects run first), which focuses the first button; before painting.
   useLayoutEffect(() => inputRef.current?.focus(), []);
   const found = useMemo(() => fuzzyFilter(actions, query, (action) => t(action.label)), [actions, query, t]);
   const activeAction = found[Math.min(active, found.length - 1)];

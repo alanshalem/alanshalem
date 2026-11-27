@@ -15,14 +15,14 @@ import {
 interface EditorState {
   edit: VideoEdit;
   /**
-   * Segundo al que salta la vista previa después de un cambio, para que se vea lo que se tocó: el inicio muestra
-   * el arranque del loop; el fin y el fundido, su transición (sin esto habría que esperar una vuelta entera).
-   * Es un objeto para que cada cambio vuelva a saltar aunque el segundo coincida con el anterior.
+   * Second the preview jumps to after a change, so what was touched shows: the start shows the loop's beginning; the
+   * end and the fade, their transition (without this one would wait a whole loop).
+   * It is an object so every change jumps again even if the second matches the previous one.
    */
   cue: { seconds: number };
 }
 
-/** Estado del editor de recorte y fundido de un video local (L19). Las reglas viven en videoEdit.ts. */
+/** State of the trim and fade editor of a local video. The rules live in videoEdit.ts. */
 export function useVideoEditor(durationSeconds: number) {
   const i18n = useUiLanguage();
   const [{ edit, cue }, setState] = useState((): EditorState => {

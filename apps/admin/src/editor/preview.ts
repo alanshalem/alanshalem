@@ -11,15 +11,14 @@ import type { Lang } from '../languages.ts';
 import { isTopLevelHeading } from './markdownSource.ts';
 
 /**
- * Las opciones con las que el sitio renderiza el cuerpo de un post (POST_BODY_RENDER_OPTIONS de @blog/markdown, las
- * mismas que usa el build + el idioma del post): la vista previa es lo que se publica (## = h2, ### = h3, comillas,
- * figuras, títulos de cajas).
+ * The options the site renders a post body with (POST_BODY_RENDER_OPTIONS of @blog/markdown, the same the build uses,
+ * plus the post's language): the preview is what gets published (## = h2, ### = h3, quotes, figures, callout titles).
  */
 export const previewOptions = (lang: Lang): RenderOptions => ({ ...POST_BODY_RENDER_OPTIONS, lang });
 
 /**
- * El único render por actualización: además del HTML trae `text` (contador), `headings` + `blockStarts` (esquema) y
- * `blockStarts` (scroll sincronizado), del mismo recorrido (perfil-skills-produccion L8, P3-14).
+ * The single render per update: besides the HTML it brings `text` (counter), `headings` + `blockStarts` (outline) and
+ * `blockStarts` (synced scroll), all from the same pass.
  */
 export const renderPreview = (markdown: string, lang: Lang): RenderResult => renderMarkdown(markdown, previewOptions(lang));
 
@@ -29,24 +28,24 @@ export interface DocumentStats {
   readonly readingMinutes: number;
 }
 
-/** Del texto plano de la vista previa (`RenderResult.text`): lo que se lee, con la fórmula de minutos del sitio. */
+/** From the preview's plain text (`RenderResult.text`): what is read, with the site's minutes formula. */
 export function documentStats(text: string): DocumentStats {
   return {
     words: wordCount(text),
-    characters: [...text].length, // por código Unicode: un emoji o una letra con tilde cuentan uno
+    characters: [...text].length, // per Unicode code point: an emoji or an accented letter counts as one
     readingMinutes: readingTimeOfText(text),
   };
 }
 
-/** Un título del esquema: el del renderer y la línea del editor donde está (null si no se pudo ubicar). */
+/** An outline heading: the renderer's one and the editor line where it is (null if it could not be located). */
 export interface OutlineEntry extends Heading {
   readonly line: number | null;
 }
 
 /**
- * El renderer no dice de qué línea sale cada título, así que se los empareja por orden con los bloques de título de
- * primer nivel (solo esos tienen ancla), partidos por el mismo recorrido que el render (`blockStarts`). Si las cuentas
- * no coinciden (un caso raro), mejor sin línea que mandar al editor a otro título.
+ * The renderer does not say which line each heading comes from, so they are paired in order with the top-level
+ * heading blocks (only those have an anchor), split by the same pass as the render (`blockStarts`). If the counts do
+ * not match (a rare case), better no line than sending the editor to another heading.
  */
 export function outlineEntries(markdown: string, { headings, blockStarts }: Pick<RenderResult, 'headings' | 'blockStarts'>): OutlineEntry[] {
   const source = markdown.replace(/\r\n?/g, '\n').split('\n');

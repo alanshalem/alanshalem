@@ -7,10 +7,10 @@ interface Props {
   onSelect: (entry: OutlineEntry) => void;
 }
 
-// Las secciones (`##`, y un `#` del cuerpo) salen como <h2> (el título del post es el <h1>): ese nivel va sin sangría.
+// Sections (`##`, and a body `#`) render as <h2> (the post title is the <h1>): that level has no indent.
 const TOP_LEVEL = 2;
 
-/** Esquema de títulos (S3): cada uno lleva el editor y la vista previa a su sección. */
+/** Heading outline: each entry takes the editor and the preview to its section. */
 export function OutlinePanel({ entries, onSelect }: Props) {
   const { t } = useUiLanguage();
   return (

@@ -1,30 +1,30 @@
 /*
- * Lo que el admin necesita leer del Markdown fuente (el revisor, el esquema): dónde hay código, títulos, notas y cajas.
- * Las expresiones copian las de packages/markdown (blocks.ts, footnotes.ts, labels.ts), que no las exporta; los tests
- * de las cajas y del esquema comparan con el renderer para que no se desfasen.
+ * What the admin needs to read from the Markdown source (the reviewer, the outline): where code, headings, footnotes
+ * and callouts are. The expressions copy those of packages/markdown (blocks.ts, footnotes.ts, labels.ts), which does
+ * not export them; the callout and outline tests compare with the renderer so they do not drift.
  */
 
-/** Tipos de caja destacada que reconoce el renderer (`> [!NOTE]`…), en su orden. */
+/** Callout kinds the renderer recognizes (`> [!NOTE]`…), in its order. */
 export const CALLOUT_KINDS = ['note', 'tip', 'warning'] as const;
 export type CalloutKind = (typeof CALLOUT_KINDS)[number];
 
 export const calloutMarker = (kind: string): string => `[!${kind.toUpperCase()}]`;
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
-/** Un título en cualquier contenedor (cita, ítem de lista): `#` a `######` y un espacio o el final de la línea. */
+/** A heading in any container (quote, list item): `#` to `######` and a space or the end of the line. */
 const HEADING = /^[ \t]*(?:>[ \t]?)*[ \t]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)?(#{1,6})(?:[ \t]|$)/;
 export const FOOTNOTE_DEFINITION = /^ {0,3}\[\^([^\]\s]+)\]:/;
 export const FOOTNOTE_REFERENCE = /\[\^([^\]\s]+)\]/g;
-// Los `code spans` se tapan con espacios: sin falsos avisos y con las columnas intactas.
+// `Code spans` are masked with spaces: no false warnings and the columns stay intact.
 const CODE_SPAN = /(`+)[^`\n]*?\1/g;
 
-/** Una línea fuera de los bloques de código, con el código en línea tapado. `index` empieza en 0. */
+/** A line outside code blocks, with inline code masked. `index` starts at 0. */
 export interface ProseLine {
   readonly index: number;
   readonly text: string;
 }
 
-/** Las líneas que no son código: lo que el renderer trata como texto. */
+/** The lines that are not code: what the renderer treats as text. */
 export function proseLines(markdown: string): ProseLine[] {
   const lines: ProseLine[] = [];
   let fence: string | null = null;
@@ -33,7 +33,7 @@ export function proseLines(markdown: string): ProseLine[] {
     .split('\n')
     .forEach((line, index) => {
       if (fence !== null) {
-        // Cierra una tira del mismo carácter y al menos igual de larga, sola en su línea.
+        // Closed by a run of the same character, at least as long, alone on its line.
         const close = line.trim();
         if (close[0] === fence[0] && close.length >= fence.length && /^(`+|~+)$/.test(close)) fence = null;
         return;
@@ -45,10 +45,10 @@ export function proseLines(markdown: string): ProseLine[] {
   return lines;
 }
 
-/** Un título fuera de todo contenedor: el único que recibe ancla y entra al índice del renderer. */
+/** A heading outside any container: the only kind that gets an anchor and enters the renderer's index. */
 export const isTopLevelHeading = (text: string): boolean => /^ {0,3}#{1,6}(?:[ \t]|$)/.test(text);
 
-/** Nivel en el fuente (cantidad de `#`) de una línea de título, o null. */
+/** Source level (number of `#`) of a heading line, or null. */
 export function headingLevel(text: string): number | null {
   return HEADING.exec(text)?.[1]?.length ?? null;
 }

@@ -11,7 +11,7 @@ import { editSummary } from './videoEdit.ts';
 
 interface Props {
   tile: HeroTile;
-  /** Los ítems que se veían al abrir el panel (con el filtro de ese momento): Anterior y Siguiente se mueven entre ellos. */
+  /** The items visible when the panel opened (with that moment's filter): Anterior and Siguiente move among them. */
   ids: readonly string[];
   onMove: (id: string) => void;
   onClose: () => void;
@@ -20,10 +20,10 @@ interface Props {
 }
 
 /**
- * Edición de un ítem guardado (U7): panel lateral (pantalla completa en celulares) sobre el <dialog> nativo del
- * editor (Modal: foco atrapado, Esc cierra; el foco vuelve a la miniatura, lo decide la galería). Vista previa grande
- * (el video, mudo y solo si no se pidió reducir el movimiento), los textos y Anterior/Siguiente sin cerrar. Con
- * cambios sin guardar, cerrar o moverse pregunta antes (la regla de leaveGuard).
+ * Editing a saved item: a side panel (full screen on phones) on the editor's native <dialog> (Modal: focus trapped,
+ * Esc closes; focus returns to the thumbnail, the gallery decides). Large preview (the video, muted and only if
+ * reduced motion was not requested), the texts and Anterior/Siguiente without closing. With unsaved changes, closing
+ * or moving asks first (the leaveGuard rule).
  */
 export function HeroPanel({ tile, ids, onMove, onClose, onSave, onDelete }: Props) {
   const i18n = useUiLanguage();
@@ -31,12 +31,12 @@ export function HeroPanel({ tile, ids, onMove, onClose, onSave, onDelete }: Prop
   const { image, number, kind } = tile;
   const [dirty, setDirty] = useState(false);
   const onDirtyChange = useCallback((value: boolean) => setDirty(value), []);
-  useUnsavedGuard(dirty); // cambiar de vista o cerrar la pestaña con el panel a medio editar también pregunta
+  useUnsavedGuard(dirty); // changing view or closing the tab with the panel half edited asks too
   const { previous, next, position, total } = neighbors(ids, image.id);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  // Chrome no deja cancelar dos Esc seguidos sin otra interacción en el medio (anti-abuso de CloseWatcher): el
-  // <dialog> se cierra solo aunque se haya respondido "Cancelar". Si el panel sigue montado, se vuelve a abrir.
+  // Chrome does not allow cancelling two Esc in a row without another interaction in between (CloseWatcher
+  // anti-abuse): the <dialog> closes even after answering "Cancelar". If the panel is still mounted, it reopens.
   useEffect(() => {
     const dialog = bodyRef.current?.closest('dialog');
     if (!dialog) return;
@@ -54,7 +54,7 @@ export function HeroPanel({ tile, ids, onMove, onClose, onSave, onDelete }: Prop
     go();
   };
 
-  // aria-disabled (no `disabled`): en el primero o el último el botón sigue enfocable y el foco no se pierde.
+  // aria-disabled (not `disabled`): on the first or last item the button stays focusable and focus is not lost.
   const step = (target: string | null, label: string, arrow: { before?: string; after?: string }) => (
     <button
       type="button"

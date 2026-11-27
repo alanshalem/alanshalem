@@ -1,12 +1,12 @@
 import type { MediaDimensions } from './heroSize.ts';
 import type { HeroMediaKind } from './heroVideo.ts';
 
-// Un archivo local responde en milisegundos; si el navegador no termina de leerlo, mejor dejar que decida la API.
+// A local file answers in milliseconds; if the browser does not finish reading it, better to let the API decide.
 const READ_TIMEOUT_MS = 5000;
 
 /**
- * Medidas del archivo local, para aplicar la regla de tamaño antes de subirlo. `null` si el navegador no puede
- * leerlo (HEVC, MKV en algunos navegadores, una foto rara): ese archivo se sube igual y lo valida la API.
+ * Sizes of the local file, to apply the size rule before uploading it. `null` if the browser cannot read it (HEVC,
+ * MKV in some browsers, an odd photo): that file is uploaded anyway and the API validates it.
  */
 export async function readDimensions(file: File, kind: HeroMediaKind): Promise<MediaDimensions | null> {
   const url = URL.createObjectURL(file);
@@ -26,7 +26,7 @@ async function readImage(url: string): Promise<MediaDimensions> {
   const loaded = settled(image, 'load');
   image.src = url;
   await loaded;
-  // naturalWidth/Height ya respetan la orientación EXIF, igual que la API al autorrotar.
+  // naturalWidth/Height already honor the EXIF orientation, like the API when it auto-rotates.
   return { width: image.naturalWidth, height: image.naturalHeight };
 }
 
@@ -38,11 +38,11 @@ async function readVideo(url: string): Promise<MediaDimensions> {
   video.src = url;
   try {
     await loaded;
-    // Algunos WebM grabados en el navegador declaran duración infinita: esa la mide la API con ffprobe.
+    // Some WebM files recorded in the browser declare an infinite duration: the API measures it with ffprobe.
     const duration = Number.isFinite(video.duration) ? video.duration : undefined;
     return { width: video.videoWidth, height: video.videoHeight, durationSeconds: duration };
   } finally {
-    // Suelta el archivo: un <video> fuera del DOM igual retiene el decodificador hasta que se le quita la fuente.
+    // Release the file: a <video> outside the DOM still holds the decoder until its source is removed.
     video.removeAttribute('src');
     video.load();
   }
@@ -51,10 +51,10 @@ async function readVideo(url: string): Promise<MediaDimensions> {
 function settled(element: HTMLElement, event: string): Promise<void> {
   return new Promise((resolve, reject) => {
     element.addEventListener(event, () => resolve(), { once: true });
-    element.addEventListener('error', () => reject(new Error('No se pudo leer el archivo.')), { once: true });
+    element.addEventListener('error', () => reject(new Error('Could not read the file.')), { once: true });
   });
 }
 
 function timeout(): Promise<never> {
-  return new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo agotado.')), READ_TIMEOUT_MS));
+  return new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out.')), READ_TIMEOUT_MS));
 }

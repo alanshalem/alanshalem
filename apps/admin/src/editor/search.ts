@@ -1,6 +1,6 @@
 import type { TextEdit } from './types.ts';
 
-/* Buscar y reemplazar (S2): funciones puras sobre el texto; el panel solo las conecta con el textarea. */
+/* Find and replace: pure functions over the text; the panel only connects them to the textarea. */
 
 export interface SearchOptions {
   readonly caseSensitive: boolean;
@@ -12,12 +12,12 @@ export interface Match {
   readonly to: number;
 }
 
-// Las letras con acento y la ñ son parte de la palabra: "año" no está dentro de "añoso".
+// Accented letters and ñ are part of the word: "año" is not inside "añoso".
 const WORD_CHAR = '[\\p{L}\\p{N}_]';
-// Solo los caracteres de sintaxis: con la bandera `u`, escapar cualquier otro es un error.
+// Only syntax characters: with the `u` flag, escaping any other is an error.
 const REGEX_SYNTAX = /[\\^$.*+?()[\]{}|/]/g;
 
-/** Todas las apariciones literales de `query` (sin expresiones regulares: KISS para quien escribe). */
+/** Every literal occurrence of `query` (no regular expressions: KISS for the writer). */
 export function findMatches(text: string, query: string, { caseSensitive, wholeWord }: SearchOptions): Match[] {
   if (query === '') return [];
   const literal = query.replace(REGEX_SYNTAX, '\\$&');
@@ -27,8 +27,8 @@ export function findMatches(text: string, query: string, { caseSensitive, wholeW
 }
 
 /**
- * El índice de la coincidencia siguiente (1) o anterior (-1) a la selección, dando la vuelta; -1 si no hay.
- * Si la selección ES una coincidencia, avanza desde su final: Enter repetido recorre todas.
+ * The index of the match after (1) or before (-1) the selection, wrapping around; -1 if there are none.
+ * If the selection IS a match, it advances from its end: repeated Enter walks through all of them.
  */
 export function stepMatch(matches: readonly Match[], selection: { start: number; end: number }, direction: 1 | -1): number {
   if (matches.length === 0) return -1;
@@ -42,7 +42,7 @@ export function stepMatch(matches: readonly Match[], selection: { start: number;
   return after === -1 ? 0 : after;
 }
 
-/** Reemplaza una coincidencia y deja seleccionado el reemplazo. */
+/** Replaces a match and leaves the replacement selected. */
 export const replaceMatchEdit = (match: Match, replacement: string): TextEdit => ({
   from: match.from,
   to: match.to,
@@ -52,8 +52,8 @@ export const replaceMatchEdit = (match: Match, replacement: string): TextEdit =>
 });
 
 /**
- * Reemplazar todo como UNA edición (de la primera a la última coincidencia): un solo Ctrl+Z lo deshace entero.
- * El reemplazo es literal (`$&` no tiene significado especial).
+ * Replace all as ONE edit (from the first to the last match): a single Ctrl+Z undoes it entirely.
+ * The replacement is literal (`$&` has no special meaning).
  */
 export function replaceAllEdit(text: string, matches: readonly Match[], replacement: string): TextEdit | null {
   const first = matches[0];
@@ -69,7 +69,7 @@ export function replaceAllEdit(text: string, matches: readonly Match[], replacem
   return { from: first.from, to: last.to, insert, selectStart: end, selectEnd: end };
 }
 
-/** La aparición de `needle` más cercana a `near` (el usuario pudo escribir antes o después); -1 si no está. */
+/** The occurrence of `needle` closest to `near` (the user may have typed before or after it); -1 if absent. */
 export function nearestOccurrence(text: string, needle: string, near: number): number {
   let best = -1;
   for (let index = text.indexOf(needle); index !== -1; index = text.indexOf(needle, index + 1)) {

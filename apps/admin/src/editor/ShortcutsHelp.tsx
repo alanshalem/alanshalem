@@ -9,7 +9,7 @@ interface Props {
   onClose: () => void;
 }
 
-/** Ctrl+/ (S2): los atajos salen del mismo registro que la barra y la paleta, agrupados como en la barra. */
+/** Ctrl+/: the shortcuts come from the same registry as the toolbar and the palette, grouped as in the toolbar. */
 export function ShortcutsHelp({ actions, mac, onClose }: Props) {
   const { t } = useUiLanguage();
   const groups = new Map<ActionGroup, EditorAction[]>();
@@ -36,7 +36,7 @@ export function ShortcutsHelp({ actions, mac, onClose }: Props) {
           </section>
         ))}
       </div>
-      {/* Tab anida listas: cómo salir del editor con el teclado (WCAG 2.1.2). */}
+      {/* Tab nests lists: how to leave the editor with the keyboard (WCAG 2.1.2). */}
       <p className="help shortcuts-note">{t('editor.tabHint')}</p>
     </Modal>
   );

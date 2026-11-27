@@ -6,9 +6,9 @@ import { measureRangeBox, scrollTextareaTo, type Box } from './textareaMetrics.t
 export type FindMode = 'find' | 'replace';
 
 /**
- * Estado del panel buscar/reemplazar (S2). La coincidencia actual queda seleccionada en el textarea; como Chrome no
- * pinta la selección de un textarea sin foco (el foco está en el buscador), además se marca con una caja medida.
- * Cada reemplazo pasa por applyEdit, así Ctrl+Z lo deshace como cualquier otra edición.
+ * State of the find/replace panel. The current match stays selected in the textarea; since Chrome does not paint the
+ * selection of an unfocused textarea (focus is in the search box), it is also marked with a measured box.
+ * Every replacement goes through applyEdit, so Ctrl+Z undoes it like any other edit.
  */
 export function useFind(textareaRef: RefObject<HTMLTextAreaElement | null>, value: string) {
   const [mode, setMode] = useState<FindMode | null>(null);
@@ -17,12 +17,12 @@ export function useFind(textareaRef: RefObject<HTMLTextAreaElement | null>, valu
   const [options, setOptions] = useState<SearchOptions>({ caseSensitive: false, wholeWord: false });
   const [current, setCurrent] = useState(-1);
   const [replacedCount, setReplacedCount] = useState<number | null>(null);
-  // La caja va en coordenadas del contenido; restarle el scroll actual la mantiene sobre la coincidencia.
+  // The box is in content coordinates; subtracting the current scroll keeps it over the match.
   const [highlight, setHighlight] = useState<Box | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  /** Cambia en cada apertura: el panel vuelve a enfocar y seleccionar su campo. */
+  /** Changes on every opening: the panel focuses and selects its field again. */
   const [focusToken, setFocusToken] = useState(0);
-  // Desde dónde buscar cuando cambia la consulta, o adónde seguir después de reemplazar.
+  // Where to search from when the query changes, or where to continue after replacing.
   const fromRef = useRef<number | null>(null);
 
   const matches = useMemo(() => (mode ? findMatches(value, query, options) : []), [mode, value, query, options]);
@@ -39,10 +39,10 @@ export function useFind(textareaRef: RefObject<HTMLTextAreaElement | null>, valu
     setScrollTop(textarea.scrollTop);
   };
 
-  // La consulta, las opciones o el texto cambiaron (o se acaba de reemplazar): ir a la primera desde `fromRef`.
+  // The query, the options or the text changed (or a replacement just happened): go to the first one from `fromRef`.
   useEffect(() => {
     if (fromRef.current === null) {
-      // Se escribió en el texto: la caja medida ya no está donde estaba.
+      // The text was typed into: the measured box is no longer where it was.
       setCurrent((index) => Math.min(index, matches.length - 1));
       setHighlight(null);
       return;
@@ -50,7 +50,7 @@ export function useFind(textareaRef: RefObject<HTMLTextAreaElement | null>, valu
     const position = fromRef.current;
     fromRef.current = null;
     select(stepMatch(matches, { start: position, end: position }, 1), matches);
-    // `select` es estable en lo que importa (refs y el setter); depender de él re-dispararía en cada render.
+    // `select` is stable in what matters (refs and the setter); depending on it would re-fire on every render.
   }, [matches]);
 
   const selection = () => {
@@ -62,7 +62,7 @@ export function useFind(textareaRef: RefObject<HTMLTextAreaElement | null>, valu
     const textarea = textareaRef.current;
     const { start, end } = selection();
     const selected = textarea?.value.slice(start, end) ?? '';
-    // Lo seleccionado (si es una sola línea) es lo que se quiere buscar.
+    // The selection (if it is a single line) is what the user wants to search for.
     if (selected && !selected.includes('\n')) setQuery(selected);
     fromRef.current = start;
     setReplacedCount(null);
@@ -73,7 +73,7 @@ export function useFind(textareaRef: RefObject<HTMLTextAreaElement | null>, valu
   const close = (): void => {
     setMode(null);
     setHighlight(null);
-    textareaRef.current?.focus(); // con la coincidencia actual seleccionada: se sigue escribiendo ahí
+    textareaRef.current?.focus(); // with the current match selected: typing continues there
   };
 
   const step = (direction: 1 | -1): void => select(stepMatch(matches, selection(), direction));
@@ -82,7 +82,7 @@ export function useFind(textareaRef: RefObject<HTMLTextAreaElement | null>, valu
     const textarea = textareaRef.current;
     const { start, end } = selection();
     const match = matches.find((candidate) => candidate.from === start && candidate.to === end);
-    if (!textarea || !match) return step(1); // primero se ve qué se va a reemplazar
+    if (!textarea || !match) return step(1); // first show what is going to be replaced
     fromRef.current = match.from + replacement.length;
     applyEditKeepingFocus(textarea, replaceMatchEdit(match, replacement));
     setReplacedCount(1);
@@ -120,7 +120,7 @@ export function useFind(textareaRef: RefObject<HTMLTextAreaElement | null>, valu
     replaceAll,
     replacedCount,
     focusToken,
-    /** La caja de la coincidencia actual, ya ubicada en el textarea visible (o null). */
+    /** The box of the current match, already placed in the visible textarea (or null). */
     highlight: highlight && { ...highlight, top: highlight.top - scrollTop },
     onTextareaScroll: () => {
       if (highlight) setScrollTop(textareaRef.current?.scrollTop ?? 0);

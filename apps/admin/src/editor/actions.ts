@@ -23,11 +23,11 @@ import type { Chord } from './shortcuts.ts';
 import type { Command } from './types.ts';
 
 /*
- * El registro de acciones del editor (S2, S7): UNA lista que arma la barra, la paleta de comandos, los atajos de
- * teclado y la ayuda de atajos. Sumar una acción acá la suma en los cuatro lugares.
+ * The editor action registry: ONE list that builds the toolbar, the command palette, the keyboard shortcuts and the
+ * shortcuts help. Adding an action here adds it in all four places.
  */
 
-/** Acciones de la interfaz (no editan el texto); las ejecuta el componente. */
+/** UI actions (they do not edit the text); the component runs them. */
 export type UiAction =
   | 'view.editor'
   | 'view.split'
@@ -43,12 +43,12 @@ export type UiAction =
   | 'dismiss';
 
 /**
- * `edit`: un comando puro sobre el texto. `ui`: algo de la interfaz. `native`: lo hace el navegador y solo se
- * documenta en la ayuda (pegar sin formato).
+ * `edit`: a pure command on the text. `ui`: something of the UI. `native`: the browser does it and it is only
+ * documented in the help (paste as plain text).
  */
 export type ActionRun = { readonly edit: Command } | { readonly ui: UiAction } | { readonly native: true };
 
-/** Grupos de la barra (un separador entre grupos) y secciones de la ayuda. */
+/** Toolbar groups (a separator between groups) and help sections. */
 export type ActionGroup = 'inline' | 'heading' | 'block' | 'insert' | 'view' | 'tools' | 'typing';
 
 export interface EditorAction {
@@ -57,7 +57,7 @@ export interface EditorAction {
   readonly group: ActionGroup;
   readonly run: ActionRun;
   readonly chord?: Chord;
-  /** Aparece en la barra; su cara es `symbol` (no se traduce), `short` o el nombre completo. */
+  /** Shows in the toolbar; its face is `symbol` (not translated), `short` or the full name. */
   readonly toolbar?: boolean;
   readonly symbol?: string;
   readonly short?: MessageKey;
@@ -83,7 +83,7 @@ function buildActions(lang: Lang): readonly EditorAction[] {
     { id: 'image', label: 'image.upload', group: 'insert', toolbar: true, short: 'editor.image', run: { ui: 'image' } },
     { id: 'figure', label: 'editor.figure', group: 'insert', toolbar: true, short: 'editor.short.figure', run: { edit: insertFigure[lang] } },
     { id: 'footnote', label: 'editor.footnote', group: 'insert', toolbar: true, symbol: '¹', run: { edit: insertFootnote[lang] } },
-    // En la barra, solo la caja más común; las tres están en la paleta.
+    // In the toolbar, only the most common callout; all three are in the palette.
     { id: 'callout.note', label: 'editor.callout.note', group: 'insert', toolbar: true, short: 'editor.short.callout', run: { edit: insertCallout('note')[lang] } },
     { id: 'callout.tip', label: 'editor.callout.tip', group: 'insert', run: { edit: insertCallout('tip')[lang] } },
     { id: 'callout.warning', label: 'editor.callout.warning', group: 'insert', run: { edit: insertCallout('warning')[lang] } },
@@ -107,10 +107,10 @@ function buildActions(lang: Lang): readonly EditorAction[] {
 
 const ACTIONS = Object.fromEntries(LANGS.map((lang) => [lang, buildActions(lang)])) as Record<Lang, readonly EditorAction[]>;
 
-/** El registro con los textos de relleno del idioma del post. Siempre la misma instancia por idioma. */
+/** The registry with the placeholder texts of the post's language. Always the same instance per language. */
 export const editorActions = (lang: Lang): readonly EditorAction[] => ACTIONS[lang];
 
-/** Lo que depende del contexto: subir imágenes (si hay dónde) y ver el original (si hay otra versión). */
+/** What depends on context: uploading images (if there is somewhere to) and viewing the original (if another version exists). */
 export const availableActions = (
   actions: readonly EditorAction[],
   { canUpload, canCompare }: { canUpload: boolean; canCompare: boolean },
@@ -118,9 +118,9 @@ export const availableActions = (
   actions.filter((action) => (canUpload || action.id !== 'image') && (canCompare || action.id !== 'compare'));
 
 /**
- * La cara de un botón de la barra y su nombre accesible. El nombre empieza con lo que se ve (WCAG 2.5.3: quien usa
- * control por voz dice "H2" o "1.") y sigue con la descripción; si la descripción ya empieza con la cara
- * ("Figura" → "Figura con epígrafe"), no se repite.
+ * A toolbar button's face and its accessible name. The name starts with what is visible (WCAG 2.5.3: voice control
+ * users say "H2" or "1.") and continues with the description; if the description already starts with the face
+ * ("Figura" → "Figura con epígrafe"), it is not repeated.
  */
 export function toolbarLabels(action: EditorAction, t: Translate): { face: string; name: string } {
   const full = t(action.label);
@@ -129,5 +129,5 @@ export function toolbarLabels(action: EditorAction, t: Translate): { face: strin
   return { face, name };
 }
 
-/** La paleta lista todo lo que se puede ejecutar a pedido; las teclas de tipeo y la paleta misma, no. */
+/** The palette lists everything that can run on demand; typing keys and the palette itself do not. */
 export const inPalette = (action: EditorAction): boolean => action.group !== 'typing' && action.id !== 'palette';

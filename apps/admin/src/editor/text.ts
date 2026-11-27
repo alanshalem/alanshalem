@@ -1,30 +1,30 @@
 import type { EditorState, TextEdit } from './types.ts';
 
-/** Rango [lineStart, lineEnd) de las líneas completas que toca la selección. */
+/** Range [lineStart, lineEnd) of the full lines the selection touches. */
 export function selectedLinesRange(state: EditorState): { lineStart: number; lineEnd: number } {
   const { value, start, end } = state;
   const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-  // Si la selección termina justo después de un salto de línea, esa línea siguiente no cuenta.
+  // If the selection ends right after a line break, that next line does not count.
   const lastChar = end > start && value[end - 1] === '\n' ? end - 1 : end;
   const newline = value.indexOf('\n', lastChar);
   return { lineStart, lineEnd: newline === -1 ? value.length : newline };
 }
 
-/** Cuántos caracteres `char` seguidos hay terminando en `index` (hacia atrás), sin incluirlo. */
+/** How many consecutive `char` characters end at `index` (going backwards), not including it. */
 export function runBefore(value: string, index: number, char: string): number {
   let count = 0;
   while (index - count - 1 >= 0 && value[index - count - 1] === char) count += 1;
   return count;
 }
 
-/** Cuántos caracteres `char` seguidos hay empezando en `index`. */
+/** How many consecutive `char` characters start at `index`. */
 export function runAfter(value: string, index: number, char: string): number {
   let count = 0;
   while (value[index + count] === char) count += 1;
   return count;
 }
 
-/** Aplica una edición sobre un estado (lo usan los tests y el fallback sin execCommand). */
+/** Applies an edit to a state (used by the tests and the fallback without execCommand). */
 export function applyEditToState(state: EditorState, edit: TextEdit): EditorState {
   return {
     value: state.value.slice(0, edit.from) + edit.insert + state.value.slice(edit.to),
@@ -34,8 +34,8 @@ export function applyEditToState(state: EditorState, edit: TextEdit): EditorStat
 }
 
 /**
- * Reemplaza [from, to) sin mover lo que el usuario tiene seleccionado (una subida que termina mientras sigue
- * escribiendo): lo de antes queda igual, lo de después se corre y lo de adentro va al final del reemplazo.
+ * Replaces [from, to) without moving what the user has selected (an upload that finishes while they keep typing):
+ * what is before stays, what is after shifts and what is inside goes to the end of the replacement.
  */
 export function spliceKeepingSelection(state: EditorState, from: number, to: number, insert: string): TextEdit {
   const map = (position: number): number =>
@@ -45,7 +45,7 @@ export function spliceKeepingSelection(state: EditorState, from: number, to: num
 
 export const clamp = (n: number, min: number, max: number): number => Math.min(max, Math.max(min, n));
 
-/** Los offsets del texto donde empieza cada línea pedida (más allá del final: el largo del texto). */
+/** The text offsets where each requested line starts (past the end: the text length). */
 export function lineOffsets(text: string, lines: readonly number[]): number[] {
   const starts = [0];
   for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) starts.push(i + 1);

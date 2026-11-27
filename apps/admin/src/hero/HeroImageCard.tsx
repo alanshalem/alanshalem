@@ -5,17 +5,17 @@ type FormProps = ComponentProps<typeof HeroImageForm>;
 
 interface Props extends Omit<FormProps, 'head' | 'labelledBy' | 'onDirtyChange' | 'doneText'> {
   title: string;
-  /** Estado corto junto al título (archivos sin guardar). */
+  /** Short status next to the title (unsaved files). */
   badge?: { text: string; tone?: 'error' } | undefined;
-  /** Resumen corto del ítem (el recorte y el fundido de un video). */
+  /** Short summary of the item (a video's trim and fade). */
   summary?: string | undefined;
-  /** Miniatura o, para un video sin subir, el editor de recorte (la tarjeta pasa a una columna). */
+  /** Thumbnail or, for a video not uploaded yet, the trim editor (the card becomes one column). */
   thumbnail: ReactNode;
 }
 
 /**
- * Un archivo en curso del hero (foto o video): miniatura (o el editor de recorte), su estado y el formulario de textos
- * (HeroImageForm, el mismo del panel lateral de un ítem guardado). Los ítems guardados se ven en la grilla (U7).
+ * A hero file in progress (photo or video): thumbnail (or the trim editor), its status and the text form
+ * (HeroImageForm, the same as the side panel of a saved item). Saved items show in the grid.
  */
 export function HeroImageCard({ title, badge, summary, thumbnail, ...form }: Props) {
   const titleId = useId();

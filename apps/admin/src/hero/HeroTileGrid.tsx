@@ -7,25 +7,25 @@ import { tileLabel, type HeroTile } from './heroGrid.ts';
 
 interface Props {
   tiles: readonly HeroTile[];
-  /** La miniatura con tabIndex 0 (la última enfocada); si no está entre las visibles, la primera. */
+  /** The thumbnail with tabIndex 0 (the last focused); if it is not among the visible ones, the first. */
   activeId: string | null;
   onActiveChange: (id: string) => void;
   onOpen: (id: string) => void;
-  /** El id de la ayuda de teclado de la grilla. */
+  /** The id of the grid's keyboard help. */
   describedBy: string;
-  /** La lista: quien abre el panel devuelve el foco a una de sus miniaturas al cerrarlo. */
+  /** The list: whoever opens the panel returns focus to one of its thumbnails on close. */
   ref?: Ref<HTMLOListElement>;
 }
 
-/** Cuántas columnas armó el CSS (auto-fill): las flechas arriba/abajo saltan esa cantidad. */
+/** How many columns the CSS built (auto-fill): the up/down arrows jump that many. */
 const columnsOf = (list: HTMLElement): number =>
   getComputedStyle(list).gridTemplateColumns.split(' ').filter(Boolean).length || 1;
 
 /**
- * Las miniaturas de los ítems guardados (U7): botones que abren el panel lateral. La grilla es una sola parada de Tab
- * (tabindex móvil) y se recorre con las flechas, Inicio y Fin (rovingGrid.ts); Enter o Espacio abren el ítem.
- * Cada miniatura usa la variante WebP más chica (sobre el color dominante y el placeholder) y, si es video, su póster:
- * nada se mueve en la grilla.
+ * The thumbnails of the saved items: buttons that open the side panel. The grid is a single Tab stop (roving
+ * tabindex) walked with the arrows, Home and End (rovingGrid.ts); Enter or Space open the item. Each thumbnail uses
+ * the smallest WebP variant (over the dominant color and the placeholder) and, for a video, its poster: nothing moves
+ * in the grid.
  */
 export function HeroTileGrid({ tiles, activeId, onActiveChange, onOpen, describedBy, ref }: Props) {
   const i18n = useUiLanguage();

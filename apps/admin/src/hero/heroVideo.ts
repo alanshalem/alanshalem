@@ -2,11 +2,11 @@ import type { HeroImage, VideoAsset } from '../api/types.ts';
 import type { I18n } from '../i18n/i18n.ts';
 import { checkHeroSize } from './heroSize.ts';
 
-/* Reglas puras de los videos del hero (L13): qué archivos son videos, cada cuánto consultar y qué previsualizar. */
+/* Pure rules of the hero videos: which files are videos, how often to poll and what to preview. */
 
 export type HeroMediaKind = 'photo' | 'video';
 
-// Los contenedores que acepta la API (L13). Una sola lista arma el `accept` del input y el respaldo por extensión.
+// The containers the API accepts. One list builds the input's `accept` and the extension fallback.
 const VIDEO_FORMATS = [
   { mime: 'video/mp4', extension: '.mp4' },
   { mime: 'video/quicktime', extension: '.mov' },
@@ -17,8 +17,8 @@ const VIDEO_FORMATS = [
 export const VIDEO_ACCEPT = VIDEO_FORMATS.flatMap(({ mime, extension }) => [mime, extension]).join(',');
 
 /**
- * A qué flujo va un archivo, según su tipo MIME. Algunos sistemas no conocen el MIME de .mkv y lo dejan vacío:
- * ahí decide la extensión. Lo demás no es del hero (la API igual lo rechazaría).
+ * Which flow a file goes to, by its MIME type. Some systems do not know the .mkv MIME and leave it empty: then the
+ * extension decides. Anything else is not for the hero (the API would reject it anyway).
  */
 export function heroMediaKind(file: { type: string; name: string }): HeroMediaKind | null {
   if (file.type.startsWith('image/')) return 'photo';
@@ -28,16 +28,16 @@ export function heroMediaKind(file: { type: string; name: string }): HeroMediaKi
   return null;
 }
 
-/** Un ítem guardado es un video si trae `video` (su `media` es el póster); si no, una foto. */
+/** A saved item is a video if it has `video` (its `media` is the poster); otherwise a photo. */
 export const heroItemKind = (image: HeroImage): HeroMediaKind => (image.video ? 'video' : 'photo');
 
-// Un video de 15 s tarda de segundos a minutos (AV1 es lento): consultar seguido al principio y espaciar después.
+// A 15 s video takes seconds to minutes (AV1 is slow): poll often at first and space it out later.
 const POLL = { firstMs: 2000, factor: 1.5, maxMs: 15000 } as const;
 
-/** Espera antes de la consulta número `attempt` (desde 0). */
+/** Wait before poll number `attempt` (from 0). */
 export const pollDelay = (attempt: number): number => Math.min(POLL.firstMs * POLL.factor ** attempt, POLL.maxMs);
 
-/** Estado del archivo pendiente que corresponde al estado del video en la API (su error, si vino, tal cual). */
+/** The pending file's status matching the video's status in the API (its error, if any, as is). */
 export function videoProgress(
   video: VideoAsset,
   i18n: I18n,
@@ -62,7 +62,7 @@ export function videoWarnings(video: VideoAsset, i18n: I18n): string[] {
   return check.ok && check.warning ? [check.warning] : [];
 }
 
-/** La fuente H.264 más liviana: cualquier navegador la reproduce y alcanza para una miniatura en movimiento. */
+/** The lightest H.264 source: any browser plays it and it is enough for a moving thumbnail. */
 export function previewSourceUrl(video: VideoAsset): string | null {
   const h264 = video.sources.filter((source) => source.codec === 'h264');
   if (h264.length === 0) return null;

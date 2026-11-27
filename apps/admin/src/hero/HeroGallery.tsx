@@ -16,14 +16,14 @@ import { VideoEditor } from './VideoEditor.tsx';
 import { editSummary } from './videoEdit.ts';
 
 interface Props {
-  /** Devuelve true si el error era una sesión vencida (y ya se manejó). */
+  /** Returns true if the error was an expired session (already handled). */
   onError: (error: unknown) => boolean;
 }
 
-// Un solo control para los dos tipos: el hook reparte cada archivo según su MIME.
+// One control for both kinds: the hook routes each file by its MIME.
 const HERO_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
 
-// "Subiendo…" es el mismo texto de los botones de subida.
+// "Subiendo…" is the same text as the upload buttons'.
 const UPLOAD_BADGES: Record<UploadStatus, { text: MessageKey; tone?: 'error' }> = {
   editing: { text: 'hero.badge.editing' },
   queued: { text: 'hero.badge.queued' },
@@ -48,24 +48,23 @@ function pendingThumbnail({ kind, status, previewUrl, video }: PendingUpload, { 
       />
     );
   }
-  // La URL local de un video es para el editor; como miniatura, un video se ve recién procesado.
+  // A video's local URL is for the editor; as a thumbnail, a video only shows once processed.
   if (kind === 'photo') return <ImagePreview src={previewUrl} alt={alt} emptyText={noPreview} />;
-  // Un video recién se puede ver cuando la API terminó de procesarlo (antes no hay póster ni fuente H.264).
+  // A video can only be shown once the API finished processing it (before that there is no poster or H.264 source).
   return <ImagePreview src={null} alt={alt} emptyText={status === 'failed' ? noPreview : t('hero.previewLater')} />;
 }
 
-/** El panel abierto: qué ítem y entre cuáles se mueve (los visibles al abrirlo; no cambian si el filtro lo deja afuera). */
+/** The open panel: which item and which ones it moves between (those visible when opened; they stay if the filter drops it). */
 interface OpenPanel {
   id: string;
   ids: readonly string[];
 }
 
 /**
- * Fotos y videos del hero (S3, S4, S9): subir varios a la vez con la guía de tamaño a la vista (S10, S12),
- * describir cada uno (texto alternativo y crédito), editarlos y borrarlos. Cada ítem se guarda por separado,
- * fuera del formulario de ajustes. Los archivos en curso son tarjetas (necesitan el editor y el texto antes de
- * guardar); los guardados, una grilla de miniaturas con filtros que abre un panel lateral (U7: con 50 ítems, una
- * ficha por ítem era enorme).
+ * Hero photos and videos: upload several at once with the size guide in view, describe each one (alt text and
+ * credit), edit and delete them. Each item is saved separately, outside the settings form. Files in progress are
+ * cards (they need the editor and the text before saving); saved ones are a filtered thumbnail grid that opens a side
+ * panel (with 50 items, one card per item was huge).
  */
 export function HeroGallery({ onError }: Props) {
   const i18n = useUiLanguage();
@@ -77,7 +76,7 @@ export function HeroGallery({ onError }: Props) {
   const [filter, setFilter] = useState<HeroFilter>('all');
   const [activeId, setActiveId] = useState<string | null>(null);
   const [panel, setPanel] = useState<OpenPanel | null>(null);
-  // Al cerrar el panel el foco vuelve a la miniatura del último ítem visto (después de que el <dialog> se cierra).
+  // When the panel closes focus returns to the thumbnail of the last item seen (after the <dialog> closes).
   const [returnFocus, setReturnFocus] = useState<{ id: string | null } | null>(null);
 
   const allTiles = heroTiles(gallery.images, 'all');
@@ -90,7 +89,7 @@ export function HeroGallery({ onError }: Props) {
     setReturnFocus(null);
     const grid = gridRef.current;
     const byId = returnFocus.id ? grid?.querySelector<HTMLButtonElement>(`[data-id="${CSS.escape(returnFocus.id)}"]`) : null;
-    // Si el filtro lo dejó afuera (por ejemplo, ya tiene inglés), a la miniatura activa; sin miniaturas, a Subir.
+    // If the filter dropped it (for example, it now has English), to the active thumbnail; without thumbnails, to Subir.
     const target = byId ?? grid?.querySelector<HTMLButtonElement>('button[tabindex="0"]') ?? uploadRef.current;
     if (target?.dataset.id) setActiveId(target.dataset.id);
     target?.focus();
@@ -209,7 +208,7 @@ export function HeroGallery({ onError }: Props) {
           hidden
           onChange={(event) => {
             gallery.addFiles(Array.from(event.target.files ?? []));
-            event.target.value = ''; // permite volver a elegir los mismos archivos
+            event.target.value = ''; // allows choosing the same files again
           }}
         />
         <p className="help">{t('hero.uploadHelp')}</p>

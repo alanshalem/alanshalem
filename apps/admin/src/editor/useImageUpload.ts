@@ -9,7 +9,7 @@ import { spliceKeepingSelection } from './text.ts';
 
 export const isImageFile = (file: File): boolean => file.type.startsWith('image/');
 
-/** "mi-foto_2.png" → "mi foto 2": un punto de partida para el texto alternativo. */
+/** "mi-foto_2.png" → "mi foto 2": a starting point for the alt text. */
 const altFromFileName = (name: string): string => name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ');
 
 const stateOf = (textarea: HTMLTextAreaElement) => ({
@@ -19,10 +19,10 @@ const stateOf = (textarea: HTMLTextAreaElement) => ({
 });
 
 /**
- * Pegar, soltar o elegir imágenes (S2): cada una deja un marcador `![Subiendo…]()` en un párrafo propio donde estaba
- * el cursor (insertBlock), se sube con el cliente de siempre (el servidor la optimiza; sin las reglas de tamaño del
- * hero) y el marcador se reemplaza por la imagen o, si falla, se quita con sus líneas en blanco (blockSpan). Las dos
- * ediciones pasan por applyEdit: Ctrl+Z las deshace. Una a la vez, en orden: una cola de promesas.
+ * Pasting, dropping or picking images: each one leaves a `![Subiendo…]()` marker in its own paragraph where the caret
+ * was (insertBlock), uploads with the usual client (the server optimizes it; without the hero's size rules) and the
+ * marker is replaced by the image or, on failure, removed with its blank lines (blockSpan). Both edits go through
+ * applyEdit: Ctrl+Z undoes them. One at a time, in order: a promise queue.
  */
 export function useImageUpload(
   textareaRef: RefObject<HTMLTextAreaElement | null>,
@@ -33,7 +33,7 @@ export function useImageUpload(
   const [status, setStatus] = useState<string | null>(null);
   const queueRef = useRef<Promise<void>>(Promise.resolve());
 
-  /** `true` si subió; ante un error se cortan las que quedaban (el mensaje dice cuál falló). */
+  /** `true` if it uploaded; on an error the remaining ones are cancelled (the message says which one failed). */
   const uploadOne = async (file: File): Promise<boolean> => {
     const textarea = textareaRef.current;
     if (!textarea || !upload) return false;
@@ -53,7 +53,7 @@ export function useImageUpload(
       setStatus(t('upload.failed', { name: file.name, error: errorMessage(error, t('error.unknown')) }));
     }
 
-    // Mientras subía se pudo seguir escribiendo: se busca el marcador cerca de donde quedó y no se mueve el cursor.
+    // Typing may have continued during the upload: find the marker near where it was and do not move the caret.
     const from = nearestOccurrence(textarea.value, placeholder, insertedAt);
     if (from !== -1) {
       const to = from + placeholder.length;

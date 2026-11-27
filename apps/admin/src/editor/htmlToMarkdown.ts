@@ -1,10 +1,10 @@
 import { sanitizeUrl } from '@blog/markdown';
 
 /*
- * HTML pegado (Google Docs, Word, una web) → Markdown limpio (S2). Sin dependencias ni DOM (corre en los tests):
- * un tokenizador tolerante arma un árbol mínimo y se recorre en dos niveles, bloques y en línea. Todo lo desconocido
- * es un envoltorio transparente; estilos, scripts y atributos se descartan. Las URLs pasan por el mismo filtro que
- * el renderer, así que un link `javascript:` se pierde y queda su texto.
+ * Pasted HTML (Google Docs, Word, a web page) → clean Markdown. No dependencies and no DOM (it runs in the tests):
+ * a tolerant tokenizer builds a minimal tree that is walked on two levels, blocks and inline. Anything unknown is a
+ * transparent wrapper; styles, scripts and attributes are dropped. URLs go through the same filter as the renderer,
+ * so a `javascript:` link is lost and its text stays.
  */
 
 interface Element {
@@ -16,11 +16,11 @@ type Node = Element | string;
 
 export interface Converted {
   readonly markdown: string;
-  /** Si hubo formato real (títulos, negrita, links…). Si no, conviene pegar el texto plano tal cual. */
+  /** Whether there was real formatting (headings, bold, links…). If not, pasting the plain text as is is better. */
   readonly formatted: boolean;
 }
 
-// Se tiran con todo su contenido.
+// Dropped with all their content.
 const DROPPED = new Set(['script', 'style', 'head', 'title', 'template', 'noscript', 'iframe', 'object', 'svg', 'math', 'select']);
 const VOID = new Set(['br', 'hr', 'img', 'input', 'meta', 'link', 'wbr', 'col', 'source', 'area', 'base', 'embed', 'param', 'track']);
 const BLOCK = new Set([
@@ -28,7 +28,7 @@ const BLOCK = new Set([
   'body', 'html', 'center', 'dl', 'dt', 'dd', 'details', 'summary', 'form', 'fieldset', 'li',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'blockquote', 'pre', 'hr', 'table',
 ]);
-// Abrir uno de estos cierra el hermano abierto del mismo tipo (HTML permite omitir </p>, </li>, </td>…).
+// Opening one of these closes the open sibling of the same kind (HTML allows omitting </p>, </li>, </td>…).
 const SELF_CLOSING_SIBLINGS: Readonly<Record<string, readonly string[]>> = {
   p: ['p'], li: ['li'], tr: ['tr', 'td', 'th'], td: ['td', 'th'], th: ['td', 'th'],
 };
@@ -65,7 +65,7 @@ function parseHtml(html: string): Element {
     if (match.index > last) current().children.push(decodeEntities(html.slice(last, match.index)));
     last = TOKEN.lastIndex;
     const [token, rawTag] = match;
-    if (!rawTag) continue; // comentario o <!doctype>
+    if (!rawTag) continue; // comment or <!doctype>
     const tag = rawTag.toLowerCase();
 
     if (token[1] === '/') {
@@ -74,7 +74,7 @@ function parseHtml(html: string): Element {
       continue;
     }
     if (DROPPED.has(tag)) {
-      // Su contenido puede tener "<" sueltos (scripts): se salta hasta el cierre sin tokenizar.
+      // Its content may hold stray "<" (scripts): skip to the closing tag without tokenizing.
       const close = html.toLowerCase().indexOf(`</${tag}`, last);
       last = close === -1 ? html.length : html.indexOf('>', close) + 1 || html.length;
       TOKEN.lastIndex = last;
@@ -91,7 +91,7 @@ function parseHtml(html: string): Element {
   return root;
 }
 
-/* ------------------------------ Conversión ------------------------------ */
+/* ------------------------------ Conversion ------------------------------ */
 
 interface Format {
   bold: boolean;
@@ -103,14 +103,14 @@ const MARKERS: ReadonlyArray<[keyof Format, string]> = [['strike', '~~'], ['bold
 
 const styleOf = (element: Element): string => (element.attrs.style ?? '').toLowerCase().replace(/\s+/g, '');
 
-/** El formato que agrega este elemento: por etiqueta o por estilo en línea (Google Docs usa <span style>). */
+/** The formatting this element adds: by tag or by inline style (Google Docs uses <span style>). */
 function formatOf(element: Element): Format {
   const style = styleOf(element);
   const weight = /font-weight:(\w+)/.exec(style)?.[1];
   const fontStyle = /font-style:(\w+)/.exec(style)?.[1];
   const normalWeight = weight === 'normal' || (weight !== undefined && Number(weight) < 600);
   return {
-    // El <b style="font-weight:normal"> que envuelve todo lo pegado de Google Docs NO es negrita.
+    // The <b style="font-weight:normal"> that wraps everything pasted from Google Docs is NOT bold.
     bold: ((element.tag === 'b' || element.tag === 'strong') && !normalWeight) || weight === 'bold' || Number(weight) >= 600,
     italic: ((element.tag === 'i' || element.tag === 'em') && fontStyle !== 'normal') || fontStyle === 'italic',
     strike: ['s', 'del', 'strike'].includes(element.tag) || /text-decoration[\w-]*:[^;]*line-through/.test(style),
@@ -123,24 +123,24 @@ const textContent = (node: Node): string =>
 const containsBlock = (element: Element): boolean =>
   element.children.some((child) => typeof child !== 'string' && (BLOCK.has(child.tag) || containsBlock(child)));
 
-// `_` dentro de una palabra (snake_case) no es énfasis: no se escapa, para que el Markdown quede legible.
+// `_` inside a word (snake_case) is not emphasis: it is not escaped, so the Markdown stays readable.
 const INLINE_SPECIAL = /[\\`*[\]]|~~|(?<![\p{L}\p{N}])_|_(?![\p{L}\p{N}])/gu;
 const LINE_START_SPECIAL = /^(#|>|[-+](?=\s))/;
 const LINE_START_NUMBER = /^(\d+)([.)])(?=\s)/;
-// Un bloque que es una lista (el texto que empieza igual ya salió escapado): se pega al ítem sin línea en blanco.
+// A block that is a list (text starting the same way was already escaped): joined to the item without a blank line.
 const LIST_BLOCK = /^(?:-|\d+\.) /;
 
 /**
- * El nivel de un `<hN>` pegado, en Markdown del sitio (L5): el h1 es el título del post, así que el "Título 1" de un
- * Doc entra como sección (`##`), igual que el h2; h3 es subsección y de h4 en adelante, todo `####` (más hondo no
- * se distingue en el artículo).
+ * The level of a pasted `<hN>`, in the site's Markdown: the h1 is the post title, so a Doc's "Heading 1" comes in as a
+ * section (`##`), like the h2; h3 is a subsection and h4 onwards are all `####` (deeper is not distinguishable in the
+ * article).
  */
 const headingMarker = (level: number): string => '#'.repeat(Math.min(4, Math.max(2, level)));
 
 const escapeText = (text: string): string =>
   text.replace(INLINE_SPECIAL, (special) => special.replace(/./g, (char) => `\\${char}`));
 
-/** Envuelve en un marcador dejando afuera los espacios de los bordes (Markdown no admite "** x **"). */
+/** Wraps in a marker leaving edge spaces outside (Markdown does not accept "** x **"). */
 function wrap(content: string, marker: string): string {
   const core = content.trim();
   if (core === '') return content;
@@ -185,7 +185,7 @@ class Converter {
       .split('\n')
       .map((line) => line.replace(/[ \t]+/g, ' ').trim())
       .join('\n')
-      .replace(/^(?:\\\n)+|(?:\\\n|\\$)+$/g, '') // un <br> al principio o al final del párrafo no significa nada
+      .replace(/^(?:\\\n)+|(?:\\\n|\\$)+$/g, '') // a <br> at the start or end of the paragraph means nothing
       .split('\n')
       .map((line) => line.replace(LINE_START_SPECIAL, '\\$1').replace(LINE_START_NUMBER, '$1\\$2'))
       .join('\n')
@@ -220,7 +220,7 @@ class Converter {
         this.formatted = true;
         return this.table(element);
       default:
-        // div, section, li fuera de lista, inline con bloques adentro (el <b> de Google Docs)…: transparentes.
+        // div, section, li outside a list, inline with blocks inside (Google Docs' <b>)…: transparent.
         return this.blocks(element.children);
     }
   }
@@ -231,7 +231,7 @@ class Converter {
     const items: string[] = [];
     for (const child of element.children) {
       if (typeof child === 'string') continue;
-      // Google Docs anida con <ul> directamente dentro de <ul>: va bajo el ítem anterior.
+      // Google Docs nests with <ul> directly inside <ul>: it goes under the previous item.
       if ((child.tag === 'ul' || child.tag === 'ol') && items.length > 0) {
         const marker = ordered ? `${number - 1}. ` : '- ';
         items[items.length - 1] += `\n${indent(this.list(child), marker.length)}`;

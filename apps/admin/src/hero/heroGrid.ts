@@ -4,15 +4,15 @@ import { leaveConfirmation } from '../navigation/leaveGuard.ts';
 import { heroItemKind, type HeroMediaKind } from './heroVideo.ts';
 
 /*
- * Grilla de miniaturas + panel lateral (U7, L15): con 50 ítems, una ficha grande por ítem se volvía enorme. Reglas
- * puras de la grilla: filtros, contador, la marca "Sin inglés" y moverse entre ítems desde el panel.
+ * Thumbnail grid + side panel: with 50 items, one large card per item became huge. Pure rules of the grid: filters,
+ * counter, the "Sin inglés" mark and moving between items from the panel.
  */
 
-/** Los filtros del control segmentado, en su orden. */
+/** The filters of the segmented control, in order. */
 export const HERO_FILTERS = ['all', 'photo', 'video', 'missingEn'] as const;
 export type HeroFilter = (typeof HERO_FILTERS)[number];
 
-/** Una miniatura: el ítem, su número en el orden de subida (no cambia al filtrar) y sus marcas. */
+/** A thumbnail: the item, its number in upload order (it does not change when filtering) and its marks. */
 export interface HeroTile {
   readonly image: HeroImage;
   readonly number: number;
@@ -20,7 +20,7 @@ export interface HeroTile {
   readonly missingEn: boolean;
 }
 
-/** Sin texto alternativo en inglés (vacío o solo espacios): el sitio en inglés usa el de español (L3). */
+/** No English alt text (empty or only spaces): the English site uses the Spanish one. */
 export const missingEnglish = ({ altEn }: Pick<HeroImage, 'altEn'>): boolean => (altEn ?? '').trim() === '';
 
 const matches = (tile: HeroTile, filter: HeroFilter): boolean =>
@@ -29,11 +29,11 @@ const matches = (tile: HeroTile, filter: HeroFilter): boolean =>
 const toTiles = (images: readonly HeroImage[]): HeroTile[] =>
   images.map((image, index) => ({ image, number: index + 1, kind: heroItemKind(image), missingEn: missingEnglish(image) }));
 
-/** Las miniaturas que muestra el filtro, con el número de la lista completa. */
+/** The thumbnails the filter shows, with their number in the full list. */
 export const heroTiles = (images: readonly HeroImage[], filter: HeroFilter): HeroTile[] =>
   toTiles(images).filter((tile) => matches(tile, filter));
 
-/** Cuántos ítems hay en cada filtro (el contador y el número de cada botón del filtro). */
+/** How many items each filter has (the counter and the number on each filter button). */
 export function countHeroItems(images: readonly HeroImage[]): Record<HeroFilter, number> {
   const tiles = toTiles(images);
   return Object.fromEntries(HERO_FILTERS.map((filter) => [filter, tiles.filter((tile) => matches(tile, filter)).length])) as Record<
@@ -42,7 +42,7 @@ export function countHeroItems(images: readonly HeroImage[]): Record<HeroFilter,
   >;
 }
 
-/** "12 fotos · 3 videos"; un tipo que no hay no se nombra; sin ítems, vacío. */
+/** "12 fotos · 3 videos"; a kind with no items is not named; without items, empty. */
 export function heroCountText(counts: Record<HeroFilter, number>, { plural }: I18n): string {
   const parts = [
     counts.photo > 0 ? plural(counts.photo, 'hero.count.photos') : null,
@@ -52,15 +52,15 @@ export function heroCountText(counts: Record<HeroFilter, number>, { plural }: I1
 }
 
 /**
- * Nombre accesible de una miniatura: primero lo visible (el número), después el texto alternativo y las marcas con
- * los mismos textos que se ven (WCAG 2.5.3 y 1.1.1). "2. Un lago · Video · Sin inglés".
+ * Accessible name of a thumbnail: first what is visible (the number), then the alt text and the marks with the same
+ * texts that are shown (WCAG 2.5.3 and 1.1.1). "2. Un lago · Video · Sin inglés".
  */
 export function tileLabel({ image, number, kind, missingEn }: HeroTile, { t }: I18n): string {
   const marks = [kind === 'video' ? t('hero.badge.video') : null, missingEn ? t('hero.filter.missingEn') : null];
   return [t('hero.tileName', { n: number, alt: image.alt }), ...marks.filter((mark) => mark !== null)].join(' · ');
 }
 
-/** Anterior y siguiente del ítem abierto en el panel (sin dar la vuelta) y su posición desde 1 (0 = ya no está). */
+/** Previous and next of the item open in the panel (no wrapping) and its 1-based position (0 = no longer there). */
 export function neighbors(
   ids: readonly string[],
   id: string,
@@ -70,7 +70,7 @@ export function neighbors(
   return { previous: ids[index - 1] ?? null, next: ids[index + 1] ?? null, position: index + 1, total: ids.length };
 }
 
-/** Al eliminar desde el panel, el foco va a la miniatura que ocupa su lugar (o a la anterior si era la última). */
+/** On delete from the panel, focus goes to the thumbnail taking its place (or the previous one if it was the last). */
 export function focusAfterRemoval(ids: readonly string[], removedId: string): string | null {
   const index = ids.indexOf(removedId);
   if (index < 0) return null;
@@ -78,8 +78,9 @@ export function focusAfterRemoval(ids: readonly string[], removedId: string): st
 }
 
 /**
- * Cerrar el panel o pasar a otro ítem con cambios sin guardar: la misma regla que al cambiar de vista (leaveGuard), con
- * el guardia del panel solo (los cambios de los ajustes de arriba no se pierden al cerrar el panel). `null` = seguir.
+ * Closing the panel or moving to another item with unsaved changes: the same rule as when changing views
+ * (leaveGuard), with only the panel's guard (changes to the settings above are not lost by closing the panel).
+ * `null` = go on.
  */
 export const panelLeaveConfirmation = (dirty: boolean, { t }: I18n): string | null =>
   leaveConfirmation([{ dirty, message: t('unsaved.confirm') }], { name: 'settings' }, null);

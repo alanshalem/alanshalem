@@ -2,7 +2,7 @@ import { useEffect, useRef, type KeyboardEvent } from 'react';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { FindState } from './useFind.ts';
 
-/** Panel buscar/reemplazar (Ctrl+F / Ctrl+H). Solo presenta: el estado y las acciones vienen de useFind. */
+/** Find/replace panel (Ctrl+F / Ctrl+H). Presentation only: the state and actions come from useFind. */
 export function FindPanel({ find }: { find: FindState }) {
   const { t, plural } = useUiLanguage();
   const queryRef = useRef<HTMLInputElement>(null);

@@ -9,18 +9,18 @@ import { heroItemKind, heroMediaKind, pollDelay, videoProgress, videoWarnings, t
 import { readDimensions } from './readDimensions.ts';
 import { checkVideoDuration } from './videoEdit.ts';
 
-/** `editing` = un video local esperando que se elija el tramo y el fundido (L19): todavía no entró a la fila. */
+/** `editing` = a local video waiting for its segment and fade to be chosen: not in the queue yet. */
 export type UploadStatus = 'editing' | 'queued' | 'uploading' | 'processing' | 'uploaded' | 'failed';
 
-/** Un archivo elegido que todavía no es un ítem del hero: falta subirlo (y procesarlo) y/o describirlo. */
+/** A chosen file that is not a hero item yet: it still has to be uploaded (and processed) and/or described. */
 export interface PendingUpload {
   key: number;
-  /** `null` = un archivo que no es foto ni video (queda como error para que se vea qué pasó). */
+  /** `null` = a file that is neither photo nor video (it stays as an error so it is clear what happened). */
   kind: HeroMediaKind | null;
   fileName: string;
-  /** URL local (blob:) del archivo: la foto se ve antes de que termine de subir; el video, en el editor de recorte. */
+  /** Local (blob:) URL of the file: the photo shows before the upload finishes; the video, in the trim editor. */
   previewUrl: string | null;
-  /** Duración del video local; con ella se abre el editor. `null` en fotos o si el navegador no pudo leerla. */
+  /** Duration of the local video; with it the editor opens. `null` for photos or if the browser could not read it. */
   durationSeconds: number | null;
   status: UploadStatus;
   media: MediaAsset | null;
@@ -33,18 +33,18 @@ export interface PendingUpload {
   error: string | null;
 }
 
-/** Qué sigue después del chequeo local: subir ya, abrir el editor (videos) o nada (rechazado, el error ya está). */
+/** What follows the local check: upload now, open the editor (videos) or nothing (rejected, the error is set). */
 type PrecheckOutcome = 'upload' | 'edit' | 'rejected';
 
-/** El asset al que se asocia el texto: solo existe cuando la foto subió o el video quedó listo. */
+/** The asset the text is attached to: it only exists once the photo uploaded or the video is ready. */
 const mediaRefOf = ({ media, video }: PendingUpload): HeroMediaRef | null =>
   video?.status === 'ready' ? { videoId: video.id } : media ? { mediaId: media.id } : null;
 
 /**
- * Estado de la galería del hero: ítems guardados, archivos en curso y las llamadas a la API.
- * Las acciones que guardan o borran rechazan con el error de la API para que la tarjeta lo muestre;
- * antes avisan a `onError`, que se ocupa de la sesión vencida. Los mensajes quedan en el idioma de la interfaz del
- * momento en que se produjeron (no se retraducen si se cambia de idioma con una subida en curso).
+ * State of the hero gallery: saved items, files in progress and the API calls.
+ * The actions that save or delete reject with the API error so the card shows it; first they tell `onError`, which
+ * handles an expired session. Messages stay in the UI language of the moment they were produced (they are not
+ * re-translated if the language changes during an upload).
  */
 export function useHeroImages(onError: (error: unknown) => boolean) {
   const i18n = useUiLanguage();
@@ -56,12 +56,12 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
   const [notice, setNotice] = useState<string | null>(null);
 
   const nextKey = useRef(0);
-  // La API optimiza de a una imagen por vez: subir en fila mantiene un "En cola / Subiendo" honesto por archivo.
+  // The API optimizes one image at a time: uploading in a queue keeps an honest "En cola / Subiendo" per file.
   const uploadQueue = useRef<Promise<void>>(Promise.resolve());
-  // Videos abiertos en el editor: el File queda acá (no en el estado) hasta que se confirma el tramo.
+  // Videos open in the editor: the File stays here (not in state) until the segment is confirmed.
   const filesToEdit = useRef(new Map<number, File>());
   const dropped = useRef(new Set<number>());
-  // Consultas programadas del estado de cada video, para cortarlas al descartar o al salir de la página.
+  // Scheduled status polls of each video, so they can be stopped on discard or when leaving the page.
   const pollTimers = useRef(new Map<number, number>());
   const mounted = useRef(false);
   const pendingRef = useRef(pending);
@@ -79,13 +79,13 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
   }, [onError]);
 
   useEffect(() => {
-    mounted.current = true; // StrictMode desmonta y vuelve a montar: se reactiva acá, no al declarar el ref.
+    mounted.current = true; // StrictMode unmounts and mounts again: it is re-enabled here, not when declaring the ref.
     const timers = pollTimers.current;
     return () => {
       mounted.current = false;
       timers.forEach((timer) => window.clearTimeout(timer));
       timers.clear();
-      // Las URLs blob: ocupan memoria hasta que se liberan.
+      // blob: URLs hold memory until they are released.
       pendingRef.current.forEach((upload) => upload.previewUrl && URL.revokeObjectURL(upload.previewUrl));
     };
   }, []);
@@ -114,7 +114,7 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
     [onError],
   );
 
-  /** `describe` envuelve el error con su contexto ("No se pudo consultar…: {error}"); sin él, va el error solo. */
+  /** `describe` wraps the error with its context ("No se pudo consultar…: {error}"); without it, the bare error. */
   const failUnlessHandled = useCallback(
     (key: number, caught: unknown, describe = (error: string) => error): void => {
       if (mounted.current && !onError(caught)) {
@@ -124,7 +124,7 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
     [onError, t],
   );
 
-  // Refleja el estado del video y, mientras la API lo procesa, vuelve a consultar con espera creciente.
+  // Reflects the video status and, while the API processes it, polls again with a growing wait.
   const trackVideo = useCallback(
     function track(key: number, video: VideoAsset, attempt: number): void {
       if (!mounted.current || dropped.current.has(key)) return;
@@ -145,9 +145,9 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
   );
 
   /*
-   * Chequeo local antes de subir. El tamaño (S10) se rechaza ya: recortar no lo arregla. Un video legible, en
-   * cambio, abre el editor (S13) aunque dure más de 15 s. Si el navegador no puede leer el archivo (o la duración
-   * de un WebM grabado en el navegador), se sube tal cual y decide la API con sus defaults de L19.
+   * Local check before uploading. A bad size is rejected right away: trimming does not fix it. A readable video, on
+   * the other hand, opens the editor even if it lasts more than 15 s. If the browser cannot read the file (or the
+   * duration of a WebM recorded in the browser), it is uploaded as is and the API decides with its defaults.
    */
   const precheck = useCallback(
     async (key: number, file: File, kind: HeroMediaKind): Promise<PrecheckOutcome> => {
@@ -176,7 +176,7 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
 
   const upload = useCallback(
     async (key: number, file: File, kind: HeroMediaKind, edit?: VideoEdit): Promise<void> => {
-      // Descartado mientras esperaba en la fila: no tiene sentido subirlo.
+      // Discarded while waiting in the queue: no point uploading it.
       if (dropped.current.has(key)) return;
       patchPending(key, { status: 'uploading' });
       try {
@@ -216,8 +216,9 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
       setPending((list) => [...list, ...entries.map(([, entry]) => entry)]);
       for (const [file, { key, kind }] of entries) {
         if (!kind) continue;
-        // El chequeo local arranca ya (un rechazo o el editor se ven sin esperar la fila); la subida respeta el
-        // orden. Un video en el editor no frena la fila: entra recién al confirmar (`uploadEdited`).
+        // The local check starts right away (a rejection or the editor shows without waiting for the queue); the
+        // upload keeps the order. A video in the editor does not block the queue: it only joins on confirm
+        // (`uploadEdited`).
         const outcome = precheck(key, file, kind);
         enqueue(async () => {
           if ((await outcome) === 'upload') await upload(key, file, kind);
@@ -227,7 +228,7 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
     [precheck, upload, t],
   );
 
-  /** Confirma el tramo y el fundido de un video del editor y lo pone en la fila de subida. */
+  /** Confirms the segment and fade of a video in the editor and puts it in the upload queue. */
   const uploadEdited = (pendingUpload: PendingUpload, edit: VideoEdit): void => {
     const file = filesToEdit.current.get(pendingUpload.key);
     if (!file) return;

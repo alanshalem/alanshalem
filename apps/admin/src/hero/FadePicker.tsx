@@ -10,7 +10,7 @@ interface Props {
   onFadeSeconds: (seconds: FadeSeconds) => void;
 }
 
-/** Tipo de fundido (S14) con su explicación y duración (S15). Sin fundido, la duración no aplica y se deshabilita. */
+/** Fade kind with its explanation and duration. Without a fade, the duration does not apply and is disabled. */
 export function FadePicker({ fade, fadeSeconds, onFade, onFadeSeconds }: Props) {
   const i18n = useUiLanguage();
   const { t } = i18n;

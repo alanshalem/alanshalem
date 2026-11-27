@@ -3,8 +3,8 @@ import type { Lang } from '../languages.ts';
 import { renderPreview } from './preview.ts';
 
 /**
- * El cuerpo renderizado como en el sitio, a partir de un valor diferido: tipear nunca espera al render. `markdown` es
- * ese mismo valor diferido, para que el contador, el esquema y el revisor miren lo mismo que la vista previa.
+ * The body rendered as on the site, from a deferred value: typing never waits for the render. `markdown` is that same
+ * deferred value, so the counter, the outline and the reviewer look at the same thing as the preview.
  */
 export function usePostPreview(markdown: string, lang: Lang) {
   const deferred = useDeferredValue(markdown);

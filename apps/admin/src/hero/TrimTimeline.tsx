@@ -13,16 +13,16 @@ interface Props {
   selectionSeconds: number;
   onStart: (seconds: number) => void;
   onEnd: (seconds: number) => void;
-  /** Línea que marca por dónde va la vista previa; la mueve useRangePreview. */
+  /** Line that marks where the preview is; useRangePreview moves it. */
   playheadRef: Ref<HTMLDivElement>;
 }
 
 const percent = (seconds: number, durationSeconds: number): string => `${(seconds / durationSeconds) * 100}%`;
 
 /**
- * Barra con dos manijas sobre la duración del video (S13): se arrastran, se mueven con el teclado (flechas 0,1 s,
- * Shift 1 s) o se escriben en los campos de inicio y fin. Las reglas (topes, la otra manija que acompaña) son de
- * videoEdit.ts; acá solo se traduce puntero, teclado y texto a segundos.
+ * Bar with two handles over the video's duration: they are dragged, moved with the keyboard (arrows 0.1 s, Shift 1 s)
+ * or typed in the start and end fields. The rules (limits, the other handle following) belong to videoEdit.ts; here
+ * pointer, keyboard and text are only translated into seconds.
  */
 export function TrimTimeline({ edit, durationSeconds, bounds, selectionSeconds, onStart, onEnd, playheadRef }: Props) {
   const i18n = useUiLanguage();
@@ -89,12 +89,12 @@ interface HandleProps {
   onChange: (seconds: number) => void;
 }
 
-/** Una manija: slider de WAI-ARIA con arrastre por puntero (pointer capture: sigue aunque el dedo salga de la barra). */
+/** A handle: WAI-ARIA slider with pointer dragging (pointer capture: it follows even if the finger leaves the bar). */
 function TrimHandle({ side, label, value, bounds, durationSeconds, trackRef, hintId, onChange }: HandleProps) {
   const i18n = useUiLanguage();
   const secondsAt = (clientX: number): number => {
     const track = trackRef.current?.getBoundingClientRect();
-    // Fuera de la barra da < 0 o > duración: moveTrimStart/End lo acotan.
+    // Outside the bar it gives < 0 or > duration: moveTrimStart/End clamp it.
     return track ? ((clientX - track.left) / track.width) * durationSeconds : value;
   };
 
@@ -113,7 +113,7 @@ function TrimHandle({ side, label, value, bounds, durationSeconds, trackRef, hin
       onKeyDown={(event) => {
         const next = sliderKeyValue(event.key, event.shiftKey, value);
         if (next === null) return;
-        event.preventDefault(); // las flechas no deben desplazar la página
+        event.preventDefault(); // the arrows must not scroll the page
         onChange(next);
       }}
       onPointerDown={(event) => {
@@ -128,8 +128,8 @@ function TrimHandle({ side, label, value, bounds, durationSeconds, trackRef, hin
 }
 
 /**
- * Campo de segundos (alternativa a arrastrar): se edita libre y se aplica al salir o con Enter, así escribir "12"
- * no mueve el tramo a 1 s en el medio. Enter no envía el formulario de la tarjeta (alt y crédito).
+ * Seconds field (an alternative to dragging): edited freely and applied on blur or Enter, so typing "12" does not move
+ * the segment to 1 s midway. Enter does not submit the card's form (alt and credit).
  */
 function SecondsField({ label, value, onCommit }: { label: string; value: number; onCommit: (seconds: number) => void }) {
   const i18n = useUiLanguage();
@@ -138,7 +138,7 @@ function SecondsField({ label, value, onCommit }: { label: string; value: number
   const commit = (): void => {
     const parsed = draft === null ? null : parseSeconds(draft);
     if (parsed !== null) onCommit(parsed);
-    setDraft(null); // un texto inválido vuelve al valor vigente
+    setDraft(null); // an invalid text goes back to the current value
   };
 
   return (

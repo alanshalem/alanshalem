@@ -3,13 +3,13 @@ import { LIMITS } from '../limits.ts';
 import { VIDEO_DURATION } from './videoEdit.ts';
 
 /*
- * Regla de tamaño del hero (L13, S10), una sola para fotos y videos y espejo de la del dominio de la API:
- * avisa antes de subir (y de gastar minutos en un video que se va a rechazar). La API sigue siendo la autoridad.
- * La duración no es de esta regla: un video largo se recorta en el editor (L19, videoEdit.ts); el tamaño, no.
+ * The hero size rule, one for photos and videos, mirroring the API domain's: it warns before uploading (and before
+ * spending minutes on a video that will be rejected). The API stays the authority. Duration is not part of this rule:
+ * a long video is trimmed in the editor (videoEdit.ts); its size cannot be.
  */
 
-/** Ideal, mínimo y proporción mínima (ancho/alto como fracción): por debajo es vertical o casi cuadrado y el hero lo
- * recortaría mal. Los números, de src/limits.ts. */
+/** Ideal, minimum and minimum aspect (width/height as a fraction): below it the image is portrait or nearly square and
+ * the hero would crop it badly. The numbers come from src/limits.ts. */
 export const HERO_SIZE = LIMITS.heroFrame;
 
 interface Size {
@@ -17,7 +17,7 @@ interface Size {
   height: number;
 }
 
-/** Medidas leídas del archivo; `durationSeconds` solo existe para videos (la usa el editor de recorte). */
+/** Sizes read from the file; `durationSeconds` only exists for videos (the trim editor uses it). */
 export interface MediaDimensions extends Size {
   durationSeconds?: number | undefined;
 }
@@ -28,18 +28,18 @@ const formatSize = ({ width, height }: Size): string => `${width}×${height}`;
 
 const IDEAL = formatSize(HERO_SIZE.ideal);
 
-/** La guía que se ve junto a "Subir", armada con los mismos números que las reglas. */
+/** The guide shown next to "Subir", built from the same numbers as the rules. */
 export const heroGuidance = (i18n: I18n): string =>
   i18n.t('hero.guidance', { ideal: IDEAL, min: VIDEO_DURATION.minSeconds, max: VIDEO_DURATION.maxSeconds });
 
 const isBelow = (size: Size, limit: Size): boolean => size.width < limit.width || size.height < limit.height;
 
-/** Primero el formato, después el tamaño: el error más útil para elegir otro archivo. */
+/** First the shape, then the size: the most useful error for picking another file. */
 export function checkHeroSize(dimensions: MediaDimensions, i18n: I18n): HeroSizeCheck {
   const sizes = { received: formatSize(dimensions), ideal: IDEAL, min: formatSize(HERO_SIZE.min) };
 
   const { numerator, denominator } = HERO_SIZE.minAspect;
-  // En enteros, como la API (ancho × 5 < alto × 6): sin redondeos de coma flotante en el borde.
+  // In integers, like the API (width × 5 < height × 6): no floating point rounding at the edge.
   if (dimensions.width * denominator < dimensions.height * numerator) {
     return { ok: false, error: i18n.t('hero.notLandscape', sizes) };
   }

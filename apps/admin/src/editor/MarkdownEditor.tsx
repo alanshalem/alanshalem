@@ -36,19 +36,19 @@ import { nextView, type EditorView } from './view.ts';
 interface Props {
   value: string;
   onChange: (value: string) => void;
-  /** Idioma del POST (no de la interfaz): corrector ortográfico y textos de relleno de los comandos. */
+  /** The POST's language (not the UI's): spell checker and the commands' placeholder texts. */
   lang: Lang;
-  /** Sube la imagen y devuelve su URL. Si no se pasa, el editor no acepta imágenes. */
+  /** Uploads the image and returns its URL. If not passed, the editor does not accept images. */
   onUploadImage?: (file: File) => Promise<string>;
-  /** `value` ya renderizado como en el sitio (usePostPreview): el HTML y sus bloques, para el scroll sincronizado. */
+  /** `value` already rendered as on the site (usePostPreview): the HTML and its blocks, for the synced scroll. */
   preview: Pick<RenderResult, 'html' | 'blockStarts'>;
-  /** La otra versión ya renderizada: con ella aparece "Ver el original al lado" (S5). */
+  /** The other version already rendered: with it "Ver el original al lado" shows up. */
   original: { html: string; lang: Lang } | null;
   stats: DocumentStats;
   ref?: Ref<EditorHandle>;
 }
 
-/** Lo que la página puede pedirle al editor desde afuera (el revisor y el esquema). */
+/** What the page can ask the editor from outside (the reviewer and the outline). */
 export interface EditorHandle {
   goToLine: (line: number) => void;
   goToHeading: (entry: OutlineEntry) => void;
@@ -59,15 +59,15 @@ type Dialog = 'palette' | 'help';
 const IS_MAC = typeof navigator !== 'undefined' && isMacPlatform(navigator.platform);
 
 /**
- * Editor Markdown nativo: un <textarea> + comandos puros + vista previa.
+ * Native Markdown editor: a <textarea> + pure commands + preview.
  *
- * La vista previa usa el MISMO renderer y las mismas opciones que el build público (usePostPreview) y los mismos
- * estilos (.paper .prose), así que lo que se ve acá es lo que se publica. Con "Ver el original", ese panel muestra la
- * otra versión (solo lectura) y el scroll sincronizado la empareja bloque a bloque con lo que se escribe.
- * El HTML que se inyecta es seguro: el renderer escapa todo el texto y filtra las URLs.
+ * The preview uses the SAME renderer and options as the public build (usePostPreview) and the same styles
+ * (.paper .prose), so what shows here is what gets published. With "Ver el original", that panel shows the other
+ * version (read-only) and the synced scroll pairs it block by block with what is being written.
+ * The injected HTML is safe: the renderer escapes all text and filters URLs.
  *
- * Todo lo que se puede hacer sale del registro de acciones (actions.ts); este componente solo conecta: los
- * comandos de texto pasan por applyEdit (deshacer nativo) y las acciones de interfaz, por `runUi`.
+ * Everything that can be done comes from the action registry (actions.ts); this component only wires: text commands
+ * go through applyEdit (native undo) and UI actions through `runUi`.
  */
 export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, original, stats, ref }: Props) {
   const { t, plural } = useUiLanguage();
@@ -75,12 +75,12 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
   const previewRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const plainPasteRef = useRef(false);
-  // La tecla anterior en el textarea: Esc y después Tab saca el foco aunque el cursor esté en una lista (2.1.2).
+  // The previous key in the textarea: Esc and then Tab moves focus out even with the caret in a list (2.1.2).
   const previousKeyRef = useRef<string | null>(null);
-  // La acción elegida en la paleta corre recién cuando el diálogo se cerró (y el foco volvió al editor).
+  // The action chosen in the palette only runs once the dialog has closed (and focus is back in the editor).
   const pendingRef = useRef<EditorAction | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  // No se recuerda entre visitas (a diferencia de la vista): solo tiene sentido en una traducción.
+  // Not remembered between visits (unlike the view): it only makes sense in a translation.
   const [comparing, setComparing] = useState(false);
   const { view, focus, setView, setFocus } = useEditorView();
   const find = useFind(textareaRef, value);
@@ -106,20 +106,20 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
   };
 
   /**
-   * Cambia la vista y lleva el foco al panel que queda visible: si no, ocultar el textarea enfocado deja el foco en
-   * <body> y los atajos siguientes ya no llegan al editor. flushSync: el panel tiene que existir para enfocarlo.
+   * Changes the view and moves focus to the panel left visible: otherwise hiding the focused textarea leaves focus on
+   * <body> and the next shortcuts no longer reach the editor. flushSync: the panel must exist to focus it.
    */
   const changeView = (next: EditorView): void => {
     flushSync(() => setView(next));
     (next === 'preview' ? previewRef : textareaRef).current?.focus();
   };
 
-  /** Editar o buscar con la vista previa sola: primero aparece el editor. */
+  /** Editing or searching with the preview alone: the editor shows up first. */
   const showEditor = (): void => {
     if (view === 'preview') changeView('split');
   };
 
-  /** Ejecuta una acción de interfaz; `false` si no había nada que hacer (Esc sin panel ni modo foco). */
+  /** Runs a UI action; `false` if there was nothing to do (Esc without a panel or focus mode). */
   const runUi = (ui: UiAction): boolean => {
     switch (ui) {
       case 'view.editor':
@@ -131,7 +131,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
         changeView(nextView(view));
         return true;
       case 'compare':
-        // El original reemplaza a la vista previa: al activarlo se ve al lado del editor.
+        // The original replaces the preview: when enabled it shows next to the editor.
         if (!comparing && view !== 'split') changeView('split');
         setComparing(!comparing);
         return true;
@@ -159,8 +159,8 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
   };
 
   /**
-   * Lleva el cursor al principio de `line` y la deja a la vista (`toTop`: arriba de todo, como el comienzo de una
-   * sección). En la vista dividida la vista previa la sigue: mover el scroll del textarea dispara la sincronización.
+   * Moves the caret to the start of `line` and brings it into view (`toTop`: at the very top, like the start of a
+   * section). In the split view the preview follows: scrolling the textarea triggers the sync.
    */
   const goToLine = (line: number, toTop = false): void => {
     const textarea = textareaRef.current;
@@ -170,12 +170,12 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
     textarea.focus();
     textarea.setSelectionRange(offset, offset);
     const top = measureOffsetTops(textarea, [offset])[0] ?? 0;
-    // Menos el relleno superior: el título queda con el mismo aire que el comienzo del texto.
+    // Minus the top padding: the heading gets the same room as the start of the text.
     if (toTop) textarea.scrollTop = top - parseFloat(getComputedStyle(textarea).paddingTop);
     else scrollTextareaTo(textarea, top);
   };
 
-  /** Con la vista previa sola (o sin línea conocida) se mueve la vista previa: no se le cambia la vista a nadie. */
+  /** With the preview alone (or no known line) the preview scrolls: nobody's view gets changed. */
   const goToHeading = (entry: OutlineEntry): void => {
     if (entry.line !== null && view !== 'preview') return goToLine(entry.line, true);
     const preview = previewRef.current;
@@ -201,7 +201,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
     const pending = pendingRef.current;
     pendingRef.current = null;
     if (pending) runAction(pending);
-    // Solo al cerrar un diálogo; `runAction` cambia en cada render y re-ejecutaría la acción.
+    // Only when a dialog closes; `runAction` changes on every render and would re-run the action.
   }, [dialog]);
 
   const closeDialog = (): void => {
@@ -209,19 +209,19 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
     textareaRef.current?.focus();
   };
 
-  // Atajos de interfaz desde cualquier lugar del editor (barra, panel de búsqueda, vista previa).
+  // UI shortcuts from anywhere in the editor (toolbar, find panel, preview).
   const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (dialog || event.nativeEvent.isComposing) return;
     const run = actionForKey(event.nativeEvent, actions)?.run;
     if (run && 'ui' in run && runUi(run.ui)) event.preventDefault();
   };
 
-  // Atajos de texto solo dentro del textarea (Tab en el buscador no tiene que anidar una lista).
+  // Text shortcuts only inside the textarea (Tab in the search box must not nest a list).
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (event.nativeEvent.isComposing) return; // no interferir con teclados IME
+    if (event.nativeEvent.isComposing) return; // do not interfere with IME keyboards
     const previousKey = previousKeyRef.current;
     previousKeyRef.current = rememberKey(previousKey, event.nativeEvent.key);
-    if (tabLeavesEditor(event.nativeEvent, previousKey)) return; // Tab nativo: el foco sale del editor
+    if (tabLeavesEditor(event.nativeEvent, previousKey)) return; // native Tab: focus leaves the editor
     const action = actionForKey(event.nativeEvent, actions);
     plainPasteRef.current = action?.id === 'plainPaste';
     if (action && 'edit' in action.run && applyCommand(action.run.edit)) event.preventDefault();
@@ -236,12 +236,12 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
       upload.uploadImages(images);
       return;
     }
-    if (plain) return; // Ctrl+Shift+V: el pegado nativo del textarea ya es texto plano
+    if (plain) return; // Ctrl+Shift+V: the textarea's native paste is already plain text
     if (applyCommand(pasteUrlAsLink(event.clipboardData.getData('text/plain')))) {
       event.preventDefault();
       return;
     }
-    // HTML con formato real → Markdown; sin formato, el texto plano tal cual (pegado nativo).
+    // HTML with real formatting → Markdown; without formatting, the plain text as is (native paste).
     const converted = htmlToMarkdown(event.clipboardData.getData('text/html'));
     if (converted.formatted && applyCommand(insertText(converted.markdown))) event.preventDefault();
   };
@@ -271,7 +271,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
           hidden
           onChange={(event) => {
             upload.uploadImages(Array.from(event.target.files ?? []));
-            event.target.value = ''; // permite volver a elegir el mismo archivo
+            event.target.value = ''; // allows choosing the same file again
           }}
         />
       )}
@@ -309,8 +309,8 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
             />
           )}
         </div>
-        {/* tabIndex: con la vista previa sola, los atajos tienen que poder llegar desde acá (y se scrollea con teclado).
-            role="region": un aria-label en un div sin rol no se anuncia; como región, se encuentra y se nombra. */}
+        {/* tabIndex: with the preview alone, shortcuts must be able to arrive from here (and it scrolls by keyboard).
+            role="region": an aria-label on a div without a role is not announced; as a region, it is found and named. */}
         <div
           ref={previewRef}
           className="paper editor-preview"
@@ -327,7 +327,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
         <div className="editor-status" role="status" aria-live="polite">
           {upload.status ?? (focus ? t('editor.focusHint') : null)}
         </div>
-        {/* Fuera de la región viva: cambia con cada palabra y anunciarlo sería ruido. */}
+        {/* Outside the live region: it changes with every word and announcing it would be noise. */}
         <p className="editor-stats">
           {plural(stats.words, 'stats.words')} · {plural(stats.characters, 'stats.characters')} ·{' '}
           {t('stats.reading', { minutes: stats.readingMinutes })}

@@ -9,15 +9,15 @@ import { useVideoEditor } from './useVideoEditor.ts';
 import { fadeExplanation } from './videoEdit.ts';
 
 interface Props {
-  /** URL local (blob:) del archivo elegido: la vista previa no sube nada. */
+  /** Local (blob:) URL of the chosen file: the preview uploads nothing. */
   src: string;
   durationSeconds: number;
   onConfirm: (edit: VideoEdit) => void;
 }
 
 /**
- * Paso previo a subir un video (S13–S15): elegir el tramo y el fundido sobre el archivo local. El servidor recorta y
- * aplica el fundido al procesar (L19); esto solo elige los parámetros y da una idea del resultado.
+ * The step before uploading a video: choosing the segment and the fade on the local file. The server trims and applies
+ * the fade when processing; this only chooses the parameters and gives an idea of the result.
  */
 export function VideoEditor({ src, durationSeconds, onConfirm }: Props) {
   const i18n = useUiLanguage();
@@ -32,12 +32,12 @@ export function VideoEditor({ src, durationSeconds, onConfirm }: Props) {
   return (
     <section className="video-editor" aria-labelledby={`${id}-title`}>
       <div className="video-editor-main">
-        {/* Un label y no un heading: el editor va antes del título (h3) de la tarjeta y rompería el orden. */}
+        {/* A label and not a heading: the editor comes before the card's heading (h3) and would break the order. */}
         <p id={`${id}-title`} className="label">
           {t('video.editorTitle')}
         </p>
         <div className="video-editor-stage">
-          {/* Mudo y en línea: es lo que permite el autoplay; el archivo final tampoco tiene audio. */}
+          {/* Muted and inline: that is what allows autoplay; the final file has no audio either. */}
           <video
             ref={preview.mainRef}
             src={src}

@@ -1,4 +1,4 @@
-/* Vista del editor (S2): solo editor, dividida o solo vista previa, y el modo foco. Se recuerda entre visitas. */
+/* Editor view: editor only, split or preview only, and focus mode. Remembered between visits. */
 
 const VIEWS = ['editor', 'split', 'preview'] as const;
 export type EditorView = (typeof VIEWS)[number];
@@ -11,12 +11,12 @@ export interface ViewPrefs {
 export const DEFAULT_VIEW_PREFS: ViewPrefs = { view: 'split', focus: false };
 export const VIEW_STORAGE_KEY = 'admin.editorView';
 
-/** El atajo de vista rota en este orden. */
+/** The view shortcut cycles in this order. */
 export const nextView = (view: EditorView): EditorView => VIEWS[(VIEWS.indexOf(view) + 1) % VIEWS.length] ?? 'split';
 
 const isView = (value: unknown): value is EditorView => (VIEWS as readonly unknown[]).includes(value);
 
-/** Lo guardado si es válido; si no (o el almacenamiento está bloqueado), lo de por defecto. */
+/** The stored value if valid; otherwise (or with blocked storage), the default. */
 export function loadViewPrefs(storage: Pick<Storage, 'getItem'> | null): ViewPrefs {
   try {
     const stored: unknown = JSON.parse(storage?.getItem(VIEW_STORAGE_KEY) ?? 'null');
@@ -24,15 +24,15 @@ export function loadViewPrefs(storage: Pick<Storage, 'getItem'> | null): ViewPre
     const { view, focus } = stored as Record<string, unknown>;
     return isView(view) && typeof focus === 'boolean' ? { view, focus } : DEFAULT_VIEW_PREFS;
   } catch {
-    return DEFAULT_VIEW_PREFS; // JSON roto o almacenamiento bloqueado
+    return DEFAULT_VIEW_PREFS; // broken JSON or blocked storage
   }
 }
 
-/** Si no se puede guardar, la elección dura lo que dure la pestaña: no es motivo para un error. */
+/** If it cannot be stored, the choice lasts as long as the tab: not a reason for an error. */
 export function saveViewPrefs(storage: Pick<Storage, 'setItem'> | null, prefs: ViewPrefs): void {
   try {
     storage?.setItem(VIEW_STORAGE_KEY, JSON.stringify(prefs));
   } catch {
-    /* cuota llena o almacenamiento bloqueado */
+    /* quota full or blocked storage */
   }
 }

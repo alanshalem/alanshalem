@@ -9,8 +9,8 @@ interface Props {
 }
 
 /**
- * Diálogo modal nativo (<dialog> + showModal): el navegador vuelve inerte el resto de la página (el foco no sale)
- * y Esc dispara `cancel`. Se monta solo mientras está abierto; quien lo abre decide adónde vuelve el foco.
+ * Native modal dialog (<dialog> + showModal): the browser makes the rest of the page inert (focus does not leave) and
+ * Esc fires `cancel`. It is mounted only while open; whoever opens it decides where focus returns.
  */
 export function Modal({ title, onClose, className, children }: Props) {
   const { t } = useUiLanguage();
@@ -29,10 +29,10 @@ export function Modal({ title, onClose, className, children }: Props) {
       className={`modal ${className ?? ''}`}
       aria-labelledby={titleId}
       onCancel={(event) => {
-        event.preventDefault(); // lo cierra React al desmontarlo, no el navegador
+        event.preventDefault(); // React closes it by unmounting, not the browser
         onClose();
       }}
-      // Un clic en el fondo (fuera de la caja) cierra.
+      // A click on the backdrop (outside the box) closes it.
       onClick={(event) => event.target === event.currentTarget && onClose()}
     >
       <div className="modal-head">

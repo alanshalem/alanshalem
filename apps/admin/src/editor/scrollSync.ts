@@ -1,19 +1,19 @@
 /*
- * Scroll sincronizado de la vista dividida (S2). El HTML no marca de qué línea sale cada elemento, así que se mapea
- * por índice de bloque: `blockStarts` del render de @blog/markdown (el mismo recorrido que la vista previa, sin copias
- * de sus expresiones: principio 2, L4) da dónde empieza cada hijo de .prose y la vista previa interpola entre los pares.
- * Si las cuentas no coinciden (la vista previa todavía no se actualizó) cae a proporcional: nunca salta a cualquier lado.
+ * Synced scroll of the split view. The HTML does not mark which line each element comes from, so it maps by block
+ * index: `blockStarts` of the @blog/markdown render (the same pass as the preview, with no copies of its regexes, which
+ * drifted before) gives where each child of .prose starts and the preview interpolates between the pairs. If the counts
+ * do not match (the preview has not updated yet) it falls back to proportional: it never jumps anywhere.
  */
 
-/** Un punto del editor (px de scroll) que corresponde a un punto de la vista previa. */
+/** A point of the editor (scroll px) that corresponds to a point of the preview. */
 export interface Anchor {
   readonly source: number;
   readonly target: number;
 }
 
 /**
- * Los pares de anclas: el principio, cada bloque con su elemento y el final de ambos scrolls. Con cuentas distintas,
- * solo principio y final (proporcional). Se descartan las que retroceden: el mapeo tiene que ser monótono.
+ * The anchor pairs: the start, each block with its element and the end of both scrolls. With different counts, only
+ * start and end (proportional). Those that go backwards are dropped: the mapping must be monotonic.
  */
 export function pairAnchors(sourceTops: readonly number[], targetTops: readonly number[], end: Anchor): Anchor[] {
   const blocks = sourceTops.length === targetTops.length ? sourceTops.map((source, i) => ({ source, target: targetTops[i] ?? 0 })) : [];
@@ -26,13 +26,13 @@ export function pairAnchors(sourceTops: readonly number[], targetTops: readonly 
   return anchors;
 }
 
-/** El scroll de la vista previa para `position` (scroll del editor): interpolación lineal entre anclas. */
+/** The preview scroll for `position` (editor scroll): linear interpolation between anchors. */
 export function syncedScrollTop(anchors: readonly Anchor[], position: number): number {
   const next = anchors.findIndex((anchor) => anchor.source > position);
   const after = anchors[next];
   const before = anchors[next === -1 ? anchors.length - 1 : next - 1];
   if (!before) return 0;
-  if (!after) return before.target; // más allá del final del editor: el final de la vista previa
+  if (!after) return before.target; // past the end of the editor: the end of the preview
   const ratio = (position - before.source) / (after.source - before.source);
   return Math.max(0, before.target + ratio * (after.target - before.target));
 }
