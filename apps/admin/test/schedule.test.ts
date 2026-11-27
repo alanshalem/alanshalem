@@ -15,21 +15,21 @@ import {
 } from '../src/posts/schedule.ts';
 
 /*
- * Publicación programada (S5, E5): la fecha y hora se eligen en la zona del navegador y viajan como ISO 8601 con su
- * desplazamiento (la API exige la zona: sin ella la hora es ambigua). Las zonas falsas hacen los tests independientes
- * de la zona de la máquina.
+ * Scheduled publishing: the date and time are chosen in the browser's zone and travel as ISO 8601 with their offset
+ * (the API requires the zone: without it the time is ambiguous). Fake zones make the tests independent of the
+ * machine's zone.
  */
 
 const MINUTE = 60_000;
 
-/** Una zona sin horario de verano: siempre el mismo desplazamiento. */
+/** A zone without daylight saving time: always the same offset. */
 const fixedZone = (offset: number): TimeZone => ({
   name: `Fixed/${offset}`,
   toInstant: ({ date, time }) => new Date(Date.parse(`${date}T${time}:00Z`) - offset * MINUTE),
   offsetMinutes: () => offset,
 });
 
-/** Una zona con horario de verano: −03:00 hasta `change` y −02:00 desde ahí (como un salto de primavera). */
+/** A zone with daylight saving time: −03:00 until `change` and −02:00 from then on (like a spring jump). */
 const dstZone = (change: Date): TimeZone => {
   const offsetMinutes = (instant: Date): number => (instant < change ? -180 : -120);
   return {
@@ -39,7 +39,7 @@ const dstZone = (change: Date): TimeZone => {
       const withOld = new Date(wall + 180 * MINUTE);
       const withNew = new Date(wall + 120 * MINUTE);
       if (withOld < change) return withOld;
-      // La hora de pared que no existe (el salto) queda con el desplazamiento de antes: Date la corre hacia adelante.
+      // The wall time that does not exist (the jump) keeps the previous offset: Date moves it forward.
       return withNew >= change ? withNew : withOld;
     },
     offsetMinutes,
@@ -48,8 +48,8 @@ const dstZone = (change: Date): TimeZone => {
 
 const local = (date: string, time: string): LocalDateTime => ({ date, time });
 
-describe('formatUtcOffset: el desplazamiento legible de la zona', () => {
-  it('signo, horas y minutos con dos cifras (signo menos tipográfico)', () => {
+describe('formatUtcOffset: the readable zone offset', () => {
+  it('sign, two-digit hours and minutes (typographic minus sign)', () => {
     assert.equal(formatUtcOffset(-180), 'UTC−03:00');
     assert.equal(formatUtcOffset(0), 'UTC+00:00');
     assert.equal(formatUtcOffset(345), 'UTC+05:45');
@@ -58,35 +58,35 @@ describe('formatUtcOffset: el desplazamiento legible de la zona', () => {
   });
 });
 
-describe('toIsoWithOffset: el instante como hora local + desplazamiento', () => {
-  it('Buenos Aires (−03:00): la misma hora de pared que se eligió', () => {
+describe('toIsoWithOffset: the instant as local time + offset', () => {
+  it('Buenos Aires (−03:00): the same wall time that was chosen', () => {
     assert.equal(toIsoWithOffset(new Date('2026-12-01T12:00:00Z'), fixedZone(-180)), '2026-12-01T09:00:00-03:00');
   });
 
-  it('UTC: +00:00 explícito (no Z)', () => {
+  it('UTC: explicit +00:00 (not Z)', () => {
     assert.equal(toIsoWithOffset(new Date('2026-12-01T09:00:00Z'), fixedZone(0)), '2026-12-01T09:00:00+00:00');
   });
 
-  it('desplazamientos con minutos y cambio de día o de año', () => {
+  it('offsets with minutes and a day or year change', () => {
     assert.equal(toIsoWithOffset(new Date('2026-12-31T20:00:00Z'), fixedZone(345)), '2027-01-01T01:45:00+05:45');
     assert.equal(toIsoWithOffset(new Date('2026-01-01T05:00:00Z'), fixedZone(-570)), '2025-12-31T19:30:00-09:30');
     assert.equal(toIsoWithOffset(new Date('2026-06-30T11:00:00Z'), fixedZone(840)), '2026-07-01T01:00:00+14:00');
   });
 
-  it('con horario de verano usa el desplazamiento de ese instante, no el de hoy', () => {
+  it('with daylight saving time it uses that instant offset, not today one', () => {
     const zone = dstZone(new Date('2026-10-04T03:00:00Z'));
     assert.equal(toIsoWithOffset(new Date('2026-10-03T12:00:00Z'), zone), '2026-10-03T09:00:00-03:00');
     assert.equal(toIsoWithOffset(new Date('2026-10-05T12:00:00Z'), zone), '2026-10-05T10:00:00-02:00');
   });
 });
 
-describe('toLocalDateTime: lo programado de vuelta en los campos fecha y hora', () => {
-  it('la hora de pared en la zona, aunque la API la devuelva en UTC', () => {
+describe('toLocalDateTime: the schedule back in the date and time fields', () => {
+  it('the wall time in the zone, even though the API returns UTC', () => {
     assert.deepEqual(toLocalDateTime('2026-12-01T12:00:00Z', fixedZone(-180)), local('2026-12-01', '09:00'));
     assert.deepEqual(toLocalDateTime('2026-12-31T20:00:00Z', fixedZone(345)), local('2027-01-01', '01:45'));
   });
 
-  it('ida y vuelta en la zona del navegador (la de la máquina que corre el test)', () => {
+  it('round trip in the browser zone (the one of the machine running the test)', () => {
     const chosen = local('2027-03-15', '18:30');
     const check = checkSchedule(chosen, new Date('2026-01-01T00:00:00Z'), browserTimeZone);
     assert.ok(check.ok);
@@ -96,29 +96,29 @@ describe('toLocalDateTime: lo programado de vuelta en los campos fecha y hora', 
   });
 });
 
-describe('checkSchedule: lo mismo que valida la API (futuro y con fecha y hora)', () => {
+describe('checkSchedule: the same the API validates (future, with date and time)', () => {
   const now = new Date('2026-11-26T12:00:00Z');
   const zone = fixedZone(-180);
 
-  it('futuro: el ISO con desplazamiento que espera PUT /schedule', () => {
+  it('future: the ISO with offset that PUT /schedule expects', () => {
     assert.deepEqual(checkSchedule(local('2026-11-26', '09:01'), now, zone), {
       ok: true,
       publishAt: '2026-11-26T09:01:00-03:00',
     });
   });
 
-  it('ahora o antes: en el pasado', () => {
+  it('now or earlier: in the past', () => {
     assert.deepEqual(checkSchedule(local('2026-11-26', '09:00'), now, zone), { ok: false, error: 'past' });
     assert.deepEqual(checkSchedule(local('2025-12-31', '23:59'), now, zone), { ok: false, error: 'past' });
   });
 
-  it('sin fecha o sin hora (los campos nativos dan "" si están incompletos)', () => {
+  it('without date or time (the native fields give "" when incomplete)', () => {
     assert.deepEqual(checkSchedule(local('', '09:00'), now, zone), { ok: false, error: 'required' });
     assert.deepEqual(checkSchedule(local('2026-12-01', ''), now, zone), { ok: false, error: 'required' });
-    assert.deepEqual(checkSchedule(local('mañana', '9'), now, zone), { ok: false, error: 'required' });
+    assert.deepEqual(checkSchedule(local('tomorrow', '9'), now, zone), { ok: false, error: 'required' });
   });
 
-  it('una hora que no existe por el salto de horario se corre hacia adelante y sigue siendo válida', () => {
+  it('a time that does not exist because of the daylight saving jump moves forward and is still valid', () => {
     const zoneWithDst = dstZone(new Date('2026-10-04T03:00:00Z'));
     assert.deepEqual(checkSchedule(local('2026-10-04', '00:30'), new Date('2026-10-01T00:00:00Z'), zoneWithDst), {
       ok: true,
@@ -127,20 +127,20 @@ describe('checkSchedule: lo mismo que valida la API (futuro y con fecha y hora)'
   });
 });
 
-describe('scheduledAt y scheduledLabel: el chip "Programado · fecha" de la lista', () => {
+describe('scheduledAt and scheduledLabel: the list "Programado · date" chip', () => {
   const post = (overrides: Partial<PostSummary>): Pick<PostSummary, 'status' | 'scheduledAt'> => ({
     status: 'draft',
     scheduledAt: null,
     ...overrides,
   });
 
-  it('solo los borradores con fecha (un post publicado ya no está programado)', () => {
+  it('only drafts with a date (a published post is no longer scheduled)', () => {
     assert.equal(scheduledAt(post({ scheduledAt: '2026-12-01T12:00:00Z' })), '2026-12-01T12:00:00Z');
     assert.equal(scheduledAt(post({})), null);
     assert.equal(scheduledAt(post({ status: 'published', scheduledAt: '2026-12-01T12:00:00Z' })), null);
   });
 
-  it('fecha y hora en el idioma de la interfaz', () => {
+  it('date and time in the UI language', () => {
     const iso = new Date(2026, 11, 1, 9, 5).toISOString();
     assert.equal(scheduledLabel(iso, i18nFor('es')), 'Programado · 1 dic 2026, 09:05');
     assert.equal(scheduledLabel(iso, i18nFor('en')), 'Scheduled · Dec 1, 2026, 9:05 AM');

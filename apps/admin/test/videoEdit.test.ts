@@ -30,8 +30,8 @@ const es = i18nFor('es');
 const en = i18nFor('en');
 
 /*
- * Editor de recorte y fundido antes de subir un video (L19, S12–S15): tramo de 1 a 15 s dentro del video,
- * fundido loop / negro / ninguno de 0,5, 1 o 2 s (fadeSeconds × 2 ≤ tramo) y la vista previa aproximada.
+ * The trim and fade editor before uploading a video: a 1 to 15 s segment inside the video, a loop / black / none fade
+ * of 0.5, 1 or 2 s (fadeSeconds × 2 ≤ segment) and the approximate preview.
  */
 
 const edit = (overrides: Partial<VideoEdit> = {}): VideoEdit => ({
@@ -42,12 +42,12 @@ const edit = (overrides: Partial<VideoEdit> = {}): VideoEdit => ({
   ...overrides,
 });
 
-describe('límites y opciones (S12, S14, S15): un solo lugar', () => {
-  it('el tramo dura de 1 a 15 s', () => {
+describe('limits and options: one place', () => {
+  it('the segment lasts 1 to 15 s', () => {
     assert.deepEqual(VIDEO_DURATION, { minSeconds: 1, maxSeconds: 15 });
   });
 
-  it('tres fundidos con su explicación de una línea, en el orden de L19', () => {
+  it('three fades with their one-line explanation, in order', () => {
     assert.deepEqual(
       FADES.map((fade) => [fade, fadeText(fade, es).label]),
       [
@@ -61,7 +61,7 @@ describe('límites y opciones (S12, S14, S15): un solo lugar', () => {
     }
   });
 
-  it('duraciones corto / medio / largo = 0,5 / 1 / 2 s', () => {
+  it('short / medium / long durations = 0.5 / 1 / 2 s', () => {
     assert.deepEqual(
       FADE_DURATIONS.map(({ seconds, label }) => `${es.t(label)} ${fadeDurationLabel(seconds, es)}`),
       ['Corto 0,5 s', 'Medio 1 s', 'Largo 2 s'],
@@ -73,8 +73,8 @@ describe('límites y opciones (S12, S14, S15): un solo lugar', () => {
   });
 });
 
-describe('checkVideoDuration: lo que el recorte no puede arreglar', () => {
-  it('menos de 1 s: rechaza; 1 s o más (aunque pase de 15 s) va al editor', () => {
+describe('checkVideoDuration: what trimming cannot fix', () => {
+  it('less than 1 s: rejects; 1 s or more (even past 15 s) goes to the editor', () => {
     assert.equal(checkVideoDuration(0.6, es), 'Dura 0,6 s: el mínimo es 1 s.');
     assert.equal(checkVideoDuration(1, es), null);
     assert.equal(checkVideoDuration(16.1, es), null);
@@ -82,72 +82,72 @@ describe('checkVideoDuration: lo que el recorte no puede arreglar', () => {
   });
 });
 
-describe('defaultEdit: los primeros min(duración, 15) s, loop perfecto de 1 s', () => {
-  it('un video largo arranca con los primeros 15 s', () => {
+describe('defaultEdit: the first min(duration, 15) s, a 1 s seamless loop', () => {
+  it('a long video starts with the first 15 s', () => {
     assert.deepEqual(defaultEdit(16.1), { trimStart: 0, trimEnd: 15, fade: 'loop', fadeSeconds: 1 });
   });
 
-  it('uno corto, entero (redondeado hacia abajo a la décima: nunca después del final)', () => {
+  it('a short one, whole (rounded down to the tenth: never past the end)', () => {
     assert.deepEqual(defaultEdit(7.46), { trimStart: 0, trimEnd: 7.4, fade: 'loop', fadeSeconds: 1 });
     assert.equal(defaultEdit(15).trimEnd, 15);
   });
 });
 
-describe('trimBounds: hasta dónde llega cada manija', () => {
-  it('inicio de 0 a fin − 1 s; fin de 1 s al final del video', () => {
+describe('trimBounds: how far each handle goes', () => {
+  it('start from 0 to end − 1 s; end from 1 s to the end of the video', () => {
     assert.deepEqual(trimBounds(20), { start: { min: 0, max: 19 }, end: { min: 1, max: 20 } });
     assert.deepEqual(trimBounds(7.46), { start: { min: 0, max: 6.4 }, end: { min: 1, max: 7.4 } });
   });
 });
 
-describe('moveTrimStart / moveTrimEnd: la otra manija acompaña para respetar 1 ≤ tramo ≤ 15', () => {
-  it('mover dentro de los límites cambia solo esa manija (en décimas)', () => {
+describe('moveTrimStart / moveTrimEnd: the other handle follows to keep 1 ≤ segment ≤ 15', () => {
+  it('moving within the limits changes only that handle (in tenths)', () => {
     assert.deepEqual(moveTrimStart(edit(), 2.04, 20), edit({ trimStart: 2 }));
     assert.deepEqual(moveTrimEnd(edit(), 12.36, 20), edit({ trimEnd: 12.4 }));
   });
 
-  it('el fin más allá de inicio + 15 s arrastra el inicio', () => {
+  it('the end past start + 15 s drags the start', () => {
     assert.deepEqual(moveTrimEnd(edit({ trimStart: 0, trimEnd: 15 }), 20, 20), edit({ trimStart: 5, trimEnd: 20 }));
   });
 
-  it('el inicio pasando fin − 1 s empuja el fin', () => {
+  it('the start passing end − 1 s pushes the end', () => {
     assert.deepEqual(moveTrimStart(edit({ trimStart: 0, trimEnd: 5 }), 6, 20), edit({ trimStart: 6, trimEnd: 7 }));
   });
 
-  it('el inicio antes de fin − 15 s trae el fin', () => {
+  it('the start before end − 15 s pulls the end', () => {
     assert.deepEqual(moveTrimStart(edit({ trimStart: 10, trimEnd: 20 }), 2, 20), edit({ trimStart: 2, trimEnd: 17 }));
   });
 
-  it('el fin antes de inicio + 1 s empuja el inicio', () => {
+  it('the end before start + 1 s pushes the start', () => {
     assert.deepEqual(moveTrimEnd(edit({ trimStart: 5, trimEnd: 10 }), 3, 20), edit({ trimStart: 2, trimEnd: 3 }));
   });
 
-  it('topes: el fin nunca pasa del video ni baja de 1 s; el inicio nunca es negativo', () => {
+  it('limits: the end never passes the video or drops below 1 s; the start is never negative', () => {
     assert.deepEqual(moveTrimEnd(edit(), 99, 16.1), edit({ trimStart: 1.1, trimEnd: 16.1 }));
     assert.deepEqual(moveTrimEnd(edit(), 0, 20), edit({ trimStart: 0, trimEnd: 1 }));
     assert.deepEqual(moveTrimStart(edit(), -3, 20), edit({ trimStart: 0 }));
     assert.deepEqual(moveTrimStart(edit({ trimEnd: 16.1 }), 99, 16.1), edit({ trimStart: 15.1, trimEnd: 16.1 }));
   });
 
-  it('Home/End (±Infinity) llevan la manija al tope', () => {
+  it('Home/End (±Infinity) take the handle to its limit', () => {
     assert.deepEqual(moveTrimStart(edit({ trimStart: 4, trimEnd: 10 }), Number.NEGATIVE_INFINITY, 20), edit({ trimEnd: 10 }));
     assert.deepEqual(moveTrimEnd(edit({ trimStart: 4, trimEnd: 10 }), Number.POSITIVE_INFINITY, 20), edit({ trimStart: 5, trimEnd: 20 }));
   });
 
-  it('sin errores de coma flotante al sumar décimas', () => {
+  it('no floating point errors when adding tenths', () => {
     let current = edit({ trimStart: 0, trimEnd: 10 });
     for (let i = 0; i < 3; i++) current = moveTrimStart(current, current.trimStart + 0.1, 20);
     assert.equal(current.trimStart, 0.3);
     assert.equal(selectionSeconds(current), 9.7);
   });
 
-  it('conserva el fundido elegido', () => {
+  it('keeps the chosen fade', () => {
     assert.deepEqual(moveTrimEnd(edit({ fade: 'black', fadeSeconds: 2 }), 8, 20), edit({ fade: 'black', fadeSeconds: 2, trimEnd: 8 }));
   });
 });
 
-describe('sliderKeyValue: teclado de las manijas', () => {
-  it('flechas mueven 0,1 s; con Shift, 1 s', () => {
+describe('sliderKeyValue: the handles keyboard', () => {
+  it('arrows move 0.1 s; with Shift, 1 s', () => {
     assert.equal(sliderKeyValue('ArrowRight', false, 2), 2.1);
     assert.equal(sliderKeyValue('ArrowUp', false, 2), 2.1);
     assert.equal(sliderKeyValue('ArrowLeft', false, 2), 1.9);
@@ -156,36 +156,36 @@ describe('sliderKeyValue: teclado de las manijas', () => {
     assert.equal(sliderKeyValue('ArrowLeft', true, 2), 1);
   });
 
-  it('PageUp/PageDown 1 s; Home/End al tope (lo acota el move)', () => {
+  it('PageUp/PageDown 1 s; Home/End to the limit (the move clamps it)', () => {
     assert.equal(sliderKeyValue('PageUp', false, 2), 3);
     assert.equal(sliderKeyValue('PageDown', false, 2), 1);
     assert.equal(sliderKeyValue('Home', false, 2), Number.NEGATIVE_INFINITY);
     assert.equal(sliderKeyValue('End', false, 2), Number.POSITIVE_INFINITY);
   });
 
-  it('otras teclas no son de la manija (Tab sigue navegando)', () => {
+  it('other keys are not handle keys (Tab keeps navigating)', () => {
     assert.equal(sliderKeyValue('Tab', false, 2), null);
     assert.equal(sliderKeyValue('a', true, 2), null);
   });
 });
 
-describe('validateEdit: espejo de la validación de la API (L19)', () => {
-  it('un tramo válido con fundido que entra: sin error', () => {
+describe('validateEdit: mirror of the API validation', () => {
+  it('a valid segment with a fade that fits: no error', () => {
     assert.equal(validateEdit(edit({ trimStart: 2, trimEnd: 4, fadeSeconds: 1 }), 20, es), null);
     assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 1, fadeSeconds: 0.5 }), 20, es), null);
   });
 
-  it('tramo de menos de 1 s o de más de 15 s', () => {
+  it('segment shorter than 1 s or longer than 15 s', () => {
     assert.equal(validateEdit(edit({ trimStart: 3, trimEnd: 3.5 }), 20, es), 'El tramo dura 0,5 s: el mínimo es 1 s.');
     assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 15.5 }), 20, es), 'El tramo dura 15,5 s: el máximo es 15 s.');
   });
 
-  it('fuera del video', () => {
+  it('outside the video', () => {
     assert.equal(validateEdit(edit({ trimStart: 5, trimEnd: 17 }), 16.1, es), 'El tramo tiene que estar dentro del video (0 a 16,1 s).');
     assert.equal(validateEdit(edit({ trimStart: -1, trimEnd: 5 }), 16.1, es), 'El tramo tiene que estar dentro del video (0 a 16,1 s).');
   });
 
-  it('fundido más largo que la mitad del tramo: explica por qué, según el tipo', () => {
+  it('fade longer than half the segment: explains why, per kind', () => {
     assert.equal(
       validateEdit(edit({ trimStart: 0, trimEnd: 3.2, fade: 'black', fadeSeconds: 2 }), 20, es),
       'Un fundido de 2 s necesita un tramo de al menos 4 s: entra en 2 s desde negro y sale en 2 s a negro. ' +
@@ -198,7 +198,7 @@ describe('validateEdit: espejo de la validación de la API (L19)', () => {
     );
   });
 
-  it('en inglés, con punto decimal', () => {
+  it('in English, with a decimal point', () => {
     assert.equal(checkVideoDuration(0.6, en), 'It’s only 0.6 s long: the minimum is 1 s.');
     assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 15.5 }), 20, en), 'The clip is 15.5 s long: the maximum is 15 s.');
     assert.equal(
@@ -208,27 +208,27 @@ describe('validateEdit: espejo de la validación de la API (L19)', () => {
     );
   });
 
-  it('justo el doble pasa; sin fundido no hay regla de fundido', () => {
+  it('exactly double passes; without a fade there is no fade rule', () => {
     assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 4, fade: 'black', fadeSeconds: 2 }), 20, es), null);
     assert.equal(validateEdit(edit({ trimStart: 0, trimEnd: 1.5, fade: 'none', fadeSeconds: 2 }), 20, es), null);
   });
 });
 
-describe('previewFrame: opacidades de la vista previa aproximada en función del tiempo', () => {
+describe('previewFrame: approximate preview opacities over time', () => {
   const range = { trimStart: 2, trimEnd: 12, fadeSeconds: 1 } as const;
 
-  it('negro: sale de negro en el primer segundo y vuelve a negro en el último', () => {
+  it('black: comes out of black in the first second and back to black in the last', () => {
     const black = edit({ ...range, fade: 'black' });
     const curtain = (t: number): number => previewFrame(t, black).curtainOpacity;
     assert.deepEqual([2, 2.5, 3, 7, 11, 11.5, 12].map(curtain), [1, 0.5, 0, 0, 0, 0.5, 1]);
     assert.equal(previewFrame(7, black).overlay, null);
   });
 
-  it('negro con fundido largo: la rampa dura 2 s', () => {
+  it('black with a long fade: the ramp lasts 2 s', () => {
     assert.equal(previewFrame(3, edit({ ...range, fade: 'black', fadeSeconds: 2 })).curtainOpacity, 0.5);
   });
 
-  it('loop: el segundo video aparece en el último segundo, empezando por el principio del tramo', () => {
+  it('loop: the second video appears in the last second, starting at the beginning of the segment', () => {
     const loop = edit({ ...range, fade: 'loop' });
     assert.deepEqual(previewFrame(10, loop), { curtainOpacity: 0, overlay: null });
     assert.deepEqual(previewFrame(11, loop), { curtainOpacity: 0, overlay: { opacity: 0, time: 2 } });
@@ -236,27 +236,27 @@ describe('previewFrame: opacidades de la vista previa aproximada en función del
     assert.deepEqual(previewFrame(12, loop), { curtainOpacity: 0, overlay: { opacity: 1, time: 3 } });
   });
 
-  it('sin fundido: nada encima', () => {
+  it('no fade: nothing on top', () => {
     const none = edit({ ...range, fade: 'none' });
     for (const t of [2, 11.5, 12]) assert.deepEqual(previewFrame(t, none), { curtainOpacity: 0, overlay: null });
   });
 
-  it('previewLoopStart: el loop vuelve a donde quedó el segundo video (como la salida del servidor)', () => {
+  it('previewLoopStart: the loop returns to where the second video got to (like the server output)', () => {
     assert.equal(previewLoopStart(edit({ ...range, fade: 'loop' })), 3);
     assert.equal(previewLoopStart(edit({ ...range, fade: 'black' })), 2);
     assert.equal(previewLoopStart(edit({ ...range, fade: 'none' })), 2);
   });
 
-  it('endingPreviewTime: al mover el fin o el fundido, salta a 1 s antes de la transición', () => {
+  it('endingPreviewTime: when the end or the fade moves, it jumps to 1 s before the transition', () => {
     assert.equal(endingPreviewTime(edit({ ...range, fade: 'loop', fadeSeconds: 2 })), 9);
     assert.equal(endingPreviewTime(edit({ ...range, fade: 'none' })), 11);
-    // Un tramo corto no retrocede antes del inicio del loop.
+    // A short segment does not go back before the loop start.
     assert.equal(endingPreviewTime(edit({ trimStart: 2, trimEnd: 4, fade: 'loop', fadeSeconds: 1 })), 3);
   });
 });
 
-describe('formato y lectura de segundos', () => {
-  it('formatSeconds: siempre una décima, con coma', () => {
+describe('formatting and parsing seconds', () => {
+  it('formatSeconds: always one decimal, with a comma', () => {
     assert.deepEqual(
       [0, 2, 2.5, 15, 16.1].map((seconds) => formatSeconds(seconds, es)),
       ['0,0', '2,0', '2,5', '15,0', '16,1'],
@@ -267,7 +267,7 @@ describe('formato y lectura de segundos', () => {
     );
   });
 
-  it('formatClock: m:ss y la décima solo si la hay', () => {
+  it('formatClock: m:ss and the tenth only if there is one', () => {
     assert.deepEqual(
       [0, 2, 2.5, 15, 75.3, 59.9].map((seconds) => formatClock(seconds, es)),
       ['0:00', '0:02', '0:02,5', '0:15', '1:15,3', '0:59,9'],
@@ -278,7 +278,7 @@ describe('formato y lectura de segundos', () => {
     );
   });
 
-  it('editSummary: el chip de un video guardado', () => {
+  it('editSummary: the chip of a saved video', () => {
     assert.equal(editSummary(edit({ trimStart: 2, trimEnd: 15 }), es), '0:02–0:15 · Loop perfecto 1 s');
     assert.equal(editSummary(edit({ trimStart: 0, trimEnd: 8.5, fade: 'black', fadeSeconds: 0.5 }), es), '0:00–0:08,5 · Desde y hacia negro 0,5 s');
     assert.equal(editSummary(edit({ fade: 'none', fadeSeconds: 2 }), es), '0:00–0:10 · Sin fundido');
@@ -288,7 +288,7 @@ describe('formato y lectura de segundos', () => {
     );
   });
 
-  it('fadeExplanation: la explicación estática (sin animar) para prefers-reduced-motion', () => {
+  it('fadeExplanation: the static explanation (no animation) for prefers-reduced-motion', () => {
     assert.equal(
       fadeExplanation(edit({ fade: 'loop', fadeSeconds: 2 }), es),
       'Loop perfecto (2 s). El final se funde con el principio: vuelve a empezar sin salto.',
@@ -304,7 +304,7 @@ describe('formato y lectura de segundos', () => {
     );
   });
 
-  it('parseSeconds: acepta coma o punto; lo demás no es un número', () => {
+  it('parseSeconds: accepts a comma or a point; anything else is not a number', () => {
     assert.equal(parseSeconds(' 2,5 '), 2.5);
     assert.equal(parseSeconds('12.3'), 12.3);
     assert.equal(parseSeconds('7'), 7);

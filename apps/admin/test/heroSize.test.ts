@@ -7,13 +7,13 @@ const es = i18nFor('es');
 const en = i18nFor('en');
 
 /*
- * Regla de tamaño del hero (L13, S10), la misma para fotos y videos: rechaza vertical/cuadrado
- * (ancho < 1,2 × alto) o menos de 1280×720; avisa (pero acepta) bajo 1920×1080. La duración ya no es de esta
- * regla: un video largo va al editor de recorte (L19, test/videoEdit.test.ts).
+ * The hero size rule, the same for photos and videos: rejects portrait/square (width < 1.2 × height) or less than
+ * 1280×720; warns (but accepts) below 1920×1080. Duration is no longer part of this rule: a long video goes to the
+ * trim editor (test/videoEdit.test.ts).
  */
 
-describe('heroGuidance: la guía que ve el usuario', () => {
-  it('es el texto de S10, S12 y S13, armado con los mismos números que las reglas', () => {
+describe('heroGuidance: the guide the user sees', () => {
+  it('is the requested text, built from the same numbers as the rules', () => {
     assert.equal(
       heroGuidance(es),
       'Ideal: 1920×1080 o más, horizontal 16:9. Videos: de 1 a 15 segundos (antes de subir elegís el tramo); se les quita el audio.',
@@ -31,12 +31,12 @@ describe('heroGuidance: la guía que ve el usuario', () => {
 });
 
 describe('checkHeroSize', () => {
-  it('1920×1080 o más: pasa sin aviso (foto y video)', () => {
+  it('1920×1080 or larger: passes without a warning (photo and video)', () => {
     assert.deepEqual(checkHeroSize({ width: 1920, height: 1080 }, es), { ok: true, warning: null });
     assert.deepEqual(checkHeroSize({ width: 3840, height: 2160, durationSeconds: 15 }, es), { ok: true, warning: null });
   });
 
-  it('vertical o cuadrado: rechaza mostrando lo recibido y lo ideal', () => {
+  it('portrait or square: rejects showing what was received and the ideal', () => {
     const error = 'Formato vertical o cuadrado (1080×1920): el hero necesita uno horizontal. Ideal: 1920×1080 (16:9).';
     assert.deepEqual(checkHeroSize({ width: 1080, height: 1920 }, es), { ok: false, error });
     assert.deepEqual(checkHeroSize({ width: 2000, height: 2000 }, es), {
@@ -45,12 +45,12 @@ describe('checkHeroSize', () => {
     });
   });
 
-  it('proporción: justo 1,2 pasa; apenas menos se rechaza', () => {
+  it('aspect: exactly 1.2 passes; just below is rejected', () => {
     assert.equal(checkHeroSize({ width: 2400, height: 2000 }, es).ok, true);
     assert.equal(checkHeroSize({ width: 2399, height: 2000 }, es).ok, false);
   });
 
-  it('menos de 1280×720 (cualquiera de las dos medidas): rechaza', () => {
+  it('less than 1280×720 (either dimension): rejects', () => {
     assert.deepEqual(checkHeroSize({ width: 1024, height: 576 }, es), {
       ok: false,
       error: 'Tamaño insuficiente (1024×576): el mínimo es 1280×720. Ideal: 1920×1080 o más.',
@@ -59,22 +59,22 @@ describe('checkHeroSize', () => {
     assert.equal(checkHeroSize({ width: 1600, height: 719 }, es).ok, false);
   });
 
-  it('entre el mínimo y lo ideal: acepta con aviso', () => {
+  it('between the minimum and the ideal: accepts with a warning', () => {
     assert.deepEqual(checkHeroSize({ width: 1280, height: 720 }, es), {
       ok: true,
       warning: 'Mide 1280×720, menos que lo ideal (1920×1080): puede perder nitidez en pantallas grandes.',
     });
-    // Panorámica: ancho de sobra pero alto bajo lo ideal.
+    // Panoramic: plenty of width but height below the ideal.
     assert.equal(checkHeroSize({ width: 2560, height: 1000 }, es).ok, true);
     assert.notEqual((checkHeroSize({ width: 2560, height: 1000 }, es) as { warning: string | null }).warning, null);
   });
 
-  it('video de más de 15 s: ya no se rechaza (S13: se recorta en el editor antes de subir)', () => {
+  it('a video longer than 15 s: no longer rejected (it is trimmed in the editor before uploading)', () => {
     assert.deepEqual(checkHeroSize({ width: 1920, height: 1080, durationSeconds: 16.1 }, es), { ok: true, warning: null });
     assert.deepEqual(checkHeroSize({ width: 1920, height: 1080, durationSeconds: 600 }, es), { ok: true, warning: null });
   });
 
-  it('en inglés: rechazo y aviso con las mismas medidas', () => {
+  it('in English: rejection and warning with the same sizes', () => {
     assert.deepEqual(checkHeroSize({ width: 1080, height: 1920 }, en), {
       ok: false,
       error: 'Portrait or square format (1080×1920): the hero needs a landscape one. Ideal: 1920×1080 (16:9).',
@@ -89,7 +89,7 @@ describe('checkHeroSize', () => {
     });
   });
 
-  it('el formato se informa antes que el tamaño', () => {
+  it('the shape is reported before the size', () => {
     const result = checkHeroSize({ width: 700, height: 1000, durationSeconds: 60 }, es);
     assert.equal(result.ok, false);
     assert.match((result as { error: string }).error, /^Formato vertical o cuadrado \(700×1000\)/);

@@ -2,52 +2,52 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { htmlToMarkdown } from '../src/editor/htmlToMarkdown.ts';
 
-/* Pegar HTML (Google Docs, una web) convierte a Markdown limpio (S2); sin formato real, se pega el texto plano. */
+/* Pasting HTML (Google Docs, a web page) converts to clean Markdown; without real formatting, the plain text is pasted. */
 
 const md = (html: string): string => htmlToMarkdown(html).markdown;
 const B = '\\';
 
-describe('htmlToMarkdown: bloques', () => {
-  it('párrafos, títulos y separador', () => {
-    assert.equal(md('<h1>T</h1><p>Uno</p><hr><h3>S</h3><p>Dos</p>'), '## T\n\nUno\n\n---\n\n### S\n\nDos');
+describe('htmlToMarkdown: blocks', () => {
+  it('paragraphs, headings and separator', () => {
+    assert.equal(md('<h1>T</h1><p>One</p><hr><h3>S</h3><p>Two</p>'), '## T\n\nOne\n\n---\n\n### S\n\nTwo');
   });
 
-  // L5: el h1 es el título del post; lo que se pega (un Doc con su "Título 1") entra como sección.
-  it('títulos: h1 y h2 → ##, h3 → ###, h4 a h6 → ####', () => {
+  // The h1 is the post title; what gets pasted (a Doc with its "Heading 1") comes in as a section.
+  it('headings: h1 and h2 → ##, h3 → ###, h4 to h6 → ####', () => {
     assert.equal(
       md('<h1>a</h1><h2>b</h2><h3>c</h3><h4>d</h4><h5>e</h5><h6>f</h6>'),
       '## a\n\n## b\n\n### c\n\n#### d\n\n#### e\n\n#### f',
     );
   });
 
-  it('<br> es un salto de línea forzado dentro del párrafo', () => {
+  it('<br> is a hard line break inside the paragraph', () => {
     assert.equal(md('<p>a<br>b</p>'), `a${B}\nb`);
-    assert.equal(md('<p>a<br></p>'), 'a', 'un <br> al final no deja una barra suelta');
+    assert.equal(md('<p>a<br></p>'), 'a', 'a trailing <br> leaves no stray backslash');
   });
 
-  it('listas anidadas, numeradas y con start', () => {
+  it('nested, numbered and start lists', () => {
     assert.equal(md('<ul><li>a<ul><li>b</li></ul></li><li>c</li></ul>'), '- a\n  - b\n- c');
-    assert.equal(md('<ol><li>uno</li><li>dos<ol><li>x</li></ol></li></ol>'), '1. uno\n2. dos\n   1. x');
+    assert.equal(md('<ol><li>one</li><li>two<ol><li>x</li></ol></li></ol>'), '1. one\n2. two\n   1. x');
     assert.equal(md('<ol start="3"><li>c</li><li>d</li></ol>'), '3. c\n4. d');
   });
 
-  it('una lista dentro de otra sin <li> (Google Docs) se anida bajo el ítem anterior', () => {
+  it('a list inside another without <li> (Google Docs) nests under the previous item', () => {
     assert.equal(md('<ul><li><p>a</p></li><ul><li><p>b</p></li></ul></ul>'), '- a\n  - b');
   });
 
-  it('cita con varios párrafos', () => {
+  it('quote with several paragraphs', () => {
     assert.equal(md('<blockquote><p>a</p><p>b</p></blockquote>'), '> a\n>\n> b');
   });
 
-  it('bloque de código: el texto sin tocar, con el lenguaje de la clase', () => {
+  it('code block: the text untouched, with the language from the class', () => {
     assert.equal(
       md('<pre><code class="language-js">const a = 1;\nif (a &lt; 2) {}\n</code></pre>'),
       '```js\nconst a = 1;\nif (a < 2) {}\n```',
     );
-    assert.equal(md('<pre>```\nx</pre>'), '````\n```\nx\n````', 'un fence adentro alarga el de afuera');
+    assert.equal(md('<pre>```\nx</pre>'), '````\n```\nx\n````', 'a fence inside lengthens the outer one');
   });
 
-  it('tabla simple: la primera fila es el encabezado; los | de las celdas se escapan', () => {
+  it('simple table: the first row is the header; the | in cells are escaped', () => {
     assert.equal(
       md('<table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>x|y</td></tr></tbody></table>'),
       `| A | B |\n| --- | --- |\n| 1 | x${B}|y |`,
@@ -56,48 +56,48 @@ describe('htmlToMarkdown: bloques', () => {
   });
 });
 
-describe('htmlToMarkdown: en línea', () => {
-  it('negrita, cursiva, tachado y código', () => {
-    assert.equal(md('<p>Hola <strong>mundo</strong> y <em>todos</em></p>'), 'Hola **mundo** y *todos*');
+describe('htmlToMarkdown: inline', () => {
+  it('bold, italic, strikethrough and code', () => {
+    assert.equal(md('<p>Hello <strong>world</strong> and <em>everyone</em></p>'), 'Hello **world** and *everyone*');
     assert.equal(md('<b>a</b> <i>b</i> <s>c</s> <del>d</del> <code>e*f</code>'), '**a** *b* ~~c~~ ~~d~~ `e*f`');
-    assert.equal(md('<code>a`b</code>'), '``a`b``', 'un acento grave adentro alarga el delimitador');
-    assert.equal(md('<code>`x</code>'), '`` `x ``', 'en el borde, además, un espacio');
+    assert.equal(md('<code>a`b</code>'), '``a`b``', 'a backtick inside lengthens the delimiter');
+    assert.equal(md('<code>`x</code>'), '`` `x ``', 'at the edge, a space as well');
   });
 
-  it('los espacios de los bordes quedan fuera de los marcadores; un formato repetido no se duplica', () => {
+  it('edge spaces stay outside the markers; repeated formatting is not duplicated', () => {
     assert.equal(md('a<b> x </b>b'), 'a **x** b');
     assert.equal(md('<b>a <strong>b</strong></b>'), '**a b**');
     assert.equal(md('<b> </b>x'), 'x');
   });
 
-  it('links e imágenes con URLs seguras', () => {
-    assert.equal(md('<a href="https://x.com/a">sitio</a>'), '[sitio](https://x.com/a)');
+  it('links and images with safe URLs', () => {
+    assert.equal(md('<a href="https://x.com/a">site</a>'), '[site](https://x.com/a)');
     assert.equal(md('<a href="/a b">x</a>'), '[x](/a%20b)');
-    assert.equal(md('<img src="https://x.com/a.png" alt="Un gato">'), '![Un gato](https://x.com/a.png)');
+    assert.equal(md('<img src="https://x.com/a.png" alt="A cat">'), '![A cat](https://x.com/a.png)');
   });
 
-  it('links javascript:/data: se descartan (queda el texto); imágenes inseguras desaparecen', () => {
-    assert.equal(md('<a href="javascript:alert(1)">mal</a>'), 'mal');
-    assert.equal(md('<a href=" JaVa&#83;cript:alert(1)">mal</a>'), 'mal');
-    assert.equal(md('<a href="data:text/html,x">mal</a>'), 'mal');
+  it('javascript:/data: links are dropped (the text stays); unsafe images disappear', () => {
+    assert.equal(md('<a href="javascript:alert(1)">bad</a>'), 'bad');
+    assert.equal(md('<a href=" JaVa&#83;cript:alert(1)">bad</a>'), 'bad');
+    assert.equal(md('<a href="data:text/html,x">bad</a>'), 'bad');
     assert.equal(md('<p>a<img src="data:image/png;base64,AAAA" alt="x">b</p>'), 'ab');
   });
 
-  it('entidades y espacios colapsados', () => {
+  it('entities and collapsed spaces', () => {
     assert.equal(md('<p>&lt;tag&gt; &amp; &quot;x&quot;&nbsp;&#8212; &#x2014;</p>'), '<tag> & "x" — —');
     assert.equal(md('<p>  a\n   b  </p>'), 'a b');
   });
 
-  it('el texto que parece Markdown se escapa', () => {
+  it('text that looks like Markdown is escaped', () => {
     assert.equal(
-      md('<p>#II. no es título</p><p>1. tampoco</p><p>- ni esto</p><p>a*b snake_case _x_ [y] ~~z~~</p>'),
-      `${B}#II. no es título\n\n1${B}. tampoco\n\n${B}- ni esto\n\na${B}*b snake_case ${B}_x${B}_ ${B}[y${B}] ${B}~${B}~z${B}~${B}~`,
+      md('<p>#II. not a heading</p><p>1. neither</p><p>- nor this</p><p>a*b snake_case _x_ [y] ~~z~~</p>'),
+      `${B}#II. not a heading\n\n1${B}. neither\n\n${B}- nor this\n\na${B}*b snake_case ${B}_x${B}_ ${B}[y${B}] ${B}~${B}~z${B}~${B}~`,
     );
   });
 });
 
-describe('htmlToMarkdown: limpieza', () => {
-  it('script, style, head y comentarios se quitan con su contenido', () => {
+describe('htmlToMarkdown: cleanup', () => {
+  it('script, style, head and comments are removed with their content', () => {
     assert.equal(
       md('<!--StartFragment--><style>p{color:red}</style><p>ok<script>alert("<p>x</p>")</script></p><!--EndFragment-->'),
       'ok',
@@ -105,21 +105,21 @@ describe('htmlToMarkdown: limpieza', () => {
     assert.equal(md('<html><head><title>T</title></head><body><p>x</p></body></html>'), 'x');
   });
 
-  it('los envoltorios y atributos desconocidos se descartan', () => {
-    assert.equal(md('<div class="x"><section><font color="red">texto</font> <o:p></o:p></section></div>'), 'texto');
+  it('unknown wrappers and attributes are dropped', () => {
+    assert.equal(md('<div class="x"><section><font color="red">text</font> <o:p></o:p></section></div>'), 'text');
   });
 
-  it('Google Docs: el <b> envoltorio con font-weight normal no es negrita; los span con estilo sí', () => {
+  it('Google Docs: the wrapping <b> with normal font-weight is not bold; styled spans are', () => {
     const docs =
       '<meta charset="utf-8"><b style="font-weight:normal;" id="docs-internal-guid-1"><p dir="ltr">' +
-      '<span style="font-weight:700;">Negrita</span><span style="font-weight:400;"> y </span>' +
-      '<span style="font-style:italic;">cursiva</span> <span style="text-decoration:line-through;">no</span>' +
+      '<span style="font-weight:700;">Bold</span><span style="font-weight:400;"> and </span>' +
+      '<span style="font-style:italic;">italic</span> <span style="text-decoration:line-through;">no</span>' +
       '</p></b><br class="Apple-interchange-newline">';
-    assert.deepEqual(htmlToMarkdown(docs), { markdown: '**Negrita** y *cursiva* ~~no~~', formatted: true });
+    assert.deepEqual(htmlToMarkdown(docs), { markdown: '**Bold** and *italic* ~~no~~', formatted: true });
   });
 
-  it('sin formato real (solo párrafos, saltos, spans sin estilo) no hay nada que convertir: formatted = false', () => {
-    assert.equal(htmlToMarkdown('<p>solo texto</p><p>otro</p>').formatted, false);
+  it('without real formatting (only paragraphs, breaks, unstyled spans) there is nothing to convert: formatted = false', () => {
+    assert.equal(htmlToMarkdown('<p>just text</p><p>another</p>').formatted, false);
     assert.equal(htmlToMarkdown('<span>a</span><br><span style="color:red">b</span>').formatted, false);
     assert.equal(htmlToMarkdown('').formatted, false);
     assert.equal(htmlToMarkdown('<p>a <a href="https://x.com">b</a></p>').formatted, true);

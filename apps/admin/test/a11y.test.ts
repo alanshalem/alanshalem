@@ -9,17 +9,17 @@ import { i18nFor, uiLangButtonName } from '../src/i18n/i18n.ts';
 import { langCode, LANGS } from '../src/languages.ts';
 import { pageTitle, type PageView } from '../src/navigation/pageTitle.ts';
 
-/* Accesibilidad por construcción (plataforma-calidad U3, S3): reglas puras que la interfaz usa tal cual. */
+/* Accessibility by construction: pure rules the UI uses as they are. */
 
 const key = (k: string, extra: Partial<KeyLike> = {}): KeyLike => ({
   key: k, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...extra,
 });
 
-describe('WCAG 2.5.3: el nombre accesible empieza con el texto visible', () => {
+describe('WCAG 2.5.3: the accessible name starts with the visible text', () => {
   for (const ui of LANGS) {
     const i18n = i18nFor(ui);
 
-    it(`selector de idioma de la interfaz (${ui}): "ES – Español"`, () => {
+    it(`UI language selector (${ui}): "ES – Español"`, () => {
       for (const lang of LANGS) {
         const name = uiLangButtonName(lang, i18n.t);
         assert.ok(name.startsWith(`${langCode(lang)} – `), name);
@@ -27,16 +27,16 @@ describe('WCAG 2.5.3: el nombre accesible empieza con el texto visible', () => {
       }
     });
 
-    it(`botones de la barra del editor (${ui}): nombre = lo visible y después la descripción`, () => {
+    it(`editor toolbar buttons (${ui}): name = the visible text, then the description`, () => {
       for (const action of editorActions('es').filter((candidate) => candidate.toolbar)) {
         const { face, name } = toolbarLabels(action, i18n.t);
-        assert.ok(name.startsWith(face), `${action.id}: "${name}" no empieza con "${face}"`);
-        assert.ok(name.includes(i18n.t(action.label)), `${action.id}: falta la descripción en "${name}"`);
+        assert.ok(name.startsWith(face), `${action.id}: "${name}" does not start with "${face}"`);
+        assert.ok(name.includes(i18n.t(action.label)), `${action.id}: the description is missing in "${name}"`);
       }
     });
   }
 
-  it('ejemplos: H2, 1. y una cara que ya es el comienzo del nombre', () => {
+  it('examples: H2, 1. and a face that already is the start of the name', () => {
     const { t } = i18nFor('es');
     const byId = (id: string) => editorActions('es').find((action) => action.id === id)!;
     assert.deepEqual(toolbarLabels(byId('heading'), t), { face: 'H2', name: 'H2 – Título' });
@@ -45,70 +45,70 @@ describe('WCAG 2.5.3: el nombre accesible empieza con el texto visible', () => {
   });
 });
 
-describe('el atajo, aparte del nombre: aria-keyshortcuts', () => {
-  it('Control en Windows/Linux, Meta en Mac; la letra en mayúscula', () => {
+describe('the shortcut, apart from the name: aria-keyshortcuts', () => {
+  it('Control on Windows/Linux, Meta on Mac; the letter in uppercase', () => {
     assert.equal(ariaKeyShortcut({ key: 'x', mod: true, shift: true }, false), 'Control+Shift+X');
     assert.equal(ariaKeyShortcut({ key: 'b', mod: true }, true), 'Meta+B');
     assert.equal(ariaKeyShortcut({ key: 'Enter', mod: true, shift: true }, false), 'Control+Shift+Enter');
   });
 });
 
-describe('barra del editor: una sola parada de Tab (tabindex móvil) con flechas, Inicio y Fin', () => {
-  it('flechas avanzan y retroceden dando la vuelta', () => {
+describe('editor toolbar: a single Tab stop (roving tabindex) with arrows, Home and End', () => {
+  it('arrows move forward and back, wrapping around', () => {
     assert.equal(rovingIndex(key('ArrowRight'), 0, 5), 1);
     assert.equal(rovingIndex(key('ArrowRight'), 4, 5), 0);
     assert.equal(rovingIndex(key('ArrowLeft'), 0, 5), 4);
     assert.equal(rovingIndex(key('ArrowLeft'), 3, 5), 2);
   });
 
-  it('Inicio y Fin van al primero y al último', () => {
+  it('Home and End go to the first and the last', () => {
     assert.equal(rovingIndex(key('Home'), 3, 5), 0);
     assert.equal(rovingIndex(key('End'), 1, 5), 4);
   });
 
-  it('otras teclas y combinaciones con modificadores no mueven (quedan para los atajos)', () => {
+  it('other keys and modifier combinations do not move (they are left to the shortcuts)', () => {
     assert.equal(rovingIndex(key('Tab'), 1, 5), null);
     assert.equal(rovingIndex(key('a'), 1, 5), null);
     assert.equal(rovingIndex(key('ArrowRight', { ctrlKey: true }), 1, 5), null);
     assert.equal(rovingIndex(key('Home', { altKey: true }), 1, 5), null);
   });
 
-  it('sin botones no hay a dónde ir', () => {
+  it('without buttons there is nowhere to go', () => {
     assert.equal(rovingIndex(key('ArrowRight'), 0, 0), null);
   });
 });
 
-describe('grilla de miniaturas del hero: una parada de Tab y flechas en dos dimensiones (U7)', () => {
-  // 7 miniaturas en 3 columnas:  0 1 2 / 3 4 5 / 6
-  it('izquierda, derecha, Inicio y Fin: igual que la barra del editor (roving.ts)', () => {
+describe('hero thumbnail grid: one Tab stop and two-dimensional arrows', () => {
+  // 7 thumbnails in 3 columns:  0 1 2 / 3 4 5 / 6
+  it('left, right, Home and End: same as the editor toolbar (roving.ts)', () => {
     for (const [k, from] of [['ArrowRight', 2], ['ArrowRight', 6], ['ArrowLeft', 0], ['Home', 4], ['End', 1]] as const) {
-      assert.equal(gridIndex(key(k), from, 7, 3), rovingIndex(key(k), from, 7), `${k} desde ${from}`);
+      assert.equal(gridIndex(key(k), from, 7, 3), rovingIndex(key(k), from, 7), `${k} from ${from}`);
     }
   });
 
-  it('abajo y arriba saltan una fila', () => {
+  it('down and up jump one row', () => {
     assert.equal(gridIndex(key('ArrowDown'), 1, 7, 3), 4);
     assert.equal(gridIndex(key('ArrowUp'), 4, 7, 3), 1);
   });
 
-  it('abajo hacia una fila incompleta va a la última miniatura', () => {
+  it('down into an incomplete row goes to the last thumbnail', () => {
     assert.equal(gridIndex(key('ArrowDown'), 5, 7, 3), 6);
     assert.equal(gridIndex(key('ArrowDown'), 3, 7, 3), 6);
   });
 
-  it('en el borde de arriba o de abajo se queda (la tecla igual se consume: no scrollea la página)', () => {
+  it('at the top or bottom edge it stays (the key is still consumed: the page does not scroll)', () => {
     assert.equal(gridIndex(key('ArrowUp'), 2, 7, 3), 2);
     assert.equal(gridIndex(key('ArrowDown'), 6, 7, 3), 6);
     assert.equal(gridIndex(key('ArrowDown'), 4, 6, 3), 4);
   });
 
-  it('una sola columna (pantalla angosta): abajo y arriba van de a uno', () => {
+  it('a single column (narrow screen): down and up move one at a time', () => {
     assert.equal(gridIndex(key('ArrowDown'), 0, 3, 1), 1);
     assert.equal(gridIndex(key('ArrowUp'), 2, 3, 1), 1);
     assert.equal(gridIndex(key('ArrowDown'), 0, 3, 0), 1);
   });
 
-  it('otras teclas, modificadores o sin miniaturas: no se toca', () => {
+  it('other keys, modifiers or no thumbnails: untouched', () => {
     assert.equal(gridIndex(key('Enter'), 1, 7, 3), null);
     assert.equal(gridIndex(key('ArrowDown', { ctrlKey: true }), 1, 7, 3), null);
     assert.equal(gridIndex(key('ArrowUp', { altKey: true }), 4, 7, 3), null);
@@ -116,27 +116,27 @@ describe('grilla de miniaturas del hero: una parada de Tab y flechas en dos dime
   });
 });
 
-describe('WCAG 2.1.2: Esc y después Tab sale del editor (aunque el cursor esté en una lista)', () => {
-  it('Tab o Shift+Tab justo después de Esc deja el foco salir', () => {
+describe('WCAG 2.1.2: Esc and then Tab leaves the editor (even with the caret in a list)', () => {
+  it('Tab or Shift+Tab right after Esc lets focus out', () => {
     assert.equal(tabLeavesEditor(key('Tab'), 'Escape'), true);
     assert.equal(tabLeavesEditor(key('Tab', { shiftKey: true }), 'Escape'), true);
   });
 
-  it('apretar Shift (para Shift+Tab) no borra el Esc; cualquier otra tecla sí', () => {
+  it('pressing Shift (for Shift+Tab) does not erase the Esc; any other key does', () => {
     assert.equal(rememberKey('Escape', 'Shift'), 'Escape');
     assert.equal(rememberKey('Escape', 'Control'), 'Escape');
     assert.equal(rememberKey('Escape', 'a'), 'a');
     assert.equal(rememberKey(null, 'Escape'), 'Escape');
   });
 
-  it('Tab sin Esc antes sigue anidando la lista', () => {
+  it('Tab without a previous Esc still nests the list', () => {
     assert.equal(tabLeavesEditor(key('Tab'), null), false);
     assert.equal(tabLeavesEditor(key('Tab'), 'a'), false);
     assert.equal(tabLeavesEditor(key('a'), 'Escape'), false);
   });
 });
 
-describe('WCAG 2.4.2: un título de documento distinto por vista', () => {
+describe('WCAG 2.4.2: a different document title per view', () => {
   const views: PageView[] = [
     { name: 'posts' },
     { name: 'new' },
@@ -145,7 +145,7 @@ describe('WCAG 2.4.2: un título de documento distinto por vista', () => {
     { name: 'login' },
   ];
 
-  it('en español', () => {
+  it('in Spanish', () => {
     const { t } = i18nFor('es');
     assert.deepEqual(views.map((view) => pageTitle(view, t)), [
       'Posts · Admin',
@@ -156,26 +156,26 @@ describe('WCAG 2.4.2: un título de documento distinto por vista', () => {
     ]);
   });
 
-  it('en inglés', () => {
+  it('in English', () => {
     const { t } = i18nFor('en');
     assert.equal(pageTitle({ name: 'edit', title: 'Hello' }, t), 'Edit: Hello · Admin');
     assert.equal(pageTitle({ name: 'settings' }, t), 'Settings · Admin');
   });
 
-  it('un post sin título usa "(sin título)" y espacios sobrantes no cuentan', () => {
+  it('a post without a title uses "(sin título)" and extra spaces do not count', () => {
     const { t } = i18nFor('es');
     assert.equal(pageTitle({ name: 'edit', title: '   ' }, t), 'Editar: (sin título) · Admin');
     assert.equal(pageTitle({ name: 'edit', title: ' Hola ' }, t), 'Editar: Hola · Admin');
   });
 
-  it('todos distintos entre sí', () => {
+  it('all different from each other', () => {
     const { t } = i18nFor('es');
     const titles = views.map((view) => pageTitle(view, t));
     assert.equal(new Set(titles).size, titles.length);
   });
 });
 
-/* Contraste calculado con los tokens reales (tokens.css + admin.css). */
+/* Contrast computed with the real tokens (tokens.css + admin.css). */
 const css = ['../../../packages/tokens/src/tokens.css', '../src/admin.css']
   .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
   .join('\n');
@@ -199,47 +199,47 @@ const contrast = (a: string, b: string): number => {
   const [high, low] = [luminance(resolve(a)), luminance(resolve(b))].sort((x, y) => y - x) as [number, number];
   return (high + 0.05) / (low + 0.05);
 };
-/** Las declaraciones de una regla de admin.css por su selector exacto (`.hero-tile-mark`). */
+/** The declarations of an admin.css rule by its exact selector (`.hero-tile-mark`). */
 const declarations = (selector: string): Map<string, string> => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const body = new RegExp(`(?:^|\\n)${escaped} \\{([^}]*)\\}`).exec(css)?.[1] ?? '';
   return new Map([...body.matchAll(/([\w-]+):\s*([^;]+);/g)].map(([, property = '', value = '']) => [property, value.trim()]));
 };
 
-/* WCAG 1.4.3: las marcas de las miniaturas del hero van sobre la foto, así que llevan fondo sólido propio. */
-describe('WCAG 1.4.3: marcas sobre las miniaturas del hero ≥ 4,5:1 (fondo sólido, no la foto)', () => {
+/* WCAG 1.4.3: the hero thumbnail marks sit over the photo, so they carry their own solid background. */
+describe('WCAG 1.4.3: marks over the hero thumbnails ≥ 4.5:1 (solid background, not the photo)', () => {
   const base = declarations('.hero-tile-mark');
 
-  it('el fondo de las marcas es un color sólido de los tokens', () => {
+  it('the marks background is a solid token color', () => {
     assert.match(base.get('background') ?? '', /^var\(--[\w-]+\)$/);
     assert.match(resolve(base.get('background') ?? ''), /^#[0-9a-f]{3,6}$/i);
   });
 
   for (const selector of ['.hero-tile-mark', '.hero-tile-mark-warning']) {
-    it(`${selector}: texto contra el fondo de la marca`, () => {
+    it(`${selector}: text against the mark background`, () => {
       const color = declarations(selector).get('color') ?? '';
-      assert.notEqual(color, '', `${selector} sin color`);
+      assert.notEqual(color, '', `${selector} without color`);
       const ratio = contrast(color, base.get('background') ?? '');
       assert.ok(ratio >= 4.5, `${ratio.toFixed(2)}:1`);
     });
   }
 });
 
-/* WCAG 1.4.11: los bordes de los campos se calculan con los tokens reales (tokens.css + admin.css). */
-describe('WCAG 1.4.11: bordes de input/select/textarea ≥ 3:1', () => {
-  it('la regla de los campos usa --field-border', () => {
+/* WCAG 1.4.11: field borders are computed with the real tokens (tokens.css + admin.css). */
+describe('WCAG 1.4.11: input/select/textarea borders ≥ 3:1', () => {
+  it('the fields rule uses --field-border', () => {
     const rule = /input:not\(\[type='file'\]\), textarea, select \{[^}]*\}/.exec(css)?.[0] ?? '';
     assert.match(rule, /border: var\(--border-hairline\) solid var\(--field-border\)/);
   });
 
   for (const background of ['--bg-surface', '--bg-surface-alt', '--bg-page']) {
-    it(`--field-border contra ${background}`, () => {
+    it(`--field-border against ${background}`, () => {
       const ratio = contrast('var(--field-border)', `var(${background})`);
       assert.ok(ratio >= 3, `${ratio.toFixed(2)}:1`);
     });
   }
 
-  it('con foco el borde cambia (y se distingue del de reposo) sobre el fondo con foco', () => {
+  it('on focus the border changes (and differs from the resting one) over the focused background', () => {
     const focus = /input:focus, textarea:focus, select:focus \{([^}]*)\}/.exec(css)?.[1] ?? '';
     const border = /border-color: (var\([\w-]+\))/.exec(focus)?.[1] ?? '';
     assert.ok(border !== '' && resolve(border) !== resolve('var(--field-border)'), focus);

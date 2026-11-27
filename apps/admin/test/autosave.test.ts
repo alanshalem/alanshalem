@@ -4,19 +4,19 @@ import { i18nFor } from '../src/i18n/i18n.ts';
 import { AUTOSAVE_DELAY_MS, canAutosave, saveStatusText, type SaveState } from '../src/posts/autosave.ts';
 
 /*
- * Guardado automático (S3): solo borradores ya creados. Un post publicado se guarda a mano porque guardarlo regenera
- * el sitio; uno nuevo, también (crearlo fija su idioma, que se elige antes del primer guardado).
+ * Autosave: only drafts that already exist. A published post is saved by hand because saving it rebuilds the site;
+ * a new one too (creating it fixes its language, which is chosen before the first save).
  */
 
 const draft = { exists: true, published: false, title: 'T', dirty: true, saving: false };
 
 describe('canAutosave', () => {
-  it('un borrador existente con cambios, título y sin otro guardado en curso', () => {
+  it('an existing draft with changes, a title and no other save in progress', () => {
     assert.equal(canAutosave(draft), true);
     assert.equal(AUTOSAVE_DELAY_MS, 3000);
   });
 
-  it('nunca: publicado, nuevo, sin cambios, sin título o con un guardado en curso (sin pedidos superpuestos)', () => {
+  it('never: published, new, unchanged, untitled or with a save in progress (no overlapping requests)', () => {
     for (const change of [{ published: true }, { exists: false }, { dirty: false }, { title: '  ' }, { saving: true }]) {
       assert.equal(canAutosave({ ...draft, ...change }), false, JSON.stringify(change));
     }
@@ -35,17 +35,17 @@ describe('saveStatusText', () => {
     assert.equal(status({ kind: 'error' }, { dirty: true }), 'No se pudo guardar');
   });
 
-  it('cambios sin guardar: en un publicado, avisa que se guarda a mano', () => {
+  it('unsaved changes: on a published post, it says it is saved by hand', () => {
     assert.equal(status({ kind: 'saved', at }, { dirty: true }), 'Cambios sin guardar');
     assert.equal(status({ kind: 'idle' }, { dirty: true, published: true }), 'Cambios sin guardar · publicado: se guarda a mano');
   });
 
-  it('sin cambios ni guardados en esta visita: como antes', () => {
+  it('no changes and no saves this visit: as before', () => {
     assert.equal(status({ kind: 'idle' }), 'Todo guardado');
     assert.equal(status({ kind: 'idle' }, { exists: false }), '');
   });
 
-  it('en inglés, con la hora del idioma', () => {
+  it('in English, with the language time format', () => {
     assert.match(saveStatusText({ state: { kind: 'saved', at }, dirty: false, exists: true, published: false }, i18nFor('en')), /^Saved 2:05\sPM$/u);
   });
 });

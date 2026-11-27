@@ -4,7 +4,7 @@ import { blockStartLines } from '@blog/markdown';
 import { pairAnchors, syncedScrollTop } from '../src/editor/scrollSync.ts';
 import { renderPreview } from '../src/editor/preview.ts';
 
-/** Cuántos elementos hay en el primer nivel del HTML (los hijos de .prose), sin la sección de notas al pie. */
+/** How many elements are at the top level of the HTML (the children of .prose), without the footnotes section. */
 function topLevelElements(html: string): number {
   const VOID = new Set(['hr', 'br', 'img', 'input', 'source']);
   let depth = 0;
@@ -21,12 +21,12 @@ function topLevelElements(html: string): number {
 }
 
 /*
- * Scroll sincronizado (S2): el Markdown se parte en bloques de nivel superior con `blockStartLines` de @blog/markdown
- * (el mismo recorrido que el render; cada uno es un elemento hijo de .prose) y la vista previa interpola entre los pares.
+ * Synced scroll: the Markdown is split into top-level blocks with `blockStartLines` of @blog/markdown (the same pass
+ * as the render; each one is a child element of .prose) and the preview interpolates between the pairs.
  */
 
-describe('blockStartLines: dónde empieza cada bloque de nivel superior', () => {
-  it('título, párrafo de varias líneas, lista, código con línea en blanco, cita perezosa, tabla y regla', () => {
+describe('blockStartLines: where each top-level block starts', () => {
+  it('heading, multi-line paragraph, list, code with a blank line, lazy quote, table and rule', () => {
     const source = [
       '# T', '', 'párrafo', 'sigue', '', '- a', '- b', '', '```', 'x', '', 'y', '```',
       '> cita', 'perezosa', '', '| a | b |', '| - | - |', '| 1 | 2 |', '', '---',
@@ -34,45 +34,45 @@ describe('blockStartLines: dónde empieza cada bloque de nivel superior', () => 
     assert.deepEqual(blockStartLines(source), [0, 2, 5, 8, 13, 16, 20]);
   });
 
-  it('un título interrumpe el párrafo; "#II." sin espacio no es título; "2024." no abre lista', () => {
+  it('a heading interrupts the paragraph; "#II." without a space is not a heading; "2024." does not open a list', () => {
     assert.deepEqual(blockStartLines('texto\n## T'), [0, 1]);
     assert.deepEqual(blockStartLines('#II. no\nsigue'), [0]);
     assert.deepEqual(blockStartLines('a\n2024. fue'), [0]);
   });
 
-  it('listas: continuación indentada tras línea en blanco; otro tipo de marcador es otra lista', () => {
+  it('lists: indented continuation after a blank line; another marker kind is another list', () => {
     assert.deepEqual(blockStartLines('- a\n\n  b\n- c\n\notro'), [0, 5]);
     assert.deepEqual(blockStartLines('- a\n1. b'), [0, 1]);
   });
 
-  it('las definiciones de notas al pie no son bloques (el renderer las saca); CRLF cuenta igual', () => {
+  it('footnote definitions are not blocks (the renderer takes them out); CRLF counts the same', () => {
     assert.deepEqual(blockStartLines('a[^1]\n\n[^1]: nota\n    sigue\n\nb'), [0, 5]);
     assert.deepEqual(blockStartLines('a\r\n\r\nb'), [0, 2]);
   });
 
-  it('texto vacío: ningún bloque', () => {
+  it('empty text: no blocks', () => {
     assert.deepEqual(blockStartLines(''), []);
   });
 
-  // Los casos donde la copia de las expresiones del renderer (principio 2, L4) ya se había separado de blocks.ts.
-  it('un cierre de código con 4 espacios de sangría no cierra (sigue siendo código)', () => {
+  // The cases where a former copy of the renderer's regexes had already drifted from blocks.ts.
+  it('a code fence close indented 4 spaces does not close (it is still code)', () => {
     assert.deepEqual(blockStartLines('```\n    ```\nx\n```\n\nfin'), [0, 5]);
   });
 
-  it('una tabla con distinta cantidad de columnas en el separador es un párrafo y una regla', () => {
+  it('a table with a different column count in the separator is a paragraph and a rule', () => {
     assert.deepEqual(blockStartLines('a | b\n---\ntexto'), [0, 1, 2]);
   });
 
-  it('``` con un acento grave en la info no abre código', () => {
+  it('``` with a backtick in the info string does not open code', () => {
     assert.deepEqual(blockStartLines('``` a`b\n\n# T'), [0, 2]);
   });
 
-  it('cada bloque es un hijo de la vista previa: misma cuenta que el HTML del renderer', () => {
+  it('each block is a child of the preview: the same count as the renderer HTML', () => {
     const markdown = '# T\n\n> [!NOTE]\n> caja\n\n![a](/media/a.png "pie")\n\n- a\n\n  b\n\n1. x\n\n| a | b |\n|---|---|\n| 1 | 2 |';
     assert.equal(blockStartLines(markdown).length, topLevelElements(renderPreview(markdown, 'es').html));
   });
 
-  it('el scroll usa los bloques del mismo render de la vista previa (sin un segundo recorrido)', () => {
+  it('the scroll uses the blocks of the same preview render (no second pass)', () => {
     const markdown = '# T\n\ntexto[^1]\n\n[^1]: nota\n\n- a\n- b\n\n```\nx\n```';
     const preview = renderPreview(markdown, 'es');
     assert.deepEqual(preview.blockStarts, blockStartLines(markdown));
@@ -81,22 +81,22 @@ describe('blockStartLines: dónde empieza cada bloque de nivel superior', () => 
 });
 
 describe('pairAnchors + syncedScrollTop', () => {
-  it('con la misma cantidad de bloques, cada bloque del editor se alinea con el suyo', () => {
+  it('with the same number of blocks, each editor block lines up with its own', () => {
     const anchors = pairAnchors([0, 100, 400], [0, 300, 500], { source: 600, target: 1000 });
     assert.equal(syncedScrollTop(anchors, 100), 300);
-    assert.equal(syncedScrollTop(anchors, 250), 400, 'entre dos bloques interpola');
-    assert.equal(syncedScrollTop(anchors, 600), 1000, 'al final del editor, el final de la vista previa');
+    assert.equal(syncedScrollTop(anchors, 250), 400, 'interpolates between two blocks');
+    assert.equal(syncedScrollTop(anchors, 600), 1000, 'at the end of the editor, the end of the preview');
   });
 
-  it('si los bloques no coinciden (el texto cambió y la vista previa no), cae a proporcional', () => {
+  it('if the blocks do not match (the text changed and the preview did not), it falls back to proportional', () => {
     const anchors = pairAnchors([0, 100], [0, 300, 500], { source: 200, target: 1000 });
     assert.equal(syncedScrollTop(anchors, 50), 250);
   });
 
-  it('anclas que retroceden se ignoran y el resultado nunca es negativo', () => {
+  it('anchors that go backwards are ignored and the result is never negative', () => {
     const anchors = pairAnchors([0, 100, 200], [0, 500, 400], { source: 300, target: 600 });
     assert.equal(syncedScrollTop(anchors, 100), 500);
-    assert.equal(syncedScrollTop(anchors, 200), 550, 'el bloque que retrocede no cuenta: interpola hasta el final');
+    assert.equal(syncedScrollTop(anchors, 200), 550, 'the block that goes backwards does not count: it interpolates to the end');
     assert.equal(syncedScrollTop(pairAnchors([], [], { source: 0, target: 0 }), 10), 0);
   });
 });

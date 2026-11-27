@@ -5,7 +5,7 @@ import { i18nFor } from '../src/i18n/i18n.ts';
 import { DEFAULT_LANG, LANGS } from '../src/languages.ts';
 import { groupPosts, missingVersion, translationWarnings, versionLabel, versionSlots } from '../src/posts/versions.ts';
 
-/* Versiones de un post por idioma (L3, L4): la lista agrupa por translationGroupId y el editor avisa en la traducción. */
+/* A post's language versions: the list groups by translationGroupId and the editor warns in the translation. */
 
 const es = i18nFor('es');
 const en = i18nFor('en');
@@ -27,12 +27,12 @@ const summary = (id: string, overrides: Partial<PostSummary> = {}): PostSummary 
   ...overrides,
 });
 
-describe('languages: los dos idiomas fijos en un solo lugar (L3)', () => {
-  it('español primero y por defecto; inglés', () => {
+describe('languages: the two fixed languages in one place', () => {
+  it('Spanish first and default; English', () => {
     assert.deepEqual(LANGS, ['es', 'en']);
     assert.equal(DEFAULT_LANG, 'es');
   });
-  it('sus nombres en la interfaz: en español, Español e Inglés; en inglés, Spanish y English', () => {
+  it('their UI names: in Spanish, Español and Inglés; in English, Spanish and English', () => {
     const names = (i18n: typeof es) =>
       LANGS.map((lang) => [i18n.t(`lang.label.${lang}`), i18n.t(`lang.inSentence.${lang}`)]);
     assert.deepEqual(names(es), [
@@ -46,8 +46,8 @@ describe('languages: los dos idiomas fijos en un solo lugar (L3)', () => {
   });
 });
 
-describe('groupPosts: una fila por grupo de traducción', () => {
-  it('junta las versiones del mismo grupo y respeta el orden en que llega cada grupo', () => {
+describe('groupPosts: one row per translation group', () => {
+  it('joins the versions of the same group and keeps the order each group arrives in', () => {
     const posts = [
       summary('en1', { lang: 'en', translationGroupId: 'g1', updatedAt: '2026-11-25T12:00:00Z' }),
       summary('solo', { translationGroupId: 'g2', updatedAt: '2026-11-25T11:00:00Z' }),
@@ -63,7 +63,7 @@ describe('groupPosts: una fila por grupo de traducción', () => {
     );
   });
 
-  it('el título y el enlace salen de la versión en español cuando existe', () => {
+  it('the title and link come from the Spanish version when it exists', () => {
     const [group] = groupPosts([
       summary('en1', { lang: 'en', translationGroupId: 'g1', title: 'Hello' }),
       summary('es1', { lang: 'es', translationGroupId: 'g1', title: 'Hola' }),
@@ -72,12 +72,12 @@ describe('groupPosts: una fila por grupo de traducción', () => {
     assert.equal(group?.main.title, 'Hola');
   });
 
-  it('sin versión en español, la fila usa la que haya', () => {
+  it('without a Spanish version, the row uses whichever there is', () => {
     const [group] = groupPosts([summary('en1', { lang: 'en', title: 'Only English' })]);
     assert.equal(group?.main.id, 'en1');
   });
 
-  it('la fecha del grupo es la última edición de cualquiera de sus versiones', () => {
+  it('the group date is the latest edit of any of its versions', () => {
     const [group] = groupPosts([
       summary('es1', { translationGroupId: 'g1', updatedAt: '2026-11-25T09:00:00Z' }),
       summary('en1', { lang: 'en', translationGroupId: 'g1', updatedAt: '2026-11-26T09:00:00Z' }),
@@ -85,13 +85,13 @@ describe('groupPosts: una fila por grupo de traducción', () => {
     assert.equal(group?.updatedAt, '2026-11-26T09:00:00Z');
   });
 
-  it('lista vacía: ningún grupo', () => {
+  it('empty list: no groups', () => {
     assert.deepEqual(groupPosts([]), []);
   });
 });
 
-describe('versionSlots: un lugar por idioma, con su versión o vacío', () => {
-  it('en el orden de LANGS; el idioma sin versión queda en null', () => {
+describe('versionSlots: one slot per language, with its version or empty', () => {
+  it('in LANGS order; a language without a version stays null', () => {
     const es = summary('es1');
     assert.deepEqual(versionSlots([es]), [
       { lang: 'es', version: es },
@@ -99,38 +99,38 @@ describe('versionSlots: un lugar por idioma, con su versión o vacío', () => {
     ]);
   });
 
-  it('puede excluir el idioma propio (el editor solo lista las otras versiones)', () => {
+  it('can exclude its own language (the editor only lists the other versions)', () => {
     const en = { id: 'en1', lang: 'en' as const, slug: 'hello', status: 'published' as const, updatedAt: '' };
     assert.deepEqual(versionSlots([en], 'es'), [{ lang: 'en', version: en }]);
     assert.deepEqual(versionSlots([], 'en'), [{ lang: 'es', version: null }]);
   });
 });
 
-describe('versionLabel: el texto del chip por idioma', () => {
-  it('código del idioma y estado', () => {
+describe('versionLabel: the chip text per language', () => {
+  it('language code and status', () => {
     assert.equal(versionLabel('es', 'published', es), 'ES · Publicado');
     assert.equal(versionLabel('en', 'draft', es), 'EN · Borrador');
   });
 
-  it('en inglés: el código no cambia, el estado sí', () => {
+  it('in English: the code stays, the status changes', () => {
     assert.equal(versionLabel('es', 'published', en), 'ES · Published');
     assert.equal(versionLabel('en', 'draft', en), 'EN · Draft');
   });
 });
 
-describe('missingVersion: el chip de una versión que falta es la acción de crearla (P3, L4)', () => {
-  it('se ve "+ EN" y se anuncia "Crear versión en inglés", con el código visible en el nombre (WCAG 2.5.3)', () => {
+describe('missingVersion: the chip of a missing version is the action that creates it', () => {
+  it('shows "+ EN" and announces "Crear versión en inglés", with the visible code in the name (WCAG 2.5.3)', () => {
     assert.deepEqual(missingVersion('en', es), { text: '+ EN', label: 'Crear versión en inglés (EN)' });
     assert.deepEqual(missingVersion('es', es), { text: '+ ES', label: 'Crear versión en español (ES)' });
   });
 
-  it('en inglés', () => {
+  it('in English', () => {
     assert.deepEqual(missingVersion('en', en), { text: '+ EN', label: 'Create English version (EN)' });
     assert.deepEqual(missingVersion('es', en), { text: '+ ES', label: 'Create Spanish version (ES)' });
   });
 });
 
-describe('translationWarnings: "Sin traducir" y "Desactualizada" en la traducción (L3)', () => {
+describe('translationWarnings: "Sin traducir" and "Desactualizada" in the translation', () => {
   const original = { title: 'Hola mundo', body: '# Hola\n\nTexto.', createdAt: '2026-11-20T10:00:00Z', contentUpdatedAt: '2026-11-21T10:00:00Z' };
   const translation = (overrides: Partial<typeof original> = {}) => ({
     title: 'Hello world',
@@ -140,53 +140,53 @@ describe('translationWarnings: "Sin traducir" y "Desactualizada" en la traducci�
     ...overrides,
   });
 
-  it('traducida y al día: sin avisos', () => {
+  it('translated and up to date: no warnings', () => {
     assert.deepEqual(translationWarnings(translation(), original), []);
   });
 
-  it('recién creada (contenido copiado): sin traducir', () => {
+  it('just created (copied content): untranslated', () => {
     assert.deepEqual(translationWarnings(translation({ title: original.title, body: original.body }), original), ['untranslated']);
   });
 
-  it('basta con que el título o el cuerpo sigan iguales (sin contar espacios de los bordes)', () => {
+  it('it is enough for the title or the body to stay equal (ignoring edge spaces)', () => {
     assert.deepEqual(translationWarnings(translation({ title: ` ${original.title} ` }), original), ['untranslated']);
     assert.deepEqual(translationWarnings(translation({ body: `${original.body}\n` }), original), ['untranslated']);
   });
 
-  it('el contenido del original cambió después del de la traducción: desactualizada', () => {
+  it('the original content changed after the translation one: outdated', () => {
     assert.deepEqual(translationWarnings(translation({ contentUpdatedAt: '2026-11-21T09:59:59Z' }), original), ['outdated']);
   });
 
-  it('misma fecha de cambio de contenido: no está desactualizada', () => {
+  it('same content change date: not outdated', () => {
     assert.deepEqual(translationWarnings(translation({ contentUpdatedAt: original.contentUpdatedAt }), original), []);
   });
 
-  it('los dos avisos a la vez', () => {
+  it('both warnings at once', () => {
     assert.deepEqual(
       translationWarnings(translation({ title: original.title, contentUpdatedAt: '2026-11-21T00:00:00Z' }), original),
       ['untranslated', 'outdated'],
     );
   });
 
-  // Multiidioma L9: publicar, despublicar o programar cambian `updatedAt` pero no el contenido. Los avisos miran
-  // `contentUpdatedAt`; `updatedAt` va en los datos a propósito, para que mirarlo haga fallar estos casos.
-  it('publicar el original sin cambiar su contenido no marca la traducción como desactualizada', () => {
+  // Publishing, unpublishing or scheduling change `updatedAt` but not the content. The warnings look at
+  // `contentUpdatedAt`; `updatedAt` is in the data on purpose, so looking at it makes these cases fail.
+  it('publishing the original without changing its content does not mark the translation outdated', () => {
     const t = (hour: number) => `2026-11-25T${String(hour).padStart(2, '0')}:00:00Z`;
-    // Original creado en t0; traducción creada en t1 y editada en t2; original publicado en t3 sin cambios.
+    // Original created at t0; translation created at t1 and edited at t2; original published at t3 unchanged.
     const publishedOriginal = { title: 'Hola', body: 'Texto.', createdAt: t(0), contentUpdatedAt: t(0), updatedAt: t(3) };
     const upToDate = { title: 'Hello', body: 'Text.', createdAt: t(1), contentUpdatedAt: t(2), updatedAt: t(2) };
     assert.deepEqual(translationWarnings(upToDate, publishedOriginal), []);
   });
 
-  it('publicar la traducción no borra un "desactualizada" real', () => {
+  it('publishing the translation does not clear a real "Desactualizada"', () => {
     const t = (hour: number) => `2026-11-25T${String(hour).padStart(2, '0')}:00:00Z`;
-    // Traducción creada en t1; original editado en t2; traducción publicada en t3 sin ponerse al día.
+    // Translation created at t1; original edited at t2; translation published at t3 without catching up.
     const editedOriginal = { title: 'Hola', body: 'Texto nuevo.', createdAt: t(0), contentUpdatedAt: t(2), updatedAt: t(2) };
     const published = { title: 'Hello', body: 'Text.', createdAt: t(1), contentUpdatedAt: t(1), updatedAt: t(3) };
     assert.deepEqual(translationWarnings(published, editedOriginal), ['outdated']);
   });
 
-  it('el original (la versión creada antes) nunca muestra avisos', () => {
+  it('the original (the version created first) never shows warnings', () => {
     const copy = translation({ title: original.title, body: original.body });
     assert.deepEqual(translationWarnings(original, copy), []);
   });

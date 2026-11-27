@@ -16,8 +16,8 @@ import {
 } from '../src/settings/validate.ts';
 
 /*
- * Estas reglas son un espejo de las del dominio de la API (L4: SiteSettingsContent, PostContent, WebUrl).
- * Sirven para avisar antes de enviar; la API sigue siendo la autoridad y sus errores se muestran igual.
+ * These rules mirror the API domain ones (SiteSettingsContent, PostContent, WebUrl).
+ * They warn before sending; the API stays the authority and its errors are shown anyway.
  */
 
 const es = i18nFor('es');
@@ -25,58 +25,58 @@ const en = i18nFor('en');
 
 const form = (overrides: Partial<SettingsForm> = {}): SettingsForm => ({ ...emptySettingsForm(), name: 'Alan', ...overrides });
 
-describe('isImageUrl: ruta /media/... o URL http(s)', () => {
-  for (const ok of ['/media/abc.png', '/media/2026/11/x.webp', 'https://ejemplo.com/a.jpg', 'http://ejemplo.com/a', 'HTTPS://EJEMPLO.COM/A.PNG']) {
-    it(`acepta ${ok}`, () => assert.equal(isImageUrl(ok), true));
+describe('isImageUrl: /media/... path or http(s) URL', () => {
+  for (const ok of ['/media/abc.png', '/media/2026/11/x.webp', 'https://example.com/a.jpg', 'http://example.com/a', 'HTTPS://EXAMPLE.COM/A.PNG']) {
+    it(`accepts ${ok}`, () => assert.equal(isImageUrl(ok), true));
   }
   for (const bad of [
     '',
     '/media/',
-    '/media/../secreto.png',
-    '/media/%2e%2e/secreto.png',
-    '/media/.%2E/secreto.png',
-    '/otra/a.png',
+    '/media/../secret.png',
+    '/media/%2e%2e/secret.png',
+    '/media/.%2E/secret.png',
+    '/other/a.png',
     'media/a.png',
-    '//otro-sitio.com/a.png',
+    '//other-site.com/a.png',
     'javascript:alert(1)',
     'data:image/png;base64,AAAA',
     'https://',
-    'https://ejemplo.com/a b.jpg',
-    'https://ejemplo.com/a".jpg',
-    'https://ejemplo.com/<a>.jpg',
-    'C:\\fotos\\a.jpg',
-    `https://ejemplo.com/${'a'.repeat(2048)}`,
+    'https://example.com/a b.jpg',
+    'https://example.com/a".jpg',
+    'https://example.com/<a>.jpg',
+    'C:\\photos\\a.jpg',
+    `https://example.com/${'a'.repeat(2048)}`,
   ]) {
-    it(`rechaza ${JSON.stringify(bad.slice(0, 40))}`, () => assert.equal(isImageUrl(bad), false));
+    it(`rejects ${JSON.stringify(bad.slice(0, 40))}`, () => assert.equal(isImageUrl(bad), false));
   }
 });
 
-describe('isHttpUrl: solo URLs absolutas http(s) con host', () => {
-  it('acepta http y https', () => {
+describe('isHttpUrl: only absolute http(s) URLs with a host', () => {
+  it('accepts http and https', () => {
     assert.equal(isHttpUrl('https://github.com/alan'), true);
     assert.equal(isHttpUrl('http://x.com'), true);
   });
-  it('rechaza sin esquema, otros esquemas, sin host y rutas /media', () => {
+  it('rejects no scheme, other schemes, no host and /media paths', () => {
     for (const bad of ['github.com/alan', 'ftp://x.com', 'mailto:a@b.com', 'https://', '/media/a.png', 'https://x.com/a b']) {
       assert.equal(isHttpUrl(bad), false, bad);
     }
   });
 });
 
-describe('isEmail: forma mínima algo@dominio.tld', () => {
-  it('acepta direcciones comunes', () => {
-    assert.equal(isEmail('yo@ejemplo.com'), true);
+describe('isEmail: minimal something@domain.tld shape', () => {
+  it('accepts common addresses', () => {
+    assert.equal(isEmail('me@example.com'), true);
     assert.equal(isEmail('a@b.c'), true);
   });
-  it('rechaza sin dominio, sin tld, con espacios o con dos @', () => {
-    for (const bad of ['yo', 'yo@ejemplo', 'yo @ejemplo.com', 'yo@ejemplo .com', 'a@b@c.com', '@ejemplo.com']) {
+  it('rejects no domain, no tld, with spaces or with two @', () => {
+    for (const bad of ['me', 'me@example', 'me @example.com', 'me@example .com', 'a@b@c.com', '@example.com']) {
       assert.equal(isEmail(bad), false, bad);
     }
   });
 });
 
 describe('cleanOptional', () => {
-  it('recorta y convierte el vacío en null', () => {
+  it('trims and turns empty into null', () => {
     assert.equal(cleanOptional('  hola  '), 'hola');
     assert.equal(cleanOptional('   '), null);
     assert.equal(cleanOptional(''), null);
@@ -84,9 +84,9 @@ describe('cleanOptional', () => {
 });
 
 describe('validateSettings', () => {
-  it('normaliza: recorta todo y los opcionales vacíos viajan como null', () => {
+  it('normalizes: trims everything and empty optionals travel as null', () => {
     const result = validateSettings(
-      form({ name: '  Alan  ', tagline: ' Notas ', bio: '  Hola **mundo**  ', email: ' yo@ejemplo.com ', githubUrl: '   ' }),
+      form({ name: '  Alan  ', tagline: ' Notas ', bio: '  Hola **mundo**  ', email: ' me@example.com ', githubUrl: '   ' }),
       es,
     );
     assert.deepEqual(result, {
@@ -97,7 +97,7 @@ describe('validateSettings', () => {
         bio: 'Hola **mundo**',
         taglineEn: null,
         bioEn: null,
-        email: 'yo@ejemplo.com',
+        email: 'me@example.com',
         githubUrl: null,
         linkedinUrl: null,
         xUrl: null,
@@ -105,7 +105,7 @@ describe('validateSettings', () => {
     });
   });
 
-  it('el nombre es obligatorio (vacío o solo espacios)', () => {
+  it('the name is required (empty or only spaces)', () => {
     for (const name of ['', '   ']) {
       const result = validateSettings(form({ name }), es);
       assert.equal(result.ok, false);
@@ -113,7 +113,7 @@ describe('validateSettings', () => {
     }
   });
 
-  it('límites de largo como la API', () => {
+  it('length limits like the API', () => {
     const result = validateSettings(
       form({ name: 'a'.repeat(101), tagline: 'a'.repeat(201), bio: 'a'.repeat(2001) }),
       es,
@@ -125,15 +125,15 @@ describe('validateSettings', () => {
     });
   });
 
-  it('justo en el límite pasa', () => {
+  it('right at the limit passes', () => {
     const result = validateSettings(form({ name: 'a'.repeat(100), bio: 'a'.repeat(2000) }), es);
     assert.equal(result.ok, true);
   });
 
-  it('junta todos los errores de formato a la vez, con los mensajes de la API', () => {
+  it('collects every format error at once, with the API messages', () => {
     const result = validateSettings(
       form({
-        email: 'yo@ejemplo',
+        email: 'me@example',
         githubUrl: 'github.com/alan',
         linkedinUrl: 'javascript:alert(1)',
         xUrl: '/media/x.png',
@@ -148,33 +148,33 @@ describe('validateSettings', () => {
     });
   });
 
-  it('la foto del hero ya no es un ajuste: el formulario no tiene campos heroImage* (L10)', () => {
+  it('the hero photo is no longer a setting: the form has no heroImage* fields', () => {
     assert.deepEqual(Object.keys(emptySettingsForm()).filter((key) => key.startsWith('heroImage')), []);
     const result = validateSettings(form(), es);
     assert.deepEqual(result.ok && Object.keys(result.input).filter((key) => key.startsWith('heroImage')), []);
   });
 });
 
-describe('validateSettings: textos en inglés (L4, L6: taglineEn y bioEn, mismos límites que sus pares)', () => {
-  it('recorta; vacíos viajan como null (el sitio en inglés usa el texto en español)', () => {
+describe('validateSettings: English texts (taglineEn and bioEn, same limits as their counterparts)', () => {
+  it('trims; empty ones travel as null (the English site uses the Spanish text)', () => {
     const result = validateSettings(form({ taglineEn: '  Notes  ', bioEn: '   ' }), es);
     assert.equal(result.ok && result.input.taglineEn, 'Notes');
     assert.equal(result.ok && result.input.bioEn, null);
   });
 
-  it('el nombre es uno solo en los dos idiomas (L12): ni campo ni dato nameEn', () => {
+  it('the name is a single field for both languages: no nameEn field or value', () => {
     assert.deepEqual(Object.keys(emptySettingsForm()).filter((key) => key.startsWith('name')), ['name']);
     const result = validateSettings(form({ name: ' Alan ' }), es);
     assert.deepEqual(result.ok && Object.keys(result.input).filter((key) => key.startsWith('name')), ['name']);
     assert.equal(result.ok && result.input.name, 'Alan');
   });
 
-  it('justo en el límite pasa', () => {
+  it('right at the limit passes', () => {
     const result = validateSettings(form({ taglineEn: 'a'.repeat(200), bioEn: 'a'.repeat(2000) }), es);
     assert.equal(result.ok, true);
   });
 
-  it('un carácter de más: error en cada campo en inglés', () => {
+  it('one character too many: an error on each English field', () => {
     const result = validateSettings(form({ taglineEn: 'a'.repeat(201), bioEn: 'a'.repeat(2001) }), es);
     assert.deepEqual(!result.ok && result.errors, {
       taglineEn: 'La frase en inglés no puede superar 200 caracteres.',
@@ -183,11 +183,11 @@ describe('validateSettings: textos en inglés (L4, L6: taglineEn y bioEn, mismos
   });
 });
 
-describe('validateSettings y validateCover en inglés (L4: también se traducen los mensajes del cliente)', () => {
-  it('obligatorio, largo y formato', () => {
+describe('validateSettings and validateCover in English (the client messages are translated too)', () => {
+  it('required, length and format', () => {
     assert.deepEqual(validateSettings(form({ name: ' ' }), en), { ok: false, errors: { name: 'The name is required.' } });
     const result = validateSettings(
-      form({ tagline: 'a'.repeat(201), bioEn: 'a'.repeat(2001), email: 'yo@ejemplo', githubUrl: 'github.com/alan' }),
+      form({ tagline: 'a'.repeat(201), bioEn: 'a'.repeat(2001), email: 'me@example', githubUrl: 'github.com/alan' }),
       en,
     );
     assert.deepEqual(!result.ok && result.errors, {
@@ -198,8 +198,8 @@ describe('validateSettings y validateCover en inglés (L4: también se traducen 
     });
   });
 
-  it('portada', () => {
-    assert.deepEqual(validateCover('imagenes/p.jpg', '', en), {
+  it('cover', () => {
+    assert.deepEqual(validateCover('images/p.jpg', '', en), {
       ok: false,
       error: 'The cover must be a /media/... path or an http(s) URL.',
     });
@@ -211,7 +211,7 @@ describe('validateSettings y validateCover en inglés (L4: también se traducen 
 });
 
 describe('toSettingsForm', () => {
-  it('pasa los null a texto vacío para los inputs', () => {
+  it('turns nulls into empty text for the inputs', () => {
     const settings: SiteSettings = {
       name: 'Mi blog',
       tagline: null,
@@ -232,14 +232,14 @@ describe('toSettingsForm', () => {
     });
   });
 
-  it('ida y vuelta: lo que viene de la API se vuelve a guardar igual', () => {
+  it('round trip: what comes from the API is saved back unchanged', () => {
     const settings: SiteSettings = {
       name: 'Alan',
       tagline: 'Notas',
       bio: null,
       taglineEn: 'Notes',
       bioEn: null,
-      email: 'yo@ejemplo.com',
+      email: 'me@example.com',
       githubUrl: null,
       linkedinUrl: 'https://linkedin.com/in/a',
       xUrl: null,
@@ -249,22 +249,22 @@ describe('toSettingsForm', () => {
 });
 
 describe('validateCover', () => {
-  it('sin portada: ambos null (un alt sin imagen no significa nada)', () => {
-    assert.deepEqual(validateCover('  ', 'texto suelto', es), { ok: true, coverUrl: null, coverAlt: null });
+  it('no cover: both null (an alt without an image means nothing)', () => {
+    assert.deepEqual(validateCover('  ', 'stray text', es), { ok: true, coverUrl: null, coverAlt: null });
   });
 
-  it('recorta URL y alt; alt vacío = null', () => {
+  it('trims URL and alt; empty alt = null', () => {
     assert.deepEqual(validateCover(' /media/p.jpg ', '  Un faro  ', es), { ok: true, coverUrl: '/media/p.jpg', coverAlt: 'Un faro' });
     assert.deepEqual(validateCover('https://x.com/p.jpg', ' ', es), { ok: true, coverUrl: 'https://x.com/p.jpg', coverAlt: null });
   });
 
-  it('rechaza URLs que la API rechaza, con su mensaje', () => {
-    for (const bad of ['javascript:alert(1)', '//otro.com/p.jpg', 'imagenes/p.jpg']) {
+  it('rejects the URLs the API rejects, with its message', () => {
+    for (const bad of ['javascript:alert(1)', '//other.com/p.jpg', 'images/p.jpg']) {
       assert.deepEqual(validateCover(bad, '', es), { ok: false, error: 'La portada debe ser una ruta /media/... o una URL http(s).' });
     }
   });
 
-  it('alt de más de 300 caracteres', () => {
+  it('alt longer than 300 characters', () => {
     assert.deepEqual(validateCover('/media/p.jpg', 'a'.repeat(301), es), {
       ok: false,
       error: 'El texto alternativo de la portada no puede superar 300 caracteres.',
@@ -272,23 +272,23 @@ describe('validateCover', () => {
   });
 });
 
-describe('messageFromProblem: errores ProblemDetails de la API', () => {
-  it('prefiere detail (el mensaje del dominio)', () => {
+describe('messageFromProblem: API ProblemDetails errors', () => {
+  it('prefers detail (the domain message)', () => {
     assert.equal(
       messageFromProblem({ title: 'Datos inválidos', detail: 'El nombre es obligatorio.' }, 'Error 400'),
       'El nombre es obligatorio.',
     );
   });
-  it('si no hay detail, usa los errores de validación del binding y si no, el título', () => {
+  it('without detail, it uses the binding validation errors and otherwise the title', () => {
     assert.equal(
       messageFromProblem({ title: 'One or more validation errors occurred.', errors: { name: ['Requerido.'], email: ['Inválido.', 'Muy largo.'] } }, 'x'),
       'Requerido. Inválido. Muy largo.',
     );
     assert.equal(messageFromProblem({ title: 'Conflicto' }, 'Error 409'), 'Conflicto');
   });
-  it('si la respuesta no es un ProblemDetails, el fallback', () => {
+  it('if the response is not a ProblemDetails, the fallback', () => {
     assert.equal(messageFromProblem(null, 'Bad Gateway'), 'Bad Gateway');
-    assert.equal(messageFromProblem('texto', 'Bad Gateway'), 'Bad Gateway');
+    assert.equal(messageFromProblem('text', 'Bad Gateway'), 'Bad Gateway');
     assert.equal(messageFromProblem({ detail: '' }, 'Bad Gateway'), 'Bad Gateway');
   });
 });

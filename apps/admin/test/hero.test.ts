@@ -16,8 +16,8 @@ const es = i18nFor('es');
 const en = i18nFor('en');
 
 /*
- * Reglas de una foto del hero (L10): `alt` obligatorio (≤ 300), `credit` opcional (≤ 200).
- * Avisan antes de enviar; la API sigue siendo la autoridad y sus errores se muestran igual.
+ * Rules of a hero photo: `alt` required (≤ 300), `credit` optional (≤ 200).
+ * They warn before sending; the API stays the authority and its errors are shown anyway.
  */
 
 const media = (overrides: Partial<MediaAsset> = {}): MediaAsset => ({
@@ -45,7 +45,7 @@ const heroImage = (id: string, createdAt: string): HeroImage => ({
 const fields = (overrides: Partial<HeroImageFields> = {}): HeroImageFields => ({ ...toHeroImageFields(), ...overrides });
 
 describe('validateHeroImage', () => {
-  it('recorta; el crédito vacío viaja como null', () => {
+  it('trims; an empty credit travels as null', () => {
     assert.deepEqual(validateHeroImage(fields({ alt: '  Nebulosa de Orión  ', credit: '   ' }), es), {
       ok: true,
       input: { alt: 'Nebulosa de Orión', credit: null, altEn: null },
@@ -56,13 +56,13 @@ describe('validateHeroImage', () => {
     });
   });
 
-  it('el texto alternativo es obligatorio (vacío o solo espacios)', () => {
+  it('the alt text is required (empty or only spaces)', () => {
     for (const alt of ['', '   ']) {
       assert.deepEqual(validateHeroImage(fields({ alt }), es), { ok: false, errors: { alt: 'El texto alternativo es obligatorio.' } });
     }
   });
 
-  it('justo en el límite pasa', () => {
+  it('right at the limit passes', () => {
     const result = validateHeroImage(
       fields({
         alt: 'a'.repeat(HERO_IMAGE_LIMITS.alt),
@@ -74,7 +74,7 @@ describe('validateHeroImage', () => {
     assert.equal(result.ok, true);
   });
 
-  it('un carácter de más: junta los dos errores a la vez', () => {
+  it('one character too many: both errors together', () => {
     assert.deepEqual(validateHeroImage(fields({ alt: 'a'.repeat(301), credit: 'c'.repeat(201) }), es), {
       ok: false,
       errors: {
@@ -84,11 +84,11 @@ describe('validateHeroImage', () => {
     });
   });
 
-  it('los límites son los de L10; el texto alternativo en inglés, el mismo que su par (L4); el crédito es uno solo (L13)', () => {
+  it('the API limits; the English alt text, the same as its counterpart; the credit is a single field', () => {
     assert.deepEqual(HERO_IMAGE_LIMITS, { alt: 300, credit: 200, altEn: 300 });
   });
 
-  it('texto alternativo en inglés opcional: recortado, vacío = null (el sitio en inglés usa el de español)', () => {
+  it('optional English alt text: trimmed, empty = null (the English site uses the Spanish one)', () => {
     assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: ' Moon ' }), es), {
       ok: true,
       input: { alt: 'Luna', credit: null, altEn: 'Moon' },
@@ -99,7 +99,7 @@ describe('validateHeroImage', () => {
     });
   });
 
-  it('texto alternativo en inglés: un carácter de más, con su propio mensaje', () => {
+  it('English alt text: one character too many, with its own message', () => {
     assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', altEn: 'a'.repeat(301) }), es), {
       ok: false,
       errors: { altEn: 'El texto alternativo en inglés no puede superar 300 caracteres.' },
@@ -107,8 +107,8 @@ describe('validateHeroImage', () => {
   });
 });
 
-describe('validateHeroImage en inglés', () => {
-  it('obligatorio y largo, con el mensaje de cada campo', () => {
+describe('validateHeroImage in English', () => {
+  it('required and length, with each field message', () => {
     assert.deepEqual(validateHeroImage(fields({ alt: '' }), en), { ok: false, errors: { alt: 'The alt text is required.' } });
     assert.deepEqual(validateHeroImage(fields({ alt: 'Luna', credit: 'c'.repeat(201), altEn: 'a'.repeat(301) }), en), {
       ok: false,
@@ -120,19 +120,19 @@ describe('validateHeroImage en inglés', () => {
   });
 });
 
-describe('toHeroImageFields: lo guardado como texto de los inputs', () => {
-  it('sin ítem guardado: todo vacío', () => {
+describe('toHeroImageFields: the saved values as input text', () => {
+  it('without a saved item: all empty', () => {
     assert.deepEqual(toHeroImageFields(), { alt: '', credit: '', altEn: '' });
   });
-  it('los null pasan a vacío; ida y vuelta igual', () => {
+  it('nulls become empty; the round trip is identical', () => {
     const saved = { alt: 'Luna', credit: null, altEn: 'Moon' };
     assert.deepEqual(toHeroImageFields(saved), { alt: 'Luna', credit: '', altEn: 'Moon' });
     assert.deepEqual(validateHeroImage(toHeroImageFields(saved), es), { ok: true, input: saved });
   });
 });
 
-describe('thumbnailUrl: la variante WebP más chica', () => {
-  it('elige el WebP de menor ancho e ignora AVIF', () => {
+describe('thumbnailUrl: the smallest WebP variant', () => {
+  it('picks the narrowest WebP and ignores AVIF', () => {
     const asset = media({
       variants: [
         { format: 'avif', width: 640, url: '/media/abc/640.avif' },
@@ -144,14 +144,14 @@ describe('thumbnailUrl: la variante WebP más chica', () => {
     assert.equal(thumbnailUrl(asset), '/media/abc/640.webp');
   });
 
-  it('sin variantes WebP usa la URL principal del asset', () => {
+  it('without WebP variants it uses the asset main URL', () => {
     assert.equal(thumbnailUrl(media({ variants: [{ format: 'avif', width: 640, url: '/media/abc/640.avif' }] })), '/media/abc/1600.webp');
     assert.equal(thumbnailUrl(media()), '/media/abc/1600.webp');
   });
 });
 
 describe('inUploadOrder', () => {
-  it('ordena por fecha de subida ascendente sin mutar la lista', () => {
+  it('sorts by ascending upload date without mutating the list', () => {
     const list = [heroImage('c', '2026-11-25T12:00:00Z'), heroImage('a', '2026-11-25T10:00:00Z'), heroImage('b', '2026-11-25T11:00:00Z')];
     assert.deepEqual(
       inUploadOrder(list).map((image) => image.id),
@@ -164,8 +164,8 @@ describe('inUploadOrder', () => {
   });
 });
 
-describe('discardConfirmation: Descartar pide confirmar solo si se pierde trabajo hecho (P3, L4)', () => {
-  it('un video procesándose o un archivo ya subido: pregunta, con el nombre del archivo', () => {
+describe('discardConfirmation: Descartar asks for confirmation only if finished work would be lost', () => {
+  it('a video being processed or an already uploaded file: asks, with the file name', () => {
     assert.equal(
       discardConfirmation({ status: 'processing', fileName: 'mar.mp4' }, es),
       '¿Descartar “mar.mp4”? El video se está procesando: se pierde ese trabajo.',
@@ -184,7 +184,7 @@ describe('discardConfirmation: Descartar pide confirmar solo si se pierde trabaj
     );
   });
 
-  it('nada que perder (en el editor, en cola, subiendo o con error): descarta sin preguntar', () => {
+  it('nothing to lose (in the editor, queued, uploading or failed): discards without asking', () => {
     for (const status of ['editing', 'queued', 'uploading', 'failed'] as const) {
       assert.equal(discardConfirmation({ status, fileName: 'x.jpg' }, es), null, status);
     }

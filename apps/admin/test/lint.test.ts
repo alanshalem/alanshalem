@@ -4,54 +4,54 @@ import { i18nFor } from '../src/i18n/i18n.ts';
 import { describeIssue, lintPost, type LintIssue } from '../src/posts/lint.ts';
 import { META_DESCRIPTION_MAX, SEO_TITLE_MAX } from '../src/posts/seo.ts';
 
-/* Revisor del post (S3): reglas puras; cada aviso dice dónde está (línea del cuerpo o campo) para ir ahí. */
+/* The post reviewer: pure rules; each warning says where it is (body line or field) so one can go there. */
 
 const OK = { title: 'Un título', summary: 'Un resumen.' };
 const lintBody = (body: string): LintIssue[] => lintPost({ ...OK, body });
 const rules = (issues: readonly LintIssue[]) => issues.map((issue) => issue.rule);
 
-describe('revisor: cuerpo', () => {
-  it('un post sin problemas no tiene avisos', () => {
+describe('reviewer: body', () => {
+  it('a post without problems has no warnings', () => {
     const body = '## Uno\n\n### Dos\n\nTexto[^1] con [link](https://x.com) y ![foto](/a.webp).\n\n> [!TIP]\n> ok\n\n[^1]: nota';
     assert.deepEqual(lintBody(body), []);
   });
 
-  it('título sin espacio después de # ("#II."): no es un título', () => {
+  it('heading without a space after # ("#II."): it is not a heading', () => {
     assert.deepEqual(lintBody('texto\n\n#II. La idea\n> ##Otra'), [
       { rule: 'headingSpace', target: { line: 2 }, params: { text: '#II.' } },
       { rule: 'headingSpace', target: { line: 3 }, params: { text: '##Otra' } },
     ]);
   });
 
-  it('salto de nivel entre títulos seguidos (el primero puede ser cualquiera)', () => {
+  it('level skip between consecutive headings', () => {
     assert.deepEqual(lintBody('## Uno\n\n#### Tres\n\n## Dos\n\n### Ok'), [
       { rule: 'headingSkip', target: { line: 2 }, params: { from: 2, to: 4 } },
     ]);
   });
 
-  // L5: el título del post es el h1; las secciones empiezan en ## (h2). Un # suelto se publica como h2.
-  it('los niveles empiezan en ##: un primer ### salta desde el título del post (nivel 1)', () => {
+  // The post title is the h1; sections start at ## (h2). A stray # is published as h2.
+  it('levels start at ##: a first ### skips from the post title (level 1)', () => {
     assert.deepEqual(lintBody('### Sub\n\ntexto'), [
       { rule: 'headingSkip', target: { line: 0 }, params: { from: 1, to: 3 } },
     ]);
     assert.deepEqual(lintBody('## Sección\n\n### Sub'), []);
   });
 
-  it('un # en el cuerpo: "Usá ## para secciones" (y cuenta como ##, sin saltos falsos)', () => {
+  it('a # in the body: "Usá ## para secciones" (and it counts as ##, no false skips)', () => {
     assert.deepEqual(lintBody('texto\n\n# Sección\n\n### Sub\n\n> # En cita'), [
       { rule: 'headingOne', target: { line: 2 }, params: {} },
       { rule: 'headingOne', target: { line: 6 }, params: {} },
     ]);
   });
 
-  it('imágenes sin texto alternativo', () => {
+  it('images without alt text', () => {
     assert.deepEqual(lintBody('a ![](/x.webp) b\n\n![  ](/y.webp "epígrafe")'), [
       { rule: 'imageAlt', target: { line: 0 }, params: {} },
       { rule: 'imageAlt', target: { line: 2 }, params: {} },
     ]);
   });
 
-  it('links vacíos (también la url de relleno de Ctrl+K) e inseguros (sanitizeUrl)', () => {
+  it('empty links (also the Ctrl+K placeholder url) and unsafe ones (sanitizeUrl)', () => {
     assert.deepEqual(lintBody('[a]() [b](url) [c](javascript:void) [d](<mi archivo.pdf>) [e](/ok "t")'), [
       { rule: 'linkEmpty', target: { line: 0 }, params: { text: 'a' } },
       { rule: 'linkEmpty', target: { line: 0 }, params: { text: 'b' } },
@@ -59,26 +59,26 @@ describe('revisor: cuerpo', () => {
     ]);
   });
 
-  it('notas al pie: referencia sin definición y definición sin usar', () => {
+  it('footnotes: reference without a definition and unused definition', () => {
     assert.deepEqual(lintBody('Uno[^1] dos[^2].\n\n[^1]: ok\n[^3]: sobra'), [
       { rule: 'footnoteMissing', target: { line: 0 }, params: { id: '2' } },
       { rule: 'footnoteUnused', target: { line: 3 }, params: { id: '3' } },
     ]);
   });
 
-  it('marcador de caja mal escrito ("[!NOTA]"); en minúsculas vale', () => {
+  it('misspelled callout marker ("[!NOTA]"); lowercase is valid', () => {
     assert.deepEqual(lintBody('> [!NOTA]\n> x\n\n> [!note]\n> y'), [
       { rule: 'calloutUnknown', target: { line: 0 }, params: { marker: '[!NOTA]', kinds: '[!NOTE], [!TIP], [!WARNING]' } },
     ]);
   });
 
-  it('nada dentro del código (bloques ni en línea)', () => {
+  it('nothing inside code (blocks or inline)', () => {
     assert.deepEqual(lintBody('```\n#II.\n![](x)\n[a]()\n```\n\nUsá `![](x)` y `[^9]`.'), []);
   });
 });
 
-describe('revisor: título y resumen (SEO)', () => {
-  it('título demasiado largo para buscadores', () => {
+describe('reviewer: title and summary (SEO)', () => {
+  it('title too long for search engines', () => {
     const title = 'x'.repeat(SEO_TITLE_MAX + 1);
     assert.deepEqual(lintPost({ title, summary: OK.summary, body: '' }), [
       { rule: 'titleTooLong', target: { field: 'title' }, params: { length: SEO_TITLE_MAX + 1, max: SEO_TITLE_MAX } },
@@ -86,7 +86,7 @@ describe('revisor: título y resumen (SEO)', () => {
     assert.deepEqual(lintPost({ title: 'x'.repeat(SEO_TITLE_MAX), summary: OK.summary, body: '' }), []);
   });
 
-  it('resumen vacío o más largo que la meta description', () => {
+  it('empty summary or longer than the meta description', () => {
     assert.deepEqual(rules(lintPost({ title: 'T', summary: '  ', body: '' })), ['summaryEmpty']);
     const summary = 'y'.repeat(META_DESCRIPTION_MAX + 5);
     assert.deepEqual(lintPost({ title: 'T', summary, body: '' }), [
@@ -94,14 +94,14 @@ describe('revisor: título y resumen (SEO)', () => {
     ]);
   });
 
-  it('primero los campos, después el cuerpo en orden de línea', () => {
+  it('fields first, then the body in line order', () => {
     const issues = lintPost({ title: 'T', summary: '', body: '![](x)\n\n#mal' });
     assert.deepEqual(rules(issues), ['summaryEmpty', 'imageAlt', 'headingSpace']);
   });
 });
 
-describe('revisor: mensajes en los dos idiomas', () => {
-  it('dónde (línea 1-based o campo) y qué', () => {
+describe('reviewer: messages in both languages', () => {
+  it('where (1-based line or field) and what', () => {
     const [issue] = lintBody('#II. x');
     assert.deepEqual(describeIssue(issue!, i18nFor('es')), {
       where: 'Línea 1',

@@ -15,7 +15,7 @@ import { i18nFor } from '../src/i18n/i18n.ts';
 const es = i18nFor('es');
 const en = i18nFor('en');
 
-/* Videos del hero (L13): a qué flujo va cada archivo, cada cuánto consultar el proceso y qué fuente previsualizar. */
+/* Hero videos: which flow each file goes to, how often to poll the processing and which source to preview. */
 
 const video = (overrides: Partial<VideoAsset> = {}): VideoAsset => ({
   id: 'v1',
@@ -32,52 +32,52 @@ const video = (overrides: Partial<VideoAsset> = {}): VideoAsset => ({
   ...overrides,
 });
 
-describe('heroMediaKind: la subida se reparte por tipo MIME', () => {
-  it('image/* va al flujo de fotos y video/* al de videos', () => {
+describe('heroMediaKind: the upload is routed by MIME type', () => {
+  it('image/* goes to the photo flow and video/* to the video flow', () => {
     assert.equal(heroMediaKind({ type: 'image/jpeg', name: 'luna.jpg' }), 'photo');
     assert.equal(heroMediaKind({ type: 'image/avif', name: 'x' }), 'photo');
     assert.equal(heroMediaKind({ type: 'video/mp4', name: 'mar.mp4' }), 'video');
     assert.equal(heroMediaKind({ type: 'video/quicktime', name: 'mar.mov' }), 'video');
   });
 
-  it('sin MIME (algunos sistemas no conocen .mkv) decide la extensión de video', () => {
+  it('without a MIME (some systems do not know .mkv) the video extension decides', () => {
     assert.equal(heroMediaKind({ type: '', name: 'Viaje.MKV' }), 'video');
     assert.equal(heroMediaKind({ type: '', name: 'clip.webm' }), 'video');
     assert.equal(heroMediaKind({ type: '', name: 'notas.txt' }), null);
   });
 
-  it('otros tipos no son del hero', () => {
+  it('other types are not for the hero', () => {
     assert.equal(heroMediaKind({ type: 'application/pdf', name: 'a.pdf' }), null);
   });
 
-  it('el accept del input lista los MIME y las extensiones de video de L13', () => {
+  it('the input accept lists the video MIME types and extensions the API takes', () => {
     assert.equal(VIDEO_ACCEPT, 'video/mp4,.mp4,video/quicktime,.mov,video/webm,.webm,video/x-matroska,.mkv');
   });
 });
 
-describe('heroItemKind: qué es un ítem guardado', () => {
-  it('con video es un video (su `media` es el póster); sin video, una foto', () => {
+describe('heroItemKind: what a saved item is', () => {
+  it('with a video it is a video (its `media` is the poster); without one, a photo', () => {
     const item = { video: null } as HeroImage;
     assert.equal(heroItemKind(item), 'photo');
     assert.equal(heroItemKind({ ...item, video: video() }), 'video');
   });
 });
 
-describe('pollDelay: espera creciente con tope', () => {
-  it('empieza en 2 s, crece ×1,5 y no pasa de 15 s', () => {
+describe('pollDelay: growing wait with a cap', () => {
+  it('starts at 2 s, grows ×1.5 and never exceeds 15 s', () => {
     assert.deepEqual([0, 1, 2, 3].map(pollDelay), [2000, 3000, 4500, 6750]);
     assert.equal(pollDelay(10), 15000);
     assert.equal(pollDelay(100), 15000);
   });
 });
 
-describe('videoProgress: estado del archivo pendiente según el video', () => {
-  it('processing y ready', () => {
+describe('videoProgress: the pending file status from the video', () => {
+  it('processing and ready', () => {
     assert.deepEqual(videoProgress(video({ status: 'processing' }), es), { status: 'processing', error: null });
     assert.deepEqual(videoProgress(video({ status: 'ready' }), es), { status: 'uploaded', error: null });
   });
 
-  it('failed: el error de la API o, si no vino, uno genérico', () => {
+  it('failed: the API error or, if none came, a generic one', () => {
     assert.deepEqual(videoProgress(video({ status: 'failed', error: 'ffmpeg: códec no soportado' }), es), {
       status: 'failed',
       error: 'ffmpeg: códec no soportado',
@@ -115,8 +115,8 @@ describe('videoWarnings: the size warning comes from the admin rule, in the UI l
   });
 });
 
-describe('previewSourceUrl: la H.264 más liviana (la que reproduce cualquier navegador)', () => {
-  it('elige la H.264 de 720p aunque haya AV1 y 1080p', () => {
+describe('previewSourceUrl: the lightest H.264 (the one any browser plays)', () => {
+  it('picks the 720p H.264 even with AV1 and 1080p present', () => {
     const sources = [
       { codec: 'av1', height: 720, url: '/media/videos/h/720.av1.mp4', bytes: 1 },
       { codec: 'h264', height: 1080, url: '/media/videos/h/1080.h264.mp4', bytes: 3 },
@@ -125,7 +125,7 @@ describe('previewSourceUrl: la H.264 más liviana (la que reproduce cualquier na
     assert.equal(previewSourceUrl(video({ sources: [...sources] })), '/media/videos/h/720.h264.mp4');
   });
 
-  it('sin H.264 (todavía procesando o falló): no hay vista previa en movimiento', () => {
+  it('without H.264 (still processing or failed): no moving preview', () => {
     assert.equal(previewSourceUrl(video({ sources: [] })), null);
     assert.equal(previewSourceUrl(video({ sources: [{ codec: 'av1', height: 720, url: '/a', bytes: 1 }] })), null);
   });

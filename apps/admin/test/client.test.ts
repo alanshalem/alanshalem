@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import { api, ApiError, setApiLanguage } from '../src/api/client.ts';
 import { errorMessage } from '../src/api/problem.ts';
 
-/* Contrato HTTP de los videos del hero (L13), con un fetch falso: ruta, método, cuerpo y respuesta. */
+/* HTTP contract of the hero videos, with a fake fetch: path, method, body and response. */
 
 interface Call {
   url: string;
@@ -32,7 +32,7 @@ const json = (status: number, body: unknown): Response =>
 const processing = { id: 'v1', status: 'processing', error: null, width: 1920, height: 1080, durationSeconds: 8, poster: null, sources: [], warnings: [], createdAt: '' };
 
 describe('api.uploadVideo', () => {
-  it('POST multipart a /api/admin/media/videos y devuelve el VideoAsset del 202', async () => {
+  it('POSTs multipart to /api/admin/media/videos and returns the VideoAsset of the 202', async () => {
     respond = () => json(202, processing);
     const file = new File(['x'], 'mar.mp4', { type: 'video/mp4' });
 
@@ -45,14 +45,14 @@ describe('api.uploadVideo', () => {
     assert.equal(((call.init.body as FormData).get('file') as File).name, 'mar.mp4');
   });
 
-  it('sin edición no envía campos de recorte (la API aplica los defaults de L19)', async () => {
+  it('without an edit it sends no trim fields (the API applies its defaults)', async () => {
     respond = () => json(202, processing);
     await api.uploadVideo(new File(['x'], 'mar.mp4', { type: 'video/mp4' }));
     const form = calls[0]?.init.body as FormData;
     assert.deepEqual([...form.keys()], ['file']);
   });
 
-  it('con edición suma trimStart, trimEnd, fade y fadeSeconds (L19), con punto decimal', async () => {
+  it('with an edit it adds trimStart, trimEnd, fade and fadeSeconds, with a decimal point', async () => {
     respond = () => json(202, processing);
     const file = new File(['x'], 'mar.mp4', { type: 'video/mp4' });
     await api.uploadVideo(file, { trimStart: 2.5, trimEnd: 15, fade: 'black', fadeSeconds: 0.5 });
@@ -71,7 +71,7 @@ describe('api.uploadVideo', () => {
     );
   });
 
-  it('un 400 llega como ApiError con el detail del ProblemDetails', async () => {
+  it('a 400 arrives as an ApiError with the ProblemDetails detail', async () => {
     respond = () => json(400, { title: 'Datos inválidos', detail: 'Dura 20 s: el máximo es 15 s.' });
     await assert.rejects(api.uploadVideo(new File(['x'], 'a.mp4')), (error: unknown) => {
       assert.ok(error instanceof ApiError);
@@ -82,8 +82,8 @@ describe('api.uploadVideo', () => {
   });
 });
 
-describe('api.uploadMedia (comparte el armado del multipart con los videos)', () => {
-  it('sigue haciendo POST del archivo a /api/admin/media', async () => {
+describe('api.uploadMedia (shares the multipart building with the videos)', () => {
+  it('still POSTs the file to /api/admin/media', async () => {
     respond = () => json(201, { id: 'm1', url: '/media/h/1600.webp' });
     assert.equal(await api.uploadImage(new File(['x'], 'luna.jpg', { type: 'image/jpeg' })), '/media/h/1600.webp');
     assert.equal(calls[0]?.url, '/api/admin/media');
@@ -93,7 +93,7 @@ describe('api.uploadMedia (comparte el armado del multipart con los videos)', ()
 });
 
 describe('api.getVideo', () => {
-  it('GET /api/admin/media/videos/{id} con el id escapado', async () => {
+  it('GET /api/admin/media/videos/{id} with the id escaped', async () => {
     respond = () => json(200, { ...processing, status: 'ready' });
     assert.equal((await api.getVideo('a/b')).status, 'ready');
     assert.equal(calls[0]?.url, '/api/admin/media/videos/a%2Fb');
@@ -102,7 +102,7 @@ describe('api.getVideo', () => {
 });
 
 describe('api.createHeroImage', () => {
-  it('video listo: envía { videoId, alt, credit }', async () => {
+  it('ready video: sends { videoId, alt, credit }', async () => {
     respond = () => json(201, {});
     await api.createHeroImage({ videoId: 'v1' }, { alt: 'Olas', credit: null, altEn: null });
     assert.equal(calls[0]?.url, '/api/admin/hero-images');
@@ -110,19 +110,19 @@ describe('api.createHeroImage', () => {
     assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { videoId: 'v1', alt: 'Olas', credit: null, altEn: null });
   });
 
-  it('foto: sigue enviando { mediaId, alt, credit }', async () => {
+  it('photo: still sends { mediaId, alt, credit }', async () => {
     respond = () => json(201, {});
     await api.createHeroImage({ mediaId: 'm1' }, { alt: 'Luna', credit: 'Foto: Alan', altEn: null });
     assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { mediaId: 'm1', alt: 'Luna', credit: 'Foto: Alan', altEn: null });
   });
 });
 
-/* Versiones por idioma (L4): el idioma solo viaja al crear; "Crear versión" es su propio endpoint. */
+/* Language versions: the language only travels on create; "Crear versión" is its own endpoint. */
 
-describe('api.createPost / api.updatePost: el idioma solo al crear', () => {
+describe('api.createPost / api.updatePost: the language only on create', () => {
   const input = { title: 'Hola', slug: '', summary: '', body: 'Texto', tags: [], coverUrl: null, coverAlt: null };
 
-  it('POST /api/admin/posts suma el idioma elegido', async () => {
+  it('POST /api/admin/posts adds the chosen language', async () => {
     respond = () => json(201, {});
     await api.createPost(input, 'en');
     assert.equal(calls[0]?.url, '/api/admin/posts');
@@ -130,7 +130,7 @@ describe('api.createPost / api.updatePost: el idioma solo al crear', () => {
     assert.deepEqual(JSON.parse(calls[0]?.init.body as string), { ...input, lang: 'en' });
   });
 
-  it('PUT no envía idioma (no se puede cambiar el de un post existente)', async () => {
+  it('PUT sends no language (an existing post cannot change it)', async () => {
     respond = () => json(200, {});
     await api.updatePost('p1', input);
     assert.equal(calls[0]?.url, '/api/admin/posts/p1');
@@ -140,7 +140,7 @@ describe('api.createPost / api.updatePost: el idioma solo al crear', () => {
 });
 
 describe('api.createTranslation', () => {
-  it('POST /api/admin/posts/{id}/translations con { lang } y devuelve el borrador del 201', async () => {
+  it('POST /api/admin/posts/{id}/translations with { lang } returns the draft of the 201', async () => {
     const draft = { id: 'p2', lang: 'en', status: 'draft' };
     respond = () => json(201, draft);
     assert.deepEqual(await api.createTranslation('a/b', 'en'), draft);
@@ -150,7 +150,7 @@ describe('api.createTranslation', () => {
     assert.equal((calls[0]?.init.headers as Record<string, string>)['X-Requested-With'], 'blog-admin');
   });
 
-  it('un 409 llega como ApiError con el mensaje de la API', async () => {
+  it('a 409 arrives as an ApiError with the API message', async () => {
     respond = () => json(409, { title: 'Conflicto', detail: 'Ya existe la versión en inglés.' });
     await assert.rejects(api.createTranslation('p1', 'en'), (error: unknown) => {
       assert.ok(error instanceof ApiError);
@@ -161,8 +161,8 @@ describe('api.createTranslation', () => {
   });
 });
 
-describe('api.createHeroImage / api.updateHeroImage: textos en inglés (L4)', () => {
-  it('envía altEn junto a los de español; el crédito es uno solo (L13)', async () => {
+describe('api.createHeroImage / api.updateHeroImage: English texts', () => {
+  it('sends altEn next to the Spanish ones; the credit is a single field', async () => {
     respond = () => json(201, {});
     const input = { alt: 'Luna', credit: 'Foto: Alan', altEn: 'Moon' };
     await api.createHeroImage({ mediaId: 'm1' }, input);
@@ -186,8 +186,8 @@ describe('errorMessage: the text a failed call shows', () => {
   });
 });
 
-describe('idioma de los mensajes de la API', () => {
-  it('cada pedido manda Accept-Language con el idioma de la interfaz, así los errores llegan en ese idioma', async () => {
+describe('language of the API messages', () => {
+  it('every request sends Accept-Language with the UI language, so errors arrive in that language', async () => {
     respond = () => json(200, []);
     setApiLanguage('en');
     await api.listPosts();
@@ -200,10 +200,10 @@ describe('idioma de los mensajes de la API', () => {
   });
 });
 
-describe('historial de versiones y publicación programada (contrato de 6c40950)', () => {
+describe('revision history and scheduled publishing (contract of 6c40950)', () => {
   const post = { id: 'p1', status: 'draft', scheduledAt: '2026-12-01T12:00:00Z' };
 
-  it('lista, abre y restaura versiones con GET/GET/POST bajo /revisions', async () => {
+  it('lists, opens and restores revisions with GET/GET/POST under /revisions', async () => {
     respond = () => json(200, []);
     await api.listRevisions('p1');
     await api.getRevision('p1', 'r2');
@@ -220,7 +220,7 @@ describe('historial de versiones y publicación programada (contrato de 6c40950)
     assert.equal(calls[2]?.init.body, undefined);
   });
 
-  it('programar: PUT /schedule con { publishAt } (ISO con desplazamiento); cancelar: DELETE /schedule', async () => {
+  it('schedule: PUT /schedule with { publishAt } (ISO with offset); cancel: DELETE /schedule', async () => {
     respond = () => json(200, post);
     await api.schedulePost('p1', '2026-12-01T09:00:00-03:00');
     await api.unschedulePost('p1');
@@ -231,7 +231,7 @@ describe('historial de versiones y publicación programada (contrato de 6c40950)
     assert.equal(calls[1]?.url, '/api/admin/posts/p1/schedule');
   });
 
-  it('un 400 de la API llega con su mensaje tal cual (el `detail` ya viene en el idioma pedido)', async () => {
+  it('an API 400 arrives with its message as is (the `detail` already comes in the requested language)', async () => {
     respond = () =>
       json(400, { title: 'Bad request', detail: 'The publication date has to be in the future.', code: 'post.scheduleInPast' });
     await assert.rejects(api.schedulePost('p1', '2020-01-01T00:00:00Z'), (error: unknown) => {
@@ -243,9 +243,9 @@ describe('historial de versiones y publicación programada (contrato de 6c40950)
   });
 });
 
-/* Todas las rutas de un post salen de un solo armador (perfil-skills-produccion L8, P3-17): el id siempre codificado. */
-describe('rutas de un post: un solo armador, id codificado', () => {
-  it('cada operación sobre un post usa /api/admin/posts/{id codificado}', async () => {
+/* Every path of a post comes from one builder: the id always encoded. */
+describe('post paths: one builder, encoded id', () => {
+  it('every operation on a post uses /api/admin/posts/{encoded id}', async () => {
     respond = () => json(200, {});
     const id = 'a/b?c';
     const base = '/api/admin/posts/a%2Fb%3Fc';
