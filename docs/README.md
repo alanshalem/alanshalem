@@ -144,6 +144,8 @@ docker compose -f infra/docker-compose.yml -f infra/compose.local.yml --env-file
 docker compose -f infra/compose.dev.yml --env-file infra/local.env config -q
 docker run --rm -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" -e SITE_ADDRESS=:80 \
   "$(sed -n 's/^FROM \(caddy:[^ ]*\).*/\1/p' infra/caddy/Dockerfile)" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+# The Caddyfile running (production, staging behind a proxy, a stub API): noindex, robots.txt, the proxy gate
+sh infra/test/caddy-runtime.sh
 
 # Security: dependencies with known vulnerabilities
 pnpm audit --prod --audit-level high
@@ -195,11 +197,16 @@ session keys and builder token. Nothing is shared between staging and production
    SITE_ENV=staging
    BUILDER_TOKEN=...
    ADMIN_PASSWORD_HASH='pbkdf2-sha256$...'
+   PROXY_SECRET=...
    COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml
    ```
 
-   - Production: `SITE_URL=https://alanshalem.com` and no `SITE_ENV` line (the default is `production`).
+   - Production: `SITE_URL=https://alanshalem.com` and no `SITE_ENV` line (the default is `production`). `SITE_ENV`
+     only accepts `production` or `staging`: any other value stops Caddy (it refuses its configuration), so a typo
+     never serves staging as an indexable production; check the Logs tab of `caddy` after changing it.
    - `BUILDER_TOKEN`: `openssl rand -hex 32`, a different one per environment.
+   - `PROXY_SECRET`: `openssl rand -hex 32`, a different one per environment, the same value Traefik adds for that
+     environment ("Dokploy: proxy secret"). Without it the deploy fails (compose names the variable).
    - `ADMIN_PASSWORD_HASH`: in single quotes (it contains `$`), generated on your machine with
      `docker build --tag blog-api apps/api && docker run --rm -it blog-api hash-password` (12 characters or more,
      typed without echo).
@@ -207,13 +214,51 @@ session keys and builder token. Nothing is shared between staging and production
      Dokploy's own deploy passes the files in its command. `ACME_EMAIL` is not used: Traefik requests the
      certificates.
 6. Domains → Add Domain: Service Name `caddy`, Host `staging.alanshalem.com` (or `alanshalem.com`), Path `/`,
-   Container Port `80`, HTTPS on, Certificate Provider Let's Encrypt. Staging also gets the basic auth middleware
-   (next section).
+   Container Port `80`, HTTPS on, Certificate Provider Let's Encrypt, and the proxy secret middleware ("Dokploy:
+   proxy secret"); staging also gets the basic auth middleware ("Dokploy: staging basic auth and noindex").
 7. Deploy and follow the deployment log: `init-permissions` runs once and exits with 0 (it is a one-shot), then `api`
    becomes healthy and `builder` starts and builds the site. Open `https://<domain>/admin/`, create a post and
    publish it.
 8. Automatic deploys, in General: staging with Auto Deploy on and the trigger on push (branch `master`); production
    with Auto Deploy on and the trigger on tag (see "Dokploy: release flow").
+
+### Dokploy: proxy secret
+
+`dokploy-network` is shared by every Dokploy app on the VPS, so any container on it can call this Caddy directly
+(`caddy:80`), skipping Traefik. To tell Traefik's requests apart, Traefik adds a secret header to every request it
+forwards and Caddy answers 403 to any request without it (`PROXY_SECRET`, Caddyfile "Proxy gate"): a container that
+calls Caddy directly cannot skip the staging basic auth, and cannot forge `X-Forwarded-For` (Caddy only believes it
+from private addresses, and the login rate limit is per IP). The secret never goes to git: it lives in the service's
+Environment tab and in Traefik's dynamic configuration, on the VPS only. Caddy keeps it from the API and its logs.
+
+1. On your machine, one per environment: `openssl rand -hex 32`. Put it in that environment's Environment tab as
+   `PROXY_SECRET=...`.
+2. Dokploy → Traefik File System → `dynamic/` (on the VPS: `/etc/dokploy/traefik/dynamic/`), new file
+   `alanshalem-proxy-secret.yml` (Traefik reloads it on its own), with each environment's value:
+
+   ```yaml
+   http:
+     middlewares:
+       alanshalem-production-proxy-secret:
+         headers:
+           customRequestHeaders:
+             X-Proxy-Secret: "<production PROXY_SECRET>"
+       alanshalem-staging-proxy-secret:
+         headers:
+           customRequestHeaders:
+             X-Proxy-Secret: "<staging PROXY_SECRET>"
+   ```
+
+3. Each service → Domains → its domain → Middlewares: production `alanshalem-production-proxy-secret@file`; staging
+   `alanshalem-staging-proxy-secret@file` (plus `alanshalem-staging-auth@file`, next section). Save and Deploy (a
+   Compose service applies domain changes on the next deploy).
+4. Check: `https://<domain>/` answers as always (302 to `/es/` or `/en/`), and from another container on the network
+   Caddy refuses: `docker run --rm --network dokploy-network curlimages/curl -s -o /dev/null -w '%{http_code}\n'
+   http://<appName>-caddy-1/` prints `403`. If the site itself answers 403, the middleware is missing from the
+   domain or its value differs from `PROXY_SECRET`.
+
+To rotate it: change the value in Traefik's file and in the Environment tab, then Deploy (between the two steps the
+site answers 403).
 
 ### Dokploy: staging basic auth and noindex
 
@@ -236,13 +281,15 @@ The password never goes to git: only its bcrypt hash, and only on the VPS.
              - "staging:$2y$05$..."
    ```
 
-3. Staging service → Domains → `staging.alanshalem.com` → Middlewares: add `alanshalem-staging-auth@file`, save, and
-   Deploy (a Compose service applies domain changes on the next deploy).
+3. Staging service → Domains → `staging.alanshalem.com` → Middlewares: add `alanshalem-staging-auth@file` (next to
+   `alanshalem-staging-proxy-secret@file`), save, and Deploy (a Compose service applies domain changes on the next
+   deploy).
 4. Check: `curl -I https://staging.alanshalem.com/` answers 401; with `-u staging` it answers 302 with
    `X-Robots-Tag: noindex, nofollow`.
 
 Why in Traefik and not in Caddy: Dokploy attaches middlewares to a Compose domain, and Traefik checks the password
-before the request reaches the blog. Dokploy's Security tab (basic auth form) exists only for Applications.
+before the request reaches the blog. Dokploy's Security tab (basic auth form) exists only for Applications. Nobody
+skips it by calling Caddy directly: without the proxy secret Caddy answers 403.
 
 ### Dokploy: release flow
 
@@ -277,7 +324,7 @@ before the request reaches the blog. Dokploy's Security tab (basic auth form) ex
 
 If the VPS already has another reverse proxy on 80/443, do not bring this Caddy up as is: put yours in front and point
 it at the `caddy` container over an internal network, as `compose.dokploy.yml` does for Traefik (no published ports,
-`SITE_ADDRESS=:80`, `CADDY_TRUSTED_PROXIES`). The API publishes no ports: only Caddy and the builder reach it.
+`SITE_ADDRESS=:80`, `CADDY_TRUSTED_PROXIES`, and `PROXY_SECRET` sent by your proxy as `X-Proxy-Secret`). The API publishes no ports: only Caddy and the builder reach it.
 
 ### Update
 
@@ -410,7 +457,9 @@ Staging is behind basic auth: a check there needs the credentials (or watch prod
 - CSRF: mandatory `X-Requested-With: blog-admin` header on the admin routes.
 - Login rate limit: 10 attempts / 15 min per IP (the real IP: `X-Forwarded-For` is only believed when it comes from the
   Docker networks, `ForwardedHeaders:KnownNetworks`). Caddy sends the API one address, the visitor's; behind Dokploy it
-  is the one Traefik reports (Caddy trusts it with `CADDY_TRUSTED_PROXIES`; Traefik drops what a visitor sends).
+  is the one Traefik reports (Caddy trusts it with `CADDY_TRUSTED_PROXIES`; Traefik drops what a visitor sends), and
+  only on requests that carry Traefik's `X-Proxy-Secret` (`PROXY_SECRET`): any other request gets a 403, so another
+  container on the shared `dokploy-network` can neither forge it nor skip the staging basic auth.
 - Image uploads validated by *magic bytes* (PNG, JPG, GIF, WebP, AVIF), max 8 MB; SVG rejected on purpose.
 - Videos (MP4, MOV, WebM, MKV) validated by *magic bytes* and ffprobe, max 200 MB and 15 s; the original (with audio
   and metadata) never reaches `/media`.

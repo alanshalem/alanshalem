@@ -169,6 +169,15 @@ describe('compose.dokploy.yml (behind Dokploy and its Traefik)', () => {
     );
   });
 
+  it('Caddy requires the proxy secret Traefik adds (from Dokploy\'s Environment, never in git): the deploy fails without it', () => {
+    assert.match(block(service(dokploy, 'caddy'), 'environment', 4), /^\s+PROXY_SECRET: \$\{PROXY_SECRET:\?[^}]+\}$/m);
+    // Only the Dokploy override: on a plain VPS Caddy is the edge and there is no proxy to hold a secret.
+    assert.doesNotMatch(prod, /PROXY_SECRET/);
+    // The header the README tells Traefik to add is the one the Caddyfile requires.
+    assert.match(read('infra/caddy/Caddyfile'), /\{header\.X-Proxy-Secret\}/);
+    assert.match(read('docs/README.md'), /^ +customRequestHeaders:\n +X-Proxy-Secret: "/m);
+  });
+
   it('Caddy joins the external dokploy-network and keeps the private network it shares with the API', () => {
     const networks = lines(block(service(dokploy, 'caddy'), 'networks', 4)).map((line) => line.trim());
     assert.deepEqual(networks, ['- default', '- dokploy-network']);
@@ -180,6 +189,12 @@ describe('compose.dokploy.yml (behind Dokploy and its Traefik)', () => {
     assert.ok(command, 'missing the Dokploy command in the header');
     assert.match(command, / --env-file infra\/\.env -f infra\/docker-compose\.yml -f infra\/compose\.dokploy\.yml up -d --build --remove-orphans$/);
     assert.ok(read('docs/README.md').includes(command), 'docs/README.md must give the same command');
+  });
+
+  it('the runbook section its header names exists in the README', () => {
+    const section = /Runbook: docs\/README\.md, section "([^"]+)"/.exec(dokploy.replace(/\n# /g, ' '))?.[1];
+    assert.ok(section, 'missing the runbook section in the header');
+    assert.match(read('docs/README.md'), new RegExp(`^#{2,3} ${section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
   });
 });
 

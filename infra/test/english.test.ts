@@ -20,6 +20,9 @@ const files = [
   ...readdirSync(new URL('infra/', root))
     .filter((name) => name.endsWith('.sh'))
     .map((name) => `infra/${name}`),
+  ...readdirSync(new URL('infra/test/', root))
+    .filter((name) => name.endsWith('.sh'))
+    .map((name) => `infra/test/${name}`),
   ...readdirSync(new URL('.github/workflows/', root)).map((name) => `.github/workflows/${name}`),
 ];
 

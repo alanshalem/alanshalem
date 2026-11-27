@@ -36,7 +36,10 @@ description: "How this blog runs in Docker and on the VPS, covering the dev comp
   (next to the compose path) as `KEY="value"` with `$` escaped, after `APP_NAME` and `COMPOSE_PROJECT_NAME=<appName>`.
   A single-quoted hash pasted there arrives intact (dotenv strips the quotes, verified). It also carries
   `COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml`, so any `docker compose --env-file .env` from that `infra/`
-  (and `backup.sh` / `restore.sh`) targets that environment's stack.
+  (and `backup.sh` / `restore.sh`) targets that environment's stack; `infra/test/backup.test.ts` ("under Dokploy")
+  pins it for unquoted and quoted values, and fails if the scripts ever pass `-p`/`-f` or export a `COMPOSE_*` default.
+- `PROXY_SECRET` (Dokploy only, `openssl rand -hex 32`, one per environment): in the Environment tab and in Traefik's
+  dynamic file, never in git. `compose.dokploy.yml` requires it (`${PROXY_SECRET:?…}`); CI uses a placeholder.
 - CI has no `.env`: the VPS compose is validated and built with placeholder values in the step `env`, never secrets.
 - The API validates required options on start (`Admin:PasswordHash`, `Builder:Token` ≥ 32 chars): fail fast.
 - `BUILDER_TOKEN` is required once, in the `x-builder-token` anchor (`&builder-token`, `${BUILDER_TOKEN:?…}`), and the
@@ -104,19 +107,32 @@ command. It reads **one** compose file, so the override goes in through the cust
 base file stays the plain-VPS one and CI keeps validating it.
 
 - The override only touches Caddy: `ports: !reset []` (Traefik owns 80/443 TCP+UDP), `SITE_ADDRESS: ":80"` (no ACME),
-  `CADDY_TRUSTED_PROXIES: trusted_proxies static private_ranges`, networks `default` + external `dokploy-network`.
+  `CADDY_TRUSTED_PROXIES: trusted_proxies static private_ranges`, `PROXY_SECRET`, networks `default` + external
+  `dokploy-network`.
   The API and the builder stay only on the stack's private network. `!reset` lives in the override on purpose: Dokploy
   re-serializes the base file and would drop a custom YAML tag there.
 - Type **Docker Compose**, never Stack (no `build`). Isolated Deployments off (it would add every service to a
   Traefik-reachable network). Domain: service `caddy`, port 80, HTTPS + Let's Encrypt; a domain change needs a redeploy.
 - Client IP chain: Traefik drops visitor-sent `X-Forwarded-*` and sends one address; Caddy trusts private ranges only
-  under Dokploy (it publishes no port there, so only containers on its networks reach it) and forwards
-  `X-Forwarded-For {client_ip}` alone, which the API (KnownNetworks, ForwardLimit 1) uses for the login rate limit.
-  `X-Forwarded-Proto: https` passes through the same way.
+  under Dokploy and forwards `X-Forwarded-For {client_ip}` alone, which the API (KnownNetworks, ForwardLimit 1) uses
+  for the login rate limit. `X-Forwarded-Proto: https` passes through the same way.
+- Proxy gate (A2b): `dokploy-network` is shared by every Dokploy app on the VPS (Paperclip, ting, wearemaking), so
+  "only containers on its networks reach it" is not a boundary: any of them could call `caddy:80`, forge
+  `X-Forwarded-For` (a fresh login rate-limit bucket per request) and skip the staging basic auth. Traefik adds
+  `X-Proxy-Secret: <PROXY_SECRET>` to every request (a `headers.customRequestHeaders` middleware per environment,
+  `alanshalem-<env>-proxy-secret@file` in `/etc/dokploy/traefik/dynamic/`, on the domain's Middlewares field) and
+  Caddy answers 403 to anything without it, before any route: the private-range trust only ever applies to requests
+  that came through Traefik. Rejected alternatives: trusting Traefik's address (dynamic on the overlay, changes when
+  Dokploy recreates Traefik, and still lets a direct caller skip basic auth), basic auth in Caddy (stops the bypass,
+  not the forged header), a private network shared only with Traefik (manual `docker network connect`, lost when
+  Traefik is recreated) and mTLS (TLS between Traefik and Caddy for one header's worth of proof). Residual risk: a
+  container with `NET_RAW` that can ARP-spoof the overlay could read the secret in transit (it could read all traffic
+  then).
 - Staging: `SITE_ENV=staging` → Caddy adds `X-Robots-Tag: noindex, nofollow` everywhere and serves a disallow-all
   `robots.txt`; basic auth is a Traefik `basicAuth` middleware in `/etc/dokploy/traefik/dynamic/` (bcrypt, VPS only)
-  referenced from the domain's Middlewares field as `alanshalem-staging-auth@file` (Dokploy's Security tab is for
-  Applications only). `removeHeader: true` keeps `Authorization` away from the API.
+  referenced from the domain's Middlewares field as `alanshalem-staging-auth@file`, next to
+  `alanshalem-staging-proxy-secret@file` (Dokploy's Security tab is for Applications only). `removeHeader: true`
+  keeps `Authorization` away from the API.
 - Triggers: staging on push to `master` (skips `[skip ci]` commits); production on tag, which deploys the **branch
   head**, not the tagged commit.
 - Volumes are `<appName>_<volume>`: per environment, kept across deploys (`--remove-orphans` never removes volumes);
@@ -165,10 +181,18 @@ sizes); a helper used by one script lives in that script.
 - `/api/internal` → `respond @internal 404` with `no-store`, **inside** `handle /api/*` and before `reverse_proxy`
   (a top-level `respond` never ran because `handle` is evaluated first; security fix `48f0158`).
 - `/api/admin/*` → `>Cache-Control "no-store"`. Health check `/api/health` every 2 s, 3 fails.
-- Global options first: `{$CADDY_ACME_EMAIL}` (the whole `email …` option or nothing) and `servers {
-  {$CADDY_TRUSTED_PROXIES} }` (empty = trust nobody, the plain VPS; the Dokploy override fills it). No
-  `trusted_proxies_strict`: it skips every trusted (private) address, and a visitor Traefik sees as Docker's gateway
-  became Traefik's IP in the API.
+- Global options first: `{$CADDY_ACME_EMAIL}` (the whole `email …` option or nothing), `servers {
+  {$CADDY_TRUSTED_PROXIES} }` (empty = trust nobody, the plain VPS; the Dokploy override fills it) and
+  `order error before handle`. No `trusted_proxies_strict`: it skips every trusted (private) address, and a visitor
+  Traefik sees as Docker's gateway became Traefik's IP in the API.
+- Proxy gate, first in the site block: `@unproxied expression {env.PROXY_SECRET} != "" && {header.X-Proxy-Secret} !=
+  {env.PROXY_SECRET}` + `error @unproxied 403`. `error` normally runs after `handle` (the `/api/internal` lesson), hence
+  the global `order`; it is the only `error` in the file (a test counts them). Without `PROXY_SECRET` it matches
+  nothing. The secret goes no further: `header_up -X-Proxy-Secret` and the access log's `format filter { wrap json;
+  request>headers>X-Proxy-Secret delete }` (Caddy only redacts Cookie/Authorization on its own).
+- `SITE_ENV` allowlist: empty snippets `(site-env-production)` and `(site-env-staging)`, and the site block does
+  `import site-env-{$SITE_ENV:production}`; any other value fails at load ("File to import not found: site-env-prod"),
+  so `caddy validate` fails and the container does not start. Compose cannot validate an enum.
 - `reverse_proxy api:8080` sends `header_up X-Forwarded-For {client_ip}`: one address, the visitor (identical to
   Caddy's default when nothing is trusted).
 - Staging: `@staging expression {env.SITE_ENV} == "staging"` is defined **once in the site block** (defining it in
@@ -190,8 +214,11 @@ sizes); a helper used by one script lives in that script.
   includeSubDomains on purpose: the VPS hosts other apps).
 
 Every Caddy change: update `apps/web/test/caddyfile.test.ts` (routing and caching) or `infra/test/caddy.test.ts`
-(production pass: ACME, COOP/CORP, noindex), then validate with real Caddy (`caddy validate` in the image — CI does it
-for the VPS and local forms — and `curl -I` against the local copy) — text tests alone have passed broken configs.
+(production pass: ACME, COOP/CORP, noindex, proxy gate, SITE_ENV), then validate with real Caddy (`caddy validate` in
+the image — CI does it for the VPS, local and Dokploy forms — and `sh infra/test/caddy-runtime.sh`, which CI's infra
+job also runs: the pinned image against a stub API, production at the edge, staging and production behind a proxy,
+checked with curl for noindex, robots.txt, 404, /api, the 403 gate, forged X-Forwarded-For and a SITE_ENV typo) —
+text tests alone have passed broken configs.
 
 ## Builder (`apps/builder`)
 
@@ -212,7 +239,8 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
 
 - [ ] Compose/Dockerfile change brought up for real (dev or local copy) and the affected URLs checked.
 - [ ] `pnpm test:infra` green and `docker compose ... config -q` for the four stacks: VPS, Dokploy
-      (`-f docker-compose.yml -f compose.dokploy.yml`), local copy and dev (CI's infra job runs the other three).
+      (`-f docker-compose.yml -f compose.dokploy.yml`, needs a placeholder `PROXY_SECRET`), local copy and dev.
+- [ ] Caddyfile change: `sh infra/test/caddy-runtime.sh` green (CI runs it too).
 - [ ] Caddy change: test updated + real Caddy validation + headers verified with `curl -I`.
 - [ ] New files needed by an image added to the `.dockerignore` whitelist.
 - [ ] New or updated image pinned by digest; both `NODE_IMAGE` references equal; Trivy (CI `images` job) finds no
@@ -235,3 +263,6 @@ releases (`KEEP_RELEASES`, 3). A failed build never touches `current`. Small ent
 - Re-owning all media recursively on every `up` (slow); `init-permissions` now fixes only what differs.
 - `trusted_proxies_strict` behind Traefik: with a private client address the API saw Traefik's IP (all visitors would
   share one login rate limit). Caught by the Dokploy-shaped end-to-end, not by `caddy validate`.
+- Trusting `private_ranges` on the shared `dokploy-network` with no proof of origin: any other Dokploy app could forge
+  `X-Forwarded-For` and skip the staging basic auth by calling `caddy:80` directly (A2 review; fixed by the proxy gate).
+- `SITE_ENV=prod` (a typo) silently behaving as production: now Caddy refuses the file.

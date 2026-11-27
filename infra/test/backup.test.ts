@@ -19,7 +19,14 @@ const script = (name: string): string => fileURLToPath(new URL(`../${name}`, imp
 const FAKE_DOCKER = String.raw`#!/bin/sh
 echo "$*" >>"$FAKE_ROOT/calls"
 shift                                   # compose
-[ "$1" = --env-file ] && shift 2
+env_file=
+[ "$1" = --env-file ] && { env_file=$2; shift 2; }
+# The stack this call targets, resolved like compose: COMPOSE_PROJECT_NAME and COMPOSE_FILE from the environment win,
+# then the ones in the --env-file (relative to the working directory, optional double quotes), then the defaults.
+from_env_file() { [ -f "$env_file" ] && sed -n "s/^$1=//p" "$env_file" | tail -n 1 | sed 's/^"\(.*\)"$/\1/'; }
+project=$COMPOSE_PROJECT_NAME; [ -n "$project" ] || project=$(from_env_file COMPOSE_PROJECT_NAME); [ -n "$project" ] || project='<directory>'
+files=$COMPOSE_FILE; [ -n "$files" ] || files=$(from_env_file COMPOSE_FILE); [ -n "$files" ] || files=docker-compose.yml
+echo "$PWD $project $files $1" >>"$FAKE_ROOT/targets"
 case $1 in
 ps) [ -n "$FAKE_API_DOWN" ] || echo fake-api-container; exit 0 ;;
 up)
@@ -352,6 +359,54 @@ describe('backup.sh and restore.sh', { skip }, () => {
       assert.match(await calls(), /rclone sync /);
       assert.doesNotMatch(await calls(), /rclone delete/);
     });
+  });
+
+  describe('under Dokploy (cron runs the scripts from the deploy folder, with no COMPOSE_* of its own)', () => {
+    // Dokploy writes infra/.env next to the compose path on every deploy: APP_NAME and COMPOSE_PROJECT_NAME first, then
+    // the Environment tab. The values may arrive unquoted or as KEY="value" (docker-and-deploy skill, A2 notes).
+    for (const quote of ['', '"']) {
+      it(`backup.sh and restore.sh --apply target the project and files of that .env (values ${quote ? 'quoted' : 'unquoted'})`, async () => {
+        const infra = join(root, 'etc', 'dokploy', 'compose', 'alanshalem-staging-x1y2z3', 'code', 'infra');
+        await mkdir(infra, { recursive: true });
+        for (const name of ['backup.sh', 'restore.sh', 'backup-common.sh']) await writeFile(join(infra, name), await readFile(script(name)));
+        await writeFile(
+          join(infra, '.env'),
+          [
+            'APP_NAME=alanshalem-staging-x1y2z3',
+            'COMPOSE_PROJECT_NAME=alanshalem-staging-x1y2z3',
+            `SITE_ADDRESS=${quote}:80${quote}`,
+            `SITE_ENV=${quote}staging${quote}`,
+            `COMPOSE_FILE=${quote}docker-compose.yml:compose.dokploy.yml${quote}`,
+            'DOCKER_CONFIG=/root/.docker/config.json',
+          ].join('\n'),
+        );
+        const cron = { COMPOSE_PROJECT_NAME: undefined, COMPOSE_FILE: undefined, ENV_FILE: undefined };
+        const run = (name: string, args: string[] = []): Promise<Run> =>
+          new Promise((resolve) => {
+            execFile('sh', [join(infra, name), ...args], { cwd: root, env: { ...process.env, PATH: `${root}/bin:${process.env.PATH}`, FAKE_ROOT: root, FAKE_CUT_BYTES: '515', BACKUP_DIR: backups, ...cron } }, (error, stdout, stderr) =>
+              resolve({ code: error ? Number(error.code) : 0, stdout, stderr }),
+            );
+          });
+
+        const backup = await run('backup.sh');
+        assert.equal(backup.code, 0, backup.stderr);
+        const restore = await run('restore.sh', [await latest(), '--apply']);
+        assert.equal(restore.code, 0, restore.stderr);
+
+        const targets = (await readFile(join(root, 'targets'), 'utf8')).trim().split('\n');
+        const subcommands = new Set(targets.map((line) => line.split(' ').at(-1)));
+        for (const step of ['exec', 'run', 'stop', 'up']) assert.ok(subcommands.has(step), `no compose ${step} call`);
+        for (const line of targets) {
+          assert.match(line, new RegExp(`^${infra} alanshalem-staging-x1y2z3 docker-compose\\.yml:compose\\.dokploy\\.yml \\w+$`), line);
+        }
+        // Only the env file names the stack: the scripts pass no project or file of their own.
+        for (const call of (await calls()).trim().split('\n')) {
+          if (!call.startsWith('compose ')) continue;
+          assert.match(call, /^compose --env-file \.env /, call);
+          assert.doesNotMatch(call.split(' -euc ')[0]!, / (-p|-f|--project-name|--file) /, call);
+        }
+      });
+    }
   });
 
   describe('restore.sh', () => {

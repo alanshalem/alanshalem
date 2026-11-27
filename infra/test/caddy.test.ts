@@ -21,8 +21,8 @@ const directives = (text: string): string[] =>
   text.split('\n').map((line) => line.trim()).filter((line) => line !== '' && !line.startsWith('#'));
 
 describe('Caddyfile (production)', () => {
-  it('the global options go first: the ACME email (optional) and the forwarding proxies Caddy trusts (none by default)', () => {
-    assert.deepEqual(directives(caddy).slice(0, 6), ['{', '{$CADDY_ACME_EMAIL}', 'servers {', '{$CADDY_TRUSTED_PROXIES}', '}', '}']);
+  it('the global options go first: the ACME email (optional), the forwarding proxies Caddy trusts (none by default) and the proxy gate before every route', () => {
+    assert.deepEqual(directives(caddy).slice(0, 7), ['{', '{$CADDY_ACME_EMAIL}', 'servers {', '{$CADDY_TRUSTED_PROXIES}', '}', 'order error before handle', '}']);
     // Strict parsing skips trusted (private) addresses: a visitor Traefik sees as Docker's gateway became Traefik's IP
     // (seen end to end).
     assert.doesNotMatch(caddy, /^\s*trusted_proxies_strict/m);
@@ -30,6 +30,31 @@ describe('Caddyfile (production)', () => {
 
   it('the API gets one X-Forwarded-For: the visitor as Caddy resolved it, never a chain or Caddy-side address', () => {
     assert.ok(directives(block('reverse_proxy api:8080 {')).includes('header_up X-Forwarded-For {client_ip}'));
+  });
+
+  it('with PROXY_SECRET set (behind Dokploy), a request without the proxy secret is refused with 403 before any route', () => {
+    // The first directives of the site block: the gate runs before /api, /admin, /media and the site (`order error
+    // before handle` above), so a container on the shared network that calls Caddy directly reaches nothing, and the
+    // forwarded headers Caddy trusts only ever come from the proxy that knows the secret. Without PROXY_SECRET (plain
+    // VPS, local copy) it matches nothing.
+    const site = directives(block('{$SITE_ADDRESS:localhost} {'));
+    const gate = '@unproxied expression {env.PROXY_SECRET} != "" && {header.X-Proxy-Secret} != {env.PROXY_SECRET}';
+    assert.ok(site.includes(gate), 'missing the @unproxied matcher');
+    assert.ok(site.includes('error @unproxied 403'), 'missing error @unproxied 403');
+    assert.equal(caddy.match(/^\s*error /gm)?.length, 1, 'the global order moves every `error` before handle');
+  });
+
+  it('the proxy secret goes no further than Caddy: not to the API and not to the access log', () => {
+    assert.ok(directives(block('reverse_proxy api:8080 {')).includes('header_up -X-Proxy-Secret'));
+    assert.deepEqual(directives(block('log {')), ['log {', 'output stdout', 'format filter {', 'wrap json', 'request>headers>X-Proxy-Secret delete', '}', '}']);
+  });
+
+  it('SITE_ENV is production or staging: any other value has no snippet to import and Caddy refuses to start', () => {
+    const snippets = [...caddy.matchAll(/^\(site-env-([^)]+)\) \{$/gm)].map((match) => match[1]);
+    assert.deepEqual(snippets, ['production', 'staging']);
+    // Imported once, from the site block, with the compose default when SITE_ENV is unset.
+    assert.ok(directives(block('{$SITE_ADDRESS:localhost} {')).includes('import site-env-{$SITE_ENV:production}'));
+    assert.equal(caddy.match(/import site-env-/g)?.length, 1);
   });
 
   it('staging (SITE_ENV=staging): every response, errors included, says noindex, nofollow', () => {
@@ -70,7 +95,13 @@ describe('Caddyfile (production)', () => {
     assert.ok(directives(block('handle_path /admin/* {')).includes('header X-Robots-Tag "noindex"'));
   });
 
+  it('CI and the README run the Caddyfile for real (infra/test/caddy-runtime.sh), not only these text checks', () => {
+    for (const path of ['../../.github/workflows/ci.yml', '../../docs/README.md']) {
+      assert.match(readFileSync(new URL(path, import.meta.url), 'utf8'), /^\s*(run: )?sh infra\/test\/caddy-runtime\.sh$/m, path);
+    }
+  });
+
   it('access logs in JSON on standard output', () => {
-    assert.match(block('log {'), /output stdout\n\t\tformat json/);
+    assert.match(block('log {'), /output stdout\n\t\tformat filter \{\n\t\t\twrap json\n/);
   });
 });

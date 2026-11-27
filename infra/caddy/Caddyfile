@@ -3,7 +3,10 @@
 #
 # SITE_ADDRESS = your domain (e.g. blog.mydomain.com). To test locally: localhost. Behind Dokploy's Traefik (which
 # terminates TLS): :80, set by infra/compose.dokploy.yml.
-# SITE_ENV = production (default) or staging: staging asks crawlers not to index anything (see the snippet below).
+# SITE_ENV = production (default) or staging: staging asks crawlers not to index anything (see the snippet below). Any
+# other value stops Caddy (site-env snippets below).
+# PROXY_SECRET = only behind a proxy (Dokploy's Traefik, set by infra/compose.dokploy.yml): every request must carry it
+# in X-Proxy-Secret, or it gets a 403 (the proxy gate in the site block).
 
 # Global options. CADDY_ACME_EMAIL carries the whole option (`email you@example.com`) or nothing: docker-compose.yml
 # builds it from ACME_EMAIL, which is optional, and Caddy rejects an `email` without a value.
@@ -12,12 +15,24 @@
 	# Whom Caddy believes X-Forwarded-For and X-Forwarded-Proto from. Nobody by default: on a VPS without another proxy
 	# Caddy is the edge and the visitor is whoever connects. Behind Dokploy's Traefik, compose.dokploy.yml fills
 	# CADDY_TRUSTED_PROXIES with the whole option (`trusted_proxies static ...`) so the visitor's IP and https reach the
-	# API. Not trusted_proxies_strict: Traefik drops the X-Forwarded-* a visitor sends and forwards exactly one address,
+	# API; the proxy gate in the site block (PROXY_SECRET) keeps that trust for requests that came through Traefik. Not trusted_proxies_strict: Traefik drops the X-Forwarded-* a visitor sends and forwards exactly one address,
 	# and strict parsing skips every trusted (private) address, so a visitor Traefik sees with a private address (Docker's
 	# gateway) would turn into Traefik's own IP.
 	servers {
 		{$CADDY_TRUSTED_PROXIES}
 	}
+	# The proxy gate (`error @unproxied 403`, the only `error` in this file) runs before every handle: by default
+	# `error` runs after them, and /api, /admin, /media and the site would answer first.
+	order error before handle
+}
+
+# The two values SITE_ENV may take: the site block imports site-env-<SITE_ENV>, and any other value (a typo such as
+# `prod` or `Staging`) has no snippet, so Caddy refuses to start ("File to import not found") instead of silently
+# serving staging as an indexable production. Empty on purpose: what each one changes is the @staging matchers below.
+(site-env-production) {
+}
+
+(site-env-staging) {
 }
 
 # Security headers of every response. In a snippet because the error routes (handle_errors) do not go through the site
@@ -50,6 +65,17 @@
 	import security
 	# SITE_ENV comes from docker-compose.yml (production unless set).
 	@staging expression {env.SITE_ENV} == "staging"
+	import site-env-{$SITE_ENV:production}
+
+	# ---------- Proxy gate (only behind Dokploy's Traefik) ----------
+	# dokploy-network is shared by every Dokploy app on the VPS, so any container there can reach caddy:80 directly:
+	# without this gate it could skip Traefik's staging basic auth and, since Caddy trusts the private ranges there, forge
+	# X-Forwarded-For (a fresh login rate-limit bucket per request). Traefik adds X-Proxy-Secret to every request it
+	# forwards (a headers middleware with the PROXY_SECRET value, README "Operations (VPS)"): without it, 403 before any
+	# route, so only requests that came through Traefik reach the API, and only their X-Forwarded-For is believed.
+	# Without PROXY_SECRET (plain VPS, local copy: Caddy is the edge) it matches nothing.
+	@unproxied expression {env.PROXY_SECRET} != "" && {header.X-Proxy-Secret} != {env.PROXY_SECRET}
+	error @unproxied 403
 
 	# ---------- API ----------
 	# No request_body max_size on purpose: Caddy neither limits nor buffers the body (it streams it), and the only cap is
@@ -74,6 +100,8 @@
 			# rate limit and the logs). {client_ip} is the address that connected, or, behind a trusted proxy (Traefik),
 			# the visitor it reported; Caddy's default would append the proxy's address after it.
 			header_up X-Forwarded-For {client_ip}
+			# The proxy secret stops here: the API neither needs nor logs it.
+			header_up -X-Proxy-Secret
 			# If the API goes down, Caddy stops sending it traffic and answers 503 instead of hanging. Every 2 s: after
 			# a start or a deploy (the first check usually lands while .NET is starting), /api is back within a few
 			# seconds and not 30. 3 failures in a row to take it out: a single slow check does not leave it out.
@@ -197,9 +225,13 @@
 		}
 	}
 
-	# One JSON line per request: it can be filtered with jq and log collectors read it without custom parsers.
+	# One JSON line per request: it can be filtered with jq and log collectors read it without custom parsers. The proxy
+	# secret is removed from the logged request headers (Caddy already redacts Cookie and Authorization).
 	log {
 		output stdout
-		format json
+		format filter {
+			wrap json
+			request>headers>X-Proxy-Secret delete
+		}
 	}
 }

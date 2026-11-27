@@ -81,7 +81,9 @@ history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to r
   (`http`, `https`, `mailto`, `tel`, relative). `set:html` / `dangerouslySetInnerHTML` only receive renderer output
   or strings built by escaping helpers.
 - Admin routes: session cookie `__Host-admin` + `X-Requested-With: blog-admin` on every mutation. `/api/internal`
-  needs the builder Bearer token and Caddy answers 404 for it from outside.
+  needs the builder Bearer token and Caddy answers 404 for it from outside. Behind Dokploy, Caddy answers 403 to any
+  request without Traefik's `X-Proxy-Secret` (`PROXY_SECRET`, never in git): the shared `dokploy-network` is no trust
+  boundary.
 - Uploads are verified by magic bytes (SVG rejected on purpose); originals of videos never reach `/media`.
 
 **Bilingual (es default, en)**

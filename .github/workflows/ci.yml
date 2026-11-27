@@ -90,8 +90,8 @@ jobs:
         with:
           persist-credentials: false
 
-      # The VPS compose requires its variables: placeholder values go here (there is no .env in CI, nor should there
-      # be). Only in this step: in the other two, the infra/local.env values apply.
+      # The VPS compose requires its variables (and the Dokploy override PROXY_SECRET): placeholder values go here (there
+      # is no .env in CI, nor should there be). The local copy and dev steps use the infra/local.env values.
       - name: docker compose config (VPS)
         working-directory: infra
         run: docker compose -f docker-compose.yml config -q
@@ -100,6 +100,7 @@ jobs:
           SITE_URL: https://blog.example.com
           ADMIN_PASSWORD_HASH: ci-placeholder-not-a-hash
           BUILDER_TOKEN: ci-placeholder-not-a-token-ci-placeholder
+          PROXY_SECRET: ci-placeholder-not-a-proxy-secret
 
       - name: docker compose config (Dokploy)
         working-directory: infra
@@ -116,7 +117,7 @@ jobs:
 
       # With the image's Caddy (the digest-pinned reference comes from infra/caddy/Dockerfile, it is not repeated here),
       # in the forms the compose starts it: a domain with an ACME email (VPS), :80 without email (local copy) and :80 behind
-# Dokploy's Traefik as staging (trusted proxies, noindex).
+      # Dokploy's Traefik as staging (trusted proxies, proxy secret, noindex).
       - name: caddy validate
         run: |
           image=$(sed -n 's/^FROM \(caddy:[^ ]*\).*/\1/p' infra/caddy/Dockerfile)
@@ -128,7 +129,13 @@ jobs:
           validate --env SITE_ADDRESS=blog.example.com --env 'CADDY_ACME_EMAIL=email ci@example.com'
           validate --env SITE_ADDRESS=:80
           validate --env SITE_ADDRESS=:80 --env SITE_ENV=staging \
-            --env 'CADDY_TRUSTED_PROXIES=trusted_proxies static private_ranges'
+            --env 'CADDY_TRUSTED_PROXIES=trusted_proxies static private_ranges' --env PROXY_SECRET=ci-placeholder-secret
+
+      # The same Caddyfile running, against a stub API: production at the edge, staging and production behind a proxy
+      # (noindex, robots.txt, 404, /api, the proxy gate against forged X-Forwarded-For) and a SITE_ENV typo that must stop
+      # Caddy. The README gives the same command for your PC.
+      - name: Caddy at runtime (production, staging behind Traefik, proxy gate)
+        run: sh infra/test/caddy-runtime.sh
 
   images:
     name: Image ${{ matrix.service }} (build, vulnerability scan)
