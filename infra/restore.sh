@@ -137,7 +137,9 @@ fi"
 
 rollback() {
 	if [ "$swapped" = true ] && [ -n "$pre" ]; then
-		if stage_data "$pre" && api_sh run "$INSTALL"; then
+		# Primero parar: si falló el paso 5, la API puede estar en marcha con la base restaurada abierta, y cambiarla debajo
+		# la dejaría atendiendo con archivos borrados (lo que se escriba se pierde al reiniciar).
+		if compose stop api builder && stage_data "$pre" && api_sh run "$INSTALL"; then
 			log "el restore falló: se volvió a poner la copia previa $pre"
 		else
 			log "ATENCIÓN: el restore falló y no se pudo volver a poner la copia previa sola. A mano: sh restore.sh $pre --apply"

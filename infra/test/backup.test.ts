@@ -497,6 +497,22 @@ describe('backup.sh y restore.sh', { skip }, () => {
       assert.equal((await calls()).match(/up -d --wait/g)?.length, 2, 'levanta todo de nuevo');
     });
 
+    it('si up --wait falla con la API ya arrancada, para api y builder antes de volver a poner la copia previa', async () => {
+      // --wait puede fallar por el builder o Caddy con la API ya en marcha: cambiar la base debajo de ella la dejaría
+      // atendiendo con la restaurada (archivos borrados abiertos) y perdería lo que se escriba hasta que reinicie.
+      const snapshot = await backupThenChange();
+
+      const result = await sh('restore.sh', [snapshot, '--apply'], { FAKE_UP_FAIL: '1' });
+
+      assert.equal(result.code, 1);
+      const log = (await calls()).split('\n');
+      const firstUp = log.findIndex((line) => line.includes('up -d --wait'));
+      const stop = log.findIndex((line, index) => index > firstUp && line.includes('stop api builder'));
+      const swap = log.findIndex((line, index) => index > firstUp && line.includes('mv .restoring/blog.db blog.db'));
+      assert.ok(firstUp >= 0 && stop > firstUp && stop < swap, 'la vuelta atrás nunca cambia la base con la API en marcha');
+      assert.equal(readDb(live('blog.db')), 'base nueva');
+    });
+
     it('rechaza un snapshot con la base dañada (integrity_check) sin tocar nada', async () => {
       const snapshot = await backupThenChange();
       await writeFile(join(snapshot, 'blog.db'), `SQLite format 3\0${'x'.repeat(4096)}`);
