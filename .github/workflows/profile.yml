@@ -1,23 +1,23 @@
-# Imágenes del README del perfil (assets/profile/*.svg) y la lista "Latest writing", con datos públicos de GitHub.
-# El generador no tiene dependencias (no hay paso de instalación) y lee la API con el GITHUB_TOKEN de la corrida.
+# Images of the profile README (assets/profile/*.svg) and the "Latest writing" list, from public GitHub data.
+# The generator has no dependencies (there is no install step) and reads the API with the run's GITHUB_TOKEN.
 name: Profile
 
 on:
   schedule:
-    # Diario, lejos de la hora en punto (las corridas programadas a las :00 son las que más se demoran).
+    # Daily, away from the top of the hour (scheduled runs at :00 are the most delayed).
     - cron: '17 6 * * *'
   workflow_dispatch:
   push:
     branches: [master]
     paths:
       - 'tooling/profile/**'
-      - 'packages/tokens/src/tokens.json'
+      - 'packages/tokens/src/tokens.css'
       - '.github/workflows/profile.yml'
 
 # Nothing by default; the only job asks for what it needs below.
 permissions: {}
 
-# Una corrida programada y una por push no deben competir por commitear los mismos archivos.
+# A scheduled run and a push run must not compete to commit the same files.
 concurrency:
   group: profile
   cancel-in-progress: false
@@ -47,7 +47,7 @@ jobs:
           node-version: ${{ steps.node.outputs.version }}
           package-manager-cache: false
 
-      # Nunca commitear imágenes de un generador roto.
+      # Never commit images from a broken generator.
       - name: Test the generator
         run: node --test tooling/profile/test/*.test.ts
 

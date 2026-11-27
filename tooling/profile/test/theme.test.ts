@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { color, TEXT_COLORS } from '../src/theme.ts';
+import { cssColors } from '../src/tokens.ts';
 import { escapeXml } from '../src/xml.ts';
 
-/** Contraste WCAG 2.x entre dos colores #rrggbb. */
+/** WCAG 2.x contrast between two #rrggbb colors. */
 function contrast(a: string, b: string): number {
   const luminance = (hex: string): number => {
     const [r, g, b] = [1, 3, 5].map((i) => {
@@ -18,7 +18,7 @@ function contrast(a: string, b: string): number {
 }
 
 describe('theme', () => {
-  it('toma los colores de packages/tokens (los mismos del sitio)', () => {
+  it('takes the colors from packages/tokens/src/tokens.css (the same ones as the site)', () => {
     assert.equal(color.page, '#0a0a0b');
     assert.equal(color.surface, '#141416');
     assert.equal(color.surfaceAlt, '#1b1b1e');
@@ -30,33 +30,7 @@ describe('theme', () => {
     assert.deepEqual(color.dataviz, ['#a9c98a', '#8fa7d9', '#e08f6a']);
   });
 
-  // tokens.json is a hand-kept mirror of tokens.css and the profile is its only reader: pin what it reads to the CSS
-  // the site ships. TOKENS_CSS=<path> points it at another file (to prove it catches a drifted copy).
-  it('reads the same colors the site gets from tokens.css', () => {
-    const css = readFileSync(process.env.TOKENS_CSS ?? new URL('../../../packages/tokens/src/tokens.css', import.meta.url), 'utf8');
-    const root = css.slice(css.indexOf(':root'), css.indexOf('}', css.indexOf(':root')));
-    const vars = new Map([...root.matchAll(/--([\w-]+):\s*([^;]+);/g)].map(([, name, value]) => [name!, value!.trim()]));
-    const cssColor = (name: string): string => {
-      const value = vars.get(name);
-      assert.ok(value, `tokens.css has no --${name}`);
-      const reference = /^var\(--([\w-]+)\)$/.exec(value)?.[1];
-      if (reference) return cssColor(reference);
-      return value.toLowerCase().replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/, '#$1$1$2$2$3$3');
-    };
-    assert.deepEqual(color, {
-      page: cssColor('bg-page'),
-      surface: cssColor('bg-surface'),
-      surfaceAlt: cssColor('bg-surface-alt'),
-      border: cssColor('border-subtle'),
-      text: cssColor('text-primary'),
-      textSecondary: cssColor('text-secondary'),
-      textTertiary: cssColor('text-tertiary'),
-      accent: cssColor('link-accent'),
-      dataviz: ['green', 'blue', 'orange'].map((name) => cssColor(`dataviz-${name}`)),
-    });
-  });
-
-  it('todo color de texto llega a 4,5:1 sobre las superficies de las tarjetas', () => {
+  it('every text color reaches 4.5:1 on the card surfaces', () => {
     for (const fg of TEXT_COLORS) {
       for (const bg of [color.page, color.surface, color.surfaceAlt]) {
         assert.ok(contrast(fg, bg) >= 4.5, `${fg} on ${bg}: ${contrast(fg, bg).toFixed(2)}`);
@@ -65,8 +39,39 @@ describe('theme', () => {
   });
 });
 
+describe('cssColors', () => {
+  const css = `
+    /* --commented: #123456; */
+    :root {
+      --ink: #0A0A0B;
+      --short: #fA3;
+      --page: var(--ink);
+      --alias: var(--page);
+      --broken: var(--missing);
+    }
+    .paper { --page: #ffffff; }
+  `;
+  const colorOf = cssColors(css);
+
+  it('reads a :root custom property as lowercase #rrggbb, expanding #rgb', () => {
+    assert.equal(colorOf('ink'), '#0a0a0b');
+    assert.equal(colorOf('short'), '#ffaa33');
+  });
+
+  it('follows var() references, also chained, and ignores other blocks', () => {
+    assert.equal(colorOf('page'), '#0a0a0b');
+    assert.equal(colorOf('alias'), '#0a0a0b');
+  });
+
+  it('fails naming the property that is missing, commented out or referenced but undefined', () => {
+    assert.throws(() => colorOf('nope'), { message: 'tokens.css has no --nope' });
+    assert.throws(() => colorOf('commented'), { message: 'tokens.css has no --commented' });
+    assert.throws(() => colorOf('broken'), { message: 'tokens.css has no --missing' });
+  });
+});
+
 describe('escapeXml', () => {
-  it('escapa los cinco caracteres especiales de XML', () => {
+  it('escapes the five XML special characters', () => {
     assert.equal(escapeXml(`<a href="x">Tom & Jerry's</a>`), '&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&apos;s&lt;/a&gt;');
   });
 });

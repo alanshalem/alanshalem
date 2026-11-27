@@ -1,47 +1,36 @@
-import tokens from '../../../packages/tokens/src/tokens.json' with { type: 'json' };
+import { readFileSync } from 'node:fs';
+import { cssColors } from './tokens.ts';
 import type { TextStyle } from './type.ts';
 
 /**
- * Tema de las imágenes del perfil. Los colores salen de packages/tokens (la misma fuente que el sitio), así un
- * cambio de paleta llega al README sin copiar valores; acá solo se decide qué rol cumple cada uno en una tarjeta.
+ * Theme of the profile images. The colors come from packages/tokens/src/tokens.css (the same source as the site), so a
+ * palette change reaches the README without copying values; this file only decides which role each one plays on a
+ * card.
  */
 
-type Token = { $value: string };
-
-/** Sigue las referencias DTCG ("{color.primitive.ink-950}") hasta el valor final. */
-function resolve(value: string): string {
-  if (!value.startsWith('{')) return value;
-  const node = value
-    .slice(1, -1)
-    .split('.')
-    .reduce<unknown>((at, key) => (at as Record<string, unknown>)[key], tokens) as Token;
-  return resolve(node.$value);
-}
-
-// Los nombres semánticos llevan puntos ("bg.page"), así que se indexan directo y no como ruta.
-const semantic = (name: string): string => resolve((tokens.color.semantic as Record<string, Token>)[name]!.$value);
+const css = cssColors(readFileSync(new URL('../../../packages/tokens/src/tokens.css', import.meta.url), 'utf8'));
 
 export const color = {
-  page: semantic('bg.page'),
-  surface: semantic('bg.surface'),
-  surfaceAlt: semantic('bg.surface-alt'),
-  border: semantic('border.subtle'),
-  text: semantic('text.primary'),
-  textSecondary: semantic('text.secondary'),
-  textTertiary: semantic('text.tertiary'),
-  accent: semantic('link.accent'),
-  dataviz: Object.values(tokens.color.dataviz).map((t) => t.$value),
+  page: css('bg-page'),
+  surface: css('bg-surface'),
+  surfaceAlt: css('bg-surface-alt'),
+  border: css('border-subtle'),
+  text: css('text-primary'),
+  textSecondary: css('text-secondary'),
+  textTertiary: css('text-tertiary'),
+  accent: css('link-accent'),
+  dataviz: ['green', 'blue', 'orange'].map((name) => css(`dataviz-${name}`)),
 } as const;
 
-/** Los únicos colores de texto: su contraste sobre las superficies lo mide test/theme.test.ts. */
+/** The only text colors: test/theme.test.ts measures their contrast on the surfaces. */
 export const TEXT_COLORS: readonly string[] = [color.text, color.textSecondary, color.textTertiary];
 
-/** Series de los gráficos (lenguajes, trofeos): acento + dataviz del sitio, luego grises de texto. */
+/** Chart series (languages, trophies): the site's accent + dataviz, then the text grays. */
 export const SERIES = [color.accent, ...color.dataviz, color.textSecondary, color.textTertiary] as const;
 
-/** Roles tipográficos del sistema de diseño (DESIGN-SYSTEM.md §3) a escala de tarjeta (px a 1x). */
+/** Type roles of the design system (DESIGN-SYSTEM.md §3) at card scale (px at 1x). */
 export const text = {
-  /** Eyebrow / h2 de sección: Hanken 600, mayúsculas, tracking .12em. */
+  /** Eyebrow / section h2: Hanken 600, uppercase, tracking .12em. */
   label: { face: 'uiStrong', size: 11, fill: color.textTertiary, tracking: 0.12, uppercase: true },
   aside: { face: 'ui', size: 13, fill: color.textSecondary },
   name: { face: 'display', size: 60, fill: color.text },
@@ -54,10 +43,10 @@ export const text = {
   meta: { face: 'ui', size: 12, fill: color.textTertiary },
 } satisfies Record<string, TextStyle>;
 
-/** Medidas compartidas por todas las tarjetas. */
+/** Measures shared by every card. */
 export const layout = {
   width: 840,
-  /** Media fila del README (dos tarjetas lado a lado con un espacio entre medio). */
+  /** Half a README row (two cards side by side with a gap in between). */
   half: 414,
   pad: 24,
 } as const;

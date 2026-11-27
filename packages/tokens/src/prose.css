@@ -1,8 +1,8 @@
 /* ==========================================================================
-   Estilos de prosa: el HTML que genera @blog/markdown.
-   Los usa la web pública (Astro) Y la vista previa del admin, así que
-   "lo que ves en el editor" = "lo que se publica". Requiere tokens.css.
-   Se aplica dentro de un contenedor `.paper > .prose`.
+   Prose styles: the HTML that @blog/markdown generates.
+   Used by the public site (Astro) AND the admin preview, so
+   "what you see in the editor" = "what gets published". Requires tokens.css.
+   Applied inside a `.paper > .prose` container.
    ========================================================================== */
 
 .prose { font-family: var(--font-text); }
@@ -15,7 +15,7 @@
   font-family: var(--font-display);
   font-weight: 400;
   line-height: 1.15;
-  scroll-margin-top: 1.5rem; /* al saltar a #ancla, que no quede pegado arriba */
+  scroll-margin-top: 1.5rem; /* when jumping to #anchor, keep it off the very top */
 }
 .prose h3 { font-size: 1.3rem; }
 .prose h4, .prose h5, .prose h6 { font-size: 1.1rem; }
@@ -46,12 +46,12 @@
 }
 .prose pre code { font: inherit; background: none; border: 0; padding: 0; }
 
-/* Bloques de código y tablas hacen scroll horizontal: el renderer los deja enfocables (tabindex="0") para recorrerlos
-   con las flechas (WCAG 2.1.1); el foco se ve como el de los links (WCAG 2.4.7). Sobre la hoja, --link-accent es el
-   acento oscuro de .paper (≥ 3:1 sobre blanco). */
+/* Code blocks and tables scroll horizontally: the renderer makes them focusable (tabindex="0") so the arrow keys can
+   scroll them (WCAG 2.1.1); their focus looks like the links' (WCAG 2.4.7). On the sheet, --link-accent is the dark
+   accent of .paper (≥ 3:1 on white). */
 .prose pre:focus-visible, .prose .table-wrap:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 2px; }
 
-/* Tablas: el renderer las envuelve en .table-wrap para poder hacer scroll horizontal en mobile */
+/* Tables: the renderer wraps them in .table-wrap so they can scroll horizontally on mobile */
 .prose .table-wrap { overflow-x: auto; }
 .prose table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
 .prose th, .prose td {
@@ -63,7 +63,7 @@
 .prose .align-center { text-align: center; }
 .prose .align-right { text-align: right; }
 
-/* Figuras: imagen sola con título en el Markdown => <figure> con epígrafe (crédito o explicación) */
+/* Figures: a lone image with a title in the Markdown => <figure> with a caption (credit or explanation) */
 .prose figcaption {
   margin-top: 0.6em;
   font-family: var(--font-ui);
@@ -73,8 +73,8 @@
   text-align: center;
 }
 
-/* Cajas destacadas (> [!NOTE] / [!TIP] / [!WARNING]): como la caja "Key takeaways" del diseño,
-   fondo gris muy claro y borde izquierdo de 4px igual que la cita. --callout-accent da el tono. */
+/* Callouts (> [!NOTE] / [!TIP] / [!WARNING]): like the design's "Key takeaways" box, a very light gray background
+   and a 4px left border like the quote. --callout-accent sets the tone. */
 .prose .callout {
   --callout-accent: var(--paper-rule, var(--border-subtle));
   border-left: 4px solid var(--callout-accent);
@@ -93,8 +93,8 @@
   color: var(--paper-muted, var(--text-tertiary));
 }
 
-/* Notas al pie: la referencia es un número volado que no agranda el interlineado;
-   sin subrayado para que el engrosado del hover no "salte" dentro de la línea. */
+/* Footnotes: the reference is a superscript number that does not grow the line height;
+   no underline so the thicker hover underline does not "jump" inside the line. */
 .prose .footnote-ref { line-height: 0; }
 .prose .footnote-ref a,
 .prose .footnote-backref {

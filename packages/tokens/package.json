@@ -3,11 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Design tokens (CSS variables + JSON DTCG) y estilos de prosa compartidos por web y admin.",
+  "description": "Design tokens (CSS custom properties) and prose styles shared by the site and the admin.",
   "exports": {
     "./tokens.css": "./src/tokens.css",
-    "./prose.css": "./src/prose.css",
-    "./tokens.json": "./src/tokens.json"
+    "./prose.css": "./src/prose.css"
   },
   "files": ["src"]
 }

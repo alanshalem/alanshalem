@@ -1,12 +1,12 @@
 /* ==========================================================================
-   Design tokens — extraídos de federicocarrone.com (medido el 2026-11-24)
-   Capas: 1) primitivas  2) semánticas  3) base tipográfica  4) layout
-   Tema oscuro global + tema 'papel' (hoja blanca) solo en páginas de lectura: ver bloque .paper al final.
-   Breakpoints (no se pueden poner en variables dentro de @media):
+   Design tokens — taken from federicocarrone.com (measured on 2026-11-24)
+   Layers: 1) primitives  2) semantic  3) typographic base  4) layout
+   Global dark theme + 'paper' theme (white sheet) on reading pages only: see the .paper block at the end.
+   Breakpoints (variables cannot be used inside @media):
      600px · 700px · 800px · 900px (nav → ☰) · 75em = 1200px (cards auto-fill)
    ========================================================================== */
 
-/* --- Tipografías (self-host, woff2 latin). font-display: swap evita texto invisible --- */
+/* --- Typefaces (self-hosted, woff2 latin). font-display: swap avoids invisible text --- */
 @font-face { font-family: "Gloock";          src: url("/fonts/gloock-latin.woff2") format("woff2");          font-weight: 400;     font-style: normal; font-display: swap; }
 @font-face { font-family: "Hanken Grotesk";  src: url("/fonts/hanken-grotesk-latin.woff2") format("woff2");  font-weight: 400 600; font-style: normal; font-display: swap; }
 @font-face { font-family: "Pagella";         src: url("/fonts/pagella-regular-latin.woff2") format("woff2"); font-weight: 400;     font-style: normal; font-display: swap; }
@@ -16,7 +16,7 @@
 :root {
   color-scheme: dark;
 
-  /* ---------- 1. PRIMITIVAS ---------- */
+  /* ---------- 1. PRIMITIVES ---------- */
   /* Color */
   --ink-950: #0a0a0b;
   --ink-900: #131316;
@@ -29,29 +29,29 @@
   --white: #fff;
   --periwinkle-300: #9db2ff;
   --periwinkle-200: #c4d0ff;
-  --periwinkle-700: #3b5bdb; /* acento sobre blanco: 5,7:1 sobre la hoja (los dos de arriba no llegan a 3:1) */
+  --periwinkle-700: #3b5bdb; /* accent on white: 5.7:1 on the sheet (the two above do not reach 3:1) */
   --dataviz-green: #a9c98a;
   --dataviz-blue: #8fa7d9;
   --dataviz-orange: #e08f6a;
 
-  /* Familias */
+  /* Families */
   --font-display: Gloock, "Iowan Old Style", Georgia, serif;
   --font-text: Pagella, Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --font-ui: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
 
-  /* Escala tipográfica (rem; 1rem = 16px). Entre paréntesis, px resultantes */
-  --text-2xs: 0.75rem;     /* 12   eyebrow, h2 de sección, créditos */
+  /* Type scale (rem; 1rem = 16px). Resulting px in the comments */
+  --text-2xs: 0.75rem;     /* 12   eyebrow, section h2, credits */
   --text-xs: 0.8125rem;    /* 13   meta */
   --text-sm: 0.9rem;       /* 14.4 footer */
-  --text-ui: 0.95rem;      /* 15.2 nav, links de entrada */
-  --text-base: 1rem;       /* 16   dek de card */
-  --text-lead: 1.15rem;    /* 18.4 dek de nota destacada */
-  --text-body: 1.1875rem;  /* 19   cuerpo */
-  --text-title-sm: 1.4rem; /* 22.4 lista numerada */
+  --text-ui: 0.95rem;      /* 15.2 nav, entry links */
+  --text-base: 1rem;       /* 16   card dek */
+  --text-lead: 1.15rem;    /* 18.4 featured post dek */
+  --text-body: 1.1875rem;  /* 19   body */
+  --text-title-sm: 1.4rem; /* 22.4 numbered list */
   --text-title-md: 1.6rem; /* 25.6 card */
   --text-title-lg: 1.8rem; /* 28.8 tile */
-  --text-brand: 1.75rem;   /* 28   marca footer */
+  --text-brand: 1.75rem;   /* 28   footer brand */
   --text-hero-h1: clamp(2.4rem, 5.6vw, 4.6rem);
   --text-hero-dek: clamp(1.05rem, 1.35vw, 1.25rem);
   --text-lead-title: clamp(2rem, 3.6vw, 3rem);
@@ -64,7 +64,7 @@
   --leading-body: 1.55;
   --tracking-label: 0.12em;
 
-  /* Espaciado */
+  /* Spacing */
   --space-0-25: 0.25rem;
   --space-0-5: 0.5rem;
   --space-0-7: 0.7rem;
@@ -83,13 +83,13 @@
   --space-7: 7rem;
   --gutter: clamp(1rem, 3.75vw, 3rem);
 
-  /* Bordes, radios, movimiento */
+  /* Borders, radii, motion */
   --border-hairline: 1px;
   --border-strong: 2px;
   --radius-none: 0;
   --duration-fast: 150ms;
 
-  /* ---------- 2. SEMÁNTICAS (usar siempre éstas en componentes) ---------- */
+  /* ---------- 2. SEMANTIC (always use these in components) ---------- */
   --bg-page: var(--ink-950);
   --bg-surface: var(--ink-850);
   --bg-surface-alt: var(--ink-800);
@@ -100,19 +100,19 @@
   --border-subtle: var(--ink-700);
   --link-accent: var(--periwinkle-300);
   --link-underline-hover: var(--periwinkle-200);
-  /* Overlay del hero y de la portada del artículo (WCAG 1.4.3, plataforma-calidad L4 P1-1). Con una foto blanca detrás,
-     text-primary llega a 4,5:1 desde una opacidad de 0,62 y text-secondary desde ~0,70 (apps/web/test/contrast.test.ts).
-     Las paradas van en rem desde cada borde porque lo que tapan tiene alto fijo y no escala con la pantalla:
-     - --overlay-hero, sobre la foto: arriba la cabecera (marca, menú, ES | EN); abajo el margen inferior y lo que en
-       mobile queda debajo del texto (crédito, Reproducir/Pausar). En un hero bajo las franjas se suman: solo oscurece.
-     - --overlay-hero-text, detrás del bloque de texto (site.css): sigue al texto, así un título de 4 líneas también
-       queda cubierto; se funde en los 8rem de arriba y deja la foto limpia entre la cabecera y el texto. */
+  /* Overlay of the hero and of the article cover (WCAG 1.4.3). With a white photo behind it, text-primary reaches
+     4.5:1 from an opacity of 0.62 and text-secondary from ~0.70 (apps/web/test/contrast.test.ts).
+     The stops are in rem from each edge because what they cover has a fixed height that does not scale with the screen:
+     - --overlay-hero, over the photo: at the top the header (brand, menu, ES | EN); at the bottom the lower margin and
+       what sits under the text on mobile (credit, Play/Pause). On a short hero the bands add up: it only gets darker.
+     - --overlay-hero-text, behind the text block (site.css): it follows the text, so a 4-line title is covered too;
+       it fades in over the top 8rem and leaves the photo clear between the header and the text. */
   --overlay-hero:
     linear-gradient(rgba(10, 10, 11, 0.72) 0, rgba(10, 10, 11, 0.62) 4.5rem, rgba(10, 10, 11, 0) 12rem),
     linear-gradient(to top, rgba(10, 10, 11, 0.94) 0, rgba(10, 10, 11, 0.7) 12rem, rgba(10, 10, 11, 0) 20rem);
   --overlay-hero-text-fade: 8rem;
   --overlay-hero-text: linear-gradient(rgba(10, 10, 11, 0) 0, rgba(10, 10, 11, 0.7) var(--overlay-hero-text-fade));
-  /* Tiles de temas: el degradé original del sistema de diseño (texto chico abajo, sin cabecera encima). */
+  /* Topic tiles: the design system's original gradient (small text at the bottom, no header above). */
   --overlay-tile: linear-gradient(
     rgba(10, 10, 11, 0.55) 0%,
     rgba(10, 10, 11, 0) 22%,
@@ -147,12 +147,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Links: heredan color y se distinguen por subrayado fino (home). Hover: subrayado más grueso en acento claro */
+/* Links: inherit the color and stand out by a thin underline (home). Hover: thicker underline in the light accent */
 a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.22em; }
 a:hover, a:focus { text-decoration-color: var(--link-underline-hover); text-decoration-thickness: 3px; }
 a:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
 
-/* Etiqueta pequeña en mayúsculas: eyebrow, h2 de sección, h2 del footer */
+/* Small uppercase label: eyebrow, section h2, footer h2 */
 .eyebrow, .section-head h2, .footer h2 {
   font-family: var(--font-ui);
   font-size: var(--text-2xs);
@@ -168,8 +168,8 @@ a:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
 }
 
 /* ==========================================================================
-   Tema "papel": hoja blanca de las páginas de lectura (artículos, episodios, About)
-   Medido a 1440px: cuerpo Pagella 17px/27.2px, columna 640px, TOC lateral 224px
+   "Paper" theme: the white sheet of the reading pages (articles, episodes, About)
+   Measured at 1440px: Pagella body 17px/27.2px, 640px column, 224px side TOC
    ========================================================================== */
 .paper {
   --paper-bg: #fff;
@@ -180,8 +180,8 @@ a:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
   --paper-code-bg: #f9f9f9;
   --code-block-bg: #24292e;
   --code-block-fg: #e1e4e8;
-  /* Foco y subrayado de hover sobre la hoja: el acento claro del tema oscuro queda en 2,1:1 y 1,5:1 contra el blanco;
-     éste llega a 5,7:1 (WCAG 1.4.11, plataforma-calidad L4 P2-2). Todas las reglas que los usan lo toman de acá. */
+  /* Focus and hover underline on the sheet: the dark theme's light accent gets 2.1:1 and 1.5:1 against white; this one
+     reaches 5.7:1 (WCAG 1.4.11). Every rule that uses them takes it from here. */
   --link-accent: var(--periwinkle-700);
   --link-underline-hover: var(--periwinkle-700);
 
