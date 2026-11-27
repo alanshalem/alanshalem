@@ -74,13 +74,23 @@ Caddy ─► /srv/site/current (HTML) · /srv/media (uploads) · /srv/admin (SPA
 
 ## CI and dependency updates
 
-`.github/workflows/ci.yml` runs on every push and pull request to `master`, read-only (`contents: read`), with every
+`.github/workflows/ci.yml` runs on every push and pull request to `master`, read-only except the images job, with every
 action pinned by SHA: **node** (typecheck, `pnpm test`, admin build, `agents:check`), **dotnet** (`-warnaserror` build and
 all tests in the API dev image, real ffmpeg), **infra** (`docker compose config -q` for the three stacks, `caddy validate`),
-**images** (builds the three production images from the VPS compose and scans them with Trivy) and **security**
+**images** (builds the three production images from the VPS compose, scans them with Trivy and, on `master`, publishes
+them to GHCR as `blog-<service>:sha-<commit>`) and **security**
 (gitleaks over the full history, `pnpm audit --prod`, vulnerable NuGet packages). `.github/workflows/profile.yml` only
 refreshes the profile images. `.github/dependabot.yml` proposes npm, NuGet, Docker, compose and actions updates weekly.
 A red CI is a failed task, not a flaky one: reproduce it locally with the README commands.
+
+## Delivery (build once, deploy many)
+
+`master` is protected: changes arrive only through pull requests with every CI check green. The images CI publishes for
+a commit are the only thing that runs on the VPS: `.github/workflows/deploy.yml` deploys them through Dokploy's API
+(environment variable `IMAGE_TAG=sha-<commit>`, `infra/compose.dokploy.yml` resets `build:` to those images). A green
+CI on `master` deploys staging; a `v*` tag deploys production with the same images; a manual run with an older tag is
+the rollback. Dokploy's Auto Deploy stays off. Never add a build step to the VPS path or a second way to deploy:
+change the workflow and `docs/release-guide.md` together.
 
 ## Checklist
 
