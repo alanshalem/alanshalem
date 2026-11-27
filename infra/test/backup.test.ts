@@ -326,7 +326,7 @@ describe('backup.sh y restore.sh', { skip }, () => {
       const log = await calls();
       for (const set of ['daily', 'weekly']) {
         assert.ok(
-          log.includes(`rclone sync ${backups}/${set} secreto:blog/${set} --size-only --max-delete 4 --backup-dir secreto:blog/deleted/${stamp}/${set}\n`),
+          log.includes(`rclone sync ${backups}/${set} secreto:blog/${set} --size-only --max-delete 2 --backup-dir secreto:blog/deleted/${stamp}/${set}\n`),
           set,
         );
       }
@@ -415,8 +415,11 @@ describe('backup.sh y restore.sh', { skip }, () => {
       // Un backup es de antes de un logout: si trajera sus claves (y su época de sesiones), una cookie revocada después
       // volvería a valer. Con claves nuevas, toda cookie emitida antes del restore deja de valer y el admin entra de nuevo.
       const snapshot = await backupThenChange();
+      // Los snapshots de antes de este cambio traen keys.tar: se aceptan y sus claves se ignoran.
+      await writeFile(join(snapshot, 'keys.tar'), 'claves viejas');
       await mkdir(join(snapshot, 'keys'));
       await writeFile(join(snapshot, 'keys', 'key-0.xml'), '<key-vieja/>');
+      assert.deepEqual(await list(live('keys')), ['key-1.xml', 'key-2.xml'], 'el volumen tenía claves antes');
 
       const result = await sh('restore.sh', [snapshot, '--apply']);
 

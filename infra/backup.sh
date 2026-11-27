@@ -25,9 +25,9 @@
 
 KEEP_DAILY=7
 KEEP_WEEKLY=4
-# Cuántos archivos puede borrar allá la retención, por carpeta y por corrida: un día normal rota un snapshot (blog.db) y a
-# veces un semanal; más da margen, y más que eso es señal de que algo anda mal acá.
-REMOTE_MAX_DELETE=4
+# Cuántos archivos puede borrar allá la retención, por carpeta y por corrida: un día normal rota un snapshot (un archivo,
+# blog.db); el doble da margen, y más que eso es señal de que algo anda mal acá.
+REMOTE_MAX_DELETE=2
 # Lo que la retención saca del remoto queda en deleted/<UTC>/ y se borra de verdad recién pasado este tiempo.
 REMOTE_KEEP_DELETED=30d
 
