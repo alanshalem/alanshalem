@@ -637,6 +637,9 @@ environment, each with **its own `BACKUP_DIR`** (two environments in one folder 
 
 ## 12. Release flow
 
+The full step-by-step (everyday flow, release, verification, hotfix, rollback, Dependabot, failures):
+[release-guide.md](release-guide.md). In short:
+
 1. **[PC]** Push to `master` → staging deploys on its own (On Push). It does not wait for CI: check the GitHub
    Actions run is green before trusting staging. Commits with `[skip ci]` deploy nothing.
 2. Review staging (`https://staging.alanshalem.com`, basic auth).
@@ -651,6 +654,9 @@ environment, each with **its own `BACKUP_DIR`** (two environments in one folder 
 5. Do not push anything to `master` between step 4 and the start of the production deploy: **Dokploy deploys the
    head of the branch, not the tagged commit.**
 6. Repeat the checks of [10.2](#102-check-from-your-pc) for production.
+
+A tag on a commit whose message has `[skip ci]` (the daily profile commit) deploys nothing: press **Deploy** in the
+production service instead.
 
 A deploy that changes Caddy (Caddyfile, admin, its image or environment) leaves the domain without Caddy for about
 5 seconds (Traefik answers 404 meanwhile). Other deploys keep the site up. Volumes are never touched by a deploy.

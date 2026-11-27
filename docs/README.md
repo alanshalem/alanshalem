@@ -369,7 +369,7 @@ with the `Healthy` lines of step 7). Staging's first deploy runs the same checks
   the head of the configured branch, not the tagged commit** (it clones `--branch master --depth 1`): tag the head of
   `master` that staging validated and do not push anything else before the production deploy starts.
 - Before tagging, a backup of production (`backup.sh` in its `infra/`, with production's `BACKUP_DIR` and remote as in
-  "Backups"): it is the only way back (see Rollback). Step by step: [guide Release flow](vps-guide.md#12-release-flow).
+  "Backups"): it is the only way back (see Rollback). Step by step: [release-guide.md](release-guide.md).
 - Each deploy rebuilds the images and recreates only the containers whose image or configuration changed; the volumes
   stay. Migrations run when the API starts and a failed build never touches the published site.
 - A deploy that does not change Caddy keeps the site up. One that does (the Caddyfile, the admin, its image or
