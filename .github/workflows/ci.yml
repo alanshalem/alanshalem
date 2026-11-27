@@ -1,5 +1,5 @@
 # Continuous integration: the same commands that are run by hand before committing (project README, "How to
-# verify"). One job per topic, in parallel; none publishes anything or uses the repo's secrets.
+# verify"). One job per topic, in parallel; only the images job publishes (GHCR, master only), none uses repo secrets.
 name: CI
 
 on:
