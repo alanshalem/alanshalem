@@ -230,6 +230,9 @@ export function validateSource(root: string): { skills: number; problems: string
 
 export type Difference = { kind: 'missing' | 'differs' | 'stale'; path: string };
 
+/** The target a difference path belongs to (every path compareCopies returns starts with one). */
+const targetOf = (path: string): string => TARGETS.find((candidate) => path.startsWith(`${candidate}/`))!;
+
 /** What each target needs to equal the source, by repository-relative path. */
 export function compareCopies(root: string): Difference[] {
   const sourceFiles = listFiles(join(root, SOURCE));
@@ -261,15 +264,14 @@ export function applyCopies(root: string, differences: readonly Difference[]): v
       rmSync(destination);
       removeEmptyParents(root, path);
     } else {
-      const target = TARGETS.find((candidate) => path.startsWith(`${candidate}/`))!;
       mkdirSync(dirname(destination), { recursive: true });
-      writeFileSync(destination, readFileSync(join(root, SOURCE, path.slice(target.length + 1))));
+      writeFileSync(destination, readFileSync(join(root, SOURCE, path.slice(targetOf(path).length + 1))));
     }
   }
 }
 
 function removeEmptyParents(root: string, path: string): void {
-  const target = TARGETS.find((candidate) => path.startsWith(`${candidate}/`))!;
+  const target = targetOf(path);
   for (let dir = posix.dirname(path); dir.length > target.length; dir = posix.dirname(dir)) {
     const absolute = join(root, dir);
     if (!statSync(absolute).isDirectory() || readdirSync(absolute).length > 0) return;

@@ -21,6 +21,8 @@ export const marker = (x: number, y: number): string => rect(x, y, MARKER, MARKE
 
 /** Línea base del label del encabezado y primera y libre debajo de su regla. */
 export const HEADER_BASELINE = 38;
+/** The rule under the section header: content that hangs from it (the stats rows) starts here. */
+export const HEADER_RULE = HEADER_BASELINE + 12;
 export const CONTENT_TOP = 66;
 
 export function sectionHeader(t: Typesetter, width: number, label: string, aside = ''): string {
@@ -28,7 +30,7 @@ export function sectionHeader(t: Typesetter, width: number, label: string, aside
   return [
     t.text(label, pad, HEADER_BASELINE, text.label),
     aside ? t.text(aside, width - pad, HEADER_BASELINE, text.aside, 'end') : '',
-    hline(pad, width - pad, HEADER_BASELINE + 12, color.border),
+    hline(pad, width - pad, HEADER_RULE, color.border),
   ].join('');
 }
 

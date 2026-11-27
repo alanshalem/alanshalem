@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { color, TEXT_COLORS } from '../src/theme.ts';
 import { escapeXml } from '../src/xml.ts';
@@ -27,6 +28,32 @@ describe('theme', () => {
     assert.equal(color.textTertiary, '#8e8e88');
     assert.equal(color.accent, '#9db2ff');
     assert.deepEqual(color.dataviz, ['#a9c98a', '#8fa7d9', '#e08f6a']);
+  });
+
+  // tokens.json is a hand-kept mirror of tokens.css and the profile is its only reader: pin what it reads to the CSS
+  // the site ships. TOKENS_CSS=<path> points it at another file (to prove it catches a drifted copy).
+  it('reads the same colors the site gets from tokens.css', () => {
+    const css = readFileSync(process.env.TOKENS_CSS ?? new URL('../../../packages/tokens/src/tokens.css', import.meta.url), 'utf8');
+    const root = css.slice(css.indexOf(':root'), css.indexOf('}', css.indexOf(':root')));
+    const vars = new Map([...root.matchAll(/--([\w-]+):\s*([^;]+);/g)].map(([, name, value]) => [name!, value!.trim()]));
+    const cssColor = (name: string): string => {
+      const value = vars.get(name);
+      assert.ok(value, `tokens.css has no --${name}`);
+      const reference = /^var\(--([\w-]+)\)$/.exec(value)?.[1];
+      if (reference) return cssColor(reference);
+      return value.toLowerCase().replace(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/, '#$1$1$2$2$3$3');
+    };
+    assert.deepEqual(color, {
+      page: cssColor('bg-page'),
+      surface: cssColor('bg-surface'),
+      surfaceAlt: cssColor('bg-surface-alt'),
+      border: cssColor('border-subtle'),
+      text: cssColor('text-primary'),
+      textSecondary: cssColor('text-secondary'),
+      textTertiary: cssColor('text-tertiary'),
+      accent: cssColor('link-accent'),
+      dataviz: ['green', 'blue', 'orange'].map((name) => cssColor(`dataviz-${name}`)),
+    });
   });
 
   it('todo color de texto llega a 4,5:1 sobre las superficies de las tarjetas', () => {

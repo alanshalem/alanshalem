@@ -3,7 +3,7 @@ import type { ProfileData } from '../model.ts';
 import { hline, svgDocument } from '../svg.ts';
 import { color, layout, text } from '../theme.ts';
 import { createTypesetter } from '../type.ts';
-import { frame, HALF_HEIGHT, HEADER_BASELINE, sectionHeader } from './frame.ts';
+import { frame, HALF_HEIGHT, HEADER_RULE, sectionHeader } from './frame.ts';
 
 const ROW = 24;
 
@@ -20,7 +20,7 @@ export function renderStats(data: ProfileData): string {
     ['Followers', data.followers],
   ];
 
-  const top = HEADER_BASELINE + 12;
+  const top = HEADER_RULE;
   const body = rows
     .map(([label, value], i) => {
       const baseline = top + ROW * (i + 1) - 7;

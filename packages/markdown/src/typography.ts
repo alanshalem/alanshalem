@@ -21,7 +21,9 @@ const OPENING_CONTEXT = /[\s([{¡¿“‘–—]/u;
 const WORD_CHAR = /[\p{L}\p{N}]/u;
 
 const opensQuote = (before: string | undefined): boolean => before === undefined || OPENING_CONTEXT.test(before);
-const isWordChar = (char: string | undefined): boolean => char !== undefined && WORD_CHAR.test(char);
+
+/** A letter or digit of any script: the one definition of "inside a word" (apostrophes here, `_` emphasis in inline.ts). */
+export const isWordChar = (char: string | undefined): boolean => char !== undefined && WORD_CHAR.test(char);
 
 /** `before` es el carácter del documento justo antes de `text` (decide si una comilla abre o cierra). */
 export function smartenText(text: string, before: string | undefined): string {

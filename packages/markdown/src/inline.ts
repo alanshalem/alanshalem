@@ -1,5 +1,5 @@
 import { escapeHtml } from './escape.ts';
-import { smartenText } from './typography.ts';
+import { isWordChar, smartenText } from './typography.ts';
 import { isExternalUrl, sanitizeUrl } from './url.ts';
 
 /**
@@ -27,7 +27,6 @@ export interface InlineContext {
 const SPECIAL = /[\\`!\[<*_~\n]/g;
 const ASCII_PUNCTUATION = /[!-/:-@[-`{-~]/;
 const AUTOLINK = /<((?:https?:\/\/|mailto:)[^\s<>]+)>/y;
-const WORD_CHAR = /[\p{L}\p{N}]/u;
 const FOOTNOTE_REF = /\[\^([^\]\s]+)\]/y;
 
 export function renderInline(source: string, ctx: InlineContext, insideLink = false): string {
@@ -276,7 +275,6 @@ function renderAnchor(url: string, innerHtml: string, titleAttr = ''): string {
 }
 
 const isSpaceOrEdge = (char: string | undefined): boolean => char === undefined || /\s/.test(char);
-const isWordChar = (char: string | undefined): boolean => char !== undefined && WORD_CHAR.test(char);
 
 /** Reglas de apertura/cierre: `_` no abre ni cierra dentro de una palabra (snake_case_name queda intacto). */
 function canOpen(source: string, i: number, length: number, delimiter: string): boolean {

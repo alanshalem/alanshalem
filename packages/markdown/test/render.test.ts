@@ -328,3 +328,10 @@ describe('utilidades de texto', () => {
     assert.equal(readingTimeMinutes('palabra '.repeat(450)), 3);
   });
 });
+
+describe('one word-character rule for emphasis and apostrophes', () => {
+  it('`_` inside a non-ASCII word stays literal and an apostrophe between letters of any script closes', () => {
+    assert.equal(html('año_ñandú_2 y _sí_'), '<p>año_ñandú_2 y <em>sí</em></p>');
+    assert.equal(renderMarkdown("l'été d'ñ 'x'", { smartTypography: true }).html, '<p>l’été d’ñ ‘x’</p>');
+  });
+});
