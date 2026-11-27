@@ -4,13 +4,13 @@ using Blog.Domain;
 namespace Blog.Application.Videos;
 
 /// <summary>
-/// Los campos de edición tal como llegan en la subida (texto, todos opcionales; vacío es lo mismo que no mandarlo).
-/// Acá solo se leen; qué valores son válidos lo decide <see cref="VideoEdit"/>, que además necesita la duración del
-/// original (por eso se convierte recién después de leer el video con ffprobe).
+/// The edit fields as they arrive in the upload (text, all optional; empty is the same as not sending it).
+/// Here they are only read; which values are valid is decided by <see cref="VideoEdit"/>, which also needs the
+/// original's duration (that is why it is converted only after reading the video with ffprobe).
 /// </summary>
 public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? Fade, string? FadeSeconds)
 {
-    // Los nombres del contrato, tal cual: Enum.TryParse aceptaría también números ("0") y mayúsculas.
+    // The contract names, as is: Enum.TryParse would also accept numbers ("0") and capital letters.
     private static readonly Dictionary<string, VideoFade> FadeNames = new(StringComparer.Ordinal)
     {
         ["loop"] = VideoFade.Loop,
@@ -18,10 +18,10 @@ public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? 
         ["none"] = VideoFade.None,
     };
 
-    /// <summary>Sin campos: la edición por defecto.</summary>
+    /// <summary>No fields: the default edit.</summary>
     public static VideoEditInput Empty { get; } = new(null, null, null, null);
 
-    /// <exception cref="DomainException">Si un campo no se puede leer o la edición no es válida para ese video.</exception>
+    /// <exception cref="DomainException">If a field cannot be read or the edit is not valid for that video.</exception>
     public VideoEdit ToEdit(double sourceSeconds) => VideoEdit.Create(
         sourceSeconds,
         Seconds(TrimStart, MessageKeys.VideoFieldTrimStart),
@@ -29,9 +29,9 @@ public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? 
         ParseFade(Fade),
         Seconds(FadeSeconds, MessageKeys.VideoFieldFadeSeconds));
 
-    // Punto decimal siempre (cultura invariante): "2.5" significa lo mismo en cualquier servidor. Se rechazan la coma,
-    // NaN e infinito; el signo y los rangos los valida el dominio con su mensaje.
-    // fieldKey: el nombre del campo, que va anidado en el mensaje (también se traduce).
+    // Always a decimal point (invariant culture): "2.5" means the same on any server. The comma, NaN and infinity are
+    // rejected; the sign and the ranges are validated by the domain with its message.
+    // fieldKey: the name of the field, nested in the message (it is translated too).
     private static double? Seconds(string? text, string fieldKey)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -44,7 +44,7 @@ public sealed record VideoEditInput(string? TrimStart, string? TrimEnd, string? 
             : throw new DomainException(MessageKeys.VideoInvalidNumber, ("field", new UserMessage(fieldKey)));
     }
 
-    // Los espacios alrededor se ignoran, igual que en los números (double.TryParse los acepta).
+    // Surrounding spaces are ignored, the same as in numbers (double.TryParse accepts them).
     private static VideoFade? ParseFade(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))

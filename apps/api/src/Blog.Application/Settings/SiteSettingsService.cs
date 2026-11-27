@@ -3,16 +3,16 @@ using Blog.Domain;
 
 namespace Blog.Application.Settings;
 
-/// <summary>Casos de uso de los ajustes del sitio (datos del autor y enlaces).</summary>
+/// <summary>Use cases of the site settings (author data and links).</summary>
 public sealed class SiteSettingsService(ISiteSettingsRepository settings, ISiteBuildTrigger siteBuild)
 {
-    /// <summary>Lo guardado o, si todavía no se guardó nada, los valores por defecto (sin crear la fila).</summary>
+    /// <summary>What is stored or, if nothing was saved yet, the default values (without creating the row).</summary>
     public async Task<SiteSettingsDto> GetAsync(CancellationToken cancellationToken) =>
         (await settings.GetAsync(cancellationToken))?.ToDto() ?? SiteSettingsContent.Default.ToDto();
 
     public async Task<SiteSettingsDto> SaveAsync(SaveSiteSettingsRequest request, CancellationToken cancellationToken)
     {
-        // Se valida antes de leer o tocar nada: un pedido inválido no cambia lo guardado.
+        // Validated before reading or touching anything: an invalid request does not change what is stored.
         var content = SiteSettingsContent.Create(
             request.Name,
             request.Tagline,
@@ -37,7 +37,7 @@ public sealed class SiteSettingsService(ISiteSettingsRepository settings, ISiteB
 
         await settings.SaveChangesAsync(cancellationToken);
 
-        // Nombre, bio y enlaces aparecen en todas las páginas: siempre hay que regenerar el sitio.
+        // Name, bio and links appear on every page: the site must always be regenerated.
         await siteBuild.RequestBuildAsync(cancellationToken);
         return current.ToDto();
     }

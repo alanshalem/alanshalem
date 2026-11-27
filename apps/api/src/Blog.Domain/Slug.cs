@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace Blog.Domain;
 
-/// <summary>El slug es la parte de la URL del post: "mi-primer-post". Solo minúsculas ASCII, números y guiones.</summary>
+/// <summary>The slug is the post's part of the URL: "my-first-post". Only lowercase ASCII, digits and hyphens.</summary>
 public static partial class Slug
 {
     public const int MaxLength = 120;
@@ -19,8 +19,8 @@ public static partial class Slug
         !string.IsNullOrEmpty(value) && value.Length <= MaxLength && ValidPattern().IsMatch(value);
 
     /// <summary>
-    /// "mi-post" + "en" -> "mi-post-en". Si no entra en <see cref="MaxLength"/> se acorta la base (nunca el sufijo, que
-    /// es lo que distingue al slug), sin dejarle un guion final.
+    /// "my-post" + "en" -> "my-post-en". If it does not fit in <see cref="MaxLength"/> the base is shortened (never the
+    /// suffix, which is what tells the slug apart), without leaving it a trailing hyphen.
     /// </summary>
     public static string WithSuffix(string slug, string suffix)
     {
@@ -29,7 +29,7 @@ public static partial class Slug
         return $"{stem}-{suffix}";
     }
 
-    /// <summary>"¡Hola, Mundo! Año 2026" -> "hola-mundo-ano-2026". Mismo criterio que slugify() del frontend.</summary>
+    /// <summary>"¡Hola, Mundo! Año 2026" -> "hola-mundo-ano-2026". Same criteria as the front end's slugify().</summary>
     public static string From(string text)
     {
         var decomposed = text.Normalize(NormalizationForm.FormD);

@@ -7,20 +7,20 @@ public enum MediaFormat
 }
 
 /// <summary>
-/// Una versión optimizada de una imagen subida: formato y ancho en píxeles. Acá vive, una sola vez, qué anchos y
-/// formatos se generan.
+/// An optimized version of an uploaded image: format and width in pixels. Which widths and formats are generated lives
+/// here, once.
 /// </summary>
 public sealed record MediaVariant(MediaFormat Format, int Width)
 {
-    /// <summary>Anchos del srcset: de un móvil a una pantalla grande 2x, sin generar archivos que nadie pide.</summary>
+    /// <summary>srcset widths: from a phone to a large 2x screen, without generating files nobody requests.</summary>
     public static IReadOnlyList<int> StandardWidths { get; } = [640, 1024, 1600, 2400];
 
-    /// <summary>AVIF primero: pesa menos, y el navegador usa el primer &lt;source&gt; que entiende. WebP es el respaldo.</summary>
+    /// <summary>AVIF first: it is lighter, and the browser uses the first &lt;source&gt; it understands. WebP is the fallback.</summary>
     public static IReadOnlyList<MediaFormat> Formats { get; } = [MediaFormat.Avif, MediaFormat.Webp];
 
     /// <summary>
-    /// Una animación sale solo en WebP: libheif no escribe AVIF animado y, como AVIF, quedaría reducida a su primer
-    /// cuadro. WebP animado lo entienden todos los navegadores actuales.
+    /// An animation is produced only as WebP: libheif does not write animated AVIF and, as AVIF, it would be reduced to
+    /// its first frame. Every current browser understands animated WebP.
     /// </summary>
     public static IReadOnlyList<MediaFormat> AnimatedFormats { get; } = [MediaFormat.Webp];
 
@@ -28,12 +28,12 @@ public sealed record MediaVariant(MediaFormat Format, int Width)
     {
         MediaFormat.Avif => "avif",
         MediaFormat.Webp => "webp",
-        _ => throw new ArgumentOutOfRangeException(nameof(Format), Format, "Formato de media desconocido."),
+        _ => throw new ArgumentOutOfRangeException(nameof(Format), Format, "Unknown media format."),
     };
 
     /// <summary>
-    /// Los anchos estándar que no superan el original (nunca se agranda una imagen). Si el original es más angosto
-    /// que el menor de ellos, se genera una sola variante con su propio ancho.
+    /// The standard widths that do not exceed the original (an image is never enlarged). If the original is narrower
+    /// than the smallest of them, a single variant with its own width is generated.
     /// </summary>
     public static IReadOnlyList<int> WidthsFor(int originalWidth)
     {
@@ -43,7 +43,7 @@ public sealed record MediaVariant(MediaFormat Format, int Width)
         return widths.Count > 0 ? widths : [originalWidth];
     }
 
-    /// <summary>Todas las variantes de una imagen de ese ancho: cada formato en cada ancho.</summary>
+    /// <summary>All the variants of an image of that width: each format at each width.</summary>
     public static IReadOnlyList<MediaVariant> For(int originalWidth, bool animated = false) =>
         [.. (animated ? AnimatedFormats : Formats)
             .SelectMany(format => WidthsFor(originalWidth).Select(width => new MediaVariant(format, width)))];

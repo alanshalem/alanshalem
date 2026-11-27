@@ -1,9 +1,9 @@
 namespace Blog.Application.Media;
 
 /// <summary>
-/// Identifica el formato de una imagen por sus primeros bytes ("magic bytes"), no por la extensión ni por el
-/// Content-Type, que los controla quien sube el archivo. Se aceptan solo formatos raster: SVG queda afuera a
-/// propósito porque puede llevar scripts.
+/// Identifies the format of an image by its first bytes ("magic bytes"), not by the extension or the Content-Type,
+/// which are controlled by whoever uploads the file. Only raster formats are accepted: SVG is left out on purpose
+/// because it can carry scripts.
 /// </summary>
 public static class ImageSniffer
 {
@@ -12,20 +12,20 @@ public static class ImageSniffer
     private static readonly byte[] Gif87 = "GIF87a"u8.ToArray();
     private static readonly byte[] Gif89 = "GIF89a"u8.ToArray();
 
-    /// <returns>La extensión sin punto ("png", "jpg", "gif", "webp", "avif") o null si no es una imagen soportada.</returns>
+    /// <returns>The extension without a dot ("png", "jpg", "gif", "webp", "avif") or null if it is not a supported image.</returns>
     public static string? DetectExtension(ReadOnlySpan<byte> data)
     {
         if (data.StartsWith(Png)) return "png";
         if (data.StartsWith(Jpeg)) return "jpg";
         if (data.StartsWith(Gif87) || data.StartsWith(Gif89)) return "gif";
 
-        // WebP: "RIFF" + 4 bytes de tamaño + "WEBP"
+        // WebP: "RIFF" + 4 size bytes + "WEBP"
         if (data.Length >= 12 && data[..4].SequenceEqual("RIFF"u8) && data.Slice(8, 4).SequenceEqual("WEBP"u8))
         {
             return "webp";
         }
 
-        // AVIF: caja "ftyp" en el byte 4 con marca "avif" o "avis" en el 8
+        // AVIF: "ftyp" box at byte 4 with brand "avif" or "avis" at byte 8
         if (data.Length >= 12 && data.Slice(4, 4).SequenceEqual("ftyp"u8))
         {
             var brand = data.Slice(8, 4);

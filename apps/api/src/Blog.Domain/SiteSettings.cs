@@ -3,16 +3,17 @@ using System.Text.RegularExpressions;
 namespace Blog.Domain;
 
 /// <summary>
-/// Datos del autor y del sitio que se editan desde el admin (nombre, bio, enlaces). Las fotos del hero son
-/// una galería aparte (<see cref="HeroImage"/>).
-/// Hay una sola fila: siempre con <see cref="SingletonId"/>. Los textos sin sufijo son los de español; los En son su
-/// versión en inglés y, si faltan (null), el sitio en inglés usa el de español. El nombre es uno solo en los dos (L12).
+/// Author and site data edited from the admin (name, bio, links). The hero photos are a separate gallery
+/// (<see cref="HeroImage"/>).
+/// There is a single row: always with <see cref="SingletonId"/>. Unsuffixed texts are the Spanish ones; the En ones are
+/// their English version and, if missing (null), the English site uses the Spanish one. The name is a proper name: one
+/// single field for both languages.
 /// </summary>
 public sealed class SiteSettings
 {
     public const int SingletonId = 1;
 
-    // Constructor para EF Core.
+    // Constructor for EF Core.
     private SiteSettings()
     {
         Name = string.Empty;
@@ -22,7 +23,7 @@ public sealed class SiteSettings
     public string Name { get; private set; }
     public string? Tagline { get; private set; }
 
-    /// <summary>Markdown corto; el sitio lo renderiza con @blog/markdown.</summary>
+    /// <summary>Short Markdown; the site renders it with @blog/markdown.</summary>
     public string? Bio { get; private set; }
 
     public string? Email { get; private set; }
@@ -55,7 +56,7 @@ public sealed class SiteSettings
     }
 }
 
-/// <summary>Los ajustes ya validados y normalizados. Si existe una instancia, es válida.</summary>
+/// <summary>The settings, validated and normalized. If an instance exists, it is valid.</summary>
 public sealed partial record SiteSettingsContent(
     string Name,
     string? Tagline,
@@ -72,11 +73,11 @@ public sealed partial record SiteSettingsContent(
     public const int MaxBioLength = 2000;
     public const int MaxEmailLength = 254;
 
-    /// <summary>Lo que se usa mientras no se guardó nada desde el admin.</summary>
+    /// <summary>What is used until something is saved from the admin.</summary>
     public static SiteSettingsContent Default { get; } = new(
         "Mi blog", "Notas sobre software, ideas y cosas que estoy aprendiendo.", null, null, null, null, null);
 
-    // Forma mínima (algo@dominio.tld, sin espacios). La validación real de un email es mandarle un correo.
+    // Minimal shape (something@domain.tld, no spaces). The real validation of an email is sending it a message.
     [GeneratedRegex(@"^[^@\s]+@[^@\s]+\.[^@\s]+$")]
     private static partial Regex EmailPattern();
 
@@ -116,12 +117,12 @@ public sealed partial record SiteSettingsContent(
             HttpLink(githubUrl, "GitHub"),
             HttpLink(linkedinUrl, "LinkedIn"),
             HttpLink(xUrl, "X"),
-            // Mismos límites que sus pares en español, pero opcionales. El nombre es uno solo en los dos idiomas (L12).
+            // Same limits as their Spanish counterparts, but optional. The name is one single field for both languages.
             OptionalText.Clean(taglineEn, MaxTaglineLength, MessageKeys.SettingsTaglineEnTooLong),
             OptionalText.Clean(bioEn, MaxBioLength, MessageKeys.SettingsBioEnTooLong));
     }
 
-    // La etiqueta es el nombre de la red (GitHub, LinkedIn, X): igual en los dos idiomas, va tal cual.
+    // The label is the name of the network (GitHub, LinkedIn, X): the same in both languages, kept as is.
     private static string? HttpLink(string? value, string label)
     {
         var clean = OptionalText.Clean(value, WebUrl.MaxLength, MessageKeys.SettingsLinkTooLong, ("label", label));

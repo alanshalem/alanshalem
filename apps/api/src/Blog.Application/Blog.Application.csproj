@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- Casos de uso. Depende solo del dominio; los detalles (base de datos, disco, HTTP) entran por interfaces. -->
+  <!-- Use cases. Depends only on the domain; the details (database, disk, HTTP) come in through interfaces. -->
   <ItemGroup>
     <ProjectReference Include="..\Blog.Domain\Blog.Domain.csproj" />
   </ItemGroup>

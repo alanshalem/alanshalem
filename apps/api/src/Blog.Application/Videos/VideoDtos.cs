@@ -5,15 +5,15 @@ namespace Blog.Application.Videos;
 
 public sealed record VideoSourceDto(VideoCodec Codec, int Height, string Url, long Bytes);
 
-/// <summary>El recorte (segundos del original) y el fundido con que se procesó el video, ya normalizados.</summary>
+/// <summary>The trim (seconds of the original) and the fade the video was processed with, already normalized.</summary>
 public sealed record VideoEditDto(double TrimStart, double TrimEnd, VideoFade Fade, double FadeSeconds);
 
 /// <summary>
-/// Un video del hero. Mientras <see cref="Status"/> es "processing" no tiene póster ni fuentes; el admin consulta
-/// GET /api/admin/media/videos/{id} hasta que pase a "ready" o "failed" (con <see cref="Error"/>, que la API escribe en
-/// el idioma del pedido).
+/// A hero video. While <see cref="Status"/> is "processing" it has no poster or sources; the admin polls
+/// GET /api/admin/media/videos/{id} until it becomes "ready" or "failed" (with <see cref="Error"/>, which the API writes
+/// in the language of the request).
 /// <see cref="Warnings"/> carry no text either: the API writes each one in the language of the request.
-/// <see cref="DurationSeconds"/> es la duración final, ya aplicada la edición.
+/// <see cref="DurationSeconds"/> is the final duration, with the edit already applied.
 /// </summary>
 public sealed record VideoAssetDto(
     Guid Id,

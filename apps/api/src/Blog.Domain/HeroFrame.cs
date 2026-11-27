@@ -1,9 +1,9 @@
 namespace Blog.Domain;
 
 /// <summary>
-/// Regla de tamaño de lo que entra al hero (fotos y videos). El hero es una franja horizontal a todo el ancho: una
-/// imagen vertical o cuadrada quedaría casi toda recortada, y una chica se vería borrosa en una pantalla de escritorio.
-/// Las fotos de portadas y de posts no pasan por acá.
+/// Size rule for what goes into the hero (photos and videos). The hero is a full-width horizontal band: a portrait or
+/// square image would be almost entirely cropped, and a small one would look blurry on a desktop screen.
+/// Cover and post photos do not go through here.
 /// </summary>
 public static class HeroFrame
 {
@@ -12,16 +12,16 @@ public static class HeroFrame
     public const int IdealWidth = 1920;
     public const int IdealHeight = 1080;
 
-    // La guía que ve el admin, igual en cada mensaje (anidada, así se traduce con él). Sale de las constantes: cambiar
-    // el ideal cambia el texto.
+    // The guidance the admin sees, the same in every message (nested, so it is translated with it). It comes from the
+    // constants: changing the ideal changes the text.
     private static readonly UserMessage Guide = new(MessageKeys.HeroGuide, ("width", IdealWidth), ("height", IdealHeight));
 
-    // El ancho tiene que ser al menos 1,2 veces el alto (6/5, en enteros para no comparar con decimales):
-    // deja afuera verticales, cuadradas y casi cuadradas, que el recorte del hero dejaría irreconocibles.
+    // The width must be at least 1.2 times the height (6/5, in integers to avoid comparing decimals): it rules out
+    // portrait, square and almost square images, which the hero crop would make unrecognizable.
     private const int MinAspectNumerator = 6;
     private const int MinAspectDenominator = 5;
 
-    /// <exception cref="DomainException">Si es vertical, cuadrada o más chica que 1280×720 (con las medidas recibidas).</exception>
+    /// <exception cref="DomainException">If it is portrait, square or smaller than 1280×720 (with the given size).</exception>
     public static void Ensure(int width, int height)
     {
         if ((long)width * MinAspectDenominator < (long)height * MinAspectNumerator)

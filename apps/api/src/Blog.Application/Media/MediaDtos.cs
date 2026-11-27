@@ -5,8 +5,8 @@ namespace Blog.Application.Media;
 public sealed record MediaVariantDto(MediaFormat Format, int Width, string Url);
 
 /// <summary>
-/// Una imagen subida. <see cref="Url"/> es el WebP más ancho hasta 1600 px (lo que usa quien no arma srcset);
-/// <see cref="Variants"/> trae todos los archivos para armar &lt;picture&gt; con AVIF y WebP.
+/// An uploaded image. <see cref="Url"/> is the widest WebP up to 1600 px (what whoever does not build a srcset uses);
+/// <see cref="Variants"/> carries every file to build a &lt;picture&gt; with AVIF and WebP.
 /// </summary>
 public sealed record MediaAssetDto(
     Guid Id,

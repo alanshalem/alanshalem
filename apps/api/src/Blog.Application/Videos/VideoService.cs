@@ -5,9 +5,9 @@ using Blog.Domain;
 namespace Blog.Application.Videos;
 
 /// <summary>
-/// Subida de videos para el hero. Valida enseguida (formato, tamaño del archivo, recorte y fundido, regla de tamaño
-/// del hero) y deja el video en "processing" para que <see cref="VideoProcessor"/> lo convierta en segundo plano: convertir
-/// tarda minutos y el pedido HTTP no puede esperar tanto.
+/// Video upload for the hero. Validates right away (format, file size, trim and fade, hero size rule) and leaves the
+/// video "processing" so <see cref="VideoProcessor"/> converts it in the background: converting takes minutes and the
+/// HTTP request cannot wait that long.
 /// </summary>
 public sealed class VideoService(
     IVideoStaging staging,
@@ -35,13 +35,13 @@ public sealed class VideoService(
                 throw new DomainException(MessageKeys.VideoUnsupportedFormat);
             }
 
-            // La edición se valida contra la duración real del original, así que primero se lee con ffprobe.
+            // The edit is validated against the original's real duration, so it is read with ffprobe first.
             var probe = await transcoder.ProbeAsync(staged.Path, cancellationToken)
                 ?? throw new DomainException(MessageKeys.VideoUnreadable);
             var validEdit = edit.ToEdit(probe.DurationSeconds);
 
-            // Mismo video con la misma edición = mismo hash = mismo asset: si ya está (o se está procesando) se devuelve
-            // tal cual, salvo que haya que procesarlo de nuevo (ver NeedsProcessingAgain).
+            // Same video with the same edit = same hash = same asset: if it already exists (or is processing) it is
+            // returned as is, unless it has to be processed again (see NeedsProcessingAgain).
             var existing = await videos.GetByHashAsync(VideoAsset.HashOf(staged.Hash, validEdit), cancellationToken);
             if (existing is not null && !NeedsProcessingAgain(existing))
             {
@@ -65,7 +65,7 @@ public sealed class VideoService(
         }
         finally
         {
-            // El original solo se queda si entró en la cola: un rechazo o un duplicado no deja nada en disco.
+            // The original is kept only if it entered the queue: a rejection or a duplicate leaves nothing on disk.
             if (!queued)
             {
                 staging.Delete(staged.Path);
@@ -76,9 +76,9 @@ public sealed class VideoService(
     public async Task<VideoAssetDto> GetAsync(Guid id, CancellationToken cancellationToken) =>
         (await videos.GetByIdAsync(id, cancellationToken) ?? throw new NotFoundException(MessageKeys.VideoNotFound)).ToDto();
 
-    // Uno que falló, así el admin siempre tiene una salida: subirlo de nuevo. Y uno listo al que le falta algún archivo
-    // (fuente o póster), igual que con las imágenes: si no, el sitio apuntaría a archivos que no existen. El original
-    // recién subido es el que se encola: es el mismo contenido.
+    // One that failed, so the admin always has a way out: upload it again. And a ready one missing some file (source or
+    // poster), the same as with images: otherwise the site would point to files that do not exist. The freshly uploaded
+    // original is the one queued: it is the same content.
     private bool NeedsProcessingAgain(VideoAsset video) => video.Status switch
     {
         VideoStatus.Failed => true,

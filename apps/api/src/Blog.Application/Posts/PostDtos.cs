@@ -4,9 +4,9 @@ using Blog.Domain;
 namespace Blog.Application.Posts;
 
 /// <summary>
-/// Entrada para crear o editar. Slug vacío = derivarlo del título. La portada es opcional: si no viene en el JSON
-/// queda en null (el sitio cae a la primera imagen del cuerpo o a una portada generativa). El idioma solo se elige al
-/// crear (sin él, español); al editar puede omitirse o repetirse, pero no cambiarse.
+/// Input to create or edit. Empty slug = derive it from the title. The cover is optional: if it is not in the JSON it
+/// stays null (the site falls back to the first body image or a generated cover). The language is chosen only on
+/// creation (without it, Spanish); when editing it can be omitted or repeated, but not changed.
 /// </summary>
 public sealed record SavePostRequest(
     string? Title,
@@ -18,14 +18,14 @@ public sealed record SavePostRequest(
     string? CoverAlt = null,
     string? Lang = null);
 
-/// <summary>Pide la versión del post en otro idioma.</summary>
+/// <summary>Requests the post's version in another language.</summary>
 public sealed record CreateTranslationRequest(string? Lang);
 
-/// <param name="PublishAt">ISO 8601 con zona horaria (Z o ±hh:mm). Llega como texto para responder 400 con un mensaje propio si no se entiende.</param>
+/// <param name="PublishAt">ISO 8601 with a time zone (Z or ±hh:mm). It arrives as text to answer 400 with a message of its own if it cannot be read.</param>
 public sealed record SchedulePostRequest(string? PublishAt)
 {
-    /// <summary>La hora pedida en UTC.</summary>
-    /// <exception cref="DomainException">Si falta o no trae zona horaria: sin ella la hora es ambigua (¿la del admin o la del servidor?).</exception>
+    /// <summary>The requested time in UTC.</summary>
+    /// <exception cref="DomainException">If it is missing or has no time zone: without one the time is ambiguous (the admin's or the server's?).</exception>
     public DateTime ParsePublishAtUtc()
     {
         if (string.IsNullOrWhiteSpace(PublishAt))
@@ -33,7 +33,7 @@ public sealed record SchedulePostRequest(string? PublishAt)
             throw new DomainException(MessageKeys.PostPublishAtRequired);
         }
 
-        // AdjustToUniversal pasa a UTC usando el desplazamiento del texto; si no hay, el resultado queda Unspecified.
+        // AdjustToUniversal converts to UTC using the text's offset; if there is none, the result stays Unspecified.
         if (!DateTime.TryParse(PublishAt, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal, out var parsed)
             || parsed.Kind != DateTimeKind.Utc)
         {
@@ -44,11 +44,11 @@ public sealed record SchedulePostRequest(string? PublishAt)
     }
 }
 
-/// <summary>Una versión del historial en la lista: sin el cuerpo (el admin lo pide al abrirla).</summary>
-/// <param name="BodyLength">Caracteres del cuerpo: una pista del tamaño sin traerlo.</param>
+/// <summary>A history version in the list: without the body (the admin requests it when opening it).</summary>
+/// <param name="BodyLength">Characters of the body: a hint of its size without fetching it.</param>
 public sealed record PostRevisionSummaryDto(Guid Id, int Number, DateTime CreatedAt, string Title, int BodyLength);
 
-/// <summary>Una versión completa del historial: lo que el admin compara con el post actual (la comparación la hace él).</summary>
+/// <summary>A complete history version: what the admin compares with the current post (the admin does the comparison).</summary>
 public sealed record PostRevisionDto(
     Guid Id,
     int Number,
@@ -61,11 +61,11 @@ public sealed record PostRevisionDto(
     string? CoverUrl,
     string? CoverAlt);
 
-/// <summary>Otra versión del mismo artículo (mismo grupo de traducción, otro idioma).</summary>
-/// <param name="ContentUpdatedAt">Último cambio de su contenido (<see cref="Post.ContentUpdatedAtUtc"/>): con esta fecha, y no con <paramref name="UpdatedAt"/>, el admin sabe si la traducción quedó atrás.</param>
+/// <summary>Another version of the same article (same translation group, another language).</summary>
+/// <param name="ContentUpdatedAt">Last change of its content (<see cref="Post.ContentUpdatedAtUtc"/>): with this date, and not with <paramref name="UpdatedAt"/>, the admin knows whether the translation fell behind.</param>
 public sealed record PostTranslationDto(Guid Id, string Lang, string Slug, PostStatus Status, DateTime UpdatedAt, DateTime ContentUpdatedAt);
 
-/// <param name="Translations">Las otras versiones del grupo; vacío si no hay.</param>
+/// <param name="Translations">The other versions of the group; empty if there are none.</param>
 public sealed record PostSummaryDto(
     Guid Id,
     string Slug,
@@ -81,7 +81,7 @@ public sealed record PostSummaryDto(
     string? CoverAlt,
     IReadOnlyList<PostTranslationDto> Translations);
 
-/// <param name="Translations">Las otras versiones del grupo; vacío si no hay.</param>
+/// <param name="Translations">The other versions of the group; empty if there are none.</param>
 public sealed record PostDto(
     Guid Id,
     string Slug,
@@ -103,7 +103,7 @@ public sealed record PostDto(
 
 public static class PostMapping
 {
-    /// <param name="versions">Las versiones del grupo; puede incluir al propio post (se descarta).</param>
+    /// <param name="versions">The versions of the group; it may include the post itself (it is discarded).</param>
     public static PostDto ToDto(this Post post, IEnumerable<PostTranslationDto> versions) => new(
         post.Id,
         post.Slug,
@@ -135,7 +135,7 @@ public static class PostMapping
         revision.CoverUrl,
         revision.CoverAlt);
 
-    /// <summary>La versión como si el admin la volviera a guardar: restaurar pasa por las mismas validaciones que editar.</summary>
+    /// <summary>The version as if the admin saved it again: restoring goes through the same validations as editing.</summary>
     public static SavePostRequest ToRequest(this PostRevision revision) =>
         new(revision.Title, revision.Slug, revision.Summary, revision.Body, revision.Tags, revision.CoverUrl, revision.CoverAlt);
 
@@ -145,7 +145,7 @@ public static class PostMapping
     public static PostTranslationDto ToTranslation(this PostSummaryDto summary) =>
         new(summary.Id, summary.Lang, summary.Slug, summary.Status, summary.UpdatedAt, summary.ContentUpdatedAt);
 
-    /// <summary>Las versiones que no son la del post, por idioma: un orden estable para el admin y el sitio.</summary>
+    /// <summary>The versions other than the post's, by language: a stable order for the admin and the site.</summary>
     public static IReadOnlyList<PostTranslationDto> OthersThan(Guid postId, IEnumerable<PostTranslationDto> versions) =>
         versions.Where(version => version.Id != postId).OrderBy(version => version.Lang, StringComparer.Ordinal).ToList();
 }

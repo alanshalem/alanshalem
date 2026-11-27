@@ -3,27 +3,27 @@ using System.Text.RegularExpressions;
 
 namespace Blog.Domain;
 
-/// <summary>Un texto del catálogo en los dos idiomas de <see cref="Language"/> (dos fijos, como en el resto del dominio).</summary>
+/// <summary>A catalog text in the two languages of <see cref="Language"/> (two fixed ones, as in the rest of the domain).</summary>
 public sealed record LocalizedText(string Spanish, string English)
 {
-    /// <exception cref="ArgumentOutOfRangeException">Si el idioma no es uno de <see cref="Language"/> (error de programación).</exception>
+    /// <exception cref="ArgumentOutOfRangeException">If the language is not one of <see cref="Language"/> (programming error).</exception>
     public string In(string language) => language switch
     {
         Language.Spanish => Spanish,
         Language.English => English,
-        _ => throw new ArgumentOutOfRangeException(nameof(language), language, "Idioma sin validar: pasalo antes por Language."),
+        _ => throw new ArgumentOutOfRangeException(nameof(language), language, "Unvalidated language: pass it through Language first."),
     };
 }
 
 /// <summary>
-/// El único lugar con los textos que ve el admin: cada <see cref="MessageKeys">clave</see> con su español y su inglés.
-/// Dominio y casos de uso solo nombran la clave y los argumentos (<see cref="UserMessage"/>); el texto lo elige quien
-/// sabe en qué idioma lee la persona (la API, por Accept-Language). Vive en el dominio porque es la capa que todas ven,
-/// y no depende de ningún framework: son textos y un reemplazo de {marcadores}.
+/// The only place with the texts the admin sees: each <see cref="MessageKeys">key</see> with its Spanish and its
+/// English. Domain and use cases only name the key and the arguments (<see cref="UserMessage"/>); the text is chosen by
+/// whoever knows the reader's language (the API, through Accept-Language). It lives in the domain because it is the
+/// layer every other one sees, and it depends on no framework: it is texts and a {placeholder} replacement.
 /// </summary>
 public static partial class MessageCatalog
 {
-    /// <summary>Todas las entradas, por clave. Las pruebas verifican que cada clave declarada tenga los dos textos.</summary>
+    /// <summary>All the entries, by key. The tests check that every declared key has both texts.</summary>
     public static IReadOnlyDictionary<string, LocalizedText> Entries { get; } = new Dictionary<string, LocalizedText>(StringComparer.Ordinal)
     {
         [MessageKeys.ProblemBadRequest] = new("Datos inválidos", "Invalid data"),
@@ -204,17 +204,17 @@ public static partial class MessageCatalog
             "The video's cover image couldn't be generated. Try exporting it again as MP4 and upload it again."),
     };
 
-    // Segundos con hasta dos decimales, con el separador de cada idioma y sin depender de la cultura del servidor.
+    // Seconds with up to two decimals, with each language's separator and without depending on the server's culture.
     private const string SecondsFormat = "0.##";
     private static readonly NumberFormatInfo SpanishNumbers = new() { NumberDecimalSeparator = "," };
 
     [GeneratedRegex(@"\{(\w+)\}")]
     private static partial Regex Placeholder();
 
-    /// <summary>El texto del mensaje en ese idioma, con cada {marcador} reemplazado por su argumento.</summary>
-    /// <exception cref="KeyNotFoundException">Si la clave no está en el catálogo.</exception>
-    /// <exception cref="InvalidOperationException">Si falta el argumento de un marcador.</exception>
-    /// <exception cref="ArgumentOutOfRangeException">Si el idioma no es uno de <see cref="Language"/>.</exception>
+    /// <summary>The text of the message in that language, with each {placeholder} replaced by its argument.</summary>
+    /// <exception cref="KeyNotFoundException">If the key is not in the catalog.</exception>
+    /// <exception cref="InvalidOperationException">If the argument of a placeholder is missing.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">If the language is not one of <see cref="Language"/>.</exception>
     public static string Format(UserMessage message, string language)
     {
         var text = Entries[message.Key].In(language);
@@ -223,12 +223,12 @@ public static partial class MessageCatalog
             var name = match.Groups[1].Value;
             return message.Arguments.TryGetValue(name, out var value)
                 ? Render(value, language)
-                : throw new InvalidOperationException($"Falta el argumento {{{name}}} del mensaje {message.Key}.");
+                : throw new InvalidOperationException($"Missing argument {{{name}}} of message {message.Key}.");
         });
     }
 
-    // Un mensaje anidado (un nombre de idioma, un campo) se escribe en el mismo idioma; los decimales, con su separador;
-    // una lista de segundos, separada por comas; el resto (enteros, textos) tal cual, sin separador de miles.
+    // A nested message (a language name, a field) is written in the same language; decimals, with their separator; a
+    // list of seconds, separated by commas; the rest (integers, texts) as is, without a thousands separator.
     private static string Render(object value, string language) => value switch
     {
         UserMessage nested => Format(nested, language),
@@ -238,7 +238,7 @@ public static partial class MessageCatalog
         _ => value.ToString() ?? string.Empty,
     };
 
-    // El idioma ya pasó por LocalizedText.In al elegir el texto: acá solo puede ser uno de los dos.
+    // The language already went through LocalizedText.In when the text was chosen: here it can only be one of the two.
     private static NumberFormatInfo NumbersOf(string language) =>
         language == Language.English ? NumberFormatInfo.InvariantInfo : SpanishNumbers;
 }

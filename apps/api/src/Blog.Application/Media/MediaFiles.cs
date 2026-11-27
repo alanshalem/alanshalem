@@ -4,16 +4,16 @@ using Blog.Domain;
 namespace Blog.Application.Media;
 
 /// <summary>
-/// Si los archivos de un asset siguen en disco. La base y la carpeta de media pueden separarse (una base restaurada sin
-/// su carpeta, un volumen perdido), así que antes de dar por bueno un asset que ya existe se mira el disco: nunca se
-/// devuelven URLs que apuntan a archivos que no están.
+/// Whether the files of an asset are still on disk. The database and the media folder can drift apart (a database
+/// restored without its folder, a lost volume), so before accepting an asset that already exists the disk is checked:
+/// URLs pointing to missing files are never returned.
 /// </summary>
 internal static class MediaFiles
 {
     public static bool HasAllFiles(this IMediaStorage storage, MediaAsset asset) =>
         asset.Variants.All(variant => storage.Exists(asset.RelativePathOf(variant)));
 
-    /// <summary>Un video tiene todo si están cada una de sus fuentes y su póster entero.</summary>
+    /// <summary>A video has everything if each of its sources and its whole poster are there.</summary>
     public static bool HasAllFiles(this IMediaStorage storage, VideoAsset video) =>
         video.Poster is { } poster
         && storage.HasAllFiles(poster)

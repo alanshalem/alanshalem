@@ -2,29 +2,29 @@ using System.Globalization;
 
 namespace Blog.Domain;
 
-/// <summary>Cómo empalma el video consigo mismo al repetirse en el hero.</summary>
+/// <summary>How the video joins itself when it repeats in the hero.</summary>
 public enum VideoFade
 {
-    /// <summary>El final se funde con el principio: el último cuadro sigue sin salto en el primero.</summary>
+    /// <summary>The end blends into the start: the last frame continues into the first without a jump.</summary>
     Loop,
 
-    /// <summary>Aparece desde negro al empezar y se va a negro al terminar.</summary>
+    /// <summary>Fades in from black at the start and out to black at the end.</summary>
     Black,
 
-    /// <summary>Corte directo.</summary>
+    /// <summary>Hard cut.</summary>
     None,
 }
 
 /// <summary>
-/// El recorte y el fundido que se aplican al procesar un video, ya validados contra la duración del original y
-/// normalizados: dos pedidos que producen el mismo resultado son la misma edición (y el mismo asset). Los tiempos
-/// son segundos del original, redondeados al milisegundo.
+/// The trim and fade applied when processing a video, validated against the original's duration and normalized: two
+/// requests that produce the same result are the same edit (and the same asset). Times are seconds of the original,
+/// rounded to the millisecond.
 /// </summary>
 public sealed record VideoEdit
 {
     /// <summary>
-    /// Lo que puede durar el tramo elegido. Es el fondo del hero y se repite en loop: hasta 15 s alcanza para que la
-    /// repetición no se note y deja acotado lo que baja cada visita; menos de 1 s sería un parpadeo.
+    /// How long the chosen stretch can last. It is the hero background and repeats in a loop: up to 15 s is enough for
+    /// the repetition not to show and keeps what each visit downloads bounded; less than 1 s would be a flicker.
     /// </summary>
     public const double MinSeconds = 1;
 
@@ -33,20 +33,20 @@ public sealed record VideoEdit
     public const VideoFade DefaultFade = VideoFade.Loop;
     public const double DefaultFadeSeconds = 1;
 
-    // Los contenedores redondean la duración y el navegador la mide distinto que ffprobe (15 s exportados por un
-    // teléfono suelen medir 15,02 s): este margen evita rechazar por centésimas que nadie eligió.
+    // Containers round the duration and the browser measures it differently from ffprobe (15 s exported by a phone
+    // often measure 15.02 s): this margin avoids rejecting over hundredths nobody chose.
     private const double ToleranceSeconds = 0.1;
 
     private const int Decimals = 3;
 
-    // Constructor para EF Core.
+    // Constructor for EF Core.
     private VideoEdit()
     {
     }
 
     /// <summary>
-    /// Las duraciones de fundido que se pueden elegir: corta, media y larga. Pocas a propósito, así el admin compara
-    /// cada una en la vista previa en vez de afinar décimas. Es la única lista: el mensaje de error sale de acá.
+    /// The fade durations that can be chosen: short, medium and long. Few on purpose, so the admin compares each one in
+    /// the preview instead of fine-tuning tenths. It is the only list: the error message comes from here.
     /// </summary>
     public static IReadOnlyList<double> FadeDurations { get; } = [0.5, 1, 2];
 
@@ -54,39 +54,39 @@ public sealed record VideoEdit
     public double TrimEnd { get; private set; }
     public VideoFade Fade { get; private set; }
 
-    /// <summary>Sin fundido no se usa: queda en el valor por defecto para que no distinga dos ediciones iguales.</summary>
+    /// <summary>Unused without a fade: it stays at the default value so it does not tell two equal edits apart.</summary>
     public double FadeSeconds { get; private set; }
 
-    /// <summary>Lo que dura el tramo recortado.</summary>
+    /// <summary>How long the trimmed stretch lasts.</summary>
     public double TrimmedSeconds => Round(TrimEnd - TrimStart);
 
     /// <summary>
-    /// Lo que dura el video final. En loop el último tramo de fundido se superpone con el principio, así que el
-    /// resultado es más corto que el recorte.
+    /// How long the final video lasts. In loop the last fade stretch overlaps the start, so the result is shorter than
+    /// the trim.
     /// </summary>
     public double OutputSeconds => Fade == VideoFade.Loop ? Round(TrimmedSeconds - FadeSeconds) : TrimmedSeconds;
 
     /// <summary>
-    /// Segundo del original del primer cuadro que se ve entero: en black, donde termina el fundido de entrada; en
-    /// loop, donde arranca el video final (lo anterior solo aparece fundido al final). De ahí sale el póster.
+    /// Second of the original of the first frame seen whole: in black, where the fade-in ends; in loop, where the final
+    /// video starts (what comes before only appears faded in at the end). The poster comes from there.
     /// </summary>
     public double FirstVisibleSecond => Fade == VideoFade.None ? TrimStart : Round(TrimStart + FadeSeconds);
 
-    /// <summary>Texto estable que identifica la edición (ej. "2-15-loop-1"): junto al hash del original, define el asset.</summary>
+    /// <summary>Stable text that identifies the edit (e.g. "2-15-loop-1"): together with the original's hash, it defines the asset.</summary>
     public string Key => string.Join('-', Invariant(TrimStart), Invariant(TrimEnd), Fade.ToString().ToLowerInvariant(), Invariant(FadeSeconds));
 
-    /// <summary>Lo que pasa sin campos de edición: los primeros min(duración, 15) s con loop de 1 s.</summary>
+    /// <summary>What happens without edit fields: the first min(duration, 15) s with a 1 s loop.</summary>
     public static VideoEdit DefaultFor(double sourceSeconds) => Create(sourceSeconds, null, null, null, null);
 
     /// <summary>
-    /// Valida y normaliza la edición pedida. Lo que no se pide toma su valor por defecto; sin fin, el tramo sigue hasta
-    /// 15 s después del inicio (o hasta el final del video, si termina antes).
+    /// Validates and normalizes the requested edit. Whatever is not requested takes its default value; without an end,
+    /// the stretch runs until 15 s after the start (or until the end of the video, if it ends earlier).
     /// </summary>
-    /// <param name="sourceSeconds">Duración del original (la que mide ffprobe).</param>
-    /// <exception cref="DomainException">Si el tramo no queda entre 1 y 15 s, se sale del video o no le entra el fundido.</exception>
+    /// <param name="sourceSeconds">Duration of the original (as measured by ffprobe).</param>
+    /// <exception cref="DomainException">If the stretch is not between 1 and 15 s, goes past the video or the fade does not fit.</exception>
     public static VideoEdit Create(double sourceSeconds, double? trimStart, double? trimEnd, VideoFade? fade, double? fadeSeconds)
     {
-        // Rechazar texto que no es un número es trabajo de quien lee el pedido; un NaN acá pasaría todas las comparaciones.
+        // Rejecting text that is not a number is the job of whoever reads the request; a NaN here would pass every comparison.
         EnsureFinite(sourceSeconds, nameof(sourceSeconds));
         EnsureFinite(trimStart, nameof(trimStart));
         EnsureFinite(trimEnd, nameof(trimEnd));
@@ -98,7 +98,7 @@ public sealed record VideoEdit
             throw new DomainException(MessageKeys.VideoTrimStartNegative);
         }
 
-        // El fin por defecto se cuenta desde el inicio elegido: pedir solo el inicio da el tramo más largo posible desde ahí.
+        // The default end counts from the chosen start: asking only for the start gives the longest possible stretch from there.
         var end = Round(trimEnd ?? Math.Min(sourceSeconds, start + MaxSeconds));
         if (end <= start)
         {
@@ -110,7 +110,7 @@ public sealed record VideoEdit
             throw new DomainException(MessageKeys.VideoTrimEndPastVideo, ("end", end), ("duration", sourceSeconds));
         }
 
-        // Dentro del margen, el fin es el final real: el mismo pedido con 15,02 o 15 produce el mismo video.
+        // Within the margin, the end is the real end: the same request with 15.02 or 15 produces the same video.
         end = Math.Min(end, Round(sourceSeconds));
         var trimmed = Round(end - start);
         if (trimmed > MaxSeconds + ToleranceSeconds)
@@ -133,7 +133,7 @@ public sealed record VideoEdit
         var chosenFade = fade ?? DefaultFade;
         if (chosenFade != VideoFade.None && chosenFadeSeconds * 2 > trimmed)
         {
-            // Entrada y salida (o en loop, el tramo que se funde y el que lo recibe) no pueden superponerse.
+            // Fade-in and fade-out (or in loop, the stretch that blends and the one that receives it) cannot overlap.
             throw new DomainException(
                 MessageKeys.VideoFadeTooLongForTrim, ("fade", chosenFadeSeconds), ("needed", chosenFadeSeconds * 2), ("trimmed", trimmed));
         }
@@ -151,7 +151,7 @@ public sealed record VideoEdit
     {
         if (seconds is { } value && !double.IsFinite(value))
         {
-            throw new ArgumentOutOfRangeException(parameter, value, "Los tiempos de una edición tienen que ser números finitos.");
+            throw new ArgumentOutOfRangeException(parameter, value, "The times of an edit must be finite numbers.");
         }
     }
 

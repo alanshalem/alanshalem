@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Blog.Tests;
 
-/// <summary>Galería del hero contra la base SQLite real (los assets se insertan directo: el pipeline se prueba aparte).</summary>
+/// <summary>Hero gallery against the real SQLite database (the assets are inserted directly: the pipeline is tested separately).</summary>
 public class HeroImageServiceTests
 {
     private const string UnknownImageMessage = "La foto del hero no existe.";
@@ -190,8 +190,8 @@ public class HeroImageServiceTests
             heroes.CreateAsync(new CreateHeroImageRequest(null, "Listo", null, readyVideo.Id), default));
         var stuck = await database.WithHeroImagesAsync(heroes =>
             heroes.CreateAsync(new CreateHeroImageRequest(null, "Trabado", null, stuckVideo.Id), default));
-        // Un video listo vuelve a "processing" si se sube de nuevo y le faltan archivos en disco: mientras tanto el
-        // sitio no debe publicar un ítem sin archivos de video.
+        // A ready video goes back to "processing" if it is uploaded again and files are missing on disk: meanwhile the
+        // site must not publish an item without video files.
         await database.ExecuteAsync($"UPDATE video_assets SET Status = 'Processing' WHERE Id = '{stuckVideo.Id.ToString().ToUpperInvariant()}'");
 
         var site = await database.WithHeroImagesAsync(heroes => heroes.ListForSiteAsync(default));
@@ -210,7 +210,7 @@ public class HeroImageServiceTests
         var videoItem = await database.WithHeroImagesAsync(heroes =>
             heroes.CreateAsync(new CreateHeroImageRequest(null, "Video", null, video.Id), default));
 
-        // Como lo leería una consulta que se olvidó de incluir el video: la navegación queda en null.
+        // As a query that forgot to include the video would read it: the navigation stays null.
         var withoutVideo = await database.InScopeAsync(provider => provider.GetRequiredService<BlogDbContext>().HeroImages
             .Include(image => image.Media)
             .AsNoTracking()
@@ -218,7 +218,7 @@ public class HeroImageServiceTests
 
         Assert.True(withoutVideo[photo.Id].IsPublishable);
         var error = Assert.Throws<InvalidOperationException>(() => withoutVideo[videoItem.Id].IsPublishable);
-        Assert.Equal("El ítem del hero es un video y se leyó sin cargar el video: incluí la relación Video en la consulta.", error.Message);
+        Assert.Equal("The hero item is a video and was read without loading it: include the Video navigation in the query.", error.Message);
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public class HeroImageServiceTests
         var updated = await database.WithHeroImagesAsync(heroes =>
             heroes.UpdateAsync(created.Id, new UpdateHeroImageRequest("Nebulosa", "Foto: Ana", "Orion nebula"), default));
 
-        // El crédito es uno solo en los dos idiomas (L13).
+        // The credit is a proper name, one single field for both languages.
         Assert.Equal(("Nebula", "Foto: Ana"), (created.AltEn, created.Credit));
         Assert.Equal(("Orion nebula", "Foto: Ana"), (updated.AltEn, updated.Credit));
         Assert.Equivalent(new[] { updated }, await ListAsync(database), strict: true);
@@ -352,7 +352,7 @@ public class HeroImageServiceTests
         return database;
     }
 
-    /// <summary>"long-alt" y "long-credit" se expanden a un carácter más que el máximo permitido.</summary>
+    /// <summary>"long-alt" and "long-credit" expand to one character more than the maximum allowed.</summary>
     private static string? Expand(string? value) => value switch
     {
         "long-alt" => new string('a', HeroImageContent.MaxAltLength + 1),
@@ -360,7 +360,7 @@ public class HeroImageServiceTests
         _ => value,
     };
 
-    /// <summary>Por defecto 1920×1080: el tamaño ideal del hero (la regla de tamaño se prueba aparte).</summary>
+    /// <summary>1920×1080 by default: the ideal hero size (the size rule is tested separately).</summary>
     private static Task<MediaAsset> AddAssetAsync(SqliteTestDatabase database, char hashCharacter, int width = 1920, int height = 1080) =>
         database.InScopeAsync(async provider =>
         {
@@ -373,7 +373,7 @@ public class HeroImageServiceTests
             return asset;
         });
 
-    /// <summary>Video de 1920×1080 en el estado pedido; si está listo, con póster y sus cuatro fuentes.</summary>
+    /// <summary>1920×1080 video in the requested status; if ready, with a poster and its four sources.</summary>
     private static async Task<VideoAsset> AddVideoAsync(SqliteTestDatabase database, char hashCharacter, VideoStatus status)
     {
         var poster = await AddAssetAsync(database, (char)(hashCharacter + 1));

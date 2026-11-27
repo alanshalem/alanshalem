@@ -5,8 +5,8 @@ using Blog.Domain;
 namespace Blog.Application.Videos;
 
 /// <summary>
-/// Convierte un video ya validado: versiones AV1 y H.264 sin audio con su recorte y fundido, y el póster por el
-/// pipeline de imágenes. Lo llama el proceso en segundo plano, de a un video por vez.
+/// Converts an already validated video: AV1 and H.264 versions without audio with its trim and fade, and the poster
+/// through the image pipeline. Called by the background process, one video at a time.
 /// </summary>
 public sealed class VideoProcessor(
     IVideoTranscoder transcoder,
@@ -16,11 +16,11 @@ public sealed class VideoProcessor(
     IMediaStorage storage)
 {
     /// <remarks>
-    /// Un error previsto (<see cref="ErrorKeyOf"/>) queda como error del video. Uno inesperado también, con un mensaje
-    /// genérico, y además se relanza para que el proceso en segundo plano lo registre con sus detalles. Un apagado del
-    /// servidor no se registra como fallo: el video queda en "processing" y lo resuelve el próximo arranque.
+    /// An expected error (<see cref="ErrorKeyOf"/>) stays as the video's error. An unexpected one too, with a generic
+    /// message, and it is also rethrown so the background process logs it with its details. A server shutdown is not
+    /// recorded as a failure: the video stays "processing" and the next start resolves it.
     /// </remarks>
-    /// <exception cref="AggregateException">Si tampoco se pudo guardar el fallo: trae el error original y el del guardado.</exception>
+    /// <exception cref="AggregateException">If the failure could not be saved either: carries the original error and the save error.</exception>
     public async Task ProcessAsync(VideoJob job, CancellationToken cancellationToken)
     {
         try
@@ -46,9 +46,9 @@ public sealed class VideoProcessor(
     }
 
     /// <summary>
-    /// Al arrancar: la cola vive en memoria, así que un video que quedó en "processing" ya no tiene quién lo procese.
-    /// Se marca como fallido (el admin lo vuelve a subir y se reprocesa) y se borra lo que quedó en la carpeta de
-    /// trabajo. Es más simple y predecible que reencolar: los originales no necesitan sobrevivir a un reinicio.
+    /// On start: the queue lives in memory, so a video left "processing" has nobody left to process it. It is marked as
+    /// failed (the admin uploads it again and it is reprocessed) and what was left in the work folder is deleted. It is
+    /// simpler and more predictable than requeueing: the originals do not need to survive a restart.
     /// </summary>
     public async Task FailInterruptedAsync(CancellationToken cancellationToken)
     {
@@ -63,13 +63,13 @@ public sealed class VideoProcessor(
 
     private async Task ConvertAsync(VideoAsset video, string sourcePath, CancellationToken cancellationToken)
     {
-        // Todo se genera primero en la carpeta de trabajo: si ffmpeg falla, a /media no llega ningún archivo a medias.
+        // Everything is generated first in the work folder: if ffmpeg fails, no half-written file reaches /media.
         var transcoded = await transcoder.TranscodeAsync(sourcePath, VideoVariant.For(video.Height), video.Edit, cancellationToken);
 
         await using var posterContent = new MemoryStream(transcoded.Poster);
         var poster = await media.StoreImageAsync(posterContent, cancellationToken);
 
-        // Primero los archivos y después el estado: un video "ready" nunca apunta a archivos que no existen.
+        // Files first and the status afterwards: a "ready" video never points to files that do not exist.
         foreach (var file in transcoded.Files)
         {
             await storage.SaveAsync(video.RelativePathOf(file.Variant), file.Content, cancellationToken);
@@ -80,9 +80,9 @@ public sealed class VideoProcessor(
     }
 
     /// <summary>
-    /// Qué se le dice al admin. ffmpeg trae su motivo; una regla de imagen rota acá solo puede venir del póster (lo
-    /// genera ffmpeg y lo procesa el pipeline de imágenes), y la salida es la misma: volver a exportar el video.
-    /// Cualquier otro error es un defecto o una falla del servidor.
+    /// What the admin is told. ffmpeg carries its reason; a broken image rule here can only come from the poster (ffmpeg
+    /// generates it and the image pipeline processes it), and the way out is the same: export the video again.
+    /// Any other error is a defect or a server failure.
     /// </summary>
     private static string ErrorKeyOf(Exception error) => error switch
     {
@@ -95,18 +95,19 @@ public sealed class VideoProcessor(
         error is OperationCanceledException && cancellationToken.IsCancellationRequested;
 
     /// <summary>
-    /// Guarda el fallo partiendo de lo que está en la base, no del video en memoria: si el error saltó al guardar después
-    /// de MarkReady, en memoria ya figura listo y marcarlo fallido lanzaría otra excepción que taparía la original.
+    /// Saves the failure starting from what is in the database, not from the video in memory: if the error happened
+    /// while saving after MarkReady, in memory it is already ready and marking it failed would throw another exception
+    /// hiding the original one.
     /// </summary>
     /// <exception cref="AggregateException">
-    /// Si no se puede guardar: con los dos errores, para que se registre el original y no solo el del guardado. El video
-    /// queda en "processing" y lo resuelve el próximo arranque (<see cref="FailInterruptedAsync"/>).
+    /// If it cannot be saved: with both errors, so the original one is logged and not only the save error. The video
+    /// stays "processing" and the next start resolves it (<see cref="FailInterruptedAsync"/>).
     /// </exception>
     private async Task RecordFailureAsync(Guid videoId, Exception error)
     {
         try
         {
-            // Sin cancelación: el fallo se guarda aunque justo empiece el apagado.
+            // No cancellation: the failure is saved even if the shutdown starts right then.
             var video = await videos.ReloadAsync(videoId, CancellationToken.None);
             if (video is { Status: VideoStatus.Processing })
             {
@@ -116,7 +117,7 @@ public sealed class VideoProcessor(
         }
         catch (Exception saveError)
         {
-            throw new AggregateException($"No se pudo guardar el fallo del video {videoId}.", error, saveError);
+            throw new AggregateException($"Could not save the failure of video {videoId}.", error, saveError);
         }
     }
 }

@@ -1,21 +1,21 @@
 namespace Blog.Domain;
 
 /// <summary>
-/// Reglas para las URLs que se guardan y después terminan en un href o un src del sitio.
-/// Lista blanca: solo http(s) absolutas o rutas propias bajo /media/. Todo lo demás (javascript:, data:,
-/// URLs relativas al protocolo como //otro-sitio, rutas de Windows) se rechaza.
+/// Rules for the URLs that are stored and later end up in an href or a src of the site.
+/// Allow list: only absolute http(s) URLs or own paths under /media/. Everything else (javascript:, data:,
+/// protocol-relative URLs such as //other-site, Windows paths) is rejected.
 /// </summary>
 public static class WebUrl
 {
     public const int MaxLength = 2048;
 
-    /// <summary>Donde se publican las imágenes subidas (Caddy en producción, la API en Development).</summary>
+    /// <summary>Where uploaded images are published (Caddy in production, the API in Development).</summary>
     public const string MediaPrefix = "/media/";
 
-    /// <summary>Imagen: lo que devuelve la subida de media (/media/...) o una URL absoluta http(s).</summary>
+    /// <summary>Image: what the media upload returns (/media/...) or an absolute http(s) URL.</summary>
     public static bool IsImageUrl(string value) => IsMediaPath(value) || IsHttpUrl(value);
 
-    /// <summary>URL absoluta http:// o https:// con host.</summary>
+    /// <summary>Absolute http:// or https:// URL with a host.</summary>
     public static bool IsHttpUrl(string value)
     {
         if (!HasSafeCharacters(value)
@@ -30,8 +30,8 @@ public static class WebUrl
             && uri.Host.Length > 0;
     }
 
-    // Sin '%': los nombres que genera la subida nunca lo usan, y así no se cuela un ".." codificado (%2e%2e)
-    // que el navegador normaliza como segmento de punto y resuelve fuera de /media/.
+    // No '%': the names the upload generates never use it, and this way an encoded ".." (%2e%2e) cannot slip in, which
+    // the browser normalizes as a dot segment and resolves outside /media/.
     private static bool IsMediaPath(string value) =>
         HasSafeCharacters(value)
         && value.StartsWith(MediaPrefix, StringComparison.Ordinal)
@@ -39,7 +39,7 @@ public static class WebUrl
         && !value.Contains('%')
         && !value.Split('/').Contains("..");
 
-    // Sin espacios, caracteres de control, barras invertidas ni comillas/ángulos: nada que pueda cortar un atributo HTML.
+    // No spaces, control characters, backslashes or quotes/angle brackets: nothing that could break an HTML attribute.
     private static bool HasSafeCharacters(string value) =>
         value.Length <= MaxLength
         && value.All(character => !char.IsWhiteSpace(character)
@@ -47,11 +47,11 @@ public static class WebUrl
             && character is not ('\\' or '"' or '\'' or '<' or '>' or '`'));
 }
 
-/// <summary>Normalización común de los textos opcionales: se recortan y el vacío se guarda como null.</summary>
+/// <summary>Common normalization of optional texts: they are trimmed and empty is stored as null.</summary>
 internal static class OptionalText
 {
-    /// <param name="tooLongKey">El mensaje si se pasa: su {max} es <paramref name="maxLength"/>.</param>
-    /// <param name="arguments">Otros marcadores de ese mensaje, si tiene.</param>
+    /// <param name="tooLongKey">The message when it is exceeded: its {max} is <paramref name="maxLength"/>.</param>
+    /// <param name="arguments">Other placeholders of that message, if any.</param>
     public static string? Clean(string? value, int maxLength, string tooLongKey, params (string Name, object Value)[] arguments)
     {
         var clean = value?.Trim();

@@ -1,13 +1,13 @@
 namespace Blog.Domain;
 
 /// <summary>
-/// Las claves del catálogo de mensajes (<see cref="MessageCatalog"/>). Son parte del contrato de la API: viajan como
-/// "code" en cada error, así el admin decide por la clave y no por el texto. Una clave publicada no se renombra.
-/// Forma: área.nombre (área en minúsculas, nombre en camelCase).
+/// The keys of the message catalog (<see cref="MessageCatalog"/>). They are part of the API contract: they travel as
+/// "code" in every error, so the admin decides by the key and not by the text. A published key is never renamed.
+/// Shape: area.name (area in lowercase, name in camelCase).
 /// </summary>
 public static class MessageKeys
 {
-    // ----- Títulos de las respuestas de error (problem details), uno por código HTTP -----
+    // ----- Titles of the error responses (problem details), one per HTTP status -----
     public const string ProblemBadRequest = "problem.badRequest";
     public const string ProblemUnauthorized = "problem.unauthorized";
     public const string ProblemForbidden = "problem.forbidden";
@@ -20,7 +20,7 @@ public static class MessageKeys
     public const string ProblemInternalError = "problem.internalError";
     public const string ProblemUnavailable = "problem.unavailable";
 
-    // ----- Idiomas -----
+    // ----- Languages -----
     public const string LanguageInvalid = "language.invalid";
     public const string LanguageSpanish = "language.spanish";
     public const string LanguageEnglish = "language.english";
@@ -48,7 +48,7 @@ public static class MessageKeys
     public const string PostPublishAtRequired = "post.publishAtRequired";
     public const string PostPublishAtInvalid = "post.publishAtInvalid";
 
-    // ----- Ajustes del sitio -----
+    // ----- Site settings -----
     public const string SettingsNameRequired = "settings.nameRequired";
     public const string SettingsNameTooLong = "settings.nameTooLong";
     public const string SettingsTaglineTooLong = "settings.taglineTooLong";
@@ -61,7 +61,7 @@ public static class MessageKeys
     public const string SettingsBioEnTooLong = "settings.bioEnTooLong";
     public const string SettingsSaveConflict = "settings.saveConflict";
 
-    // ----- Hero (galería de la home y su regla de tamaño) -----
+    // ----- Hero (home page gallery and its size rule) -----
     public const string HeroGuide = "hero.guide";
     public const string HeroNotLandscape = "hero.notLandscape";
     public const string HeroTooSmall = "hero.tooSmall";
@@ -77,7 +77,7 @@ public static class MessageKeys
     public const string HeroSourceRequired = "hero.sourceRequired";
     public const string HeroItemNotFound = "hero.itemNotFound";
 
-    // ----- Imágenes -----
+    // ----- Images -----
     public const string MediaTooLarge = "media.tooLarge";
     public const string MediaUnsupportedFormat = "media.unsupportedFormat";
     public const string MediaUnreadable = "media.unreadable";
@@ -103,7 +103,7 @@ public static class MessageKeys
     public const string VideoFadeDurationInvalid = "video.fadeDurationInvalid";
     public const string VideoFadeTooLongForTrim = "video.fadeTooLongForTrim";
 
-    // ----- Por qué falló el proceso de un video (se guardan en la base: VideoAsset.Error) -----
+    // ----- Why a video failed to process (stored in the database: VideoAsset.Error) -----
     public const string VideoProcessingFailed = "video.processingFailed";
     public const string VideoProcessingTimedOut = "video.processingTimedOut";
     public const string VideoProcessingInterrupted = "video.processingInterrupted";

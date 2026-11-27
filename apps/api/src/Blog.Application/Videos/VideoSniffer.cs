@@ -1,15 +1,15 @@
 namespace Blog.Application.Videos;
 
 /// <summary>
-/// Identifica un contenedor de video por sus primeros bytes, no por la extensión ni el Content-Type. Es solo el
-/// primer filtro: que realmente haya un video legible lo decide ffprobe.
+/// Identifies a video container by its first bytes, not by the extension or the Content-Type. It is only the first
+/// filter: whether there really is a readable video is decided by ffprobe.
 /// </summary>
 public static class VideoSniffer
 {
-    // Matroska y WebM empiezan con la cabecera EBML.
+    // Matroska and WebM start with the EBML header.
     private static readonly byte[] Ebml = [0x1A, 0x45, 0xDF, 0xA3];
 
-    /// <summary>MP4 y MOV (caja "ftyp" en el byte 4), WebM y MKV (EBML).</summary>
+    /// <summary>MP4 and MOV ("ftyp" box at byte 4), WebM and MKV (EBML).</summary>
     public static bool IsSupportedContainer(ReadOnlySpan<byte> head) =>
         head.StartsWith(Ebml) || (head.Length >= 8 && head.Slice(4, 4).SequenceEqual("ftyp"u8));
 }

@@ -1,13 +1,13 @@
 namespace Blog.Domain;
 
 /// <summary>
-/// Un mensaje guardado en la base para mostrarlo después (el error de un video): la clave del <see cref="MessageCatalog"/>,
-/// sin argumentos, que se escribe en el idioma de quien lee. Las filas de antes del catálogo guardaban el texto ya
-/// escrito en español: ese texto no es una clave y se muestra tal cual, así ninguna fila vieja queda ilegible.
+/// A message stored in the database to be shown later (a video's error): the <see cref="MessageCatalog"/> key, without
+/// arguments, written in the reader's language. Rows from before the catalog stored the text already written in
+/// Spanish: that text is not a key and is shown as is, so no old row becomes unreadable.
 /// </summary>
 public sealed record StoredMessage(string Value)
 {
-    /// <exception cref="ArgumentOutOfRangeException">Si el idioma no es uno de <see cref="Language"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">If the language is not one of <see cref="Language"/>.</exception>
     public string In(string language) =>
         MessageCatalog.Entries.ContainsKey(Value) ? MessageCatalog.Format(new UserMessage(Value), language) : Value;
 }

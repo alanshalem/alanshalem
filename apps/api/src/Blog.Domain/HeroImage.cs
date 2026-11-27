@@ -1,12 +1,12 @@
 namespace Blog.Domain;
 
 /// <summary>
-/// Una foto o un video de la galería del hero de la home. El sitio elige uno al azar en cada visita. Un video lleva
-/// su póster como <see cref="Media"/>: es lo que se ve mientras carga, o en vez del video (movimiento reducido, ahorro de datos).
+/// A photo or a video of the home page hero gallery. The site picks one at random on each visit. A video carries its
+/// poster as <see cref="Media"/>: it is what shows while it loads, or instead of the video (reduced motion, Save-Data).
 /// </summary>
 public sealed class HeroImage
 {
-    // Constructor para EF Core.
+    // Constructor for EF Core.
     private HeroImage()
     {
         Alt = string.Empty;
@@ -21,31 +21,31 @@ public sealed class HeroImage
     public string Alt { get; private set; }
     public string? Credit { get; private set; }
 
-    /// <summary>Versión en inglés de <see cref="Alt"/>. Null = el sitio en inglés usa la de español.</summary>
+    /// <summary>English version of <see cref="Alt"/>. Null = the English site uses the Spanish one.</summary>
     public string? AltEn { get; private set; }
 
     public DateTime CreatedAtUtc { get; private set; }
 
     /// <summary>
-    /// Lo que el sitio puede mostrar: una foto, o un video que ya tiene sus archivos. Si es foto o video lo dice
-    /// <see cref="VideoAssetId"/> (lo guardado), no <see cref="Video"/>: una relación sin cargar también es null y
-    /// haría pasar un video sin archivos por una foto.
+    /// What the site can show: a photo, or a video that already has its files. Whether it is a photo or a video is
+    /// told by <see cref="VideoAssetId"/> (what is stored), not by <see cref="Video"/>: an unloaded navigation is also
+    /// null and would pass a video without files off as a photo.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Si es un video y se leyó sin cargar <see cref="Video"/> (error de programación).</exception>
+    /// <exception cref="InvalidOperationException">If it is a video read without loading <see cref="Video"/> (programming error).</exception>
     public bool IsPublishable => VideoAssetId is null || LoadedVideo.Status == VideoStatus.Ready;
 
     private VideoAsset LoadedVideo => Video
-        ?? throw new InvalidOperationException("El ítem del hero es un video y se leyó sin cargar el video: incluí la relación Video en la consulta.");
+        ?? throw new InvalidOperationException("The hero item is a video and was read without loading it: include the Video navigation in the query.");
 
-    /// <exception cref="DomainException">Si la foto no cumple la regla de tamaño del hero (<see cref="HeroFrame"/>).</exception>
+    /// <exception cref="DomainException">If the photo does not meet the hero size rule (<see cref="HeroFrame"/>).</exception>
     public static HeroImage CreatePhoto(MediaAsset media, HeroImageContent content, DateTime nowUtc)
     {
         HeroFrame.Ensure(media.Width, media.Height);
         return New(media, video: null, content, nowUtc);
     }
 
-    /// <summary>La regla de tamaño ya se aplicó al subir el video (<see cref="VideoAsset.Create"/>).</summary>
-    /// <exception cref="DomainException">Si el video todavía se está procesando o falló.</exception>
+    /// <summary>The size rule was already applied when the video was uploaded (<see cref="VideoAsset.Create"/>).</summary>
+    /// <exception cref="DomainException">If the video is still processing or failed.</exception>
     public static HeroImage CreateVideo(VideoAsset video, HeroImageContent content, DateTime nowUtc) => video switch
     {
         { Status: VideoStatus.Ready, Poster: { } poster } => New(poster, video, content, nowUtc),
@@ -76,17 +76,19 @@ public sealed class HeroImage
     }
 }
 
-/// <summary>Lo editable de un ítem del hero, ya validado y normalizado. Si existe una instancia, es válida.</summary>
-/// <remarks>El crédito es uno solo en los dos idiomas (L13): solo el texto alternativo tiene versión en inglés.</remarks>
+/// <summary>The editable part of a hero item, validated and normalized. If an instance exists, it is valid.</summary>
+/// <remarks>
+/// The credit is a proper name, one single field for both languages: only the alternative text has an English version.
+/// </remarks>
 public sealed record HeroImageContent(string Alt, string? Credit, string? AltEn = null)
 {
     public const int MaxAltLength = 300;
     public const int MaxCreditLength = 200;
 
-    /// <param name="altEn">Opcional aunque el de español no: si falta, el sitio en inglés usa el de español.</param>
+    /// <param name="altEn">Optional even though the Spanish one is not: if missing, the English site uses the Spanish one.</param>
     public static HeroImageContent Create(string? alt, string? credit, string? altEn = null)
     {
-        // El texto alternativo es obligatorio: es lo único que "ve" un lector de pantalla del hero.
+        // The alternative text is required: it is all a screen reader "sees" of the hero.
         var cleanAlt = OptionalText.Clean(alt, MaxAltLength, MessageKeys.HeroAltTooLong)
             ?? throw new DomainException(MessageKeys.HeroAltRequired);
 

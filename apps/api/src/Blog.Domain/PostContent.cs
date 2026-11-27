@@ -1,8 +1,8 @@
 namespace Blog.Domain;
 
 /// <summary>
-/// El contenido editable de un post, ya validado y normalizado.
-/// Es el único camino para crear o modificar un post: si existe una instancia, es válida.
+/// The editable content of a post, validated and normalized.
+/// It is the only way to create or change a post: if an instance exists, it is valid.
 /// </summary>
 public sealed record PostContent(
     string Title,
@@ -20,8 +20,8 @@ public sealed record PostContent(
     public const int MaxTagLength = 40;
     public const int MaxCoverAltLength = 300;
 
-    /// <param name="coverUrl">Portada opcional: ruta /media/... (subida desde el admin) o URL http(s). Vacía = sin portada.</param>
-    /// <param name="coverAlt">Texto alternativo de la portada. Vacío = null.</param>
+    /// <param name="coverUrl">Optional cover: a /media/... path (uploaded from the admin) or an http(s) URL. Empty = no cover.</param>
+    /// <param name="coverAlt">Alternative text of the cover. Empty = null.</param>
     public static PostContent Create(
         string? title,
         string? slug,
@@ -42,7 +42,7 @@ public sealed record PostContent(
             throw new DomainException(MessageKeys.PostTitleTooLong, ("max", MaxTitleLength));
         }
 
-        // Sin slug explícito se deriva del título.
+        // Without an explicit slug it is derived from the title.
         var cleanSlug = string.IsNullOrWhiteSpace(slug) ? Domain.Slug.From(cleanTitle) : slug.Trim();
         if (!Domain.Slug.IsValid(cleanSlug))
         {

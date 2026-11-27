@@ -2,7 +2,7 @@ using Blog.Domain;
 
 namespace Blog.Application.Settings;
 
-/// <summary>Entrada del PUT de ajustes. Todo opcional salvo el nombre; vacío = null. Los En son la versión en inglés.</summary>
+/// <summary>Input of the settings PUT. Everything optional except the name; empty = null. The En ones are the English version.</summary>
 public sealed record SaveSiteSettingsRequest(
     string? Name,
     string? Tagline,
@@ -14,7 +14,7 @@ public sealed record SaveSiteSettingsRequest(
     string? TaglineEn = null,
     string? BioEn = null);
 
-/// <param name="TaglineEn">Null = el sitio en inglés usa el de español (igual BioEn). El nombre es uno solo.</param>
+/// <param name="TaglineEn">Null = the English site uses the Spanish one (same for BioEn). The name is one single field.</param>
 public sealed record SiteSettingsDto(
     string Name,
     string? Tagline,

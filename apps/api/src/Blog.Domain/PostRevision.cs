@@ -1,15 +1,15 @@
 namespace Blog.Domain;
 
 /// <summary>
-/// Instantánea del contenido de un post tal como quedó en un guardado. Nunca se modifica: restaurar aplica una vieja
-/// como un guardado más, que deja su propia versión nueva (la historia no se reescribe).
+/// Snapshot of a post's content as it was at a save. Never modified: restoring applies an old one as one more save,
+/// which leaves its own new version (history is not rewritten).
 /// </summary>
 public sealed class PostRevision
 {
-    /// <summary>Versiones que se guardan por post; al pasarse se borran las más viejas. Alcanza para deshacer días de edición sin que el cuerpo (hasta 500 KB) infle la base.</summary>
+    /// <summary>Versions kept per post; beyond that the oldest are deleted. Enough to undo days of editing without the body (up to 500 KB) bloating the database.</summary>
     public const int MaxPerPost = 50;
 
-    // Constructor para EF Core (materializa la entidad desde la base).
+    // Constructor for EF Core (materializes the entity from the database).
     private PostRevision()
     {
         Title = Slug = Summary = Body = string.Empty;
@@ -19,7 +19,7 @@ public sealed class PostRevision
     public Guid Id { get; private set; }
     public Guid PostId { get; private set; }
 
-    /// <summary>1, 2, 3... por post. No se reutiliza al podar: "versión 37" siempre es la misma.</summary>
+    /// <summary>1, 2, 3... per post. Never reused when pruning: "version 37" is always the same one.</summary>
     public int Number { get; private set; }
 
     public string Title { get; private set; }
@@ -31,10 +31,10 @@ public sealed class PostRevision
     public string? CoverAlt { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
-    /// <summary>La versión más vieja que se conserva una vez guardada esta: las anteriores se podan.</summary>
+    /// <summary>The oldest version kept once this one is saved: earlier ones are pruned.</summary>
     public int FirstKeptNumber => Math.Max(1, Number - MaxPerPost + 1);
 
-    /// <summary>El contenido actual del post como su versión número <paramref name="number"/>.</summary>
+    /// <summary>The current content of the post as its version number <paramref name="number"/>.</summary>
     public static PostRevision Capture(Post post, int number, DateTime nowUtc) => new()
     {
         Id = Guid.CreateVersion7(),
@@ -44,7 +44,7 @@ public sealed class PostRevision
         Slug = post.Slug,
         Summary = post.Summary,
         Body = post.Body,
-        Tags = [.. post.Tags], // lista propia: la instantánea no comparte nada con el post vivo
+        Tags = [.. post.Tags], // a list of its own: the snapshot shares nothing with the live post
         CoverUrl = post.CoverUrl,
         CoverAlt = post.CoverAlt,
         CreatedAtUtc = nowUtc,

@@ -1,10 +1,10 @@
 namespace Blog.Domain;
 
-/// <summary>Se rompió una regla del dominio (dato inválido). La API la traduce a HTTP 400.</summary>
+/// <summary>A domain rule was broken (invalid data). The API turns it into HTTP 400.</summary>
 public sealed class DomainException : UserMessageException
 {
-    /// <param name="key">Una de <see cref="MessageKeys"/>.</param>
-    /// <param name="arguments">El valor de cada {marcador} del texto.</param>
+    /// <param name="key">One of <see cref="MessageKeys"/>.</param>
+    /// <param name="arguments">The value of each {placeholder} in the text.</param>
     public DomainException(string key, params (string Name, object Value)[] arguments)
         : this(new UserMessage(key, arguments))
     {

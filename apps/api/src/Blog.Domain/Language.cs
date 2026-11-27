@@ -1,19 +1,20 @@
 namespace Blog.Domain;
 
 /// <summary>
-/// Los idiomas del contenido: español (el principal) e inglés. Es el único lugar de la API que los define. Son dos fijos a
-/// propósito (no se generaliza a N idiomas): por eso los textos en inglés de ajustes y hero son campos con sufijo En.
+/// The content languages: Spanish (the main one) and English. This is the only place in the API that defines them.
+/// There are two fixed ones on purpose (no generalization to N languages): that is why the English texts of settings and
+/// hero are fields with an En suffix.
 /// </summary>
 public static class Language
 {
     public const string Spanish = "es";
     public const string English = "en";
 
-    /// <summary>El de los posts que no dicen otro (y el del texto principal de ajustes y hero).</summary>
+    /// <summary>The one of posts that do not say otherwise (and of the main text of settings and hero).</summary>
     public const string Default = Spanish;
 
     /// <summary>" EN " -> "en".</summary>
-    /// <exception cref="DomainException">Si no es "es" ni "en" (también si viene vacío).</exception>
+    /// <exception cref="DomainException">If it is neither "es" nor "en" (also when empty).</exception>
     public static string Parse(string? value) => value?.Trim().ToLowerInvariant() switch
     {
         Spanish => Spanish,
@@ -22,13 +23,13 @@ public static class Language
     };
 
     /// <summary>
-    /// Para los mensajes al admin: "en" -> "inglés" (o "English"). Es un mensaje anidado y no un texto: el nombre del
-    /// idioma también se escribe en el idioma de quien lee.
+    /// For messages to the admin: "en" -> "inglés" (or "English"). It is a nested message and not a text: the name of
+    /// the language is also written in the reader's language.
     /// </summary>
     public static UserMessage NameOf(string language) => language switch
     {
         Spanish => new UserMessage(MessageKeys.LanguageSpanish),
         English => new UserMessage(MessageKeys.LanguageEnglish),
-        _ => throw new ArgumentOutOfRangeException(nameof(language), language, "Idioma sin validar: pasalo antes por Parse."),
+        _ => throw new ArgumentOutOfRangeException(nameof(language), language, "Unvalidated language: pass it through Parse first."),
     };
 }

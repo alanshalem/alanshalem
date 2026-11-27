@@ -7,36 +7,36 @@ public enum VideoCodec
 }
 
 /// <summary>
-/// Una versión optimizada de un video del hero: códec y alto en píxeles. Acá vive, una sola vez, qué altos y códecs
-/// se generan (cómo se codifica cada uno es un detalle del adaptador de ffmpeg).
+/// An optimized version of a hero video: codec and height in pixels. Which heights and codecs are generated lives here,
+/// once (how each one is encoded is a detail of the ffmpeg adapter).
 /// </summary>
 public sealed record VideoVariant(VideoCodec Codec, int Height)
 {
-    /// <summary>720p para celulares y 1080p para escritorio: cada dispositivo baja solo la que le sirve.</summary>
+    /// <summary>720p for phones and 1080p for desktop: each device downloads only the one it needs.</summary>
     public static IReadOnlyList<int> StandardHeights { get; } = [720, 1080];
 
-    /// <summary>AV1 primero (pesa bastante menos); H.264 de respaldo para los navegadores que no decodifican AV1.</summary>
+    /// <summary>AV1 first (much lighter); H.264 as the fallback for browsers that do not decode AV1.</summary>
     public static IReadOnlyList<VideoCodec> Codecs { get; } = [VideoCodec.Av1, VideoCodec.H264];
 
     public string CodecName => Codec switch
     {
         VideoCodec.Av1 => "av1",
         VideoCodec.H264 => "h264",
-        _ => throw new ArgumentOutOfRangeException(nameof(Codec), Codec, "Códec de video desconocido."),
+        _ => throw new ArgumentOutOfRangeException(nameof(Codec), Codec, "Unknown video codec."),
     };
 
     /// <summary>
-    /// Los altos estándar que no superan el original: nunca se agranda un video (solo pesaría más sin verse mejor).
-    /// La regla de tamaño del hero garantiza al menos 720 de alto, así que siempre hay uno.
+    /// The standard heights that do not exceed the original: a video is never enlarged (it would only weigh more
+    /// without looking better). The hero size rule guarantees at least 720 of height, so there is always one.
     /// </summary>
     public static IReadOnlyList<int> HeightsFor(int sourceHeight) => [.. StandardHeights.Where(height => height <= sourceHeight)];
 
-    /// <summary>Todas las versiones de un video de ese alto: cada códec en cada alto.</summary>
+    /// <summary>All the versions of a video of that height: each codec at each height.</summary>
     public static IReadOnlyList<VideoVariant> For(int sourceHeight) =>
         [.. Codecs.SelectMany(codec => HeightsFor(sourceHeight).Select(height => new VideoVariant(codec, height)))];
 }
 
-/// <summary>Un archivo de video ya generado: su versión y cuánto pesa (lo muestra el admin; el sitio no lo necesita).</summary>
+/// <summary>A generated video file: its version and its size (the admin shows it; the site does not need it).</summary>
 public sealed record VideoSource(VideoCodec Codec, int Height, long Bytes)
 {
     public VideoVariant Variant => new(Codec, Height);
