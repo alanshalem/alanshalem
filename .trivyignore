@@ -1,8 +1,8 @@
-# Vulnerabilidades aceptadas a sabiendas en el escaneo de imágenes del CI (.github/workflows/ci.yml).
-# Cada entrada lleva el motivo y una fecha de vencimiento: al vencer, Trivy la vuelve a reportar y el CI falla,
-# así que nada queda ignorado para siempre. Al aparecer el arreglo, se quita la entrada y se actualiza la imagen.
+# Vulnerabilities knowingly accepted in the CI image scan (.github/workflows/ci.yml).
+# Every entry carries its reason and an expiry date: once it expires, Trivy reports it again and CI fails, so nothing
+# stays ignored forever. When the fix ships, remove the entry and update the image.
 
-# golang.org/x/net 0.60.0 compilado dentro de /usr/bin/caddy (caddy:2.11.9-alpine, la última versión publicada).
-# El arreglo (x/net 0.62.0) todavía no salió en ninguna versión de Caddy; recompilar Caddy con xcaddy solo por esto
-# agrega mantenimiento que no compensa. Revisar con la próxima versión de Caddy (Dependabot la propone).
+# golang.org/x/net 0.60.0 compiled into /usr/bin/caddy (caddy:2.11.9-alpine, the latest release).
+# The fix (x/net 0.62.0) is not in any Caddy release yet; rebuilding Caddy with xcaddy just for this adds maintenance
+# that does not pay off. Review with the next Caddy release (Dependabot proposes it).
 CVE-2026-78661 exp:2026-12-31
