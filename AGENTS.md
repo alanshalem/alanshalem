@@ -64,6 +64,7 @@ Deploy: Dokploy on srv2192513 runs `docker-compose.yml` + `compose.dokploy.yml` 
 `dokploy-network`, Traefik does TLS), one Compose service per environment: push to `master` → staging
 (`staging.alanshalem.com`, basic auth in Traefik, `SITE_ENV=staging` = noindex), git tag → production
 (`alanshalem.com`). Runbook: `docs/README.md` "Operations". Never deploy, tag or push without the user.
+VPS operations step by step (every system on the VPS, a check per phase): `docs/vps-guide.md`.
 
 **How to verify = CI.** `.github/workflows/ci.yml` runs on every push and PR to `master` (read-only, actions pinned by
 SHA): jobs `node` (install, typecheck, `pnpm test`, admin build, `agents:check`), `dotnet` (`-warnaserror` build + all

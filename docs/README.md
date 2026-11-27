@@ -180,7 +180,13 @@ rewrites the Compose Path file (`infra/docker-compose.yml`) adding the Traefik l
 replaces it), and the containers are `<appName>-<service>-1` (for example `<appName>-caddy-1`), the names the checks
 below use.
 
-Set up the two Traefik middlewares below before the first deploy: the domain of each environment points at them.
+Step by step, with a check after every phase: [docs/vps-guide.md](vps-guide.md) (the procedure for every system on the
+VPS). This section is the blog's reference and the reasons behind each piece.
+
+Set up the Traefik files below before the first deploy: the domain of each environment points at their middlewares.
+Dokploy's Traefik File System panel only edits existing files and cannot create them: create each one over SSH first
+with a placeholder ([guide 7.1](vps-guide.md#71-create-the-empty-files)), then paste its real content in the panel
+editor, so no secret ever appears in a shell command or its history.
 
 ### Dokploy: proxy secret
 
@@ -194,8 +200,10 @@ logs.
 
 1. On your machine, one per environment: `openssl rand -hex 32`. Each one goes to its environment's Environment tab
    as `PROXY_SECRET=...` ("Dokploy: first deploy", step 5).
-2. Dokploy → Traefik File System → `dynamic/` (on the VPS: `/etc/dokploy/traefik/dynamic/`), new file
-   `alanshalem-proxy-secret.yml` (Traefik reloads it on its own), with each environment's value:
+2. On the VPS, create `/etc/dokploy/traefik/dynamic/alanshalem-proxy-secret.yml` with a placeholder
+   ([guide 7.1](vps-guide.md#71-create-the-empty-files)). Then Dokploy → Traefik File System → `dynamic/` → that file,
+   and replace its content with each environment's value (Traefik reloads it on its own;
+   [guide 7.2](vps-guide.md#72-proxy-secret-app-proxy-secretyml)):
 
    ```yaml
    http:
@@ -221,8 +229,10 @@ The password never goes to git: only its bcrypt hash, and only on the VPS.
 
 1. On your machine, the hash (the password is typed twice, without echo):
    `docker run --rm -it httpd:2.4-alpine htpasswd -nB staging` → `staging:$2y$05$...`.
-2. Dokploy → Traefik File System → `dynamic/` (on the VPS: `/etc/dokploy/traefik/dynamic/`), new file
-   `alanshalem-staging-auth.yml` (Traefik reloads it on its own; `$` stays as is in this file):
+2. On the VPS, create `/etc/dokploy/traefik/dynamic/alanshalem-staging-auth.yml` with a placeholder
+   ([guide 7.1](vps-guide.md#71-create-the-empty-files)). Then Dokploy → Traefik File System → `dynamic/` → that file,
+   and replace its content with (Traefik reloads it on its own; `$` stays as is in this file;
+   [guide 7.3](vps-guide.md#73-staging-basic-auth-app-staging-authyml)):
 
    ```yaml
    http:
@@ -240,17 +250,39 @@ Why in Traefik and not in Caddy: Dokploy attaches middlewares to a Compose domai
 before the request reaches the blog. Dokploy's Security tab (basic auth form) exists only for Applications. Nobody
 skips it by calling Caddy directly: without the proxy secret Caddy answers 403.
 
+### Dokploy: www redirect
+
+`www.alanshalem.com` answers with a permanent redirect to `https://alanshalem.com/<same path>`, from Traefik itself:
+the request never reaches Caddy, so it needs no proxy secret. It is the Traefik file `alanshalem-www.yml` (live on the
+VPS, created like the two above): routers `alanshalem-www-web` (entry point `web`) and `alanshalem-www-websecure`
+(entry point `websecure`, Let's Encrypt), both with service `noop@internal` and the middleware
+`alanshalem-www-to-apex` (`redirectRegex`, permanent). Its content:
+[guide 7.4](vps-guide.md#74-www-redirect-app-wwwyml-alanshalem).
+
+The `regex` and the `replacement` go in **single quotes**. In double quotes `\.` is an invalid YAML escape: Traefik
+then fails to read the whole file provider and every `@file` middleware on the VPS disappears at once (every site
+answers 403 or 404).
+
 ### Dokploy: first deploy (once per environment)
 
 Each environment is its own Dokploy Compose service: its own project name (`<appName>`), volumes, database, media,
 session keys and builder token. Nothing is shared between staging and production. Before it: the Traefik files of
-"Dokploy: proxy secret" and, for staging, "Dokploy: staging basic auth and noindex".
+"Dokploy: proxy secret", "Dokploy: www redirect" and, for staging, "Dokploy: staging basic auth and noindex". The same
+steps, one action at a time: [guide Phases 7–9](vps-guide.md#8-phase-7--project-and-environments).
 
-1. DNS: `A` records for `alanshalem.com` and `staging.alanshalem.com` pointing to the VPS IP.
-2. Dokploy → Settings → Git → GitHub: connect the GitHub account (GitHub App) with access to this repository.
+1. DNS, before the first deploy (Traefik requests the certificate on the first request) —
+   [guide Phase 4](vps-guide.md#5-phase-4--dns): in hPanel, delete the parking record (`A` `@` → `2.57.91.91`) and
+   add, with TTL 300, `A` records `@`, `staging` and `dokploy` (the panel's domain) pointing to the VPS IP, and a
+   `CNAME` `www` → `alanshalem.com` ("Dokploy: www redirect"). The other systems' `.com.ar` domains are on Cloudflare
+   with the cloud **grey** (DNS only): the orange proxy would answer the certificate challenge itself and hide the
+   visitor's IP.
+2. Dokploy → Settings → Git → GitHub: create the GitHub App and install it with Repository access **Only select
+   repositories**, including this one ([guide 4.2](vps-guide.md#42-github-app)).
 3. Projects → Create Project `alanshalem`, with two environments, `production` and `staging`. In each one: Create
    Service → Compose, type **Docker Compose** (not Stack: Stack cannot `build`), provider GitHub, this repository,
-   branch `master`, Compose Path `./infra/docker-compose.yml`. Leave Isolated Deployments off. Save.
+   branch `master`, Compose Path `./infra/docker-compose.yml`. Leave Isolated Deployments off. Save, then reload the
+   page and confirm it still says `./infra/docker-compose.yml`: an unsaved path stays the default `./docker-compose.yml`
+   and the deploy ends with `❌ Error: Compose file not found`.
 4. Advanced → Command, with the App Name shown in the General tab. Dokploy runs this exact command from `code/` with
    `docker` in front; it adds `compose.dokploy.yml`, which takes Caddy off 80/443 and puts it behind Traefik, and
    `--wait` makes the deploy wait until every container is running and healthy (step 7):
@@ -286,14 +318,16 @@ session keys and builder token. Nothing is shared between staging and production
 6. Domains → Add Domain: Service Name `caddy`, Host `staging.alanshalem.com` (or `alanshalem.com`), Path `/`,
    Container Port `80`, HTTPS on, Certificate Provider Let's Encrypt, and Middlewares: production
    `alanshalem-production-proxy-secret@file`; staging `alanshalem-staging-proxy-secret@file` and
-   `alanshalem-staging-auth@file`. Save (a Compose service applies domain changes on the next deploy).
+   `alanshalem-staging-auth@file`. Middlewares is a tag input: type each name and press **Enter** so it becomes a
+   chip; text left typed is not saved, and a domain with an empty list makes Caddy answer 403 to everything. Save (a
+   Compose service applies domain changes on the next deploy).
 7. Deploy and follow the deployment log: `init-permissions` runs once and exits with 0 (a one-shot, which `--wait`
    accepts), then `api`, `caddy` and `builder` report `Healthy` and the deploy is done; the builder then builds the
    site (Logs tab of `builder`). **A failed deploy** is marked as an error in the Deployments tab and its log ends with
    `container <appName>-<service>-1 is unhealthy` (or `exited`): that service's Logs tab says why (a `SITE_ENV` typo:
    `File to import not found: site-env-prod`). Nothing is rolled back: what the deploy recreated stays (a Caddy that
    refuses its configuration leaves the domain answering 404 from Traefik) until a deploy with the fix.
-8. Check it, from your machine (and the second check on the VPS):
+8. Check it, from your machine and on the VPS:
    - `curl -I https://alanshalem.com/` answers 302 to `/es/` or `/en/`. Staging: without credentials 401;
      `curl -I -u staging https://staging.alanshalem.com/` answers 302 with `X-Robots-Tag: noindex, nofollow`. If the
      site answers 403, the proxy secret middleware is missing from the domain or its value differs from `PROXY_SECRET`.
@@ -305,25 +339,27 @@ session keys and builder token. Nothing is shared between staging and production
      prints `401`, and then `docker logs --since 5m <appName>-api-1 2>&1 | grep 'Failed login'` shows
      `Failed login from <your public IP>`. A private address (`10.…`, `172.…`) means every visitor shares one login
      rate limit: check `CADDY_TRUSTED_PROXIES` (`compose.dokploy.yml`) and the address Traefik itself sees.
-   - Open `https://<domain>/admin/`, sign in, create a post and publish it.
+   - Open `https://<domain>/admin/` (`/admin` redirects there), sign in, create a post and publish it.
+   - The env file names the project (`backup.sh` and `restore.sh` need it):
+     `grep -c '^COMPOSE_PROJECT_NAME=' /etc/dokploy/compose/<appName>/code/infra/.env` prints `1`. If it prints `0`,
+     add `COMPOSE_PROJECT_NAME=<appName>` to the Environment tab and Deploy again.
+
+   The full list of checks, with the expected output of each:
+   [guide 10.2 and 10.3](vps-guide.md#102-check-from-your-pc).
 9. Automatic deploys, in General: staging with Auto Deploy on and the trigger on push (branch `master`); production
    with Auto Deploy on and the trigger on tag (see "Dokploy: release flow").
 
-**Verify on the first real deploy.** These Dokploy behaviours were checked locally (Traefik v3.7 and the compose file
-rewritten as Dokploy does), not on a real Dokploy: confirm them once per environment and fix this runbook if one
-differs.
+**Confirmed on the first real production deploy.** Compose domains have the Middlewares field and it reaches Caddy's
+router (`docker inspect --format '{{json .Config.Labels}}' <appName>-caddy-1` lists the middlewares of step 6);
+`COMPOSE_PROJECT_NAME=<appName>` is in the env file Dokploy writes; `--wait` works in Dokploy's deploy (the log ends
+with the `Healthy` lines of step 7). Staging's first deploy runs the same checks of step 8.
 
-- [ ] Compose domains have the Middlewares field and it reaches Caddy's router: `docker inspect --format
-      '{{json .Config.Labels}}' <appName>-caddy-1` lists the middlewares of step 6. Without them Caddy answers 403 to
-      everything (it fails closed: nothing is exposed).
-- [ ] The tag trigger: `git push origin <tag>` starts a production deploy and no staging one; a push to `master` only
-      staging.
-- [ ] `COMPOSE_PROJECT_NAME=<appName>` is in the env file Dokploy writes (`backup.sh` and `restore.sh` need it):
-      `grep -c '^COMPOSE_PROJECT_NAME=' /etc/dokploy/compose/<appName>/code/infra/.env` prints `1`. If it prints `0`,
-      add that line to the Environment tab.
+**Still to verify.** Confirm each one and fix this runbook (and the guide) if it differs:
+
 - [ ] The `$` of the single-quoted `ADMIN_PASSWORD_HASH` survives the Environment tab: signing in to `/admin/` with
       the password works (a mangled hash rejects every password).
-- [ ] `--wait` works in Dokploy's deploy: the deployment log ends with the `Healthy` lines of step 7.
+- [ ] The tag trigger, on the first tag: `git push origin <tag>` starts a production deploy and no staging one; a push
+      to `master` only staging.
 
 ### Dokploy: release flow
 
@@ -332,7 +368,8 @@ differs.
 - When staging is right: `git tag vYYYY.MM.DD && git push origin vYYYY.MM.DD` → production deploys. **Dokploy deploys
   the head of the configured branch, not the tagged commit** (it clones `--branch master --depth 1`): tag the head of
   `master` that staging validated and do not push anything else before the production deploy starts.
-- Before tagging, a backup of production (`sh backup.sh` in its `infra/`): it is the only way back (see Rollback).
+- Before tagging, a backup of production (`backup.sh` in its `infra/`, with production's `BACKUP_DIR` and remote as in
+  "Backups"): it is the only way back (see Rollback). Step by step: [guide Release flow](vps-guide.md#12-release-flow).
 - Each deploy rebuilds the images and recreates only the containers whose image or configuration changed; the volumes
   stay. Migrations run when the API starts and a failed build never touches the published site.
 - A deploy that does not change Caddy keeps the site up. One that does (the Caddyfile, the admin, its image or
@@ -393,6 +430,10 @@ sh restore.sh /var/backups/blog/daily/<UTC>            # checks the snapshot and
 sh restore.sh /var/backups/blog/daily/<UTC> --apply    # restores, brings everything up, waits for the healthchecks and requests a build
 ```
 
+Under Dokploy, with that environment's `BACKUP_DIR` in front and a snapshot from its folder
+(`BACKUP_DIR=/var/backups/alanshalem-production sh restore.sh /var/backups/alanshalem-production/daily/<UTC>`;
+[guide Rollback](vps-guide.md#13-rollback)).
+
 Whatever was published or edited after that backup is lost, except in `BACKUP_DIR/pre-restore-<UTC>`: before
 changing anything, `--apply` saves what was there (it is restored with the same script; it is not rotated, delete it
 when you no longer want it). **Every restore logs the admin out** (new session keys): a backup predates some logout,
@@ -411,13 +452,16 @@ user that runs Docker:
 Under Dokploy, in root's crontab, one line per environment with its own `BACKUP_DIR` (two environments in one folder
 would rotate each other's snapshots). The script reads the `.env` Dokploy wrote next to it, so it finds that
 environment's stack; it exists after the first deploy, and a deploy re-clones the folder, so keep backups away from
-deploy times:
+deploy times. Each environment has its own folder and its own path in the crypt remote
+([guide Phase 10](vps-guide.md#11-phase-10--backups)):
 
 ```cron
-15 3 * * * BACKUP_DIR=/var/backups/alanshalem BACKUP_RCLONE_REMOTE=secret:alanshalem sh /etc/dokploy/compose/<appName>/code/infra/backup.sh >> /var/log/alanshalem-backup.log 2>&1
+15 3 * * * BACKUP_DIR=/var/backups/alanshalem-production BACKUP_RCLONE_REMOTE=secret:alanshalem-production sh /etc/dokploy/compose/<production appName>/code/infra/backup.sh >> /var/log/alanshalem-production-backup.log 2>&1
+45 3 * * * BACKUP_DIR=/var/backups/alanshalem-staging BACKUP_RCLONE_REMOTE=secret:alanshalem-staging sh /etc/dokploy/compose/<staging appName>/code/infra/backup.sh >> /var/log/alanshalem-staging-backup.log 2>&1
 ```
 
-`restore.sh` the same way (`BACKUP_DIR=... sh /etc/dokploy/compose/<appName>/code/infra/restore.sh <snapshot>`).
+`restore.sh` the same way
+(`BACKUP_DIR=/var/backups/alanshalem-<env> sh /etc/dokploy/compose/<appName>/code/infra/restore.sh <snapshot>`).
 Dokploy's Volume Backups do not replace this: they copy the volume as it is, and a SQLite database being written can
 be copied half-way; `backup.sh` asks the API for a consistent copy and leaves the session keys out on purpose.
 
@@ -467,10 +511,13 @@ it): check its logs. Behind Dokploy, Traefik only routes to a healthy Caddy.
 
 ### Firewall
 
-Open only SSH, 80/tcp and 443 (tcp and udp, HTTP/3). For example with ufw: `ufw allow OpenSSH`, `ufw allow 80/tcp`,
-`ufw allow 443`, `ufw enable` (or the VPS provider's firewall). Careful: Docker opens the ports it publishes in
-iptables without going through ufw; here only Caddy publishes them (80 and 443). Under Dokploy only its Traefik
-publishes 80/443; this stack publishes nothing.
+Open only SSH, 80/tcp and 443 (tcp and udp, HTTP/3). srv2192513 does it with the Hostinger firewall group applied to
+the VPS: only TCP 22, 80 and 443, UDP 443 and ICMP; the Dokploy panel's port 3000 stays closed (it is reached through
+`dokploy.alanshalem.com`). Setup and check: [guide Phase 2](vps-guide.md#3-phase-2--hostinger-firewall).
+
+Only on a VPS without a provider firewall, ufw: `ufw allow OpenSSH`, `ufw allow 80/tcp`, `ufw allow 443`, `ufw enable`.
+Careful: Docker opens the ports it publishes in iptables without going through ufw; here only Caddy publishes them
+(80 and 443). Under Dokploy only its Traefik publishes 80/443; this stack publishes nothing.
 
 ### Disk
 
