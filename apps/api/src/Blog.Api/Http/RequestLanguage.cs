@@ -20,4 +20,9 @@ internal static partial class RequestLanguage
         FirstPreferenceIsEnglish().IsMatch(request.Headers[HeaderNames.AcceptLanguage].ToString())
             ? Language.English
             : Language.Default;
+
+    /// <summary>The same rule for the request being served; outside a request (no HTTP context), the default language.</summary>
+    /// <returns>One of <see cref="Language"/>.</returns>
+    public static string Of(IHttpContextAccessor http) =>
+        http.HttpContext is { } context ? Of(context.Request) : Language.Default;
 }

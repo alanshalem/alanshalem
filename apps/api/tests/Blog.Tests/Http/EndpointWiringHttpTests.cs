@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using Blog.Infrastructure.Build;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Xunit.Abstractions;
 
 namespace Blog.Tests.Http;
@@ -37,6 +39,14 @@ public partial class EndpointWiringHttpTests(ApiFactory api, ITestOutputHelper o
             using var response = await client.SendAsync(ApiFactory.Mutation(new HttpMethod(method), Url(pattern)));
             Assert.True(response.StatusCode == HttpStatusCode.Unauthorized, $"{method} {pattern} respondió {(int)response.StatusCode} sin credenciales.");
         }
+    }
+
+    [Fact]
+    public void The_builder_options_that_Program_binds_are_the_ones_every_consumer_resolves()
+    {
+        var builder = api.Services.GetRequiredService<IOptions<BuilderOptions>>().Value;
+
+        Assert.Equal((string.Empty, ApiFactory.BuilderToken), (builder.Url, builder.Token));
     }
 
     /// <summary>Método y patrón de cada endpoint de la API, ordenados (sin barra final, como se piden).</summary>

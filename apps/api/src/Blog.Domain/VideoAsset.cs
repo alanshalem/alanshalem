@@ -66,7 +66,7 @@ public sealed class VideoAsset
     public DateTime CreatedAtUtc { get; private set; }
 
     /// <summary>Avisos de la regla de tamaño (se derivan de las dimensiones: no se guardan).</summary>
-    public IReadOnlyList<string> Warnings => HeroFrame.WarningsFor(Width, Height);
+    public IReadOnlyList<UserMessage> Warnings => HeroFrame.WarningsFor(Width, Height);
 
     /// <param name="contentHash">SHA-256 del archivo original.</param>
     /// <exception cref="DomainException">Si no cumple la regla de tamaño del hero (la edición ya viene validada).</exception>

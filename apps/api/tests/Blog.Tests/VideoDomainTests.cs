@@ -13,9 +13,13 @@ public class HeroFrameTests
     {
         HeroFrame.Ensure(width, height);
 
+        var warning = Assert.Single(HeroFrame.WarningsFor(width, height));
         Assert.Equal(
-            [$"Mide {width}×{height}: se acepta, pero en pantallas grandes se va a ver menos nítida. Ideal: 1920×1080 o más, horizontal 16:9."],
-            HeroFrame.WarningsFor(width, height));
+            $"Mide {width}×{height}: se acepta, pero en pantallas grandes se va a ver menos nítida. Ideal: 1920×1080 o más, horizontal 16:9.",
+            MessageCatalog.Format(warning, Language.Spanish));
+        Assert.Equal(
+            $"It measures {width}×{height}: it's accepted, but it will look less sharp on large screens. Ideal: 1920×1080 or larger, landscape 16:9.",
+            MessageCatalog.Format(warning, Language.English));
     }
 
     [Theory]
@@ -268,7 +272,7 @@ public class VideoAssetTests
         Assert.Equal(
             "Mide 1080×1920 y el hero necesita una imagen horizontal: vertical o cuadrada no sirve. Ideal: 1920×1080 o más, horizontal 16:9.",
             Assert.Throws<DomainException>(() => VideoAsset.Create(Hash, 1080, 1920, Edit, Now)).Message);
-        Assert.Equal(HeroFrame.WarningsFor(1280, 720), VideoAsset.Create(Hash, 1280, 720, Edit, Now).Warnings);
+        Assert.Equivalent(HeroFrame.WarningsFor(1280, 720), VideoAsset.Create(Hash, 1280, 720, Edit, Now).Warnings, strict: true);
     }
 
     [Fact]

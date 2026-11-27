@@ -77,6 +77,23 @@ public interface ISiteBuildTrigger
     Task RequestBuildAsync(CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// The epoch of the admin sessions: every session cookie carries the epoch current when it was issued, and only that
+/// epoch gets in. Revoking raises it, so no cookie issued before is accepted again, not even a copied one. Implemented
+/// by Infrastructure (persisted, cached in memory).
+/// </summary>
+public interface IAdminSessionEpoch
+{
+    /// <summary>Checked on every request with a session, so it must be cheap.</summary>
+    ValueTask<int> CurrentAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Invalidates every session issued so far. Fails closed: if the new epoch is saved but anything after it fails,
+    /// <see cref="CurrentAsync"/> never returns the revoked one again.
+    /// </summary>
+    Task RevokeAllAsync(CancellationToken cancellationToken);
+}
+
 /// <summary>Archivos de media. Las rutas las arma el dominio (<see cref="MediaAsset.RelativePathOf"/>), nunca el usuario.</summary>
 public interface IMediaStorage
 {

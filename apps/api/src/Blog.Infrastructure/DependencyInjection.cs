@@ -22,8 +22,9 @@ public static class DependencyInjection
 
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // BuilderOptions is bound and validated once, by the host (Program.cs): the API also checks its token on
+        // /api/internal, and a missing token must stop the API at startup.
         services.Configure<MediaOptions>(configuration.GetSection("Media"));
-        services.Configure<BuilderOptions>(configuration.GetSection("Builder"));
         services.Configure<VideoOptions>(configuration.GetSection("Video"));
 
         services.AddDbContext<BlogDbContext>(options => options.UseSqlite(ConnectionStringOf(configuration)));
@@ -37,7 +38,7 @@ public static class DependencyInjection
         services.AddSingleton<IClock, SystemClock>();
 
         // Singleton: guarda en memoria la época de las sesiones, que se consulta en cada pedido con sesión.
-        services.AddSingleton<AdminSessionEpoch>();
+        services.AddSingleton<IAdminSessionEpoch, AdminSessionEpoch>();
         services.AddSingleton<IMediaStorage, DiskMediaStorage>();
 
         // Singleton: su semáforo es el que garantiza que se procese una sola imagen a la vez en todo el proceso.

@@ -1,3 +1,4 @@
+using Blog.Application.Abstractions;
 using Blog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -15,31 +16,35 @@ namespace Blog.Infrastructure.Security;
 /// actualiza la base y la memoria juntas; si algo falla a mitad de camino, la memoria queda vacía y se relee. Alcanza porque la API corre en un único proceso; con varias instancias,
 /// cada una tendría que volver a leer la base.
 /// </remarks>
-public sealed class AdminSessionEpoch(IServiceScopeFactory scopes)
+internal sealed class AdminSessionEpoch(IServiceScopeFactory scopes) : IAdminSessionEpoch
 {
-    private const long Unknown = -1;
+    // Not read yet, or a revocation failed half way: the next read goes to the database. Stored epochs start at 0.
+    private const int Unknown = -1;
 
     // Un solo cambio a la vez: así una lectura lenta de la base no puede pisar en memoria una época ya revocada.
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private long _current = Unknown;
+
+    // Written only while holding the gate; volatile so the lock-free read in CurrentAsync always sees the latest value.
+    private volatile int _current = Unknown;
 
     public async ValueTask<int> CurrentAsync(CancellationToken cancellationToken)
     {
-        var cached = Interlocked.Read(ref _current);
+        var cached = _current;
         if (cached != Unknown)
         {
-            return (int)cached;
+            return cached;
         }
 
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (Interlocked.Read(ref _current) == Unknown)
+            if (_current == Unknown)
             {
-                Interlocked.Exchange(ref _current, await ReadAsync(cancellationToken));
+                await using var scope = scopes.CreateAsyncScope();
+                _current = await ReadAsync(scope.ServiceProvider.GetRequiredService<BlogDbContext>(), cancellationToken);
             }
 
-            return (int)Interlocked.Read(ref _current);
+            return _current;
         }
         finally
         {
@@ -55,11 +60,11 @@ public sealed class AdminSessionEpoch(IServiceScopeFactory scopes)
         {
             // Falla cerrado: se olvida la época en memoria ANTES de subirla en la base. Si el UPDATE se guarda pero la
             // relectura falla, la próxima consulta vuelve a la base y ya no acepta las cookies revocadas.
-            Interlocked.Exchange(ref _current, Unknown);
+            _current = Unknown;
             await using var scope = scopes.CreateAsyncScope();
             var db = scope.ServiceProvider.GetRequiredService<BlogDbContext>();
             await Singleton(db).ExecuteUpdateAsync(set => set.SetProperty(state => state.Epoch, state => state.Epoch + 1), cancellationToken);
-            Interlocked.Exchange(ref _current, await Singleton(db).Select(state => state.Epoch).SingleAsync(cancellationToken));
+            _current = await ReadAsync(db, cancellationToken);
         }
         finally
         {
@@ -67,11 +72,8 @@ public sealed class AdminSessionEpoch(IServiceScopeFactory scopes)
         }
     }
 
-    private async Task<long> ReadAsync(CancellationToken cancellationToken)
-    {
-        await using var scope = scopes.CreateAsyncScope();
-        return await Singleton(scope.ServiceProvider.GetRequiredService<BlogDbContext>()).Select(state => state.Epoch).SingleAsync(cancellationToken);
-    }
+    private static Task<int> ReadAsync(BlogDbContext db, CancellationToken cancellationToken) =>
+        Singleton(db).Select(state => state.Epoch).SingleAsync(cancellationToken);
 
     private static IQueryable<AdminSessionState> Singleton(BlogDbContext db) =>
         db.AdminSessionStates.Where(state => state.Id == AdminSessionState.SingletonId);

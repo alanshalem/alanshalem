@@ -1,6 +1,6 @@
 using System.Net;
+using Blog.Api.Security;
 using Blog.Application.Abstractions;
-using Blog.Infrastructure.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;

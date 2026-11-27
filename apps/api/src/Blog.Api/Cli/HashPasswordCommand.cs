@@ -1,5 +1,5 @@
 using System.Text;
-using Blog.Infrastructure.Security;
+using Blog.Api.Security;
 
 namespace Blog.Api.Cli;
 

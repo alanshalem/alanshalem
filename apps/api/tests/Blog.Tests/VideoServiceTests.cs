@@ -29,7 +29,7 @@ public class VideoServiceTests
         Assert.Equal(new VideoEditDto(0, 12.5, VideoFade.Loop, 1), video.Edit);
         Assert.Null(video.Poster);
         Assert.Empty(video.Sources);
-        Assert.Equal(HeroFrame.WarningsFor(1280, 720), video.Warnings);
+        Assert.Equivalent(HeroFrame.WarningsFor(1280, 720), video.Warnings, strict: true);
         Assert.Equal(context.Database.Clock.UtcNow, video.CreatedAt);
         Assert.Equivalent(video, await context.Database.WithVideosAsync(videos => videos.GetAsync(video.Id, default)), strict: true);
 

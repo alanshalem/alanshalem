@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Blog.Application.Abstractions;
 using Blog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -90,6 +91,31 @@ public class LocalizedErrorsHttpTests(ApiFactory api)
         var video = await WaitUntilFailedAsync(admin, id, acceptLanguage);
 
         Assert.Equal(error, video.GetProperty("error").GetString());
+    }
+
+    [Theory]
+    [InlineData(null, "Mide 1280×720: se acepta, pero en pantallas grandes se va a ver menos nítida. Ideal: 1920×1080 o más, horizontal 16:9.")]
+    [InlineData("es-AR,es;q=0.9", "Mide 1280×720: se acepta, pero en pantallas grandes se va a ver menos nítida. Ideal: 1920×1080 o más, horizontal 16:9.")]
+    [InlineData(EnglishBrowser, "It measures 1280×720: it's accepted, but it will look less sharp on large screens. Ideal: 1920×1080 or larger, landscape 16:9.")]
+    public async Task A_video_below_the_ideal_size_warns_in_the_language_of_the_request(string? acceptLanguage, string warning)
+    {
+        // Own factory: the probe size is shared state of the fake ffmpeg.
+        await using var own = new ApiFactory();
+        own.Transcoder.Probe = new VideoProbe(1280, 720, 10);
+        var admin = await own.AdminClientAsync();
+        using var form = new MultipartFormDataContent();
+        form.Add(new ByteArrayContent(TestVideos.Fake("aviso por idioma")) { Headers = { ContentType = new MediaTypeHeaderValue("video/mp4") } }, "file", "clip.mp4");
+
+        using var uploaded = await admin.SendAsync(WithLanguage(ApiFactory.Mutation(HttpMethod.Post, "/api/admin/media/videos", form), acceptLanguage));
+        Assert.Equal(HttpStatusCode.Accepted, uploaded.StatusCode);
+        var video = await uploaded.Content.ReadFromJsonAsync<JsonElement>();
+        using var read = await admin.SendAsync(WithLanguage(
+            new HttpRequestMessage(HttpMethod.Get, $"/api/admin/media/videos/{video.GetProperty("id").GetGuid()}"), acceptLanguage));
+
+        // Still a plain string array: only the language of each text changes.
+        Assert.Equal([warning], video.GetProperty("warnings").EnumerateArray().Select(item => item.GetString()));
+        Assert.Equal(
+            [warning], (await read.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("warnings").EnumerateArray().Select(item => item.GetString()));
     }
 
     [Fact]

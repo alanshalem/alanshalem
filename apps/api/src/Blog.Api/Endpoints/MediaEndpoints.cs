@@ -10,6 +10,16 @@ namespace Blog.Api.Endpoints;
 
 public static class MediaEndpoints
 {
+    /// <summary>
+    /// Kestrel's limit for every request (Program.cs): the largest image plus a margin for its multipart envelope. Images
+    /// ride on this global limit; only the video upload raises its own (<see cref="VideoRequestLimit"/>).
+    /// </summary>
+    internal const long ServerRequestLimit = MediaService.MaxBytes + ImageEnvelopeMargin;
+
+    // With this margin an image somewhat over the maximum still reaches the use case and gets its own message (in the
+    // admin's language) instead of a generic 413.
+    private const long ImageEnvelopeMargin = 4 * 1024 * 1024;
+
     // Margen para la envoltura multipart (cabeceras y separadores) por encima del máximo del archivo: así un video
     // apenas más grande que el máximo recibe el mensaje propio del caso de uso (en el idioma del admin), no un 413 genérico.
     private const long MultipartMargin = 1024 * 1024;

@@ -1,13 +1,13 @@
 using System.Security.Cryptography;
 
-namespace Blog.Infrastructure.Security;
+namespace Blog.Api.Security;
 
 /// <summary>
 /// Hash de contraseña con PBKDF2-SHA256 (viene en .NET, sin paquetes extra).
 /// Formato guardado: pbkdf2-sha256$iteraciones$salt(base64)$hash(base64) — las iteraciones viajan con el hash,
 /// así se pueden subir más adelante sin invalidar hashes viejos.
 /// </summary>
-public static class Pbkdf2PasswordHasher
+internal static class Pbkdf2PasswordHasher
 {
     private const string Prefix = "pbkdf2-sha256";
     private const int DefaultIterations = 600_000; // recomendación OWASP 2023 para PBKDF2-HMAC-SHA256

@@ -3,6 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Blog.Application.Media;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace Blog.Tests.Http;
 
@@ -109,6 +113,15 @@ public class ProblemDetailsHttpTests(ApiFactory api)
         using var response = await client.SendAsync(request);
 
         await AssertProblemAsync(response, HttpStatusCode.RequestEntityTooLarge, "Payload too large", "problem.payloadTooLarge");
+    }
+
+    [Fact]
+    public void The_server_body_limit_stays_12_MB_above_the_largest_image()
+    {
+        var limit = api.Services.GetRequiredService<IOptions<KestrelServerOptions>>().Value.Limits.MaxRequestBodySize;
+
+        Assert.Equal(12 * 1024 * 1024, limit);
+        Assert.True(limit > MediaService.MaxBytes, "An image of the maximum size plus its multipart envelope must fit.");
     }
 
     [Theory]

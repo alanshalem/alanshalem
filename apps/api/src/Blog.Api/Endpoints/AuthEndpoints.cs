@@ -1,5 +1,5 @@
 using Blog.Api.Security;
-using Blog.Infrastructure.Security;
+using Blog.Application.Abstractions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 
@@ -21,7 +21,7 @@ public static class AuthEndpoints
     }
 
     private static async Task<IResult> LoginAsync(
-        LoginRequest request, HttpContext http, IOptions<AdminOptions> admin, AdminSessionEpoch epoch, ILoggerFactory loggers)
+        LoginRequest request, HttpContext http, IOptions<AdminOptions> admin, IAdminSessionEpoch epoch, ILoggerFactory loggers)
     {
         // Mismo resultado y mismo costo (PBKDF2) tanto si la contraseña está mal como si es vacía.
         if (!Pbkdf2PasswordHasher.Verify(request.Password ?? string.Empty, admin.Value.PasswordHash))
@@ -40,7 +40,7 @@ public static class AuthEndpoints
     /// Con una sesión válida, además de borrar la cookie revoca todas las emitidas (también una copiada). Sin sesión
     /// solo borra la cookie: si no, cualquiera podría cerrarle la sesión al admin.
     /// </summary>
-    private static async Task<IResult> LogoutAsync(HttpContext http, AdminSessionEpoch epoch)
+    private static async Task<IResult> LogoutAsync(HttpContext http, IAdminSessionEpoch epoch)
     {
         if (http.User.Identity?.IsAuthenticated == true)
         {

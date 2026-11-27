@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Security.Claims;
-using Blog.Infrastructure.Security;
+using Blog.Application.Abstractions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -8,7 +8,7 @@ namespace Blog.Api.Security;
 
 /// <summary>
 /// La sesión del único usuario (el admin): una cookie cifrada que lleva la época de sesiones vigente al iniciarla
-/// (<see cref="AdminSessionEpoch"/>). Cada pedido la compara con la actual: después de revocar (cerrar sesión), ninguna
+/// (<see cref="IAdminSessionEpoch"/>). Cada pedido la compara con la actual: después de revocar (cerrar sesión), ninguna
 /// cookie emitida antes entra, aunque se haya copiado; tampoco una sin época (las de antes de este cambio).
 /// </summary>
 internal static class AdminSession
@@ -52,7 +52,7 @@ internal static class AdminSession
     }
 
     /// <summary>Inicia la sesión con la época vigente.</summary>
-    public static async Task SignInAsync(HttpContext http, AdminSessionEpoch epoch)
+    public static async Task SignInAsync(HttpContext http, IAdminSessionEpoch epoch)
     {
         var current = await epoch.CurrentAsync(http.RequestAborted);
         var identity = new ClaimsIdentity(
@@ -60,10 +60,10 @@ internal static class AdminSession
         await http.SignInAsync(Scheme, new ClaimsPrincipal(identity));
     }
 
-    // Barato: la época actual está en memoria (AdminSessionEpoch); la base se lee una sola vez por proceso.
+    // Barato: la época actual está en memoria (IAdminSessionEpoch); la base se lee una sola vez por proceso.
     private static async Task RejectRevokedAsync(CookieValidatePrincipalContext context)
     {
-        var epoch = context.HttpContext.RequestServices.GetRequiredService<AdminSessionEpoch>();
+        var epoch = context.HttpContext.RequestServices.GetRequiredService<IAdminSessionEpoch>();
         var current = await epoch.CurrentAsync(context.HttpContext.RequestAborted);
         if (context.Principal?.FindFirst(EpochClaim)?.Value != current.ToString(CultureInfo.InvariantCulture))
         {

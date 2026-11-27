@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Blog.Application.Abstractions;
 using Blog.Infrastructure.Persistence;
 using Blog.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ public class AdminSessionEpochTests
     {
         await using var database = new SqliteTestDatabase();
         await database.InitializeAsync();
-        var epoch = database.Services.GetRequiredService<AdminSessionEpoch>();
+        var epoch = database.Services.GetRequiredService<IAdminSessionEpoch>();
 
         Assert.Equal(0, await epoch.CurrentAsync(default));
         await epoch.RevokeAllAsync(default);
@@ -34,7 +35,7 @@ public class AdminSessionEpochTests
     {
         await using var database = new SqliteTestDatabase();
         await database.InitializeAsync();
-        var epoch = database.Services.GetRequiredService<AdminSessionEpoch>();
+        var epoch = database.Services.GetRequiredService<IAdminSessionEpoch>();
 
         var before = Enumerable.Range(0, 20).Select(_ => Task.Run(() => epoch.CurrentAsync(default).AsTask())).ToList();
         await epoch.RevokeAllAsync(default);
@@ -52,7 +53,7 @@ public class AdminSessionEpochTests
         await using var database = new SqliteTestDatabase(services =>
             services.ConfigureDbContext<BlogDbContext>(options => options.AddInterceptors(failNextEpochRead)));
         await database.InitializeAsync();
-        var epoch = database.Services.GetRequiredService<AdminSessionEpoch>();
+        var epoch = database.Services.GetRequiredService<IAdminSessionEpoch>();
         Assert.Equal(0, await epoch.CurrentAsync(default));
 
         failNextEpochRead.Armed = true;

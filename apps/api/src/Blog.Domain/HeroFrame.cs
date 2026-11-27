@@ -37,11 +37,11 @@ public static class HeroFrame
     }
 
     /// <summary>
-    /// Se acepta, pero si es más chica que la ideal se avisa: en pantallas grandes se va a ver menos nítida. El aviso
-    /// viaja como texto dentro del video (no es un error), así que sale en el idioma por defecto.
+    /// Accepted, but smaller than the ideal size gets a warning: it will look less sharp on large screens. The warning
+    /// is a message without text (it is not an error): whoever shows it writes it in the reader's language.
     /// </summary>
-    public static IReadOnlyList<string> WarningsFor(int width, int height) =>
+    public static IReadOnlyList<UserMessage> WarningsFor(int width, int height) =>
         width < IdealWidth || height < IdealHeight
-            ? [new UserMessage(MessageKeys.HeroLowResolution, ("width", width), ("height", height), ("guide", Guide)).ToString()]
+            ? [new UserMessage(MessageKeys.HeroLowResolution, ("width", width), ("height", height), ("guide", Guide))]
             : [];
 }

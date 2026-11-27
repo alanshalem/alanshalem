@@ -1,5 +1,5 @@
+using Blog.Api.Security;
 using Blog.Application.Media;
-using Blog.Infrastructure.Security;
 
 namespace Blog.Tests;
 

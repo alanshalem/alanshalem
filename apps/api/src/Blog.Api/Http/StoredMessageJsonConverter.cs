@@ -15,5 +15,5 @@ internal sealed class StoredMessageJsonConverter(IHttpContextAccessor http) : Js
         throw new NotSupportedException("Un mensaje guardado solo se escribe.");
 
     public override void Write(Utf8JsonWriter writer, StoredMessage value, JsonSerializerOptions options) =>
-        writer.WriteStringValue(value.In(http.HttpContext is { } context ? RequestLanguage.Of(context.Request) : Language.Default));
+        writer.WriteStringValue(value.In(RequestLanguage.Of(http)));
 }

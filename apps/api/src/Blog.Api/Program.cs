@@ -12,7 +12,6 @@ using Blog.Application.Videos;
 using Blog.Infrastructure;
 using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Persistence;
-using Blog.Infrastructure.Security;
 using Microsoft.AspNetCore.DataProtection;
 
 // Modos de línea de comandos (hash-password, healthcheck, backup): corren y terminan sin levantar la API.
@@ -24,8 +23,8 @@ if (await CommandLine.RunAsync(args, Console.In, Console.Out, Console.Error, rea
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Subidas de imágenes de hasta 8 MB (más un margen para el multipart). La subida de videos sube su propio límite.
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 12 * 1024 * 1024);
+// Image uploads up to MediaService.MaxBytes plus a multipart margin (12 MB). The video upload raises its own limit.
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = MediaEndpoints.ServerRequestLimit);
 
 // ---------- Configuración obligatoria: si falta algo, la app no arranca (mejor que fallar en producción) ----------
 builder.Services
@@ -54,10 +53,14 @@ builder.Services.AddScoped<VideoProcessor>();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 
-// Los mensajes guardados (error de un video) salen en el idioma del pedido, como los errores.
+// Messages inside a response (a video's stored error, its size warnings) are written in the language of the request,
+// like errors.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>().Configure<IHttpContextAccessor>((options, http) =>
-    options.SerializerOptions.Converters.Add(new StoredMessageJsonConverter(http)));
+{
+    options.SerializerOptions.Converters.Add(new StoredMessageJsonConverter(http));
+    options.SerializerOptions.Converters.Add(new UserMessageJsonConverter(http));
+});
 
 // Todo error es un problem details con code, título en el idioma del pedido y Vary (LocalizedProblems).
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = LocalizedProblems.Localize);
