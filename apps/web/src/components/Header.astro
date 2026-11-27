@@ -7,7 +7,7 @@ interface Props {
   currentPath: string;
   alternates: Alternates;
   switchFallback?: ((lang: Lang) => string) | undefined;
-  /** Transparente y superpuesta al hero (home y artículo). */
+  /** Transparent and over the hero (home and article). */
   overlay?: boolean;
 }
 
@@ -15,9 +15,9 @@ const { lang, currentPath, alternates, switchFallback, overlay = false } = Astro
 const settings = await getSettings(lang);
 const t = ui(lang);
 const languages = switcherLinks(lang, alternates, switchFallback);
-// El feed no es una sección del sitio: nunca queda marcado.
+// The feed is not a section of the site: it is never marked as current.
 const current = (href: string) => (href === paths.rss(lang) ? undefined : navCurrent(currentPath, href));
-// Los enlaces del menú, armados una vez para sus dos lugares (fila de escritorio y panel del ☰).
+// The menu links, built once for their two places (the desktop row and the ☰ panel).
 const links = navLinks(lang).map((item) => ({
   label: item.label,
   href: item.href,
@@ -31,10 +31,10 @@ const links = navLinks(lang).map((item) => ({
   <a class="brand" href={paths.home(lang)}>{settings.name}</a>
 
   {/*
-    En el HTML, en el orden en que se ve (WCAG 2.4.3, L13), sin `order` en el CSS. Escritorio: links · ES | EN.
-    Celular: ES | EN · ☰ y su panel, que se despliega debajo. Como los links van antes de ES | EN en un tamaño y
-    después en el otro, el menú tiene dos lugares que salen de la misma lista y el CSS muestra uno solo por tamaño:
-    el oculto (display: none) no se enfoca ni lo anuncia el lector de pantalla.
+    In the HTML in the order it is seen (WCAG 2.4.3), with no `order` in the CSS. Desktop: links · ES | EN.
+    Phone: ES | EN · ☰ and its panel, which opens below. Since the links come before ES | EN at one size and after it
+    at the other, the menu has two places built from the same list and the CSS shows only one per size: the hidden
+    one (display: none) cannot be focused and screen readers do not announce it.
   */}
   <div class="header-tools">
     <nav class="site-nav site-nav--bar" aria-label={t.mainNav}>
@@ -63,10 +63,10 @@ const links = navLinks(lang).map((item) => ({
 </header>
 
 <script>
-  // Único JavaScript de la cabecera: el menú desplegable de pantallas angostas (patrón disclosure). Se abre y cierra
-  // con ☰ y además se cierra con Esc, con un clic afuera y cuando el foco sale de él (P3, L4): abierto, tapaba el
-  // contenido al seguir con Tab o al tocar la página. En pantallas anchas ni ☰ ni el panel se ven (los links van en
-  // la fila) y esto no cambia nada.
+  // The header's only JavaScript: the drop-down menu of narrow screens (disclosure pattern). ☰ opens and closes it,
+  // and it also closes with Esc, with a click outside and when focus leaves it: left open, it covered the content
+  // when tabbing on or tapping the page. On wide screens neither ☰ nor the panel shows (the links sit in the row) and
+  // this changes nothing.
   const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
   const menu = document.getElementById('site-nav');
   if (toggle && menu) {
@@ -78,7 +78,7 @@ const links = navLinks(lang).map((item) => ({
     toggle.addEventListener('click', () => setOpen(!isOpen()));
     document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape' || !isOpen()) return;
-      // Si el foco estaba en el menú, vuelve al botón: el panel que se cierra no se lo lleva.
+      // If focus was in the menu, it goes back to the button: the closing panel does not take it away.
       const focusWasInside = inside(document.activeElement);
       setOpen(false);
       if (focusWasInside) toggle.focus();
@@ -86,7 +86,7 @@ const links = navLinks(lang).map((item) => ({
     document.addEventListener('click', (event) => {
       if (isOpen() && !inside(event.target)) setOpen(false);
     });
-    // `relatedTarget` es adónde va el foco; null = a ningún control (clic en texto, otra ventana): eso lo cierra el clic.
+    // `relatedTarget` is where focus goes; null = no control (a click on text, another window): the click closes it.
     const closeWhenFocusLeaves = (event: FocusEvent): void => {
       if (isOpen() && event.relatedTarget !== null && !inside(event.relatedTarget)) setOpen(false);
     };

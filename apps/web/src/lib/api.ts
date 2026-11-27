@@ -1,30 +1,31 @@
 /**
- * GET autenticado contra la API interna (token del builder).
- * Si la API falla, el build debe fallar: el builder conserva la versión anterior del sitio en vez de publicar una vacía.
+ * Authenticated GET against the internal API (the builder token).
+ * If the API fails, the build must fail: the builder keeps the previous version of the site instead of publishing an
+ * empty one.
  */
 export async function getInternal<T>(path: string, what: string): Promise<T> {
   const apiUrl = process.env.API_URL;
   const token = process.env.BUILDER_TOKEN;
   if (!apiUrl || !token) {
-    throw new Error(`Faltan las variables API_URL y BUILDER_TOKEN para leer ${what} durante el build.`);
+    throw new Error(`API_URL and BUILDER_TOKEN are required to read ${what} during the build.`);
   }
 
   const response = await fetch(`${apiUrl.replace(/\/$/, '')}${path}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) {
-    throw new Error(`La API respondió ${response.status} al pedir ${what}.`);
+    throw new Error(`The API answered ${response.status} when asked for ${what}.`);
   }
   return (await response.json()) as T;
 }
 
-/** Servidor de desarrollo de Astro (`astro dev`). En los tests y en el build de producción es falso. */
+/** Astro's development server (`astro dev`). False in the tests and in the production build. */
 const isDevServer = (): boolean => import.meta.env?.DEV === true;
 
 /**
- * Envuelve un loader para que haga una sola petición por build: Astro renderiza todas las páginas en el mismo
- * proceso. En `astro dev` el proceso vive mientras editás en el admin, así que ahí se pide en cada render;
- * si no, los cambios (y hasta un fallo de la API) quedarían congelados hasta reiniciar el servidor.
+ * Wraps a loader so it makes a single request per build: Astro renders every page in the same process. In
+ * `astro dev` the process lives on while you edit in the admin, so there it fetches on every render; otherwise the
+ * changes (and even an API failure) would stay frozen until the server restarts.
  */
 export function oncePerBuild<T>(load: () => Promise<T>, reloadEachCall: () => boolean = isDevServer): () => Promise<T> {
   let cache: Promise<T> | undefined;

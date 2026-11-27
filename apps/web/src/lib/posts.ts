@@ -4,7 +4,7 @@ import { resolveCover, type Cover } from './cover.ts';
 import { isLang, paths, type Alternates, type Lang } from './i18n.ts';
 import { yearOf } from './site.ts';
 
-/** Forma en que la API entrega un post publicado (GET /api/internal/posts, L4). */
+/** How the API delivers a published post (GET /api/internal/posts). */
 export interface ApiPost {
   id: string;
   slug: string;
@@ -13,12 +13,12 @@ export interface ApiPost {
   body: string;
   tags: string[];
   lang: string;
-  /** Une las versiones en otros idiomas del mismo post (L4). Opcional solo mientras la API no lo mande (T1). */
+  /** Links the versions of the same post in other languages. Optional only for an API that does not send it yet. */
   translationGroupId?: string;
   createdAt: string;
   updatedAt: string;
   publishedAt: string | null;
-  /** Portada cargada en el admin (L4): ruta `/media/...` o URL http(s). */
+  /** Cover set in the admin: a `/media/...` path or an http(s) URL. */
   coverUrl?: string | null;
   coverAlt?: string | null;
 }
@@ -33,41 +33,42 @@ export interface BlogPost {
   lang: Lang;
   translationGroupId: string;
   title: string;
-  /** Texto corto para listados y <meta description>. */
+  /** Short text for listings and <meta description>. */
   description: string;
   tags: Tag[];
   publishedAt: Date;
   updatedAt: Date;
   readingMinutes: number;
-  /** HTML ya renderizado y escapado por @blog/markdown. */
+  /** HTML already rendered and escaped by @blog/markdown. */
   html: string;
   headings: Heading[];
-  /** Portada efectiva (L5): coverUrl → primera imagen del Markdown → SVG generativo. */
+  /** Effective cover: coverUrl → first Markdown image → generative SVG. */
   cover: Cover;
 }
 
-/** El índice lateral lista secciones (h2) y subsecciones (h3): más profundidad ensucia más de lo que ayuda. */
+/** The side table of contents lists sections (h2) and subsections (h3): more depth clutters more than it helps. */
 const TOC_MAX_LEVEL = 3;
 
-/** Los títulos del cuerpo que entran al índice lateral, en orden. */
+/** The body headings that go into the side table of contents, in order. */
 export const tocEntries = (headings: readonly Heading[]): Heading[] => headings.filter((heading) => heading.level <= TOC_MAX_LEVEL);
 
-/** Ruta pública de un post: su idioma define el prefijo y el segmento (/es/articulos/, /en/articles/). */
+/** A post's public route: its language sets the prefix and the segment (/es/articulos/, /en/articles/). */
 export const postPath = (post: Pick<BlogPost, 'lang' | 'slug'>): string => paths.post(post.lang, post.slug);
 
-/** Las imágenes relativas del Markdown ("img/a.png") se resuelven contra la página del post. */
+/** Relative Markdown images ("img/a.png") are resolved against the post's page. */
 function rootRelative(cover: Cover, pagePath: string): Cover {
   if (cover.kind !== 'image' || /^([a-z][a-z0-9+.-]*:|\/)/i.test(cover.src)) return cover;
-  const url = new URL(cover.src, `http://sitio${pagePath}`);
+  const url = new URL(cover.src, `http://site${pagePath}`);
   return { ...cover, src: `${url.pathname}${url.search}${url.hash}` };
 }
 
 export function toBlogPost(apiPost: ApiPost): BlogPost {
   const { lang } = apiPost;
-  // Publicarlo bajo otro idioma lo mostraría con la interfaz equivocada: mejor que el build falle y quede el sitio anterior.
-  if (!isLang(lang)) throw new Error(`El post "${apiPost.slug}" tiene un idioma "${lang}" que el sitio no publica.`);
-  // Las mismas opciones que la vista previa del admin (@blog/markdown): "## sección, ### subsección" y el título del post
-  // como único <h1>, figuras y tipografía inteligente; el idioma pone los títulos de cajas y notas en el del post.
+  // Publishing it under another language would show it with the wrong UI: better to fail the build and keep the
+  // previous site.
+  if (!isLang(lang)) throw new Error(`Post "${apiPost.slug}" has language "${lang}", which the site does not publish.`);
+  // The same options as the admin preview (@blog/markdown): "## section, ### subsection" with the post title as the
+  // only <h1>, figures and smart typography; the language puts callout and footnote titles in the post's language.
   // One render feeds the page: its `text` is what the reader sees (figure captions, callout titles in the post's
   // language), so the reading time matches the admin preview, which counts the same render.
   const { html, headings, text } = renderMarkdown(apiPost.body, { ...POST_BODY_RENDER_OPTIONS, lang });
@@ -82,7 +83,7 @@ export function toBlogPost(apiPost: ApiPost): BlogPost {
   return {
     slug: apiPost.slug,
     lang,
-    // Sin grupo (API anterior a T1) cada post es su propio grupo: no tiene traducciones.
+    // Without a group (an API that does not send it yet) each post is its own group: it has no translations.
     translationGroupId: apiPost.translationGroupId ?? apiPost.id,
     title: apiPost.title,
     description: apiPost.summary || excerpt(apiPost.body, 160),
@@ -97,16 +98,16 @@ export function toBlogPost(apiPost: ApiPost): BlogPost {
 }
 
 async function loadPosts(): Promise<BlogPost[]> {
-  const apiPosts = await getInternal<ApiPost[]>('/api/internal/posts', 'los posts publicados');
+  const apiPosts = await getInternal<ApiPost[]>('/api/internal/posts', 'the published posts');
   return apiPosts
     .map(toBlogPost)
     .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
 }
 
-/** Todos los posts publicados de todos los idiomas, más nuevos primero. */
+/** Every published post in every language, newest first. */
 export const getPosts: () => Promise<BlogPost[]> = oncePerBuild(loadPosts);
 
-/** Los posts de un idioma, en el mismo orden. */
+/** The posts of one language, in the same order. */
 export const postsIn = (posts: readonly BlogPost[], lang: Lang): BlogPost[] => posts.filter((post) => post.lang === lang);
 
 /** "Keep reading" under a post: how many of the newest posts of its language it suggests. */
@@ -141,8 +142,8 @@ export interface TagEntry {
 }
 
 /**
- * Temas de esos posts con sus posts, por cantidad y después por nombre. Se llama con los posts de un idioma:
- * cada idioma tiene sus propios temas (los tags se escriben por versión y no se traducen uno a uno).
+ * The topics of those posts with their posts, by count and then by name. Called with the posts of one language:
+ * each language has its own topics (tags are written per version and not translated one to one).
  */
 export function tagsOf(posts: readonly BlogPost[]): TagEntry[] {
   const byTag = new Map<string, TagEntry>();
@@ -184,8 +185,8 @@ export function homeSections(posts: readonly BlogPost[]): HomeSections {
 }
 
 /**
- * translationGroupId → ruta de la versión publicada en cada idioma (L3). `posts` son solo los publicados, así que
- * un borrador nunca aparece como alternativa.
+ * translationGroupId → route of the published version in each language. `posts` are only the published ones, so a
+ * draft never shows up as an alternate.
  */
 export function alternatesByGroup(posts: readonly BlogPost[]): Map<string, Alternates> {
   const groups = new Map<string, Alternates>();

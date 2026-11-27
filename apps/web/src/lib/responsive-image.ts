@@ -2,19 +2,19 @@ import { htmlAttributes, readAttribute } from './html.ts';
 import { safeColor, srcset, type ImageFormat, type MediaAsset, type MediaIndex } from './media.ts';
 
 /**
- * Ancho que ocupa la imagen en cada contexto (atributo `sizes`): con eso el navegador baja la variante justa.
- * Refleja el layout de site.css; si cambia una grilla, se cambia acá.
+ * The width the image takes in each context (the `sizes` attribute): with it the browser downloads the right variant.
+ * It mirrors the layout of site.css; if a grid changes, change it here.
  */
 export const IMAGE_SIZES = {
-  /** Hero de la home y del artículo: a sangre. */
+  /** Home and article hero: full bleed. */
   hero: '100vw',
-  /** Portada del destacado: 1.5fr de 2.5fr desde 1024px. */
+  /** The featured post's cover: 1.5fr of 2.5fr from 1024px. */
   lead: '(min-width: 1024px) 60vw, 100vw',
-  /** Tarjetas: 1, 2 y hasta ~3 columnas. */
+  /** Cards: 1, 2 and up to ~3 columns. */
   card: '(min-width: 75em) 33vw, (min-width: 700px) 50vw, 100vw',
-  /** Mosaicos de temas: columnas de 16rem. */
+  /** Topic tiles: 16rem columns. */
   tile: '(min-width: 700px) 33vw, 100vw',
-  /** Imágenes dentro del texto: la columna de lectura. */
+  /** Images inside the text: the reading column. */
   prose: '(min-width: 640px) 640px, 100vw',
 } as const;
 
@@ -24,17 +24,17 @@ export interface ImageOptions {
   alt: string;
   context: ImageContext;
   title?: string | undefined;
-  /** Hero o primera imagen visible: se pide ya y con prioridad. El resto se difiere. */
+  /** Hero or first visible image: requested right away and with priority. The rest is deferred. */
   priority?: boolean | undefined;
 }
 
 export interface PlainImageOptions extends ImageOptions {
-  /** Caja reservada para imágenes que no son assets (no conocemos sus medidas reales). */
+  /** Reserved box for images that are not assets (their real size is unknown). */
   width: number;
   height: number;
 }
 
-/** El AVIF primero: el navegador usa la primera <source> que soporta. */
+/** AVIF first: the browser uses the first <source> it supports. */
 const SOURCE_FORMATS: readonly ImageFormat[] = ['avif', 'webp'];
 
 function imgTag(src: string, width: number, height: number, options: ImageOptions, style?: string): string {
@@ -58,18 +58,18 @@ function pictureHtml(asset: MediaAsset, options: ImageOptions): string {
     .map((source) => `<source${htmlAttributes({ type: `image/${source.format}`, srcset: source.srcset, sizes })}>`)
     .join('');
   const color = safeColor(asset.color);
-  // El color dominante pinta la caja mientras llega la imagen.
+  // The dominant color paints the box while the image arrives.
   const img = imgTag(asset.url, asset.width, asset.height, options, color ? `background-color:${color}` : undefined);
   return `<picture>${sources}${img}</picture>`;
 }
 
-/** Imagen para cualquier contexto: <picture> AVIF + WebP si es un asset conocido; si no, el <img> simple. */
+/** An image for any context: an AVIF + WebP <picture> for a known asset; otherwise the plain <img>. */
 export function imageHtml(src: string, media: MediaIndex, options: PlainImageOptions): string {
   const asset = media.get(src);
   return asset ? pictureHtml(asset, options) : imgTag(src, options.width, options.height, options);
 }
 
-/** Cambia por <picture> solo las <img> del Markdown cuyo src es exactamente un asset conocido. */
+/** Replaces with a <picture> only the Markdown <img>s whose src is exactly a known asset. */
 export function responsiveProseHtml(html: string, media: MediaIndex): string {
   return html.replace(/<img\b[^>]*>/g, (tag) => {
     const asset = media.get(readAttribute(tag, 'src') ?? '');

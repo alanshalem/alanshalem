@@ -10,7 +10,7 @@ const { lang } = Astro.props;
 const settings = await getSettings(lang);
 const t = ui(lang);
 const contact = contactLinks(settings);
-// RSS tiene su propia columna ("Suscribirse").
+// RSS has its own column ("Subscribe").
 const explore = navLinks(lang).filter((item) => item.href !== paths.rss(lang));
 const year = new Date().getFullYear();
 ---
@@ -23,8 +23,8 @@ const year = new Date().getFullYear();
   </div>
   {
     contact.length > 0 && (
-      <nav class="footer-col" aria-labelledby="footer-contacto">
-        <h2 id="footer-contacto">{t.contact}</h2>
+      <nav class="footer-col" aria-labelledby="footer-contact">
+        <h2 id="footer-contact">{t.contact}</h2>
         <ul>
           {contact.map((link) => (
             <li>
@@ -37,8 +37,8 @@ const year = new Date().getFullYear();
       </nav>
     )
   }
-  <nav class="footer-col" aria-labelledby="footer-explorar">
-    <h2 id="footer-explorar">{t.explore}</h2>
+  <nav class="footer-col" aria-labelledby="footer-explore">
+    <h2 id="footer-explore">{t.explore}</h2>
     <ul>
       <li><a href={paths.home(lang)}>{t.home}</a></li>
       {
@@ -50,8 +50,8 @@ const year = new Date().getFullYear();
       }
     </ul>
   </nav>
-  <nav class="footer-col" aria-labelledby="footer-suscribirse">
-    <h2 id="footer-suscribirse">{t.subscribe}</h2>
+  <nav class="footer-col" aria-labelledby="footer-subscribe">
+    <h2 id="footer-subscribe">{t.subscribe}</h2>
     <ul>
       <li><a href={paths.rss(lang)} type="application/rss+xml" aria-label={t.rssLabel}>{t.rss}</a></li>
     </ul>

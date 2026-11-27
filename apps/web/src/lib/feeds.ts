@@ -1,12 +1,12 @@
 import { hreflangLinks, paths, ui, type Alternates, type Lang } from './i18n.ts';
 import { postPath, type BlogPost } from './posts.ts';
 
-/** XML del feed RSS y del sitemap. Puro: los endpoints de src/pages solo cargan datos y responden. */
+/** XML of the RSS feed and the sitemap. Pure: the src/pages endpoints only load data and respond. */
 
 const escapeXml = (text: string): string =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** En un feed las URLs relativas no sirven (el lector no sabe de qué sitio son). */
+/** Relative URLs are useless in a feed (the reader does not know which site they belong to). */
 const withAbsoluteUrls = (html: string, baseUrl: string): string =>
   html.replace(/(href|src)="\/(?!\/)/g, `$1="${baseUrl}/`);
 
@@ -14,9 +14,9 @@ export interface RssInput {
   lang: Lang;
   title: string;
   description: string;
-  /** Solo los del idioma del feed, más nuevos primero. */
+  /** Only those in the feed's language, newest first. */
   posts: readonly BlogPost[];
-  /** Origen del sitio sin barra final. */
+  /** The site origin without a trailing slash. */
   baseUrl: string;
 }
 
@@ -24,7 +24,7 @@ export function rssXml({ lang, title, description, posts, baseUrl }: RssInput): 
   const items = posts
     .map((post) => {
       const url = `${baseUrl}${postPath(post)}`;
-      // `]]>` cerraría el CDATA antes de tiempo; el renderer ya escapa el texto, pero se defiende igual.
+      // `]]>` would close the CDATA early; the renderer already escapes the text, but this defends anyway.
       const content = withAbsoluteUrls(post.html, baseUrl).replaceAll(']]>', ']]]]><![CDATA[>');
       return `    <item>
       <title>${escapeXml(post.title)}</title>
@@ -52,20 +52,20 @@ ${items}
 `;
 }
 
-/** Un texto de una línea como cadena de CSS (`content: "…"`): se escapan la barra invertida y las comillas. */
+/** A one-line text as a CSS string (`content: "…"`): backslashes and quotes are escaped. */
 const cssString = (text: string): string => `"${text.replace(/[\\"]/g, '\\$&')}"`;
 
 /**
- * Hoja de estilo del feed (`<?xml-stylesheet type="text/css"?>`): abierto en el navegador se lee como una página del
- * sitio (título, aviso de qué es, y por artículo título, fecha, resumen y dirección) en vez del árbol XML. CSS y no XSLT:
- * Chrome quitó XSLT (desde la v155 muestra "uses XSLT, which the browser does not support"); CSS sobre XML sí anda en
- * todos. Los lectores de feeds ignoran la instrucción, así que el feed sigue igual de válido. Parte de los tokens del
- * sitio (`tokensCss`) para usar los mismos colores y fuentes; los textos, del diccionario del idioma.
+ * The feed's stylesheet (`<?xml-stylesheet type="text/css"?>`): opened in a browser it reads like a page of the site
+ * (title, a notice of what it is, and per article title, date, summary and address) instead of the XML tree. CSS, not
+ * XSLT: Chrome removed XSLT (since v155 it shows "uses XSLT, which the browser does not support"); CSS over XML works
+ * everywhere. Feed readers ignore the instruction, so the feed stays just as valid. It starts from the site tokens
+ * (`tokensCss`) to use the same colors and fonts; the texts come from the language's dictionary.
  */
 export function rssStylesheet(lang: Lang, tokensCss: string): string {
   return `${tokensCss}
 
-/* ---------- Feed RSS en el navegador (lib/feeds.ts) ---------- */
+/* ---------- RSS feed in the browser (lib/feeds.ts) ---------- */
 rss {
   display: block; max-width: calc(var(--prose-width) + 2 * var(--gutter)); margin: 0 auto;
   padding: var(--space-3-5) var(--gutter); font-family: var(--font-text); font-size: var(--text-body);
@@ -92,7 +92,7 @@ item > description { margin-top: var(--space-0-25); color: var(--text-secondary)
 export interface SitemapEntry {
   path: string;
   lastmod?: Date | undefined;
-  /** Versiones de la página en cada idioma; con todas presentes salen como <xhtml:link hreflang>. */
+  /** The page's versions in each language; with all of them present they go out as <xhtml:link hreflang>. */
   alternates?: Alternates | undefined;
 }
 

@@ -1,8 +1,8 @@
 import { getInternal, oncePerBuild } from './api.ts';
 
 /**
- * Imágenes optimizadas por la API al subirlas (L10): AVIF + WebP en varios anchos, color dominante y placeholder.
- * Todo menos `getMediaIndex` es puro.
+ * Images optimized by the API on upload: AVIF + WebP in several widths, dominant color and placeholder.
+ * Everything except `getMediaIndex` is pure.
  */
 export type ImageFormat = 'avif' | 'webp';
 
@@ -15,20 +15,20 @@ export interface MediaVariant {
 /** MediaAssetDto (GET /api/internal/media). */
 export interface MediaAsset {
   id: string;
-  /** WebP del mayor ancho ≤ 1600: el <img> de respaldo y la imagen para og:image. */
+  /** WebP of the largest width ≤ 1600: the fallback <img> and the og:image. */
   url: string;
-  /** Medidas del original ya rotado. */
+  /** Size of the original, already rotated. */
   width: number;
   height: number;
-  /** Color dominante `#rrggbb`. */
+  /** Dominant color `#rrggbb`. */
   color: string;
-  /** WebP diminuto en data URI. */
+  /** Tiny WebP as a data URI. */
   placeholder: string;
   variants: MediaVariant[];
   createdAt: string;
 }
 
-/** Cualquier URL de un asset (la principal o la de una variante) → el asset. */
+/** Any URL of an asset (the main one or a variant's) → the asset. */
 export type MediaIndex = ReadonlyMap<string, MediaAsset>;
 
 export function indexMedia(assets: readonly MediaAsset[]): MediaIndex {
@@ -40,7 +40,7 @@ export function indexMedia(assets: readonly MediaAsset[]): MediaIndex {
   return index;
 }
 
-/** Valor de `srcset` con las variantes de un formato, de la más chica a la más grande. */
+/** `srcset` value with the variants of one format, smallest to largest. */
 export function srcset(asset: MediaAsset, format: ImageFormat): string {
   return asset.variants
     .filter((variant) => variant.format === format)
@@ -49,7 +49,7 @@ export function srcset(asset: MediaAsset, format: ImageFormat): string {
     .join(', ');
 }
 
-// Los valores van a parar a atributos `style`: solo se aceptan las formas exactas que produce el pipeline.
+// These values end up in `style` attributes: only the exact shapes the pipeline produces are accepted.
 const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 const PLACEHOLDER_DATA_URI = /^data:image\/webp;base64,[a-z0-9+/]+=*$/i;
 
@@ -58,5 +58,5 @@ export const safePlaceholder = (placeholder: string): string | null =>
   PLACEHOLDER_DATA_URI.test(placeholder) ? placeholder : null;
 
 export const getMediaIndex: () => Promise<MediaIndex> = oncePerBuild(() =>
-  getInternal<MediaAsset[]>('/api/internal/media', 'las imágenes subidas').then(indexMedia),
+  getInternal<MediaAsset[]>('/api/internal/media', 'the uploaded images').then(indexMedia),
 );

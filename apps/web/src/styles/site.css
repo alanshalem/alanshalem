@@ -1,6 +1,6 @@
-/* Estilos propios del sitio público (docs/design/DESIGN-SYSTEM.md).
-   Colores, tipografías y espaciados salen de tokens.css: acá solo hay estructura y componentes.
-   Reglas generales: radio 0, sin sombras, jerarquía por tipografía, color de texto y reglas de 1px. */
+/* The public site's own styles (docs/design/DESIGN-SYSTEM.md).
+   Colors, typefaces and spacing come from tokens.css: here there is only structure and components.
+   General rules: radius 0, no shadows, hierarchy through typography, text color and 1px rules. */
 
 a { transition: text-decoration-color var(--duration-fast), text-decoration-thickness var(--duration-fast), color var(--duration-fast), border-color var(--duration-fast); }
 
@@ -11,7 +11,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 .skip-link:focus { top: 0.5rem; }
 
-/* Links "de interfaz": sin subrayado en reposo, subrayado fino en hover/focus */
+/* "Interface" links: no underline at rest, a thin underline on hover/focus */
 .site-nav a, .section-head a, .footer-col a, .footer-brand a, .brand, .eyebrow a,
 .card-title a, .lead-title a, .numbered a, .tile-title a, .chip-cloud a, .tag-list a, .toc a {
   text-decoration: none;
@@ -28,12 +28,12 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-1);
   padding: var(--space-1-5) var(--gutter);
 }
-/* Transparente sobre el hero (home y artículo) */
+/* Transparent over the hero (home and article) */
 .site-header--overlay { position: absolute; inset: 0 0 auto 0; }
 
 .brand { font-family: var(--font-display); font-size: 1.5rem; line-height: 1.2; }
 .site-nav a { font-family: var(--font-ui); font-size: var(--text-ui); font-weight: 500; line-height: var(--leading-body); }
-/* 'page' en la página del enlace y 'true' dentro de su sección (un artículo, un tema): se ven igual. */
+/* 'page' on the link's own page and 'true' inside its section (an article, a topic): they look the same. */
 .site-nav a[aria-current] { text-decoration: underline; text-decoration-thickness: 1px; }
 
 .nav-toggle {
@@ -46,8 +46,8 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 .nav-toggle:hover { border-color: var(--text-primary); }
 .nav-toggle:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
 
-/* El menú tiene dos lugares en el HTML (Header.astro): la fila de links de escritorio, antes de ES | EN, y el panel
-   del ☰, después. Por debajo de 900px la fila no se ve y el panel cuadrado se despliega bajo el ☰ al abrirlo. */
+/* The menu has two places in the HTML (Header.astro): the desktop row of links, before ES | EN, and the ☰ panel,
+   after it. Below 900px the row is not shown and the square panel opens under the ☰ when it is toggled. */
 .site-nav--bar { display: none; }
 .site-nav--menu {
   display: none; position: absolute; top: calc(100% - 0.75rem); right: var(--gutter);
@@ -57,8 +57,8 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 .nav-toggle[aria-expanded='true'] + .site-nav--menu { display: flex; }
 
-/* A la derecha, sin `order`: se ve en el orden del HTML (links · ES | EN en escritorio; ES | EN · ☰ y su panel en
-   el celular), así Tab recorre en el mismo orden en que se lee (WCAG 2.4.3, L13). */
+/* On the right, without `order`: it shows in HTML order (links · ES | EN on desktop; ES | EN · ☰ and its panel on
+   phones), so Tab moves in the same order it reads (WCAG 2.4.3). */
 .header-tools { display: flex; align-items: center; gap: var(--space-1-5); }
 .lang-switch { display: flex; align-items: center; }
 .lang-switch a {
@@ -67,42 +67,43 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 .lang-switch a + a { border-left: 1px solid currentColor; }
 .lang-switch a:hover, .lang-switch a:focus-visible, .lang-switch a[aria-current='true'] { color: var(--text-primary); }
-/* Sobre el hero, text-tertiary casi no se ve en una foto clara: los dos idiomas van en text-primary, como el menú sobre
-   el mismo overlay, y el actual se distingue como en el menú, con subrayado de 1px (sin sombras: regla del sistema). */
+/* Over the hero, text-tertiary is barely visible on a light photo: both languages go in text-primary, like the menu
+   over the same overlay, and the current one stands out as in the menu, with a 1px underline (no shadows: a system
+   rule). */
 .site-header--overlay .lang-switch a { color: var(--text-primary); }
 .site-header--overlay .lang-switch a[aria-current='true'] { text-decoration: underline; text-decoration-thickness: 1px; }
 
 @media (min-width: 900px) {
   .site-nav--bar { display: flex; gap: var(--space-1-75); }
-  /* También con el panel abierto antes de agrandar la ventana: en escritorio los links ya están en la fila. */
+  /* Also with the panel left open before widening the window: on desktop the links are already in the row. */
   .nav-toggle, .nav-toggle[aria-expanded='true'] + .site-nav--menu { display: none; }
 }
 
-/* ---------- Medios: imagen real o portada generativa ---------- */
+/* ---------- Media: real image or generative cover ---------- */
 .media { position: relative; overflow: hidden; background: var(--bg-surface); }
 .media img, .media > svg { width: 100%; height: 100%; object-fit: cover; }
-/* <picture> de los assets subidos: no agrega caja propia, el <img> sigue llenando el contenedor. */
+/* <picture> of uploaded assets: it adds no box of its own, the <img> still fills the container. */
 .media picture { display: contents; }
 .media--lead { aspect-ratio: var(--aspect-lead); }
 .media--card { aspect-ratio: var(--aspect-card); }
 .media--tile { aspect-ratio: var(--aspect-tile); }
 .media--hero { position: absolute; inset: 0; }
-/* Portada generativa en pantallas verticales: el recorte `slice` dejaría afuera casi todos los nodos.
-   Se muestra el lienzo 16:10 completo arriba; su fondo es el mismo bg-surface del contenedor, sin costura. */
+/* Generative cover on portrait screens: the `slice` crop would leave out almost every node.
+   The full 16:10 canvas shows at the top; its background is the container's same bg-surface, without a seam. */
 @media (max-aspect-ratio: 5/4) {
   .media--hero > svg { position: absolute; top: var(--space-5); height: auto; aspect-ratio: 16 / 10; }
 }
 
-/* Overlay degradé: el texto se lee sobre cualquier foto. Hero y portada: franjas de cabecera y de texto (tokens.css). */
+/* Gradient overlay: text reads over any photo. Hero and cover: header and text bands (tokens.css). */
 .media--hero::after, .hero-bg::after, .tile .media::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
 .media--hero::after, .hero-bg::after { background: var(--overlay-hero); }
 .tile .media::after { background: var(--overlay-tile); }
 
-/* Velo detrás del bloque de texto del hero y de la portada (WCAG 1.4.3): va pegado al texto, así cubre un título largo
-   igual que uno corto, y se funde hacia arriba. Ocupa todo el ancho del hero (el texto tiene max-width) y el hero lo recorta.
-   El bloque arma su propio contexto de apilado (z-index 0): el velo queda arriba de la foto aunque en el HTML la foto venga
-   después (galería de la home) y abajo del texto. Sigue hasta el borde de abajo del hero (sin costura con el margen
-   inferior); lo que en mobile va debajo del bloque (crédito, botón) es `position: relative` para pintarse encima. */
+/* Veil behind the text block of the hero and the cover (WCAG 1.4.3): it sticks to the text, so it covers a long title
+   just like a short one, and fades upward. It spans the hero's full width (the text has a max-width) and the hero
+   clips it. The block makes its own stacking context (z-index 0): the veil sits above the photo even when the photo
+   comes later in the HTML (the home gallery) and below the text. It runs to the hero's bottom edge (no seam with the
+   bottom margin); whatever goes below the block on mobile (credit, button) is `position: relative` to paint on top. */
 .hero--photo, .article-hero { overflow: hidden; }
 .hero--photo .hero-body, .article-hero-body { position: relative; z-index: 0; }
 .hero--photo .hero-body::before, .article-hero-body::before {
@@ -111,7 +112,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   background: var(--overlay-hero-text);
 }
 
-/* ---------- Hero de la home ---------- */
+/* ---------- Home hero ---------- */
 .hero {
   position: relative; isolation: isolate;
   min-height: 100vh; min-height: 100svh;
@@ -120,9 +121,9 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 .hero-bg { position: absolute; inset: 0; z-index: -1; }
 .hero-bg picture, .hero-video { position: absolute; inset: 0; }
-/* `object-fit` también encuadra el póster del video. */
+/* `object-fit` also frames the video poster. */
 .hero-bg img, .hero-bg video { width: 100%; height: 100%; object-fit: cover; }
-/* El script de rotación pinta acá el color dominante y el placeholder mientras baja la foto elegida. */
+/* The rotation script paints the dominant color and the placeholder here while the chosen photo downloads. */
 .hero-picture { background-position: center; background-size: cover; }
 .hero--type { border-bottom: 1px solid var(--border-subtle); }
 
@@ -142,18 +143,19 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   font-family: var(--font-ui); font-size: var(--text-ui); line-height: var(--leading-body);
 }
 
-/* Crédito de la foto: debajo del texto, a la izquierda; abajo a la derecha en desktop (como en la referencia).
-   En gris secundario y no terciario: sobre una foto clara el terciario no llega a 4,5:1 ni con el overlay (WCAG 1.4.3). */
+/* Photo credit: below the text, on the left; bottom right on desktop (as in the reference).
+   In secondary gray, not tertiary: over a light photo tertiary does not reach 4.5:1 even with the overlay
+   (WCAG 1.4.3). */
 .hero-credit {
   position: relative; margin-top: var(--space-2-5); max-width: 24rem;
   font-family: var(--font-ui); font-size: var(--text-2xs); line-height: 1.5; color: var(--text-secondary);
 }
-/* Fotos de la galería sin crédito: el script deja la línea vacía. */
+/* Gallery photos without a credit: the script leaves the line empty. */
 .hero-credit:empty { display: none; }
 
-/* Botón Reproducir/Pausar del video (WCAG 2.2.2). Cuadrado como el ☰ (borde de 1px translúcido, sin radio), legible sobre
-   cualquier imagen porque el overlay del hero es casi negro abajo. Debajo del crédito, a la izquierda; abajo a la
-   derecha en desktop, con el crédito encima. 44 × 44 px como mínimo (WCAG 2.5.8). */
+/* The video's Play/Pause button (WCAG 2.2.2). Square like the ☰ (translucent 1px border, no radius), readable over any
+   image because the hero overlay is almost black at the bottom. Below the credit, on the left; bottom right on
+   desktop, with the credit above it. At least 44 × 44 px (WCAG 2.5.8). */
 .hero-media { display: contents; }
 .hero-toggle {
   position: relative; display: inline-grid; place-items: center; align-self: flex-start;
@@ -163,14 +165,14 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   border: 1px solid rgba(237, 237, 234, 0.4); border-radius: 0;
   transition: border-color var(--duration-fast);
 }
-/* `display` de arriba le ganaría al atributo: sin JS y en las fotos el botón no existe. */
+/* The `display` above would win over the attribute: without JS and for photos the button does not exist. */
 .hero-toggle[hidden] { display: none; }
 .hero-toggle:hover { border-color: var(--text-primary); }
 .hero-toggle:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
 .hero-toggle > span { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 0.5em; }
-/* El script pone la clase de estado mientras el video corre: queda visible (y como nombre accesible) un solo texto.
-   Los dos ocupan la misma celda y el otro solo se vuelve invisible: el botón mide lo del más largo y no cambia de
-   ancho ni se corre bajo el puntero al alternar. */
+/* The script sets the state class while the video plays: a single text stays visible (and as the accessible name).
+   Both take the same cell and the other one only turns invisible: the button is as wide as the longer one and does
+   not change width or shift under the pointer when toggled. */
 .hero-toggle.is-playing .hero-toggle-play { visibility: hidden; }
 .hero-toggle:not(.is-playing) .hero-toggle-pause { visibility: hidden; }
 
@@ -182,7 +184,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   .hero:has(.hero-toggle:not([hidden])) .hero-body { max-width: min(var(--hero-body-max), calc(100% - 18rem)); }
 }
 
-/* ---------- Secciones ---------- */
+/* ---------- Sections ---------- */
 .section { padding: var(--space-5) var(--gutter) 0; }
 .section--flush { padding-top: var(--space-3); }
 .section-head {
@@ -194,7 +196,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 .section-head a { font-family: var(--font-ui); font-size: 0.875rem; color: var(--text-secondary); }
 .empty { color: var(--text-secondary); }
 
-/* ---------- Nota destacada ---------- */
+/* ---------- Featured post ---------- */
 .lead { display: grid; gap: var(--space-1-5); }
 .lead-body { display: grid; gap: var(--space-0-7); align-content: center; }
 .lead-title { font-family: var(--font-display); font-weight: 400; font-size: var(--text-lead-title); line-height: var(--leading-tight); }
@@ -211,14 +213,14 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 @media (min-width: 700px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (min-width: 75em) {
   .card-grid { grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); }
-  /* Filas de 3 (últimos, seguir leyendo): ocupan todo el ancho en vez de dejar una columna vacía */
+  /* Rows of 3 (latest, keep reading): they take the full width instead of leaving an empty column */
   .card-grid--row { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
 }
 
 .card { position: relative; display: grid; gap: var(--space-0-7); align-content: start; }
 .card .media { margin-bottom: var(--space-0-25); }
 .card-title { font-family: var(--font-display); font-weight: 400; font-size: var(--text-title-md); line-height: 1.12; }
-/* Toda la card es clickeable con un solo link (el del título); el título no se subraya en hover */
+/* The whole card is clickable with a single link (the title's); the title is not underlined on hover */
 .card-title a::after { content: ''; position: absolute; inset: 0; }
 .card-title a:hover, .card-title a:focus { text-decoration: none; }
 .card-title a:focus-visible { outline: none; }
@@ -228,13 +230,13 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 
-/* ---------- Lista numerada (más artículos) ---------- */
+/* ---------- Numbered list (more articles) ---------- */
 .numbered {
   list-style: none; padding: 0;
   display: grid; column-gap: var(--space-2-5);
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
 }
-/* Lo observado en la referencia: 1 columna hasta ~1200px y 2 en desktop; recién en pantallas muy anchas, auto-fill. */
+/* As seen in the reference: 1 column up to ~1200px and 2 on desktop; auto-fill only on very wide screens. */
 @media (max-width: 74.99em) { .numbered { grid-template-columns: 1fr; } }
 @media (min-width: 75em) and (max-width: 1700px) { .numbered { grid-template-columns: repeat(2, 1fr); } }
 .numbered li {
@@ -245,13 +247,13 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 .numbered h3 { font-family: var(--font-display); font-weight: 400; font-size: var(--text-title-sm); line-height: var(--leading-title); }
 .numbered p { margin-top: var(--space-0-25); font-size: var(--text-base); line-height: var(--leading-dek); color: var(--text-tertiary); }
 
-/* ---------- Tiles (temas) ---------- */
+/* ---------- Tiles (topics) ---------- */
 .tiles { list-style: none; padding: 0; display: grid; gap: var(--space-1-25); grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
 .tile { position: relative; overflow: hidden; }
 .tile-body { position: absolute; z-index: 0; inset: auto 0 0 0; padding: var(--space-1-25); display: grid; gap: var(--space-0-25); }
-/* Velo detrás del texto, como en el hero (WCAG 1.4.3): con un nombre de tema largo el título sube a la zona donde
-   --overlay-tile casi no oscurece y quedaba a 1,7:1 sobre un nodo claro de la portada (medido en Chrome). Sigue al
-   texto y se funde hacia arriba; el tile lo recorta. */
+/* Veil behind the text, as in the hero (WCAG 1.4.3): with a long topic name the title rises into the area where
+   --overlay-tile barely darkens and it measured 1.7:1 over a light node of the cover (in Chrome). It follows the
+   text and fades upward; the tile clips it. */
 .tile-body::before {
   content: ''; position: absolute; z-index: -1; pointer-events: none;
   inset: calc(-1 * var(--overlay-hero-text-fade)) 0 0 0; background: var(--overlay-hero-text);
@@ -263,14 +265,14 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 .tile:has(.tile-title a:focus-visible) { outline: 2px solid var(--link-accent); outline-offset: 3px; }
 .tile .meta { color: var(--text-secondary); }
 
-/* ---------- Cabecera de listados y 404 ---------- */
+/* ---------- Listing and 404 heads ---------- */
 .page-head { padding: var(--space-3-5) var(--gutter) 0; max-width: calc(var(--hero-body-max) + 2 * var(--gutter)); }
 .page-head h1, .page-head-title { font-family: var(--font-text); font-weight: 400; font-size: var(--text-hero-h1); line-height: var(--leading-hero); }
 .page-head .eyebrow { margin-bottom: var(--space-1); }
 .page-dek { margin-top: var(--space-1); max-width: var(--hero-dek-max); font-size: var(--text-hero-dek); line-height: var(--leading-dek); color: var(--text-secondary); }
 .page-head--404 { padding-top: var(--space-7); padding-bottom: var(--space-3); }
 
-/* Archivo por año: año grande atenuado a la izquierda, grilla de cards a la derecha */
+/* Archive by year: a large dimmed year on the left, a grid of cards on the right */
 .year-block { display: grid; gap: var(--space-1-5); padding-top: var(--space-1-75); border-top: 1px solid var(--border-subtle); }
 .year-block + .year-block { margin-top: var(--space-3-5); }
 .year { font-family: var(--font-display); font-weight: 400; font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1; color: var(--text-tertiary); }
@@ -287,13 +289,13 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 .chip-cloud a:hover, .chip-cloud a:focus-visible { border-color: var(--text-tertiary); }
 .chip-cloud .count { color: var(--text-tertiary); margin-left: 0.35rem; font-size: var(--text-xs); }
 
-/* Solo para lectores de pantalla: el contexto que a la vista ya da el diseño ("3" junto a un tema = 3 artículos). */
+/* Screen readers only: the context the design already gives visually ("3" next to a topic = 3 articles). */
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
   overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
 }
 
-/* ---------- Artículo: hero oscuro + franja de imagen + hoja blanca ---------- */
+/* ---------- Article: dark hero + image strip + white sheet ---------- */
 .article-hero {
   position: relative; isolation: isolate;
   min-height: 88vh; min-height: 88svh;
@@ -307,8 +309,8 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   font-size: clamp(2.5rem, 6vw, 5rem); line-height: var(--leading-hero); overflow-wrap: break-word;
 }
 .article-dek { max-width: var(--hero-dek-max); font-size: var(--text-hero-dek); line-height: var(--leading-dek); color: var(--text-secondary); }
-/* Sobre la portada (WCAG 1.4.3): los temas van arriba del título, donde el overlay es más liviano, en text-primary como el
-   menú; la fecha, en gris secundario como el crédito del hero (el terciario no llega a 4,5:1 sobre una foto clara). */
+/* Over the cover (WCAG 1.4.3): the topics go above the title, where the overlay is lighter, in text-primary like the
+   menu; the date in secondary gray like the hero credit (tertiary does not reach 4.5:1 over a light photo). */
 .article-hero .eyebrow { color: var(--text-primary); }
 .article-hero .meta { color: var(--text-secondary); }
 
@@ -318,7 +320,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
   font-family: var(--font-ui); font-size: var(--text-2xs); line-height: 1.5; color: var(--text-tertiary);
 }
 
-/* La hoja blanca: columna de 640px; con TOC lateral de 224px a partir de 1100px. */
+/* The white sheet: a 640px column; with a 224px side TOC from 1100px. */
 .reading { padding-inline: var(--gutter); }
 .reading-grid { max-width: 640px; margin-inline: auto; }
 .toc { font-family: var(--font-text); font-size: 14px; line-height: 1.45; margin-bottom: var(--space-2-5); padding: var(--space-1) var(--space-1-25); border: 1px solid var(--paper-rule); }
@@ -333,7 +335,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 .toc a:hover { color: var(--paper-text); }
 .toc a[aria-current='true'] { color: var(--paper-text); font-weight: 700; }
 
-/* H2 del cuerpo en Pagella (medido: 25.6px / 28.2px). Solo en el sitio: la vista previa del admin no cambia. */
+/* Body H2 in Pagella (measured: 25.6px / 28.2px). Only on the site: the admin preview does not change. */
 .paper .prose h2 { font-family: var(--font-text); }
 
 @media (min-width: 1100px) {
@@ -343,7 +345,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 }
 
 .end-matter { margin-top: var(--space-3-5); }
-@media (min-width: 1100px) { .end-matter { grid-column: 2; } } /* alineado con la columna de texto, no con el índice */
+@media (min-width: 1100px) { .end-matter { grid-column: 2; } } /* aligned with the text column, not with the TOC */
 .tag-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .tag-list a { display: inline-block; }
 .paper .tag-list a:hover, .paper .tag-list a:focus-visible { color: var(--paper-text); border-color: var(--paper-muted); }

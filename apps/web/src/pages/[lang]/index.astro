@@ -29,8 +29,8 @@ const settings = await getSettings(lang);
 const posts = postsIn(await getPosts(), lang);
 const { featured, latest, more, topics: tags } = homeSections(posts);
 
-// Hero (S1): galería del admin (rota en cada visita), o public/hero.jpg si alguien la dejó ahí; si no, tipográfico.
-// Mismo script en los dos idiomas: solo cambian los textos (alt, crédito) de las diapositivas.
+// Hero: the admin's gallery (rotates on every visit), or public/hero.jpg if someone left it there; else typographic.
+// The same script in both languages: only the slides' texts (alt, credit) change.
 const heroJpgExists = existsSync(join(process.cwd(), 'public', 'hero.jpg'));
 const hero = resolveHero((await getHeroImages()).map((image) => localizeHeroImage(image, lang)), heroJpgExists);
 const shareImage = heroShareImage(hero);
@@ -58,7 +58,7 @@ const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }
       <h1 id="hero-title">{settings.name}</h1>
       {bioHtml ? <div class="hero-dek" set:html={bioHtml} /> : <p class="hero-dek">{settings.tagline}</p>}
       <p class="entry-links">
-        <a href={posts.length > 0 ? '#ultimos' : paths.posts(lang)}>{t.heroLatest}</a>
+        <a href={posts.length > 0 ? '#latest' : paths.posts(lang)}>{t.heroLatest}</a>
         <a href={paths.tags(lang)}>{t.topics}</a>
         <a href={paths.rss(lang)}>{t.rss}</a>
       </p>
@@ -66,21 +66,24 @@ const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }
     {hero?.kind === 'gallery' && <p class="hero-credit" id={HERO_ELEMENT_IDS.credit}>{hero.slides[0]?.credit}</p>}
     {
       /*
-        Fondo y botón Reproducir/Pausar en un mismo contenedor de medios: si la foto o el video fallan, el guardián
-        (lib/media-guard.ts) oculta los dos juntos y no queda un control de un video roto. `.hero-media` no arma caja
-        (display: contents), así el fondo sigue cubriendo el hero y el botón se ubica como un hijo más. Va al final para
-        que, con el teclado, el botón llegue después de los enlaces del hero, donde se lo ve.
+        Background and Play/Pause button in the same media container: if the photo or the video fails, the guard
+        (lib/media-guard.ts) hides both together and no control of a broken video is left. `.hero-media` makes no box
+        (display: contents), so the background still covers the hero and the button sits like any other child. It goes
+        last so that, with the keyboard, the button comes after the hero links, where it is seen.
       */
       hero?.kind === 'gallery' && (
         <div class="hero-media" data-media>
           <div class="hero-bg">
-            {/* Vacío a propósito: el script de abajo elige foto o video; completa estos tres hijos (en este orden) o pone el video encima. */}
+            {/*
+              Empty on purpose: the script below picks a photo or video; it fills these three children (in this
+              order) or puts the video on top.
+            */}
             <picture id={HERO_ELEMENT_IDS.picture} class="hero-picture">
               <source type="image/avif" sizes={IMAGE_SIZES.hero} />
               <source type="image/webp" sizes={IMAGE_SIZES.hero} />
               <img alt="" decoding="async" fetchpriority="high" />
             </picture>
-            {/* Sin JS, la primera de la galería como foto (si es un video, su póster: `media`). */}
+            {/* Without JS, the gallery's first item as a photo (for a video, its poster: `media`). */}
             <noscript>
               <ResponsiveImage
                 src={hero.first.media.url}
@@ -93,9 +96,9 @@ const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }
             </noscript>
           </div>
           {/*
-            WCAG 2.2.2. Oculto sin JS y en fotos; el script lo muestra para un video. Los dos textos vienen del
-            diccionario y el CSS deja visible uno según la clase de estado: el nombre accesible es siempre el visible
-            (los íconos van con aria-hidden; U+FE0E evita que ▶ se pinte como emoji).
+            WCAG 2.2.2. Hidden without JS and for photos; the script shows it for a video. Both texts come from the
+            dictionary and the CSS leaves one visible depending on the state class: the accessible name is always the
+            visible one (the icons are aria-hidden; U+FE0E keeps ▶ from rendering as an emoji).
           */}
           <button id={HERO_ELEMENT_IDS.toggle} class="hero-toggle" type="button" hidden>
             <span class="hero-toggle-play"><span aria-hidden="true">{'\u25B6\uFE0E'}</span>{t.heroPlay}</span>
@@ -127,9 +130,9 @@ const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }
 
   {
     featured && (
-      <section class="section" id="ultimos" aria-labelledby="ultimos-title">
+      <section class="section" id="latest" aria-labelledby="latest-title">
         <div class="section-head">
-          <h2 id="ultimos-title">{t.latest}</h2>
+          <h2 id="latest-title">{t.latest}</h2>
           <a href={paths.posts(lang)}>{t.allPosts}</a>
         </div>
 
@@ -164,9 +167,9 @@ const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }
 
   {
     more.length > 0 && (
-      <section class="section" aria-labelledby="mas-title">
+      <section class="section" aria-labelledby="more-title">
         <div class="section-head">
-          <h2 id="mas-title">{t.morePosts}</h2>
+          <h2 id="more-title">{t.morePosts}</h2>
           <a href={paths.posts(lang)}>{t.fullArchive}</a>
         </div>
         <ol class="numbered">
@@ -190,9 +193,9 @@ const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }
 
   {
     tags.length > 0 && (
-      <section class="section" aria-labelledby="temas-title">
+      <section class="section" aria-labelledby="topics-title">
         <div class="section-head">
-          <h2 id="temas-title">{t.topics}</h2>
+          <h2 id="topics-title">{t.topics}</h2>
           <a href={paths.tags(lang)}>{t.allTopics}</a>
         </div>
         <ul class="tiles">

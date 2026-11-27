@@ -8,12 +8,12 @@ import { HERO_ROTATION_SCRIPT } from '../src/lib/hero-rotation.ts';
 import { MEDIA_GUARD_SCRIPT } from '../src/lib/media-guard.ts';
 
 /*
- * CSP del sitio (perfil-skills-produccion L8, P2-10). Astro escribe un <meta http-equiv="content-security-policy">
- * en cada página con los hashes de los scripts y estilos que procesa; los <script is:inline> son constantes de
- * src/lib y sus hashes salen de esas mismas constantes (un cambio en el script cambia el hash en el mismo build).
+ * The site CSP. Astro writes a <meta http-equiv="content-security-policy"> on every page with the hashes of the
+ * scripts and styles it processes; the <script is:inline>s are src/lib constants and their hashes come from those same
+ * constants (a change in a script changes its hash in the same build).
  */
 
-/** sha256 en base64 con Web Crypto: otra implementación que la de cspHash, para no comparar la función consigo misma. */
+/** sha256 in base64 with Web Crypto: another implementation than cspHash's, so the function is not compared with itself. */
 const webCryptoHash = async (content: string): Promise<string> =>
   `sha256-${Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(content))).toString('base64')}`;
 
@@ -27,36 +27,36 @@ const astroFiles = (dir: URL): URL[] =>
         : [],
   );
 
-describe('cspHash: fuente CSP del contenido exacto de un script', () => {
-  it('es sha256 en base64 con el prefijo de CSP (vector conocido: el texto vacío)', () => {
+describe('cspHash: CSP source of the exact content of a script', () => {
+  it('is sha256 in base64 with the CSP prefix (known vector: the empty text)', () => {
     assert.equal(cspHash(''), 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=');
   });
 });
 
-describe('SITE_CSP: la política que astro.config.mjs le pasa a Astro', () => {
-  it('astro.config.mjs usa SITE_CSP tal cual', () => {
+describe('SITE_CSP: the policy astro.config.mjs passes to Astro', () => {
+  it('astro.config.mjs uses SITE_CSP as is', () => {
     assert.equal(config.security?.csp, SITE_CSP);
   });
 
-  it('los hashes de script son el sha256 de MEDIA_GUARD_SCRIPT y HERO_ROTATION_SCRIPT', async () => {
+  it('the script hashes are the sha256 of MEDIA_GUARD_SCRIPT and HERO_ROTATION_SCRIPT', async () => {
     assert.deepEqual(SITE_CSP.scriptDirective.hashes, [
       await webCryptoHash(MEDIA_GUARD_SCRIPT),
       await webCryptoHash(HERO_ROTATION_SCRIPT),
     ]);
   });
 
-  it('todo <script is:inline> ejecutable de src/ es una constante de INLINE_SCRIPTS (si no, la CSP lo bloquea)', () => {
+  it('every executable <script is:inline> in src/ is an INLINE_SCRIPTS constant (otherwise the CSP blocks it)', () => {
     const used = astroFiles(SRC).flatMap((file) =>
       [...readFileSync(file, 'utf8').matchAll(/<script\b[^>]*\bis:inline\b[^>]*>/g)]
         .map(([tag]) => tag)
-        // Los bloques de datos (type="application/json") no se ejecutan: la CSP no los mira.
+        // Data blocks (type="application/json") do not run: the CSP does not look at them.
         .filter((tag) => !/type="application\/json"/.test(tag))
-        .map((tag) => tag.match(/set:html=\{(\w+)\}/)?.[1] ?? `sin constante: ${tag}`),
+        .map((tag) => tag.match(/set:html=\{(\w+)\}/)?.[1] ?? `no constant: ${tag}`),
     );
     assert.deepEqual([...new Set(used)].sort(), Object.keys(INLINE_SCRIPTS).sort());
   });
 
-  it('recursos propios; las imágenes también data: (placeholders) y https: (portadas e imágenes externas que la API acepta)', () => {
+  it('own resources; images also data: (placeholders) and https: (covers and external images the API accepts)', () => {
     assert.deepEqual(SITE_CSP.directives, [
       "default-src 'self'",
       "img-src 'self' data: https:",
@@ -68,11 +68,11 @@ describe('SITE_CSP: la política que astro.config.mjs le pasa a Astro', () => {
     ]);
   });
 
-  it('frame-ancestors no va: un <meta> lo ignora (lo cubre X-Frame-Options de Caddy)', () => {
+  it('no frame-ancestors: a <meta> ignores it (Caddy X-Frame-Options covers it)', () => {
     assert.ok(SITE_CSP.directives.every((directive) => !directive.startsWith('frame-ancestors')));
   });
 
-  it("estilos: 'self' y los hashes de Astro; 'unsafe-inline' solo para atributos style (color de espera de las fotos)", () => {
+  it("styles: 'self' and the Astro hashes; 'unsafe-inline' only for style attributes (the photos' waiting color)", () => {
     assert.deepEqual(SITE_CSP.styleDirective.resources, ["'self'", { resource: "'unsafe-inline'", kind: 'attribute' }]);
   });
 });

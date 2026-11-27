@@ -23,62 +23,62 @@ const heroImage = (n: number, overrides: Partial<ApiHeroImage> = {}): ApiHeroIma
   ...overrides,
 });
 
-/** Ítem de video de la galería (L13): `media` es su póster. */
+/** A gallery video item: `media` is its poster. */
 const heroVideo = (n: number, overrides: Partial<ApiHeroImage> = {}): ApiHeroImage => {
   const video = videoAsset(`v${n}`);
   return heroImage(n, { alt: `Video ${n}`, media: video.poster ?? mediaAsset(`poster-v${n}`), video, ...overrides });
 };
 
-describe('orderHeroImages: la galería va por createdAt ascendente (L10)', () => {
-  it('la más vieja primero, sin mutar la entrada', () => {
+describe('orderHeroImages: the gallery goes by ascending createdAt', () => {
+  it('oldest first, without mutating the input', () => {
     const input = [heroImage(3), heroImage(1), heroImage(2)];
     assert.deepEqual(orderHeroImages(input).map((h) => h.id), ['h1', 'h2', 'h3']);
     assert.deepEqual(input.map((h) => h.id), ['h3', 'h1', 'h2']);
   });
 });
 
-describe('resolveHero (S1): galería → public/hero.jpg → hero tipográfico', () => {
-  it('con galería: la primera es la de <noscript>; una diapositiva por foto', () => {
+describe('resolveHero: gallery → public/hero.jpg → typographic hero', () => {
+  it('with a gallery: the first one is the <noscript> one; one slide per photo', () => {
     const hero = resolveHero([heroImage(1), heroImage(2)], true);
     assert.equal(hero?.kind, 'gallery');
     assert.ok(hero?.kind === 'gallery');
     assert.equal(hero.first.id, 'h1');
     assert.equal(hero.slides.length, 2);
   });
-  it('sin galería usa /hero.jpg si existe', () => {
+  it('without a gallery it uses /hero.jpg when it exists', () => {
     assert.deepEqual(resolveHero([], true), { kind: 'static', src: '/hero.jpg' });
   });
-  it('sin galería ni hero.jpg => null (hero tipográfico)', () => {
+  it('without a gallery or hero.jpg => null (typographic hero)', () => {
     assert.equal(resolveHero([], false), null);
   });
 });
 
-describe('localizeHeroImage: altEn en /en/, con respaldo en español (L4); el crédito es uno solo (L13)', () => {
-  it('en usa el texto alternativo en inglés y el mismo crédito', () => {
+describe('localizeHeroImage: altEn on /en/, with a Spanish fallback; there is a single credit', () => {
+  it('en uses the English alternative text and the same credit', () => {
     const image = localizeHeroImage(heroImage(1, { altEn: 'Photo 1' }), 'en');
     assert.equal(image.alt, 'Photo 1');
     assert.equal(image.credit, 'Crédito 1');
     assert.equal(toHeroSlide(image).img.alt, 'Photo 1');
     assert.equal(toHeroSlide(image).credit, 'Crédito 1');
   });
-  it('en sin texto alternativo en inglés (ausente, nulo o en blanco) usa el de español', () => {
+  it('en without English alternative text (missing, null or blank) uses the Spanish one', () => {
     assert.equal(localizeHeroImage(heroImage(1), 'en').alt, 'Foto 1');
     assert.equal(localizeHeroImage(heroImage(1, { altEn: null }), 'en').alt, 'Foto 1');
     assert.equal(localizeHeroImage(heroImage(1, { altEn: ' ' }), 'en').alt, 'Foto 1');
   });
-  it('un creditEn que todavía mande una API vieja no cambia el crédito', () => {
+  it('a creditEn still sent by an old API does not change the credit', () => {
     const legacy = { ...heroImage(1), creditEn: 'Credit 1' };
     assert.equal(localizeHeroImage(legacy, 'en').credit, 'Crédito 1');
   });
-  it('es ignora el texto en inglés', () => {
+  it('es ignores the English text', () => {
     const image = localizeHeroImage(heroImage(1, { altEn: 'Photo 1' }), 'es');
     assert.equal(image.alt, 'Foto 1');
     assert.equal(image.credit, 'Crédito 1');
   });
 });
 
-describe('toHeroSlide: lo mínimo que necesita el script', () => {
-  it('srcset AVIF y WebP, <img> fallback con medidas y alt, fondo y crédito', () => {
+describe('toHeroSlide: the minimum the script needs', () => {
+  it('AVIF and WebP srcset, fallback <img> with size and alt, background and credit', () => {
     assert.deepEqual(toHeroSlide(heroImage(1)), {
       avif: '/media/hash1/640.avif 640w, /media/hash1/1024.avif 1024w, /media/hash1/1600.avif 1600w',
       webp: '/media/hash1/640.webp 640w, /media/hash1/1024.webp 1024w, /media/hash1/1600.webp 1600w',
@@ -92,11 +92,11 @@ describe('toHeroSlide: lo mínimo que necesita el script', () => {
     } satisfies HeroSlide);
   });
 
-  it('src va último: el script asigna en orden y la imagen se pide con alt y medidas ya puestos', () => {
+  it('src goes last: the script assigns in order and the image is requested with alt and size already set', () => {
     assert.equal(Object.keys(toHeroSlide(heroImage(1)).img).at(-1), 'src');
   });
 
-  it('color o placeholder inválidos no llegan al estilo; crédito vacío => null', () => {
+  it('an invalid color or placeholder does not reach the style; an empty credit => null', () => {
     const slide = toHeroSlide(
       heroImage(1, { credit: '  ', media: mediaAsset('x', { color: 'red', placeholder: 'javascript:alert(1)' }) }),
     );
@@ -110,15 +110,15 @@ const AV1_720 = 'video/mp4; codecs=&quot;av01.0.05M.08&quot;';
 const H264_1080 = 'video/mp4; codecs=&quot;avc1.640028&quot;';
 const H264_720 = 'video/mp4; codecs=&quot;avc1.64001f&quot;';
 
-describe('toHeroSlide con video (S9, S10, L13)', () => {
-  it('el póster ocupa el lugar de la foto: mismas fuentes AVIF/WebP, <img>, fondo y crédito', () => {
+describe('toHeroSlide with a video', () => {
+  it('the poster takes the photo place: same AVIF/WebP sources, <img>, background and credit', () => {
     const slide = toHeroSlide(heroVideo(1));
     const photo = toHeroSlide(heroImage(1, { alt: 'Video 1', media: mediaAsset('poster-v1') }));
     assert.deepEqual({ ...slide, video: null }, photo);
     assert.equal(slide.img.src, '/media/poster-v1/1600.webp');
   });
 
-  it('<video> de fondo: AV1 antes que H.264, 1080p solo en pantallas anchas, tipos exactos del encoder', () => {
+  it('background <video>: AV1 before H.264, 1080p only on wide screens, exact encoder types', () => {
     assert.equal(
       toHeroSlide(heroVideo(1)).video,
       '<div class="hero-video" role="img" aria-label="Video 1">' +
@@ -131,7 +131,7 @@ describe('toHeroSlide con video (S9, S10, L13)', () => {
     );
   });
 
-  it('un video de 720p (nunca se agranda) no lleva `media`: sirve en todas las pantallas', () => {
+  it('a 720p video (never upscaled) has no `media`: it works on every screen', () => {
     const video = videoAsset('small', { width: 1280, height: 720 });
     video.sources = video.sources.filter((source) => source.height === 720);
     const html = toHeroSlide(heroVideo(1, { video })).video ?? '';
@@ -144,20 +144,20 @@ describe('toHeroSlide con video (S9, S10, L13)', () => {
     );
   });
 
-  it('el alt va escapado en aria-label', () => {
+  it('the alt is escaped in aria-label', () => {
     const html = toHeroSlide(heroVideo(1, { alt: 'Luna "llena" <b>&</b>' })).video ?? '';
     assert.match(html, /aria-label="Luna &quot;llena&quot; &lt;b&gt;&amp;&lt;\/b&gt;"/);
   });
 });
 
-describe('jsonForScript: JSON seguro dentro de <script>', () => {
-  it('no puede cerrar el <script> ni abrir comentarios HTML', () => {
+describe('jsonForScript: safe JSON inside <script>', () => {
+  it('cannot close the <script> or open HTML comments', () => {
     const json = jsonForScript({ alt: '</script><script>alert(1)</script><!--' });
     assert.doesNotMatch(json, /<|>/);
     assert.deepEqual(JSON.parse(json), { alt: '</script><script>alert(1)</script><!--' });
   });
 
-  it('escapa U+2028/U+2029 y &', () => {
+  it('escapes U+2028/U+2029 and &', () => {
     const json = jsonForScript({ credit: 'a\u2028b\u2029c & d' });
     assert.equal(json, '{"credit":"a\\u2028b\\u2029c \\u0026 d"}');
     assert.equal(JSON.parse(json).credit, 'a\u2028b\u2029c & d');
@@ -165,12 +165,12 @@ describe('jsonForScript: JSON seguro dentro de <script>', () => {
 });
 
 type Pick = (count: number, last: number, random: number) => number;
-// El selector es JS plano que viaja tal cual dentro del script en línea: se prueba exactamente ese código.
+// The picker is plain JS that travels as is inside the inline script: exactly that code is tested.
 const pickHeroIndex = new Function(`return ${PICK_HERO_INDEX_JS}`)() as Pick;
 const RANDOMS = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 0.999999];
 
-describe('selector de índice (función pura)', () => {
-  it('con n > 1 nunca repite la última vista y siempre cae en rango', () => {
+describe('index picker (pure function)', () => {
+  it('with n > 1 it never repeats the last seen one and always lands in range', () => {
     for (const n of [2, 3, 5]) {
       for (let last = 0; last < n; last++) {
         for (const r of RANDOMS) {
@@ -182,12 +182,12 @@ describe('selector de índice (función pura)', () => {
     }
   });
 
-  it('con n > 1 todas las demás fotos son alcanzables', () => {
+  it('with n > 1 every other photo is reachable', () => {
     const seen = new Set(RANDOMS.map((r) => pickHeroIndex(4, 1, r)));
     assert.deepEqual([...seen].sort(), [0, 2, 3]);
   });
 
-  it('sin última vista válida (primera visita, almacenamiento vacío o galería más chica) elige entre todas', () => {
+  it('without a valid last seen one (first visit, empty storage or a smaller gallery) it picks among all', () => {
     for (const last of [NaN, -1, 7, 4]) {
       assert.deepEqual(
         new Set(RANDOMS.map((r) => pickHeroIndex(4, last, r))),
@@ -197,7 +197,7 @@ describe('selector de índice (función pura)', () => {
     }
   });
 
-  it('con n = 1 siempre 0, sin importar el azar ni la última', () => {
+  it('with n = 1 always 0, whatever the randomness or the last one', () => {
     for (const r of RANDOMS) {
       assert.equal(pickHeroIndex(1, 0, r), 0);
       assert.equal(pickHeroIndex(1, NaN, r), 0);
@@ -215,23 +215,23 @@ interface FakeElement {
 const REDUCED_MOTION = '(prefers-reduced-motion: reduce)';
 
 interface Viewer {
-  /** El usuario pidió menos movimiento en el sistema. */
+  /** The user asked for reduced motion in the system. */
   reducedMotion?: boolean;
-  /** `navigator.connection`: Chrome lo tiene; Safari y Firefox no. */
+  /** `navigator.connection`: Chrome has it; Safari and Firefox do not. */
   connection?: { saveData: boolean };
-  /** El navegador no deja reproducir sin un gesto (iOS en modo de bajo consumo, políticas de autoplay). */
+  /** The browser does not allow playing without a gesture (iOS in low power mode, autoplay policies). */
   autoplayBlocked?: boolean;
 }
 
 /**
- * <video> mínimo con la semántica de HTMLMediaElement que usa el script: `play()` pasa `paused` a false en el acto
- * (o devuelve una promesa rechazada sin tocarlo si no está permitido) y avisa con `play`; `pause()` avisa con `pause`.
+ * Minimal <video> with the HTMLMediaElement semantics the script uses: `play()` sets `paused` to false at once (or
+ * returns a rejected promise without touching it when not allowed) and signals `play`; `pause()` signals `pause`.
  */
 class FakeVideo {
   paused = true;
   onplay: (() => void) | null = null;
   onpause: (() => void) | null = null;
-  /** Público: el test lo apaga para simular el gesto del usuario, que sí habilita `play()`. */
+  /** Public: the test turns it off to simulate the user gesture, which does enable `play()`. */
   blocked: boolean;
   constructor(blocked: boolean) {
     this.blocked = blocked;
@@ -251,7 +251,7 @@ class FakeVideo {
   }
 }
 
-/** Botón Reproducir/Pausar: el script solo lo muestra, alterna la clase de estado y le pone el `onclick`. */
+/** Play/Pause button: the script only shows it, toggles the state class and sets its `onclick`. */
 interface FakeToggle {
   hidden: boolean;
   classes: Set<string>;
@@ -263,7 +263,7 @@ function fakeToggle(): FakeToggle {
   const classes = new Set<string>();
   let hidden = true;
   return {
-    // Como en el DOM, `hidden` convierte a booleano lo que se le asigne.
+    // As in the DOM, `hidden` turns whatever is assigned into a boolean.
     get hidden() {
       return hidden;
     },
@@ -276,7 +276,7 @@ function fakeToggle(): FakeToggle {
   };
 }
 
-/** DOM, localStorage, matchMedia y navigator mínimos para ejecutar el script real en un contexto aislado. */
+/** Minimal DOM, localStorage, matchMedia and navigator to run the real script in an isolated context. */
 function runRotation(slides: HeroSlide[], storage: object, viewer: Viewer = {}) {
   const avif: FakeElement = { style: {} };
   const webp: FakeElement = { style: {} };
@@ -288,15 +288,15 @@ function runRotation(slides: HeroSlide[], storage: object, viewer: Viewer = {}) 
     children: [avif, webp, img],
     nextSibling: null as { firstChild: FakeVideo } | null,
     insertAdjacentHTML(position: string, html: string) {
-      assert.equal(position, 'afterend', 'el video va encima del <picture>, que queda de fondo');
+      assert.equal(position, 'afterend', 'the video goes on top of the <picture>, which stays as the background');
       inserted.push(html);
-      // El marcado insertado es <div class="hero-video"><video>…: queda como hermano siguiente del <picture>.
+      // The inserted markup is <div class="hero-video"><video>…: it becomes the <picture>'s next sibling.
       const video = new FakeVideo(viewer.autoplayBlocked === true);
       videos.push(video);
       picture.nextSibling = { firstChild: video };
     },
   };
-  const credit: FakeElement = { style: {}, textContent: 'inicial' };
+  const credit: FakeElement = { style: {}, textContent: 'initial' };
   const toggle = fakeToggle();
   const elements: Record<string, unknown> = {
     [HERO_ELEMENT_IDS.slides]: { text: jsonForScript(slides) },
@@ -313,21 +313,21 @@ function runRotation(slides: HeroSlide[], storage: object, viewer: Viewer = {}) 
   return { avif, webp, img, picture, credit, inserted, videos, toggle };
 }
 
-/** Lo que muestra el botón: el CSS enseña "❚❚ Pausar" con la clase de estado y "▶ Reproducir" sin ella. */
+/** What the button shows: the CSS shows "❚❚ Pause" with the state class and "▶ Play" without it. */
 const toggleLabel = (toggle: FakeToggle): 'pause' | 'play' => (toggle.classes.has(HERO_PLAYING_CLASS) ? 'pause' : 'play');
 
 const slides = [1, 2, 3].map((n) => toHeroSlide(heroImage(n)));
 
-describe('script de rotación en línea (S1)', () => {
-  it('pesa ≤ 800 bytes (L13)', () => {
+describe('inline rotation script', () => {
+  it('weighs ≤ 800 bytes', () => {
     const bytes = Buffer.byteLength(HERO_ROTATION_SCRIPT);
-    assert.ok(bytes <= 800, `pesa ${bytes} bytes`);
+    assert.ok(bytes <= 800, `weighs ${bytes} bytes`);
   });
 
-  it('completa <picture>, <img>, fondo y crédito con la foto elegida', () => {
+  it('fills <picture>, <img>, background and credit with the chosen photo', () => {
     const { avif, webp, img, picture, credit } = runRotation(slides, {});
     const chosen = slides.find((s) => s.img.src === img.src);
-    assert.ok(chosen, 'eligió una de la galería');
+    assert.ok(chosen, 'it picked one from the gallery');
     assert.equal(avif.srcset, chosen.avif);
     assert.equal(webp.srcset, chosen.webp);
     assert.equal(img.alt, chosen.img.alt);
@@ -337,15 +337,15 @@ describe('script de rotación en línea (S1)', () => {
     assert.equal(credit.textContent, chosen.credit);
   });
 
-  it('nunca repite la última vista entre visitas consecutivas y las recorre todas', () => {
+  it('never repeats the last seen one between consecutive visits and goes through them all', () => {
     const storage: Record<string, unknown> = {};
     const shown: string[] = [];
     for (let visit = 0; visit < 60; visit++) shown.push(String(runRotation(slides, storage).img.src));
-    for (let i = 1; i < shown.length; i++) assert.notEqual(shown[i], shown[i - 1], `visita ${i}`);
+    for (let i = 1; i < shown.length; i++) assert.notEqual(shown[i], shown[i - 1], `visit ${i}`);
     assert.equal(new Set(shown).size, slides.length);
   });
 
-  it('si localStorage tira (modo privado, cookies bloqueadas) igual muestra una foto', () => {
+  it('if localStorage throws (private mode, blocked cookies) it still shows a photo', () => {
     const throwing = Object.defineProperty({}, HERO_STORAGE_KEY, {
       get() {
         throw new Error('SecurityError');
@@ -358,29 +358,29 @@ describe('script de rotación en línea (S1)', () => {
     assert.ok(slides.some((s) => s.img.src === img.src));
   });
 
-  it('con una sola foto la muestra siempre', () => {
+  it('with a single photo it always shows it', () => {
     const storage: Record<string, unknown> = {};
     for (let visit = 0; visit < 5; visit++) {
       assert.equal(runRotation(slides.slice(0, 1), storage).img.src, slides[0]?.img.src);
     }
   });
 
-  it('una foto sin crédito vacía la línea de crédito', () => {
+  it('a photo without a credit empties the credit line', () => {
     const { credit } = runRotation([toHeroSlide(heroImage(1, { credit: null }))], {});
     assert.ok(!credit.textContent);
   });
 });
 
-describe('script de rotación con videos (S9, L13)', () => {
+describe('rotation script with videos', () => {
   const video = toHeroSlide(heroVideo(1));
 
-  it('sin reduced-motion ni Save-Data inserta el <video> sobre el <picture>, que solo queda de fondo', () => {
+  it('without reduced-motion or Save-Data it inserts the <video> over the <picture>, which stays as the background only', () => {
     for (const connection of [undefined, { saveData: false }]) {
       const { avif, webp, img, picture, credit, inserted } = runRotation([video], {}, { connection });
       assert.deepEqual(inserted, [video.video]);
       assert.deepEqual(picture.style, video.background);
       assert.equal(credit.textContent, video.credit);
-      // El póster lo baja el <video>: el <picture> no pide nada (sin descarga doble).
+      // The <video> downloads the poster: the <picture> requests nothing (no double download).
       assert.equal(avif.srcset, undefined);
       assert.equal(webp.srcset, undefined);
       assert.equal(img.src, undefined);
@@ -391,7 +391,7 @@ describe('script de rotación con videos (S9, L13)', () => {
     ['prefers-reduced-motion: reduce', { reducedMotion: true }],
     ['Save-Data', { connection: { saveData: true } }],
   ] as const) {
-    it(`con ${why} muestra solo el póster, igual que una foto`, () => {
+    it(`with ${why} it shows only the poster, just like a photo`, () => {
       const { avif, webp, img, picture, inserted } = runRotation([video], {}, viewer);
       assert.deepEqual(inserted, []);
       assert.equal(avif.srcset, video.avif);
@@ -405,15 +405,15 @@ describe('script de rotación con videos (S9, L13)', () => {
   const mixed = [toHeroSlide(heroImage(1)), video, toHeroSlide(heroImage(3))];
   const shownOn = (run: ReturnType<typeof runRotation>): string => run.inserted[0] ?? String(run.img.src);
 
-  it('fotos y videos comparten la regla: nunca repite el último visto y los recorre todos', () => {
+  it('photos and videos share the rule: never repeat the last seen one and go through them all', () => {
     const storage: Record<string, unknown> = {};
     const shown: string[] = [];
     for (let visit = 0; visit < 60; visit++) shown.push(shownOn(runRotation(mixed, storage)));
-    for (let i = 1; i < shown.length; i++) assert.notEqual(shown[i], shown[i - 1], `visita ${i}`);
+    for (let i = 1; i < shown.length; i++) assert.notEqual(shown[i], shown[i - 1], `visit ${i}`);
     assert.equal(new Set(shown).size, mixed.length);
   });
 
-  it('si localStorage tira igual muestra el video', () => {
+  it('if localStorage throws it still shows the video', () => {
     const throwing = Object.defineProperty({}, HERO_STORAGE_KEY, {
       get() {
         throw new Error('SecurityError');
@@ -425,16 +425,16 @@ describe('script de rotación con videos (S9, L13)', () => {
     assert.deepEqual(runRotation([video], throwing).inserted, [video.video]);
   });
 
-  it('con un solo video lo muestra siempre', () => {
+  it('with a single video it always shows it', () => {
     const storage: Record<string, unknown> = {};
     for (let visit = 0; visit < 5; visit++) assert.deepEqual(runRotation([video], storage).inserted, [video.video]);
   });
 });
 
-describe('botón Reproducir/Pausar del video (S1, WCAG 2.2.2, L3)', () => {
+describe('video Play/Pause button (WCAG 2.2.2)', () => {
   const video = toHeroSlide(heroVideo(1));
 
-  it('sin reduced-motion ni Save-Data: el video arranca solo y el botón visible ofrece ❚❚ Pausar', () => {
+  it('without reduced-motion or Save-Data: the video starts on its own and the visible button offers ❚❚ Pause', () => {
     const { toggle, videos, inserted } = runRotation([video], {});
     assert.deepEqual(inserted, [video.video]);
     assert.equal(toggle.hidden, false);
@@ -442,7 +442,7 @@ describe('botón Reproducir/Pausar del video (S1, WCAG 2.2.2, L3)', () => {
     assert.equal(toggleLabel(toggle), 'pause');
   });
 
-  it('cada clic alterna pausa y reproducción, y el texto del botón sigue al estado real', () => {
+  it('each click toggles pause and play, and the button text follows the real state', () => {
     const { toggle, videos, inserted } = runRotation([video], {});
     toggle.onclick?.();
     assert.equal(videos[0]?.paused, true);
@@ -450,17 +450,17 @@ describe('botón Reproducir/Pausar del video (S1, WCAG 2.2.2, L3)', () => {
     toggle.onclick?.();
     assert.equal(videos[0]?.paused, false);
     assert.equal(toggleLabel(toggle), 'pause');
-    assert.equal(inserted.length, 1, 'alternar no vuelve a insertar el video');
+    assert.equal(inserted.length, 1, 'toggling does not insert the video again');
   });
 
   for (const [why, viewer] of [
     ['prefers-reduced-motion: reduce', { reducedMotion: true }],
     ['Save-Data', { connection: { saveData: true } }],
   ] as const) {
-    it(`con ${why}: póster y ▶ Reproducir; el clic inserta el video, lo arranca y pasa a ❚❚ Pausar`, () => {
+    it(`with ${why}: poster and ▶ Play; the click inserts the video, starts it and switches to ❚❚ Pause`, () => {
       const { toggle, videos, inserted, img } = runRotation([video], {}, viewer);
       assert.deepEqual(inserted, []);
-      assert.equal(img.src, video.img.src, 'mientras tanto se ve el póster');
+      assert.equal(img.src, video.img.src, 'meanwhile the poster shows');
       assert.equal(toggle.hidden, false);
       assert.equal(toggleLabel(toggle), 'play');
 
@@ -476,22 +476,22 @@ describe('botón Reproducir/Pausar del video (S1, WCAG 2.2.2, L3)', () => {
     });
   }
 
-  it('una foto no tiene botón', () => {
+  it('a photo has no button', () => {
     const { toggle } = runRotation([toHeroSlide(heroImage(1))], {});
     assert.equal(toggle.hidden, true);
     assert.equal(toggle.onclick, null);
   });
 
-  it('si el navegador bloquea el autoplay, el botón no miente: ofrece ▶ Reproducir y el clic lo arranca (S2)', async () => {
+  it('if the browser blocks autoplay, the button does not lie: it offers ▶ Play and the click starts it', async () => {
     const run = runRotation([video], {}, { autoplayBlocked: true });
-    await new Promise((resolve) => setImmediate(resolve)); // deja correr el rechazo de play()
+    await new Promise((resolve) => setImmediate(resolve)); // lets the play() rejection run
     const [video0] = run.videos;
-    assert.ok(video0, 'el video se insertó igual');
+    assert.ok(video0, 'the video was inserted anyway');
     assert.equal(video0.paused, true);
     assert.equal(run.toggle.hidden, false);
     assert.equal(toggleLabel(run.toggle), 'play');
 
-    video0.blocked = false; // un clic es un gesto del usuario: ahora play() está permitido
+    video0.blocked = false; // a click is a user gesture: now play() is allowed
     run.toggle.onclick?.();
     assert.equal(video0.paused, false);
     assert.equal(toggleLabel(run.toggle), 'pause');

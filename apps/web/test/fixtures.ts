@@ -1,7 +1,7 @@
 import type { MediaAsset } from '../src/lib/media.ts';
 import type { VideoAsset, VideoCodec, VideoHeight } from '../src/lib/video.ts';
 
-/** MediaAssetDto como lo entrega la API (L10): WebP + AVIF en los anchos ≤ original, `url` = WebP ≤ 1600. */
+/** MediaAssetDto as the API delivers it: WebP + AVIF in the widths ≤ original, `url` = WebP ≤ 1600. */
 export function mediaAsset(hash: string, overrides: Partial<MediaAsset> = {}): MediaAsset {
   const widths = [640, 1024, 1600];
   return {
@@ -20,8 +20,8 @@ export function mediaAsset(hash: string, overrides: Partial<MediaAsset> = {}): M
 }
 
 /**
- * VideoAssetDto listo (L13), con las fuentes a propósito en el orden "equivocado" (H.264 y 720p primero):
- * el sitio no puede depender del orden en que las mande la API.
+ * A ready VideoAssetDto, with the sources in the "wrong" order on purpose (H.264 and 720p first):
+ * the site cannot depend on the order the API sends them in.
  */
 export function videoAsset(hash: string, overrides: Partial<VideoAsset> = {}): VideoAsset {
   const codecs: readonly VideoCodec[] = ['h264', 'av1'];

@@ -4,7 +4,7 @@ import { LANGS, alternatesFor, paths } from '../lib/i18n.ts';
 import { alternatesByGroup, getPosts, postPath, postsIn, tagsOf } from '../lib/posts.ts';
 import { site } from '../lib/site.ts';
 
-/** Todas las páginas de los dos idiomas; las que tienen versión en cada idioma llevan sus alternates hreflang. */
+/** Every page in both languages; those with a version in each language carry their hreflang alternates. */
 export const GET: APIRoute = async () => {
   const posts = await getPosts();
   const groups = alternatesByGroup(posts);

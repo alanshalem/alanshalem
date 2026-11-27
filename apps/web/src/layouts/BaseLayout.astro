@@ -13,19 +13,19 @@ interface Props {
   lang: Lang;
   title: string;
   description?: string;
-  /** Ruta del sitio con barra final, ej: "/es/articulos/mi-post/". Define la URL canónica. */
+  /** Site path with a trailing slash, e.g. "/es/articulos/mi-post/". Defines the canonical URL. */
   path: string;
-  /** La misma página en otros idiomas (hreflang y selector ES | EN). Sin ella, el selector va a las homes. */
+  /** The same page in other languages (hreflang and the ES | EN switcher). Without it, the switcher goes home. */
   alternates?: Alternates;
-  /** Destino del selector para los idiomas sin versión equivalente (por defecto, su home). */
+  /** Where the switcher goes for languages without an equivalent version (by default, their home). */
   switchFallback?: (lang: Lang) => string;
   type?: 'website' | 'article';
   noindex?: boolean;
   publishedTime?: Date;
-  /** URL absoluta de una imagen real para og:image (nunca la portada generativa). */
+  /** Absolute URL of a real image for og:image (never the generative cover). */
   image?: string | undefined;
   imageAlt?: string | undefined;
-  /** La página empieza con un hero oscuro a pantalla completa: la cabecera va transparente encima. */
+  /** The page starts with a dark full-screen hero: the header goes transparent on top of it. */
   overlayHeader?: boolean;
 }
 
@@ -53,7 +53,7 @@ const t = ui(lang);
 <html lang={lang}>
   <head>
     <meta charset="utf-8" />
-    <!-- Primero de todo: una imagen o video que no carga se oculta (fondo oscuro) en vez de verse roto. -->
+    <!-- First of all: an image or video that fails to load is hidden (dark background) instead of looking broken. -->
     <script is:inline set:html={MEDIA_GUARD_SCRIPT} />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0a0a0b" />
@@ -76,15 +76,15 @@ const t = ui(lang);
 
     <link rel="alternate" type="application/rss+xml" title={settings.name} href={paths.rss(lang)} />
 
-    <!-- Solo las fuentes que se ven sin hacer scroll; el resto carga cuando hace falta. -->
+    <!-- Only the fonts seen without scrolling; the rest load when needed. -->
     <link rel="preload" as="font" type="font/woff2" href="/fonts/pagella-regular-latin.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/hanken-grotesk-latin.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/gloock-latin.woff2" crossorigin />
   </head>
   <body>
-    <a class="skip-link" href="#contenido">{t.skipToContent}</a>
+    <a class="skip-link" href="#main-content">{t.skipToContent}</a>
     <Header lang={lang} currentPath={path} alternates={alternates} switchFallback={switchFallback} overlay={overlayHeader} />
-    <main id="contenido">
+    <main id="main-content">
       <slot />
     </main>
     <Footer lang={lang} />

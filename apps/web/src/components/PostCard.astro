@@ -5,12 +5,12 @@ import { postPath, type BlogPost } from '../lib/posts.ts';
 
 interface Props {
   post: BlogPost;
-  /** Nivel del título según la página (h2 en listados sin encabezado de sección, h3 debajo de uno). */
+  /** Title level for the page (h2 in listings without a section heading, h3 under one). */
   headingLevel?: 2 | 3;
 }
 
 const { post, headingLevel = 3 } = Astro.props;
-// La tarjeta habla el idioma de su post (los listados solo muestran posts del idioma de la página).
+// The card speaks its post's language (listings only show posts in the page's language).
 const t = ui(post.lang);
 const eyebrow = post.tags[0]?.name ?? t.article;
 const Heading = `h${headingLevel}` as 'h2' | 'h3';

@@ -4,7 +4,7 @@ import { runInNewContext } from 'node:vm';
 
 import { MEDIA_CONTAINER_ATTRIBUTE, MEDIA_GUARD_SCRIPT } from '../src/lib/media-guard.ts';
 
-/** Elemento mínimo: lo justo que usa el script (tagName, parentNode, lastElementChild, closest, style). */
+/** Minimal element: just what the script uses (tagName, parentNode, lastElementChild, closest, style). */
 interface FakeElement {
   tagName: string;
   parentNode: FakeElement | null;
@@ -34,22 +34,22 @@ function element(tagName: string, parent: FakeElement | null = null, attributes:
   return node;
 }
 
-/** Ejecuta el script real y devuelve una función que simula el evento `error` (fase de captura) sobre un elemento. */
+/** Runs the real script and returns a function that simulates the `error` event (capture phase) on an element. */
 function loadGuard(): (target: FakeElement) => void {
   let listener: ((event: { target: FakeElement }) => void) | undefined;
   runInNewContext(MEDIA_GUARD_SCRIPT, {
     addEventListener: (type: string, handler: typeof listener, capture: boolean) => {
       assert.equal(type, 'error');
-      assert.equal(capture, true, 'los errores de carga no burbujean: hace falta la fase de captura');
+      assert.equal(capture, true, 'load errors do not bubble: the capture phase is needed');
       listener = handler;
     },
   });
-  assert.ok(listener, 'el script tiene que registrar el listener');
+  assert.ok(listener, 'the script must register the listener');
   return (target) => listener!({ target });
 }
 
-describe('guardián de medios: una imagen o video que falla nunca se ve roto', () => {
-  it('una imagen rota dentro de un contenedor de medios oculta el contenedor entero (fondo negro, sin placeholder)', () => {
+describe('media guard: a failing image or video never looks broken', () => {
+  it('a broken image inside a media container hides the whole container (black background, no placeholder)', () => {
     const hero = element('DIV', null, [MEDIA_CONTAINER_ATTRIBUTE]);
     const picture = element('PICTURE', hero);
     const img = element('IMG', picture);
@@ -57,28 +57,28 @@ describe('guardián de medios: una imagen o video que falla nunca se ve roto', (
     assert.equal(hero.style.display, 'none');
   });
 
-  it('una imagen rota suelta (portada, imagen del post) oculta su <picture>', () => {
+  it('a standalone broken image (cover, post image) hides its <picture>', () => {
     const card = element('DIV');
     const picture = element('PICTURE', card);
     const img = element('IMG', picture);
     loadGuard()(img);
     assert.equal(picture.style.display, 'none');
-    assert.equal(card.style.display, undefined, 'el resto de la card queda visible');
+    assert.equal(card.style.display, undefined, 'the rest of the card stays visible');
   });
 
-  it('un video solo se oculta cuando fallan todas sus fuentes (la última <source>)', () => {
+  it('a video is only hidden when all its sources fail (the last <source>)', () => {
     const hero = element('DIV', null, [MEDIA_CONTAINER_ATTRIBUTE]);
     const video = element('VIDEO', hero);
     const av1 = element('SOURCE', video);
     const h264 = element('SOURCE', video);
     const fire = loadGuard();
     fire(av1);
-    assert.equal(hero.style.display, undefined, 'si el AV1 falla todavía queda el H.264');
+    assert.equal(hero.style.display, undefined, 'if AV1 fails, H.264 is still left');
     fire(h264);
     assert.equal(hero.style.display, 'none');
   });
 
-  it('ignora errores que no son de medios (scripts, links) y <source> de <picture>', () => {
+  it('ignores errors that are not from media (scripts, links) and a <picture>\'s <source>', () => {
     const script = element('SCRIPT');
     const picture = element('PICTURE');
     const source = element('SOURCE', picture);
@@ -89,7 +89,7 @@ describe('guardián de medios: una imagen o video que falla nunca se ve roto', (
     assert.equal(picture.style.display, undefined);
   });
 
-  it('es chico: viaja en el <head> de cada página', () => {
-    assert.ok(MEDIA_GUARD_SCRIPT.length <= 300, `mide ${MEDIA_GUARD_SCRIPT.length} bytes`);
+  it('is small: it travels in the <head> of every page', () => {
+    assert.ok(MEDIA_GUARD_SCRIPT.length <= 300, `measures ${MEDIA_GUARD_SCRIPT.length} bytes`);
   });
 });

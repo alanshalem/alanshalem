@@ -1,18 +1,18 @@
 /**
- * Portada generativa (S3b): SVG determinístico para posts sin imagen.
- * Nodos y líneas finas con la paleta dataviz sobre `bg-surface`. Sin ids, sin requests, ~1-2 KB.
- * Mismo (seed, variant) => mismo SVG byte a byte: no depende de Math.random, de la fecha ni del entorno.
+ * Generative cover: a deterministic SVG for posts without an image.
+ * Nodes and thin lines in the dataviz palette over `bg-surface`. No ids, no requests, ~1-2 KB.
+ * Same (seed, variant) => the same SVG byte for byte: it depends on neither Math.random, the date nor the environment.
  */
 
 const BG = '#141416';
 const PALETTE = ['#a9c98a', '#8fa7d9', '#e08f6a'] as const;
 const LINE = '#ededea';
 
-// Lienzo 16:10. Con `slice` cubre igual cualquier recorte (16:9, 6:5, hero a pantalla completa).
+// A 16:10 canvas. With `slice` it covers any crop all the same (16:9, 6:5, a full-screen hero).
 const W = 160;
 const H = 100;
 
-/** FNV-1a de 32 bits: hash estable de un string. */
+/** 32-bit FNV-1a: a stable hash of a string. */
 function hash(text: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
@@ -22,7 +22,7 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
-/** mulberry32: generador pseudoaleatorio chico y suficiente para decorar. */
+/** mulberry32: a small pseudorandom generator, good enough for decoration. */
 function rng(seed: number): () => number {
   let a = seed;
   return () => {
@@ -43,14 +43,14 @@ interface Node {
 }
 
 /**
- * @param seed    normalmente el slug del post (o `tema:<slug>` para los tiles de temas).
- * @param variant normalmente el tema: cambia el color dominante y la forma del cúmulo.
+ * @param seed    usually the post slug (or `tema:<slug>` for the topic tiles).
+ * @param variant usually the topic: changes the dominant color and the shape of the cluster.
  */
 export function generativeCover(seed: string, variant = ''): string {
   const random = rng(hash(`${seed}\u0000${variant}`));
   const v = hash(variant);
   const dominant = v % PALETTE.length;
-  // Dos o tres "cúmulos" de nodos; el tema decide cuántos y hacia dónde se cargan.
+  // Two or three "clusters" of nodes; the topic decides how many and where they lean.
   const clusters = 2 + (v % 2);
   const centers = Array.from({ length: clusters }, () => ({
     x: 30 + random() * (W - 60),
@@ -65,12 +65,12 @@ export function generativeCover(seed: string, variant = ''): string {
     const angle = random() * Math.PI * 2;
     const x = Math.min(W - 4, Math.max(4, c.x + Math.cos(angle) * spread * (0.4 + random())));
     const y = Math.min(H - 4, Math.max(4, c.y + Math.sin(angle) * spread * 0.7 * (0.4 + random())));
-    // ~60% del color dominante; el resto, los otros dos.
+    // ~60% in the dominant color; the rest in the other two.
     const color = random() < 0.6 ? dominant : (dominant + 1 + Math.floor(random() * 2)) % PALETTE.length;
     nodes.push({ x, y, r: 0.9 + random() * random() * 2.8, color });
   }
 
-  // Cada nodo se une con sus 2 vecinos más cercanos (sin repetir aristas).
+  // Each node joins its 2 nearest neighbors (without repeating edges).
   const edges = new Set<string>();
   nodes.forEach((a, i) => {
     nodes

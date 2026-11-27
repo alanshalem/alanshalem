@@ -18,51 +18,51 @@ const apiPost = (overrides: Partial<ApiPost> = {}): ApiPost => ({
   ...overrides,
 });
 
-describe('toBlogPost: idioma y grupo de traducción (L4)', () => {
-  it('conserva lang y translationGroupId; la ruta sale del idioma', () => {
+describe('toBlogPost: language and translation group', () => {
+  it('keeps lang and translationGroupId; the route comes from the language', () => {
     const post = toBlogPost(apiPost({ lang: 'en', slug: 'hello', translationGroupId: 'g9' }));
     assert.equal(post.lang, 'en');
     assert.equal(post.translationGroupId, 'g9');
     assert.equal(postPath(post), '/en/articles/hello/');
   });
-  it('sin translationGroupId (API anterior a T1) cada post es su propio grupo', () => {
+  it('without translationGroupId (an API that does not send it) each post is its own group', () => {
     const { translationGroupId, ...old } = apiPost({ id: 'solo' });
     assert.equal(translationGroupId, 'g1');
     assert.equal(toBlogPost(old).translationGroupId, 'solo');
   });
-  it('un idioma desconocido frena el build (no se publica bajo otro idioma)', () => {
-    assert.throws(() => toBlogPost(apiPost({ lang: 'fr' })), /idioma "fr"/);
+  it('an unknown language stops the build (it is not published under another language)', () => {
+    assert.throws(() => toBlogPost(apiPost({ lang: 'fr' })), /language "fr"/);
   });
-  it('las imágenes relativas del Markdown se resuelven contra la página del post en su idioma', () => {
+  it('relative Markdown images resolve against the post page in its language', () => {
     const post = toBlogPost(apiPost({ lang: 'en', slug: 'hello', body: '![x](img/a.png)' }));
     assert.equal(post.cover.kind === 'image' && post.cover.src, '/en/articles/hello/img/a.png');
   });
 });
 
-describe('toBlogPost: extensiones de Markdown del cuerpo en el idioma del post (editor-pro L4, L5)', () => {
-  it('las cajas destacadas se titulan en el idioma del post', () => {
-    const callout = '> [!NOTE]\n> Texto.';
+describe('toBlogPost: body Markdown extensions in the post language', () => {
+  it('callouts are titled in the post language', () => {
+    const callout = '> [!NOTE]\n> Text.';
     assert.match(toBlogPost(apiPost({ lang: 'en', body: callout })).html, /<p class="callout-title">Note<\/p>/);
     assert.match(toBlogPost(apiPost({ lang: 'es', body: callout })).html, /<p class="callout-title">Nota<\/p>/);
   });
-  it('una imagen sola con título es una figura con epígrafe, y sigue sirviendo de portada', () => {
+  it('a lone image with a title is a figure with a caption, and still serves as the cover', () => {
     const post = toBlogPost(apiPost({ body: '![Faro](/media/faro.jpg "Faro de noche")' }));
     assert.match(post.html, /^<figure><img src="\/media\/faro\.jpg" alt="Faro"[^>]*><figcaption>Faro de noche<\/figcaption><\/figure>$/);
     assert.equal(post.cover.kind === 'image' && post.cover.src, '/media/faro.jpg');
   });
-  it('tipografía inteligente: comillas, rayas y puntos suspensivos, nunca dentro del código', () => {
+  it('smart typography: quotes, dashes and ellipses, never inside code', () => {
     const { html } = toBlogPost(apiPost({ lang: 'en', body: 'He said "wait" -- then... `a -- "b"`' }));
     assert.equal(html, '<p>He said “wait” – then… <code>a -- &quot;b&quot;</code></p>');
   });
-  it('el título del cuerpo sigue bajando un nivel (el <h1> es el título del post)', () => {
+  it('a body title still goes down one level (the <h1> is the post title)', () => {
     assert.match(toBlogPost(apiPost({ body: '# Uno' })).html, /^<h2 id="uno">Uno<\/h2>$/);
   });
 });
 
-describe('toBlogPost: títulos estándar del cuerpo (plataforma-calidad L5 "## sección, ### subsección")', () => {
+describe('toBlogPost: standard body headings ("## section, ### subsection")', () => {
   const body = '# Intro\n\n## Sección\n\n### Subsección\n\n#### Detalle';
 
-  it('## es h2, ### es h3 y un # del cuerpo es una sección (h2): el título del post es el único h1', () => {
+  it('## is h2, ### is h3 and a body # is a section (h2): the post title is the only h1', () => {
     const { html } = toBlogPost(apiPost({ body }));
     assert.equal(
       html,
@@ -71,7 +71,7 @@ describe('toBlogPost: títulos estándar del cuerpo (plataforma-calidad L5 "## s
     assert.doesNotMatch(html, /<h1/);
   });
 
-  it('el índice lateral lista las secciones (h2) y subsecciones (h3), no lo más hondo', () => {
+  it('the side table of contents lists sections (h2) and subsections (h3), nothing deeper', () => {
     const toc = postsModule.tocEntries(toBlogPost(apiPost({ body })).headings);
     assert.deepEqual(
       toc.map(({ level, id }) => [level, id]),
@@ -80,12 +80,12 @@ describe('toBlogPost: títulos estándar del cuerpo (plataforma-calidad L5 "## s
   });
 });
 
-describe('alternatesByGroup: versiones publicadas de cada grupo (L3)', () => {
+describe('alternatesByGroup: the published versions of each group', () => {
   const es = toBlogPost(apiPost({ id: 'a', slug: 'hola', lang: 'es', translationGroupId: 'g1' }));
   const en = toBlogPost(apiPost({ id: 'b', slug: 'hello', lang: 'en', translationGroupId: 'g1' }));
   const solo = toBlogPost(apiPost({ id: 'c', slug: 'solo', lang: 'es', translationGroupId: 'g2' }));
 
-  it('une las versiones por grupo, con la ruta de cada idioma', () => {
+  it('joins the versions by group, with the route of each language', () => {
     const map = alternatesByGroup([es, en, solo]);
     assert.deepEqual(map.get('g1'), { es: '/es/articulos/hola/', en: '/en/articles/hello/' });
     assert.deepEqual(map.get('g2'), { es: '/es/articulos/solo/' });
@@ -93,16 +93,16 @@ describe('alternatesByGroup: versiones publicadas de cada grupo (L3)', () => {
   });
 });
 
-describe('posts y temas por idioma', () => {
+describe('posts and topics per language', () => {
   const es1 = toBlogPost(apiPost({ id: 'a', slug: 'a', lang: 'es', tags: ['Rendimiento', '.NET'] }));
   const es2 = toBlogPost(apiPost({ id: 'b', slug: 'b', lang: 'es', tags: ['.NET'] }));
   const en1 = toBlogPost(apiPost({ id: 'c', slug: 'c', lang: 'en', tags: ['Performance'] }));
 
-  it('postsIn filtra por idioma sin cambiar el orden', () => {
+  it('postsIn filters by language without changing the order', () => {
     assert.deepEqual(postsIn([es1, en1, es2], 'es').map((p) => p.slug), ['a', 'b']);
     assert.deepEqual(postsIn([es1, en1, es2], 'en').map((p) => p.slug), ['c']);
   });
-  it('tagsOf: temas de esos posts, por cantidad y después por nombre', () => {
+  it('tagsOf: the topics of those posts, by count and then by name', () => {
     assert.deepEqual(
       tagsOf([es1, es2]).map(({ tag, posts }) => [tag.slug, posts.length]),
       [['net', 2], ['rendimiento', 1]],

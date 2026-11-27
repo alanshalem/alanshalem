@@ -1,75 +1,75 @@
 /**
- * Rotación del hero (S1, L10, L13): en cada visita, una foto o video al azar de la galería, nunca el último que
- * se vio. Es JS plano en línea, sin librerías ni red: corre apenas el navegador parsea el hero, antes de pintar,
- * así la foto empieza a bajar enseguida y no hay saltos. El HTML estático trae los datos (JSON) y un
- * <picture> vacío; sin JS se ve la primera foto (o el póster del primer video) dentro de <noscript>.
+ * Hero rotation: on every visit, a random photo or video from the gallery, never the one seen last. It is plain
+ * inline JS, with no libraries or network: it runs as soon as the browser parses the hero, before painting, so the
+ * photo starts downloading right away and nothing jumps. The static HTML carries the data (JSON) and an empty
+ * <picture>; without JS the first photo (or the first video's poster) shows inside <noscript>.
  */
 
-/** Ids compartidos entre el marcado de index.astro y el script. */
+/** Ids shared by the markup of index.astro and the script. */
 export const HERO_ELEMENT_IDS = {
-  /** <script type="application/json"> con las diapositivas (HeroSlide[]). */
+  /** <script type="application/json"> with the slides (HeroSlide[]). */
   slides: 'hero-slides',
   /**
-   * <picture> vacío con sus hijos en orden fijo: <source> AVIF, <source> WebP, <img>. Lleva el fondo.
-   * Un video se inserta justo después (encima) y el <picture> queda vacío, solo con el fondo.
+   * Empty <picture> with its children in a fixed order: <source> AVIF, <source> WebP, <img>. It carries the background.
+   * A video is inserted right after it (on top) and the <picture> stays empty, with only the background.
    */
   picture: 'hero-picture',
-  /** Línea de crédito de la foto. */
+  /** The photo's credit line. */
   credit: 'hero-credit',
-  /** Botón Reproducir/Pausar (WCAG 2.2.2): `hidden` en el HTML; el script lo muestra solo para un video. */
+  /** Play/Pause button (WCAG 2.2.2): `hidden` in the HTML; the script shows it only for a video. */
   toggle: 'hero-toggle',
 } as const;
 
 /**
- * Clase de estado del botón mientras el video corre. El CSS muestra "❚❚ Pausar" con ella y "▶ Reproducir" sin ella:
- * los dos textos (del diccionario) ya vienen en el HTML, así el script es el mismo en todos los idiomas.
+ * State class of the button while the video plays. The CSS shows "❚❚ Pause" with it and "▶ Play" without it: both
+ * texts (from the dictionary) are already in the HTML, so the script is the same in every language.
  */
 export const HERO_PLAYING_CLASS = 'is-playing';
 
-/** Clave de localStorage con el índice de la última foto mostrada. */
+/** localStorage key holding the index of the last photo shown. */
 export const HERO_STORAGE_KEY = 'hero';
 
 /**
- * Selector puro (n fotos, l = última vista, r = Math.random()) → índice a mostrar.
- * - n < 2: siempre 0, sin azar.
- * - l válida: sortea entre las n - 1 restantes y saltea l (r < l queda igual; r ≥ l corre uno).
- * - l inválida (primera visita, NaN, galería que se achicó): sortea entre las n.
- * Viaja tal cual dentro del script: los tests ejecutan exactamente este código.
+ * Pure picker (n photos, l = last seen, r = Math.random()) → index to show.
+ * - n < 2: always 0, no randomness.
+ * - valid l: draws among the other n - 1 and skips l (r < l stays; r ≥ l moves up by one).
+ * - invalid l (first visit, NaN, a gallery that shrank): draws among all n.
+ * It travels as is inside the script: the tests run exactly this code.
  */
 export const PICK_HERO_INDEX_JS = '(n,l,r)=>n<2?0:l>=0&&l<n?(r=r*--n|0)<l?r:r+1:r*n|0';
 
-/** Quien la activa en el sistema ve el póster en vez del video. */
+/** Whoever turns it on in their system sees the poster instead of the video. */
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
-// Sentencias del script, en orden. Minificado a mano para quedar bajo 800 bytes (L13): viaja en cada visita a la home.
+// The script's statements, in order. Minified by hand to stay under 800 bytes: it travels on every home visit.
 const STATEMENTS = [
-  // g = buscar por id, s = diapositivas (`.text` de un <script> es su contenido), l = última vista,
+  // g = find by id, s = slides (a <script>'s `.text` is its content), l = last seen,
   // L = localStorage, p = <picture>, a / w / m = <source> AVIF / <source> WebP / <img>,
-  // b = botón Reproducir/Pausar, v = <video>, y = insertar y reproducir el video, u = sincronizar el botón.
+  // b = Play/Pause button, v = <video>, y = insert and play the video, u = sync the button.
   `let g=i=>document.getElementById(i),s=JSON.parse(g("${HERO_ELEMENT_IDS.slides}").text),l,L,p,a,w,m,b,v,y,u`,
-  // localStorage puede no existir o tirar (modo privado, cookies bloqueadas): sin él solo se pierde el "no repetir".
+  // localStorage may be missing or throw (private mode, blocked cookies): without it only "no repeats" is lost.
   `try{L=localStorage;l=+L.${HERO_STORAGE_KEY}}catch{}`,
   `s=s[l=(${PICK_HERO_INDEX_JS})(s.length,l,Math.random())]`,
   `try{L.${HERO_STORAGE_KEY}=l}catch{}`,
   `p=g("${HERO_ELEMENT_IDS.picture}")`,
   `Object.assign(p.style,s.background)`,
-  // Un video siempre trae el botón (WCAG 2.2.2: todo lo que se mueve solo se puede pausar). El texto sale del estado
-  // real del <video> (`paused`) y no de lo que se pidió: si el navegador bloquea el autoplay (iOS en bajo consumo),
-  // `play()` rechaza sin arrancar y el botón ofrece Reproducir en vez de mentir. `play()` pone `paused` en false en el
-  // acto, así `u()` justo después ya muestra Pausar sin esperar al evento; los eventos cubren el resto (clics, pausas
-  // del navegador). El video se inserta después del <picture> (encima), envuelto en un <div>: de ahí `.firstChild`.
+  // A video always gets the button (WCAG 2.2.2: anything that moves on its own can be paused). The label follows the
+  // <video>'s real state (`paused`), not what was requested: if the browser blocks autoplay (iOS in low power mode),
+  // `play()` rejects without starting and the button offers Play instead of lying. `play()` sets `paused` to false at
+  // once, so `u()` right after already shows Pause without waiting for the event; the events cover the rest (clicks,
+  // browser pauses). The video is inserted after the <picture> (on top), wrapped in a <div>: hence `.firstChild`.
   `if(s.video){b=g("${HERO_ELEMENT_IDS.toggle}");b.hidden=0;` +
     `u=()=>b.classList.toggle("${HERO_PLAYING_CLASS}",!v.paused);` +
     `y=()=>{p.insertAdjacentHTML("afterend",s.video);v=p.nextSibling.firstChild;v.onplay=v.onpause=u;v.play().catch(u);u()};` +
     `b.onclick=()=>v?v.paused?v.play():v.pause():y()}`,
-  // Arranca solo si el visitante no pidió menos movimiento ni ahorro de datos (`connection` solo existe en Chrome).
-  // Si no (o es una foto), el póster va por el mismo camino que una foto y el video espera al clic en Reproducir.
-  // Nunca ambos de entrada: el póster no se baja dos veces.
+  // It starts on its own only if the visitor asked for neither reduced motion nor data saving (`connection` only
+  // exists in Chrome). Otherwise (or for a photo), the poster takes the same path as a photo and the video waits for a
+  // click on Play. Never both up front: the poster is not downloaded twice.
   `if(y&&!matchMedia("${REDUCED_MOTION_QUERY}").matches&&!navigator.connection?.saveData)y();else{` +
-    // Primero las <source> y después el <img> (con `src` al final): el navegador elige formato antes de pedir nada.
+    // The <source>s first, then the <img> (with `src` last): the browser picks a format before requesting anything.
     `[a,w,m]=p.children;a.srcset=s.avif;w.srcset=s.webp;Object.assign(m,s.img)}`,
   `g("${HERO_ELEMENT_IDS.credit}").textContent=s.credit`,
 ];
 
-/** Contenido exacto del <script> en línea (constante: su hash CSP no cambia entre builds). */
+/** The exact content of the inline <script> (a constant: its CSP hash does not change between builds). */
 export const HERO_ROTATION_SCRIPT = `{${STATEMENTS.join(';')}}`;

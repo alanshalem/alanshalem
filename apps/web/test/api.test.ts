@@ -12,7 +12,7 @@ function countingLoader() {
 }
 
 describe('oncePerBuild', () => {
-  it('en un build pide los datos una sola vez y reutiliza la respuesta', async () => {
+  it('in a build it fetches the data once and reuses the response', async () => {
     const loader = countingLoader();
     const get = oncePerBuild(loader.load, () => false);
 
@@ -21,7 +21,7 @@ describe('oncePerBuild', () => {
     assert.equal(loader.calls(), 1);
   });
 
-  it('en el servidor de desarrollo pide los datos en cada llamada, así se ven los cambios del admin', async () => {
+  it('on the dev server it fetches the data on every call, so the admin changes show up', async () => {
     const loader = countingLoader();
     const get = oncePerBuild(loader.load, () => true);
 
@@ -30,14 +30,14 @@ describe('oncePerBuild', () => {
     assert.equal(loader.calls(), 2);
   });
 
-  it('en desarrollo un fallo no queda guardado: la llamada siguiente vuelve a intentar', async () => {
+  it('in development a failure is not cached: the next call tries again', async () => {
     let fail = true;
     const get = oncePerBuild(async () => {
-      if (fail) throw new Error('API caída');
+      if (fail) throw new Error('API down');
       return 'ok';
     }, () => true);
 
-    await assert.rejects(get(), /API caída/);
+    await assert.rejects(get(), /API down/);
     fail = false;
     assert.equal(await get(), 'ok');
   });

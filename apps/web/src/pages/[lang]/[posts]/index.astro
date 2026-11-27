@@ -4,7 +4,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { LANGS, alternatesFor, articleCount, paths, segments, ui, type Lang } from '../../../lib/i18n.ts';
 import { getPosts, postsByYear, postsIn } from '../../../lib/posts.ts';
 
-// [posts] es el segmento traducido (articulos / articles): una sola página para los dos idiomas.
+// [posts] is the translated segment (articulos / articles): one page for both languages.
 export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang, posts: segments(lang).posts }, props: { lang } }));
 
 interface Props {

@@ -7,7 +7,7 @@ import { SITE_CSP } from './src/lib/csp.ts';
 const siteUrl = (process.env.SITE_URL ?? 'http://localhost:4321').replace(/\/$/, '');
 
 export default defineConfig({
-  // 100% estático: cero JavaScript de servidor en producción, Caddy sirve archivos.
+  // 100% static: zero server JavaScript in production, Caddy serves files.
   output: 'static',
   site: siteUrl,
 
@@ -15,27 +15,27 @@ export default defineConfig({
   trailingSlash: 'always',
   build: {
     format: 'directory',
-    // Todo el CSS va dentro del HTML: una petición menos antes de pintar (mejor LCP).
-    // El sitio es chico; si crece mucho, volver a 'auto'.
+    // All the CSS goes inside the HTML: one request less before painting (better LCP).
+    // The site is small; if it grows a lot, go back to 'auto'.
     inlineStylesheets: 'always',
   },
   compressHTML: true,
 
-  // El builder construye cada versión en su propia carpeta y después cambia el symlink `current`.
+  // The builder builds each version in its own folder and then switches the `current` symlink.
   outDir: process.env.OUT_DIR ?? './dist',
 
   devToolbar: { enabled: false },
 
-  // CSP en un <meta> de cada página, con los hashes de los scripts y estilos en línea (src/lib/csp.ts).
-  // Astro no la aplica en `astro dev`: se prueba con un build.
+  // CSP in a <meta> on every page, with the hashes of the inline scripts and styles (src/lib/csp.ts).
+  // Astro does not apply it in `astro dev`: test it with a build.
   security: { csp: SITE_CSP },
-  // Los posts los renderiza @blog/markdown, no Astro: sin Shiki (sus estilos en línea chocarían con la CSP).
+  // @blog/markdown renders the posts, not Astro: no Shiki (its inline styles would clash with the CSP).
   markdown: { syntaxHighlight: false },
 
   vite: {
     server: {
       watch: reliableDevWatch,
-      // Solo `astro dev`: en producción Caddy sirve /media desde el disco; acá lo sirve la API (en Development).
+      // Only `astro dev`: in production Caddy serves /media from disk; here the API serves it (in Development).
       proxy: { '/media': process.env.API_URL ?? 'http://localhost:5090' },
     },
   },

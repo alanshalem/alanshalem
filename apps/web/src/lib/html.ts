@@ -1,22 +1,16 @@
-import { escapeHtml } from '@blog/markdown';
+import { escapeHtml, unescapeHtml } from '@blog/markdown';
 
-/** Utilidades puras para leer y escribir el HTML que produce @blog/markdown. */
+/** Pure helpers to read and write the HTML that @blog/markdown produces. */
 
-const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
-
-/** Deshace exactamente las entidades que emite `escapeHtml` de @blog/markdown. */
-export const decodeEntities = (text: string): string =>
-  text.replace(/&(?:amp|lt|gt|quot|#39);/g, (entity) => ENTITIES[entity] ?? entity);
-
-/** Valor (ya sin escapar) de un atributo entre comillas dobles de una etiqueta, o null si no está. */
+/** The (already unescaped) value of a double-quoted attribute of a tag, or null when it is missing. */
 export function readAttribute(tag: string, name: string): string | null {
   const value = new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1];
-  return value === undefined ? null : decodeEntities(value);
+  return value === undefined ? null : unescapeHtml(value);
 }
 
 /**
- * Atributos ya escapados, cada uno con su espacio inicial: `undefined` se omite y `true` queda como atributo
- * booleano sin valor (`autoplay`).
+ * Already escaped attributes, each with its leading space: `undefined` is skipped and `true` becomes a boolean
+ * attribute without a value (`autoplay`).
  */
 export const htmlAttributes = (values: Record<string, string | number | true | undefined>): string =>
   Object.entries(values)
@@ -24,7 +18,7 @@ export const htmlAttributes = (values: Record<string, string | number | true | u
     .map(([name, value]) => (value === true ? ` ${name}` : ` ${name}="${escapeHtml(String(value))}"`))
     .join('');
 
-// Dentro de <script> el HTML manda: `</script>` o `<!--` cortarían el bloque. U+2028/2029 rompen JS viejo.
+// Inside <script> HTML rules: `</script>` or `<!--` would cut the block short. U+2028/2029 break old JS.
 const SCRIPT_UNSAFE: Record<string, string> = {
   '<': '\\u003c',
   '>': '\\u003e',
@@ -33,6 +27,6 @@ const SCRIPT_UNSAFE: Record<string, string> = {
   '\u2029': '\\u2029',
 };
 
-/** JSON para incrustar en un <script>: mismo valor al parsearlo, sin ningún carácter que el HTML interprete. */
+/** JSON to embed in a <script>: the same value when parsed, with no character that HTML interprets. */
 export const jsonForScript = (value: unknown): string =>
   JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (char) => SCRIPT_UNSAFE[char] ?? char);

@@ -2,11 +2,11 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { notFoundPage, paths, ui } from '../lib/i18n.ts';
 
-// Una sola página para los tres 404 (L13). Astro la genera como /404.html y, desde pages/[lang]/404.html.ts, como
-// /es/404.html y /en/404.html: `originPathname` es la URL desde la que se pidió. Bajo un idioma, todo va en ese
-// idioma; en /404.html (URLs sin prefijo, para las que no se sabe en qué idioma lee quien llegó) el aviso va en los
-// dos y cabecera y pie en el principal. Un solo h1, el del idioma de la página; el aviso en el otro es un h2 con el
-// mismo estilo.
+// One page for the three 404s. Astro generates it as /404.html and, from pages/[lang]/404.html.ts, as /es/404.html
+// and /en/404.html: `originPathname` is the URL it was requested from. Under a language, everything is in that
+// language; in /404.html (URLs without a prefix, where there is no telling which language the visitor reads) the
+// notice is in both and the header and footer in the main one. A single h1, in the page's language; the notice in
+// the other language is an h2 with the same style.
 const { lang, notices } = notFoundPage(Astro.originPathname);
 const t = ui(lang);
 const path = notices.length === 1 ? paths.notFound(lang) : '/404/';

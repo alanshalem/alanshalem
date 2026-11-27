@@ -3,8 +3,8 @@ import { generativeCover } from './generative.ts';
 import { readAttribute } from './html.ts';
 
 /**
- * Portada efectiva de un post (L5): `coverUrl` → primera imagen del Markdown → SVG generativo (S3b).
- * Se resuelve en build time; todo lo de este archivo es puro (sin red, sin entorno).
+ * A post's effective cover: `coverUrl` → first Markdown image → generative SVG.
+ * Resolved at build time; everything in this file is pure (no network, no environment).
  */
 export type Cover =
   | { kind: 'image'; src: string; alt: string; source: 'cover' | 'markdown' }
@@ -12,17 +12,17 @@ export type Cover =
 
 export interface CoverInput {
   slug: string;
-  /** Tema principal: varía la portada generativa. */
+  /** Main topic: varies the generative cover. */
   tag?: string | undefined;
   coverUrl?: string | null | undefined;
   coverAlt?: string | null | undefined;
-  /** HTML ya renderizado por @blog/markdown: solo trae <img> con URLs que el renderer aceptó. */
+  /** HTML already rendered by @blog/markdown: it only has <img>s with URLs the renderer accepted. */
   html: string;
 }
 
 /**
- * URL de imagen aceptable: la misma allowlist que @blog/markdown (`sanitizeUrl`)
- * y además solo http(s) o rutas relativas (mailto:/tel: no son imágenes).
+ * An acceptable image URL: the same allowlist as @blog/markdown (`sanitizeUrl`)
+ * and, on top of it, only http(s) or relative paths (mailto:/tel: are not images).
  */
 export function acceptImageUrl(raw: string | null | undefined): string | null {
   if (raw == null) return null;
@@ -33,7 +33,7 @@ export function acceptImageUrl(raw: string | null | undefined): string | null {
   return url;
 }
 
-/** Primera <img> aceptable del HTML renderizado, con src y alt ya sin escapar. */
+/** The first acceptable <img> of the rendered HTML, with src and alt already unescaped. */
 export function firstMarkdownImage(html: string): { src: string; alt: string } | null {
   for (const match of html.matchAll(/<img\b[^>]*>/g)) {
     const tag = match[0];
@@ -53,7 +53,7 @@ export function resolveCover({ slug, tag, coverUrl, coverAlt, html }: CoverInput
   return { kind: 'generative', svg: generativeCover(slug, tag ?? '') };
 }
 
-/** URL absoluta para og:image (o para usar la imagen fuera de la página del post). */
+/** Absolute URL for og:image (or to use the image outside the post's page). */
 export function absoluteImageUrl(src: string, base: string): string {
   return new URL(src, base).href;
 }

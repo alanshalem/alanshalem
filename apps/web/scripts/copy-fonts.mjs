@@ -1,12 +1,12 @@
-// Copia las fuentes self-hosted a public/fonts con los nombres que espera tokens.css.
+// Copies the self-hosted fonts to public/fonts with the names tokens.css expects.
 //   pnpm --filter @blog/web fonts
 //
-// Gloock y Hanken Grotesk salen de los paquetes @fontsource (licencia OFL).
-// Pagella (TeX Gyre Pagella, licencia GUST) NO está en npm: ya está versionada en public/fonts (ver LICENSES.txt).
-// Para regenerarla, bajarla de
-// https://www.gust.org.pl/projects/e-foundry/tex-gyre/pagella, convertir los .otf a woff2
-// y dejarlos como pagella-regular-latin.woff2, pagella-italic-latin.woff2 y pagella-bold-latin.woff2.
-// Sin ellos el sitio funciona igual: la pila de fuentes cae a Palatino / Georgia.
+// Gloock and Hanken Grotesk come from the @fontsource packages (OFL license).
+// Pagella (TeX Gyre Pagella, GUST license) is NOT on npm: it is already committed in public/fonts (see LICENSES.txt).
+// To regenerate it, download it from
+// https://www.gust.org.pl/projects/e-foundry/tex-gyre/pagella, convert the .otf files to woff2
+// and save them as pagella-regular-latin.woff2, pagella-italic-latin.woff2 and pagella-bold-latin.woff2.
+// Without them the site works all the same: the font stack falls back to Palatino / Georgia.
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -25,7 +25,7 @@ for (const [source, target] of fonts) {
   const packageDir = dirname(require.resolve(`${packageName}/package.json`));
   const file = join(packageDir, source.slice(packageName.length + 1));
   if (!existsSync(file)) {
-    console.error(`No se encontró ${source} (¿cambió el nombre del archivo en @fontsource?)`);
+    console.error(`${source} not found (did the file name change in @fontsource?)`);
     process.exitCode = 1;
     continue;
   }
@@ -35,6 +35,6 @@ for (const [source, target] of fonts) {
 
 for (const pagella of ['regular', 'italic', 'bold']) {
   if (!existsSync(join(outDir, `pagella-${pagella}-latin.woff2`))) {
-    console.warn(`⚠ Falta pagella-${pagella}-latin.woff2 (ver instrucciones arriba).`);
+    console.warn(`⚠ pagella-${pagella}-latin.woff2 is missing (see the instructions above).`);
   }
 }

@@ -3,71 +3,71 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { HERO_PLAYING_CLASS } from '../src/lib/hero-rotation.ts';
 
-// Guardas de estilo que no se ven en los tests de HTML. site.css no tiene anidamiento: cada regla es `selector { … }`.
+// Style guards that the HTML tests do not see. site.css has no nesting: every rule is `selector { … }`.
 const css = readFileSync(new URL('../src/styles/site.css', import.meta.url), 'utf8');
 
-/** Las declaraciones de la regla cuyo selector es exactamente `selector`. */
+/** The declarations of the rule whose selector is exactly `selector`. */
 function declarations(selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rule = new RegExp(String.raw`(?:^|[}\s])${escaped}\s*\{([^}]*)\}`, 'm').exec(css);
-  assert.ok(rule, `falta la regla ${selector}`);
+  assert.ok(rule, `missing rule ${selector}`);
   return rule[1]!;
 }
 
-test('sobre el hero, el idioma no actual del selector ES/EN se lee como el menú y el actual se marca como en el menú', () => {
-  // text-tertiary sobre una foto clara casi no se ve (multiidioma L9). El menú usa text-primary sobre el overlay.
+test('over the hero, the non-current language of the ES/EN switcher reads like the menu and the current one is marked like in the menu', () => {
+  // text-tertiary is barely visible over a light photo. The menu uses text-primary over the overlay.
   assert.match(declarations('.site-header--overlay .lang-switch a'), /color:\s*var\(--text-primary\)/);
   assert.match(declarations(".site-header--overlay .lang-switch a[aria-current='true']"), /text-decoration:\s*underline/);
-  // Sistema de diseño: sin sombras, tampoco en el texto.
+  // Design system: no shadows, not on text either.
   assert.doesNotMatch(css, /text-shadow/);
 });
 
-test('sobre las fotos del hero y de la portada, crédito, fecha y temas no usan el gris terciario (WCAG 1.4.3, L4 P1-1)', () => {
-  // text-tertiary necesita un overlay de ~0,91 sobre una foto blanca; text-secondary se lee desde ~0,70 (contrast.test.ts).
+test('over the hero and cover photos, credit, date and topics do not use the tertiary gray (WCAG 1.4.3)', () => {
+  // text-tertiary needs a ~0.91 overlay over a white photo; text-secondary reads from ~0.70 (contrast.test.ts).
   assert.match(declarations('.hero-credit'), /color:\s*var\(--text-secondary\)/);
   assert.match(declarations('.article-hero .meta'), /color:\s*var\(--text-secondary\)/);
-  // Los temas van arriba del título, donde el overlay es más liviano: en text-primary, como el menú sobre el hero.
+  // The topics go above the title, where the overlay is lighter: in text-primary, like the menu over the hero.
   assert.match(declarations('.article-hero .eyebrow'), /color:\s*var\(--text-primary\)/);
 });
 
-test('botón Reproducir/Pausar del hero: accesible y oculto hasta que el script lo muestra (S1, L3)', () => {
-  // Sin JS (o en una foto) queda `hidden`; su `display` propio no puede ganarle al atributo.
+test('hero Play/Pause button: accessible and hidden until the script shows it', () => {
+  // Without JS (or for a photo) it stays `hidden`; its own `display` cannot win over the attribute.
   assert.match(declarations('.hero-toggle[hidden]'), /display:\s*none/);
   const button = declarations('.hero-toggle');
-  // WCAG 2.5.8: objetivo de al menos 44 × 44 px (2.75rem).
+  // WCAG 2.5.8: a target of at least 44 × 44 px (2.75rem).
   assert.match(button, /min-width:\s*2\.75rem/);
   assert.match(button, /min-height:\s*2\.75rem/);
-  // Como el botón ☰: borde de 1px translúcido, sin radio; etiqueta en Hanken.
+  // Like the ☰ button: a translucent 1px border, no radius; label in Hanken.
   assert.match(button, /border:\s*1px solid rgba\(237, 237, 234, 0\.4\)/);
   assert.match(button, /border-radius:\s*0/);
   assert.match(button, /font-family:\s*var\(--font-ui\)/);
-  // WCAG 2.4.7: foco visible.
+  // WCAG 2.4.7: visible focus.
   assert.match(declarations('.hero-toggle:focus-visible'), /outline:\s*2px solid/);
-  // Un solo texto visible (y en el nombre accesible) según el estado que pone el script; `visibility` y no `display`
-  // para que el botón no cambie de ancho al alternar (los dos textos comparten la celda).
+  // A single visible text (and in the accessible name) by the state the script sets; `visibility`, not `display`, so
+  // the button does not change width when toggled (both texts share the cell).
   assert.match(declarations(`.hero-toggle.${HERO_PLAYING_CLASS} .hero-toggle-play`), /visibility:\s*hidden/);
   assert.match(declarations(`.hero-toggle:not(.${HERO_PLAYING_CLASS}) .hero-toggle-pause`), /visibility:\s*hidden/);
-  // El contenedor de medios del hero no arma caja propia: el guardián lo oculta entero (fondo y botón juntos).
+  // The hero's media container makes no box of its own: the guard hides it whole (background and button together).
   assert.match(declarations('.hero-media'), /display:\s*contents/);
 });
 
-test('tiles de temas: velo detrás del texto con el mismo token que el hero (WCAG 1.4.3, P3 L4: 1,7:1 → 9,1:1 en Chrome)', () => {
+test('topic tiles: a veil behind the text with the same token as the hero (WCAG 1.4.3: 1.7:1 → 9.1:1 in Chrome)', () => {
   assert.match(declarations('.tile-body::before'), /background:\s*var\(--overlay-hero-text\)/);
   assert.match(declarations('.tile-body'), /z-index:\s*0/);
   assert.match(declarations('.tile'), /overflow:\s*hidden/);
 });
 
-test('cabecera: sin `order` en ninguna regla, lo que se ve sigue el orden del HTML y del Tab (WCAG 2.4.3)', () => {
+test('header: no `order` in any rule, what is seen follows the HTML and Tab order (WCAG 2.4.3)', () => {
   assert.doesNotMatch(css, /(?:^|[;{\s])order:/m);
   assert.match(css, /\.site-nav a\[aria-current\] \{/);
 });
 
-test('cabecera: links en la fila desde 900px y en el panel del ☰ por debajo (L13)', () => {
-  // Por debajo de 900px: la fila de links no se ve (ni se enfoca) y el panel solo cuando el ☰ está abierto.
+test('header: links in the row from 900px and in the ☰ panel below that', () => {
+  // Below 900px: the row of links is not shown (nor focusable) and the panel only while the ☰ is open.
   assert.match(declarations('.site-nav--bar'), /display:\s*none/);
   assert.match(declarations('.site-nav--menu'), /display:\s*none/);
   assert.match(declarations(".nav-toggle[aria-expanded='true'] + .site-nav--menu"), /display:\s*flex/);
-  // Desde 900px, al revés: la fila de links y ni ☰ ni panel (aunque haya quedado abierto antes de agrandar la ventana).
+  // From 900px, the opposite: the row of links and neither ☰ nor panel (even if left open before widening the window).
   const wide = /@media \(min-width: 900px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? '';
   assert.match(wide, /\.site-nav--bar \{[^}]*display:\s*flex/);
   assert.match(wide, /\.nav-toggle, \.nav-toggle\[aria-expanded='true'\] \+ \.site-nav--menu \{[^}]*display:\s*none/);

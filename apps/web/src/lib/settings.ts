@@ -2,14 +2,14 @@ import { sanitizeUrl } from '@blog/markdown';
 import { getInternal, oncePerBuild } from './api.ts';
 import { DEFAULT_LANG, ui, type Lang } from './i18n.ts';
 
-/** Forma en que la API entrega los ajustes del sitio (GET /api/internal/settings, L4). */
+/** How the API delivers the site settings (GET /api/internal/settings). */
 export interface ApiSettings {
-  /** Obligatorio: la API nunca lo guarda vacío (SiteSettingsContent.Create) y, sin ajustes guardados, manda el de fábrica. */
+  /** Required: the API never stores it empty (SiteSettingsContent.Create) and sends the default if none is saved. */
   name: string;
   tagline: string | null;
-  /** Markdown corto: se renderiza con @blog/markdown. */
+  /** Short Markdown: rendered with @blog/markdown. */
   bio: string | null;
-  /** Versiones en inglés (L4, L6); nulas → se usa el español. El nombre es uno solo en los dos idiomas (L12). */
+  /** English versions; null → the Spanish one is used. The name is one for both languages (a proper name). */
   taglineEn?: string | null;
   bioEn?: string | null;
   email: string | null;
@@ -18,7 +18,7 @@ export interface ApiSettings {
   xUrl: string | null;
 }
 
-/** Ajustes ya resueltos para las páginas de UN idioma. */
+/** Settings already resolved for the pages of ONE language. */
 export interface SiteSettings {
   name: string;
   tagline: string;
@@ -29,13 +29,13 @@ export interface SiteSettings {
   xUrl: string | null;
 }
 
-/** Texto recortado; vacío => null. */
+/** Trimmed text; empty => null. */
 const text = (value: string | null | undefined): string | null => {
   const trimmed = value?.trim() ?? '';
   return trimmed === '' ? null : trimmed;
 };
 
-/** Solo links http(s) que pasan la allowlist de @blog/markdown. */
+/** Only http(s) links that pass the @blog/markdown allowlist. */
 const webUrl = (value: string | null | undefined): string | null => {
   const url = text(value) === null ? null : sanitizeUrl(value as string);
   return url && /^https?:\/\//i.test(url) ? url : null;
@@ -47,17 +47,18 @@ const emailAddress = (value: string | null | undefined): string | null => {
 };
 
 /**
- * Ajustes efectivos de un idioma: todo sale de la API. Solo la bajada puede llegar vacía y entonces usa la del
- * diccionario en el idioma de la página. En inglés, bajada y bio usan taglineEn / bioEn y, si faltan, los de español
- * (L3, L6): mejor un texto en español que ninguno. El nombre es uno solo en los dos idiomas (L12) y es también el
- * autor del pie ("© año …"). Sin nombre la API rompió su contrato: el build falla y el builder conserva el sitio.
+ * A language's effective settings: everything comes from the API. Only the tagline may arrive empty, and then the
+ * dictionary one in the page's language is used. In English, tagline and bio use taglineEn / bioEn and, when they are
+ * missing, the Spanish ones: better a Spanish text than none. The name is one for both languages (a proper name) and
+ * is also the footer's author ("© year …"). Without a name the API broke its contract: the build fails and the
+ * builder keeps the published site.
  */
 export function toSiteSettings(api: ApiSettings, lang: Lang = DEFAULT_LANG): SiteSettings {
-  // Campo en español con su par `En`: en inglés gana el par si trae texto.
+  // A Spanish field with its `En` pair: in English the pair wins when it has text.
   const localized = (es: string | null | undefined, english: string | null | undefined): string | null =>
     (lang === 'en' ? text(english) : null) ?? text(es);
   const name = text(api.name);
-  if (name === null) throw new Error('La API devolvió los ajustes del sitio sin nombre.');
+  if (name === null) throw new Error('The API returned the site settings without a name.');
   return {
     name,
     tagline: localized(api.tagline, api.taglineEn) ?? ui(lang).defaultTagline,
@@ -69,7 +70,7 @@ export function toSiteSettings(api: ApiSettings, lang: Lang = DEFAULT_LANG): Sit
   };
 }
 
-/** Links de contacto presentes, en el orden en que se muestran (hero y footer). */
+/** The contact links present, in display order (hero and footer). */
 export function contactLinks(settings: SiteSettings): Array<{ label: string; href: string }> {
   const links: Array<{ label: string; href: string | null }> = [
     { label: settings.email ?? '', href: settings.email && `mailto:${settings.email}` },
@@ -81,9 +82,9 @@ export function contactLinks(settings: SiteSettings): Array<{ label: string; hre
 }
 
 const getApiSettings = oncePerBuild(() =>
-  getInternal<ApiSettings>('/api/internal/settings', 'los ajustes del sitio'),
+  getInternal<ApiSettings>('/api/internal/settings', 'the site settings'),
 );
 
-/** Una sola petición por build para los dos idiomas; cada página resuelve los suyos. */
+/** One request per build for both languages; each page resolves its own. */
 export const getSettings = async (lang: Lang): Promise<SiteSettings> =>
   toSiteSettings(await getApiSettings(), lang);

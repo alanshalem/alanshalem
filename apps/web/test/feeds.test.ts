@@ -19,20 +19,20 @@ const post = toBlogPost({
   publishedAt: '2026-11-01T12:00:00Z',
 });
 
-describe('rssXml: un feed por idioma (L3)', () => {
+describe('rssXml: one feed per language', () => {
   const xml = rssXml({ lang: 'en', title: 'Ana · Articles', description: 'I write.', posts: [post], baseUrl: BASE });
 
-  it('canal con título, descripción, idioma y self del idioma', () => {
+  it('channel with title, description, language and the language self link', () => {
     assert.match(xml, /<title>Ana · Articles<\/title>/);
     assert.match(xml, /<description>I write\.<\/description>/);
     assert.match(xml, /<language>en<\/language>/);
     assert.match(xml, /<link>https:\/\/blog\.test\/en\/<\/link>/);
     assert.match(xml, /<atom:link href="https:\/\/blog\.test\/en\/rss\.xml" rel="self"/);
   });
-  it('una hoja de estilo CSS del idioma para verlo en el navegador (los lectores de feeds la ignoran)', () => {
+  it('a CSS stylesheet of the language to view it in a browser (feed readers ignore it)', () => {
     assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>\n<?xml-stylesheet type="text/css" href="/en/rss.css"?>\n<rss '));
   });
-  it('ítems con URL absoluta del idioma, texto escapado y URLs del cuerpo absolutas', () => {
+  it('items with the language absolute URL, escaped text and absolute body URLs', () => {
     assert.match(xml, /<link>https:\/\/blog\.test\/en\/articles\/hello\/<\/link>/);
     assert.match(xml, /<title>Hello &amp; &lt;welcome&gt;<\/title>/);
     assert.match(xml, /<description>A &quot;short&quot; summary<\/description>/);
@@ -41,7 +41,7 @@ describe('rssXml: un feed por idioma (L3)', () => {
   });
 });
 
-describe('sitemapXml: todas las páginas, con alternates hreflang donde hay versiones (L3)', () => {
+describe('sitemapXml: every page, with hreflang alternates where there are versions', () => {
   const xml = sitemapXml(
     [
       { path: '/es/', alternates: { es: '/es/', en: '/en/' }, lastmod: new Date('2026-11-02T10:00:00Z') },
@@ -50,29 +50,29 @@ describe('sitemapXml: todas las páginas, con alternates hreflang donde hay vers
     BASE,
   );
 
-  it('declara el espacio xhtml y una <url> por página', () => {
+  it('declares the xhtml namespace and one <url> per page', () => {
     assert.match(xml, /xmlns:xhtml="http:\/\/www\.w3\.org\/1999\/xhtml"/);
     assert.equal(xml.match(/<url>/g)?.length, 2);
     assert.match(xml, /<loc>https:\/\/blog\.test\/es\/<\/loc><lastmod>2026-11-02T10:00:00\.000Z<\/lastmod>/);
   });
-  it('alternates absolutos con x-default solo en las páginas que los tienen', () => {
+  it('absolute alternates with x-default only on the pages that have them', () => {
     assert.match(xml, /<xhtml:link rel="alternate" hreflang="en" href="https:\/\/blog\.test\/en\/"\/>/);
     assert.match(xml, /<xhtml:link rel="alternate" hreflang="x-default" href="https:\/\/blog\.test\/es\/"\/>/);
     assert.match(xml, /<url><loc>https:\/\/blog\.test\/es\/temas\/net\/<\/loc><\/url>/);
   });
 });
 
-describe('rssStylesheet: el feed legible en el navegador (P3, L4)', () => {
+describe('rssStylesheet: the feed readable in a browser', () => {
   const TOKENS = ':root { --bg-page: #0a0a0b; }';
 
-  it('parte de los tokens del sitio y explica qué es, en el idioma del feed', () => {
+  it('starts from the site tokens and explains what it is, in the feed language', () => {
     const es = rssStylesheet('es', TOKENS);
     assert.ok(es.startsWith(TOKENS));
     assert.match(es, /content: "Esto es un feed RSS: copiá la dirección de esta página en tu lector de feeds para recibir los artículos nuevos\.";/);
     assert.match(rssStylesheet('en', TOKENS), /content: "This is an RSS feed: copy this page's address into your feed reader to get new articles\.";/);
   });
 
-  it('muestra título, fecha y resumen de cada artículo; oculta el HTML completo y los datos técnicos', () => {
+  it('shows each article title, date and summary; hides the full HTML and the technical data', () => {
     const css = rssStylesheet('es', TOKENS);
     assert.match(css, /rss \* \{ display: none; \}/);
     assert.match(css, /item > title, item > pubDate, item > description, item > link \{[^}]*display: block;/);

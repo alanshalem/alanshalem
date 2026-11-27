@@ -16,7 +16,7 @@ export async function getStaticPaths() {
     params: { lang: post.lang, posts: segments(post.lang).posts, slug: post.slug },
     props: {
       post,
-      // Sus otras versiones publicadas (hreflang y selector ES | EN).
+      // Its other published versions (hreflang and the ES | EN switcher).
       alternates: alternates.get(post.translationGroupId) ?? {},
       readNext: readNextFor(posts, post),
     },
@@ -34,7 +34,7 @@ const { lang } = post;
 const t = ui(lang);
 const toc = tocEntries(post.headings);
 const image = post.cover.kind === 'image' ? post.cover : null;
-// Solo en la página: el feed RSS conserva las <img> simples que entienden todos los lectores.
+// Only on the page: the RSS feed keeps the plain <img>s that every reader understands.
 const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
 ---
 
@@ -76,7 +76,7 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
 
   {
     image?.alt && (
-      // El texto es el alt de la portada, que el lector de pantalla ya leyó en la imagen: la franja es solo visual.
+      // The text is the cover's alt, which the screen reader already read on the image: the strip is visual only.
       <aside class="image-strip" aria-hidden="true">
         <span class="eyebrow">{t.aboutImage}</span>
         <span>{image.alt}</span>
@@ -120,9 +120,9 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
 
   {
     readNext.length > 0 && (
-      <section class="section" aria-labelledby="seguir-title">
+      <section class="section" aria-labelledby="read-next-title">
         <div class="section-head">
-          <h2 id="seguir-title">{t.readNext}</h2>
+          <h2 id="read-next-title">{t.readNext}</h2>
           <a href={paths.posts(lang)}>{t.allPosts}</a>
         </div>
         <div class="card-grid card-grid--row">
@@ -136,7 +136,7 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
 </BaseLayout>
 
 <script>
-  // Mejora progresiva: resalta en el índice la sección que se está leyendo. Sin JS, el índice funciona igual.
+  // Progressive enhancement: highlights in the table of contents the section being read. Without JS it works the same.
   const links = new Map<string, HTMLAnchorElement>();
   document.querySelectorAll<HTMLAnchorElement>('.toc a').forEach((link) => links.set(link.hash.slice(1), link));
 

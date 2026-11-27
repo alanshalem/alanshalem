@@ -4,16 +4,16 @@ import type { Cover } from '../lib/cover.ts';
 
 interface Props {
   cover: Cover;
-  /** Proporción del recorte: lead 16:9, card 16:10, tile 6:5, hero = llena el contenedor. */
+  /** Crop ratio: lead 16:9, card 16:10, tile 6:5, hero = fills the container. */
   ratio: 'lead' | 'card' | 'tile' | 'hero';
-  /** La primera imagen visible de la página no se difiere. */
+  /** The page's first visible image is not deferred. */
   eager?: boolean;
-  /** Fuerza alt vacío (la imagen acompaña a un título que ya la describe). */
+  /** Forces an empty alt (the image goes with a title that already describes it). */
   decorative?: boolean;
 }
 
 const { cover, ratio, eager = false, decorative = false } = Astro.props;
-// Caja reservada para imágenes que no son assets subidos (de esos se conocen las medidas reales): sin saltos de layout.
+// Reserved box for images that are not uploaded assets (those have known sizes): no layout shifts.
 const size = { lead: [1600, 900], card: [1600, 1000], tile: [1200, 1000], hero: [1920, 1080] }[ratio];
 ---
 

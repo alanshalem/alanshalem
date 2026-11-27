@@ -1,24 +1,24 @@
 import { SITE_TIME_ZONE } from './site.ts';
 
 /**
- * Única fuente de verdad del idioma en el sitio (L3): idiomas, rutas localizadas, textos de interfaz y fechas.
- * Dos idiomas fijos: un objeto por idioma es más simple que una librería de i18n o un esquema genérico (KISS/YAGNI).
- * Todo es puro: las páginas solo eligen el idioma y renderizan.
+ * The single source of truth for language on the site: languages, localized routes, UI texts and dates.
+ * Two fixed languages: one object per language is simpler than an i18n library or a generic scheme (KISS/YAGNI).
+ * Everything is pure: pages only pick the language and render.
  */
 export const LANGS = ['es', 'en'] as const;
 export type Lang = (typeof LANGS)[number];
-/** Idioma principal: x-default de hreflang y destino de la raíz `/` sin regla de Caddy. */
+/** Main language: the hreflang x-default and where the root `/` goes when there is no Caddy rule. */
 export const DEFAULT_LANG: Lang = 'es';
 
 export const isLang = (value: unknown): value is Lang => LANGS.includes(value as Lang);
 
-/** Nombre de cada idioma en su propio idioma (no se traduce: "English" se lee igual desde /es/). */
+/** Each language's name in that language (not translated: "English" reads the same from /es/). */
 export const LANGUAGE_NAMES: Record<Lang, string> = { es: 'Español', en: 'English' };
 
 interface LocaleData {
-  /** Para Intl (fechas). */
+  /** For Intl (dates). */
   intl: string;
-  /** Segmentos de URL traducidos (S4): /es/articulos/ ↔ /en/articles/. */
+  /** Translated URL segments: /es/articulos/ ↔ /en/articles/. */
   segments: { posts: string; topics: string };
 }
 
@@ -27,13 +27,13 @@ const LOCALES: Record<Lang, LocaleData> = {
   en: { intl: 'en-US', segments: { posts: 'articles', topics: 'topics' } },
 };
 
-/** Segmentos traducidos de un idioma: los `getStaticPaths` de las páginas los usan como parámetro de la ruta. */
+/** A language's translated segments: the pages' `getStaticPaths` use them as route parameters. */
 export const segments = (lang: Lang): LocaleData['segments'] => LOCALES[lang].segments;
 
-/** og:locale ("es_AR"): el formato de Open Graph usa guion bajo. */
+/** og:locale ("es_AR"): the Open Graph format uses an underscore. */
 export const ogLocale = (lang: Lang): string => LOCALES[lang].intl.replace('-', '_');
 
-/** Rutas públicas por idioma, con barra final (trailingSlash: 'always'). Ninguna página arma URLs a mano. */
+/** Public routes per language, with a trailing slash (trailingSlash: 'always'). No page builds URLs by hand. */
 export const paths = {
   home: (lang: Lang): string => `/${lang}/`,
   posts: (lang: Lang): string => `/${lang}/${segments(lang).posts}/`,
@@ -41,35 +41,35 @@ export const paths = {
   tags: (lang: Lang): string => `/${lang}/${segments(lang).topics}/`,
   tag: (lang: Lang, tagSlug: string): string => `/${lang}/${segments(lang).topics}/${tagSlug}/`,
   rss: (lang: Lang): string => `/${lang}/rss.xml`,
-  /** Hoja de estilo del feed: lo hace legible al abrirlo en el navegador (lib/feeds.ts). */
+  /** The feed's stylesheet: makes it readable when opened in a browser (lib/feeds.ts). */
   rssStyle: (lang: Lang): string => `/${lang}/rss.css`,
-  /** Página 404 del idioma (L13): un archivo, no una URL del sitio. Caddy la sirve para lo que falte bajo /<lang>/. */
+  /** The language's 404 page: a file, not a site URL. Caddy serves it for anything missing under /<lang>/. */
   notFound: (lang: Lang): string => `/${lang}/404.html`,
 };
 
-/** 404 de las URLs sin prefijo de idioma (bilingüe). Astro la escribe así por ser la página de estado de la raíz. */
+/** The bilingual 404 for URLs without a language prefix. Astro writes it like this: it is the root's status page. */
 export const NOT_FOUND_PATH = '/404.html';
 
-/** Idioma de una ruta por su primer segmento ("/en/…" → en); sin prefijo de idioma, ninguno. */
+/** A route's language from its first segment ("/en/…" → en); none without a language prefix. */
 export const langOfPath = (pathname: string): Lang | undefined => {
   const first = pathname.split('/')[1];
   return isLang(first) ? first : undefined;
 };
 
 /**
- * Qué muestra la página 404 según la URL desde la que se generó (L13): bajo /<lang>/, todo en ese idioma; si no
- * (/404.html, que Caddy usa para cualquier URL sin prefijo), cabecera y pie en el idioma principal y el aviso en los
- * dos, porque no se sabe en qué idioma lee quien llegó.
+ * What the 404 page shows depending on the URL it was generated from: under /<lang>/, everything in that language;
+ * otherwise (/404.html, which Caddy uses for any URL without a prefix), header and footer in the main language and the
+ * notice in both, because there is no telling which language the visitor reads.
  */
 export function notFoundPage(originPathname: string): { lang: Lang; notices: Lang[] } {
   const lang = langOfPath(originPathname);
   return lang ? { lang, notices: [lang] } : { lang: DEFAULT_LANG, notices: [...LANGS] };
 }
 
-/** La página equivalente en cada idioma que la tiene (la propia incluida). Alimenta hreflang y el selector. */
+/** The equivalent page in each language that has it (the page itself included). Feeds hreflang and the switcher. */
 export type Alternates = Partial<Record<Lang, string>>;
 
-/** Páginas que existen en todos los idiomas (home, listados): misma ruta en cada uno. */
+/** Pages that exist in every language (home, listings): the same route in each. */
 export const alternatesFor = (path: (lang: Lang) => string): Alternates =>
   Object.fromEntries(LANGS.map((lang) => [lang, path(lang)]));
 
@@ -80,8 +80,8 @@ export interface LanguageLink {
 }
 
 /**
- * Selector ES | EN (L3): la versión equivalente si existe; si no, `fallback` del otro idioma (la home, o el índice
- * de temas desde un tema: los temas no se traducen uno a uno).
+ * ES | EN switcher: the equivalent version if it exists; otherwise the other language's `fallback` (the home, or the
+ * topics index from a topic: topics are not translated one to one).
  */
 export const switcherLinks = (
   current: Lang,
@@ -90,8 +90,8 @@ export const switcherLinks = (
 ): LanguageLink[] => LANGS.map((lang) => ({ lang, href: alternates[lang] ?? fallback(lang), current: lang === current }));
 
 /**
- * <link rel="alternate" hreflang> (y su par en el sitemap): solo si la página existe en todos los idiomas;
- * una página sin traducción no tiene alternativa que anunciar. x-default apunta al idioma principal.
+ * <link rel="alternate" hreflang> (and its sitemap counterpart): only when the page exists in every language;
+ * an untranslated page has no alternate to announce. x-default points to the main language.
  */
 export function hreflangLinks(alternates: Alternates): Array<{ hreflang: string; href: string }> {
   const links = LANGS.flatMap((lang) => {
@@ -103,9 +103,9 @@ export function hreflangLinks(alternates: Alternates): Array<{ hreflang: string;
   return [...links, { hreflang: 'x-default', href: fallback }];
 }
 
-// ---------- Textos de interfaz ----------
-// `es` define las claves; `en` tiene que tener exactamente las mismas (el tipo lo exige y test/i18n.test.ts también
-// revisa que ninguna quede vacía). `{n}` y `{tag}` se completan con `interpolate`.
+// ---------- UI texts ----------
+// `es` defines the keys; `en` must have exactly the same ones (the type requires it, and test/i18n.test.ts also
+// checks that none is empty). `{n}` and `{tag}` are filled in by `interpolate`.
 
 const es = {
   skipToContent: 'Saltar al contenido',
@@ -115,9 +115,9 @@ const es = {
   posts: 'Artículos',
   topics: 'Temas',
   rss: 'RSS',
-  // Nombre accesible del enlace RSS: empieza con el texto visible (WCAG 2.5.3) y dice qué es.
+  // Accessible name of the RSS link: starts with the visible text (WCAG 2.5.3) and says what it is.
   rssLabel: 'RSS: feed de artículos nuevos',
-  // Lo que se lee arriba del feed abierto en el navegador (lib/feeds.ts, rssStylesheet).
+  // What reads above the feed when opened in a browser (lib/feeds.ts, rssStylesheet).
   rssIntro: 'Esto es un feed RSS: copiá la dirección de esta página en tu lector de feeds para recibir los artículos nuevos.',
   home: 'Inicio',
   contact: 'Contacto',
@@ -129,7 +129,7 @@ const es = {
   minutes: '{n} min',
   readingTime: '{n} min de lectura',
   heroLatest: 'Últimos artículos',
-  // Botón del video del hero (WCAG 2.2.2): el ícono va aparte (aria-hidden), acá solo el nombre accesible.
+  // Hero video button (WCAG 2.2.2): the icon goes separately (aria-hidden); here only the accessible name.
   heroPlay: 'Reproducir',
   heroPause: 'Pausar',
   latest: 'Últimos',
@@ -155,7 +155,7 @@ const es = {
   notFoundHeading: 'Esta página no existe.',
   notFoundDek: 'Puede que la dirección esté mal escrita o que el artículo haya cambiado de lugar.',
   backHome: 'Volver al inicio',
-  // Bajada de respaldo cuando los ajustes no traen una (la única que la API puede mandar vacía; lib/settings.ts).
+  // Fallback tagline when the settings have none (the only field the API may send empty; lib/settings.ts).
   defaultTagline: 'Notas sobre software, ideas y cosas que estoy aprendiendo.',
 };
 
@@ -211,25 +211,25 @@ const en: Record<UiKey, string> = {
 
 const DICTIONARY: Record<Lang, Record<UiKey, string>> = { es, en };
 
-/** Textos de interfaz de un idioma. */
+/** A language's UI texts. */
 export const ui = (lang: Lang): Readonly<Record<UiKey, string>> => DICTIONARY[lang];
 
-/** Completa `{clave}` con los valores dados; una clave sin valor queda tal cual (se nota en la página). */
+/** Fills `{key}` with the given values; a key without a value stays as is (it shows on the page). */
 export const interpolate = (template: string, values: Record<string, string | number>): string =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => (key in values ? String(values[key]) : match));
 
-/** "1 artículo" / "3 artículos". Los dos idiomas solo distinguen uno de varios: no hace falta Intl.PluralRules. */
+/** "1 artículo" / "3 artículos". Both languages only tell one from many: no need for Intl.PluralRules. */
 export const articleCount = (lang: Lang, n: number): string =>
   n === 1 ? ui(lang).articleCountOne : interpolate(ui(lang).articleCountMany, { n });
 
 export interface NavLink {
   label: string;
   href: string;
-  /** Solo si el texto visible no alcanza para saber adónde lleva ("RSS"). */
+  /** Only when the visible text is not enough to tell where it leads ("RSS"). */
   ariaLabel?: string;
 }
 
-/** Menú principal del idioma (cabecera y pie). */
+/** The language's main menu (header and footer). */
 export const navLinks = (lang: Lang): NavLink[] => [
   { label: ui(lang).posts, href: paths.posts(lang) },
   { label: ui(lang).topics, href: paths.tags(lang) },
@@ -237,15 +237,15 @@ export const navLinks = (lang: Lang): NavLink[] => [
 ];
 
 /**
- * `aria-current` de un enlace del menú: "page" solo en la página del enlace; dentro de su sección (un artículo bajo
- * Artículos, un tema bajo Temas) "true", que marca la sección sin decir que es esta página (P3, L4).
+ * `aria-current` of a menu link: "page" only on the link's own page; inside its section (an article under Articles,
+ * a topic under Topics) "true", which marks the section without saying it is this page.
  */
 export function navCurrent(currentPath: string, href: string): 'page' | 'true' | undefined {
   if (currentPath === href) return 'page';
   return currentPath.startsWith(href) ? 'true' : undefined;
 }
 
-// Un formateador por idioma, creado una vez: Intl.DateTimeFormat es caro de construir y se usa en cada tarjeta.
+// One formatter per language, built once: Intl.DateTimeFormat is costly to build and every card uses it.
 const DATE_FORMATTERS = Object.fromEntries(
   LANGS.map((lang) => [lang, new Intl.DateTimeFormat(LOCALES[lang].intl, { dateStyle: 'long', timeZone: SITE_TIME_ZONE })]),
 ) as Record<Lang, Intl.DateTimeFormat>;

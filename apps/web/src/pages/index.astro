@@ -2,8 +2,8 @@
 import { DEFAULT_LANG, LANGS, LANGUAGE_NAMES, paths } from '../lib/i18n.ts';
 import { absoluteUrl } from '../lib/site.ts';
 
-// En producción Caddy redirige `/` según Accept-Language antes de llegar acá (L3). Este archivo cubre los servidores
-// sin esa regla (astro dev, astro preview): va directo al idioma principal, sin JS. Sin layout ni API a propósito.
+// In production Caddy redirects `/` by Accept-Language before it gets here. This file covers servers without that
+// rule (astro dev, astro preview): it goes straight to the main language, without JS. No layout or API on purpose.
 const target = paths.home(DEFAULT_LANG);
 ---
 

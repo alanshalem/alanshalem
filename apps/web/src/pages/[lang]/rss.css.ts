@@ -3,7 +3,7 @@ import type { APIRoute } from 'astro';
 import { rssStylesheet } from '../../lib/feeds.ts';
 import { LANGS, type Lang } from '../../lib/i18n.ts';
 
-/** Hoja de estilo de cada feed (/es/rss.css, /en/rss.css): el aviso va en el idioma del feed. Ver rssStylesheet. */
+/** Each feed's stylesheet (/es/rss.css, /en/rss.css): the notice is in the feed's language. See rssStylesheet. */
 export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang }, props: { lang } }));
 
 export const GET: APIRoute<{ lang: Lang }> = ({ props: { lang } }) =>

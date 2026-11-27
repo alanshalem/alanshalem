@@ -4,8 +4,8 @@ import { describe, it } from 'node:test';
 import { absoluteUrl, site, yearOf } from '../src/lib/site.ts';
 
 /*
- * La URL del sitio sale de un solo lugar (principio 5, L4): `site` de astro.config.mjs, que la arma desde SITE_URL.
- * lib/site.ts la lee de Astro (import.meta.env.SITE) en vez de repetir el cálculo y su valor por defecto.
+ * The site URL comes from one place: `site` in astro.config.mjs, which builds it from SITE_URL.
+ * lib/site.ts reads it from Astro (import.meta.env.SITE) instead of repeating the computation and its default.
  */
 
 const SRC = new URL('../src/', import.meta.url);
@@ -15,19 +15,19 @@ const sourceFiles = (dir: URL): URL[] =>
     entry.isDirectory() ? sourceFiles(new URL(`${entry.name}/`, dir)) : [new URL(entry.name, dir)],
   );
 
-describe('URL del sitio: una sola fuente', () => {
-  it('ningún archivo de src/ lee SITE_URL ni repite el valor por defecto de astro.config.mjs', () => {
+describe('site URL: a single source', () => {
+  it('no file in src/ reads SITE_URL or repeats the astro.config.mjs default', () => {
     const offenders = sourceFiles(SRC)
       .filter((file) => /process\.env\.SITE_URL|localhost:4321/.test(readFileSync(file, 'utf8')))
       .map((file) => file.pathname.slice(SRC.pathname.length));
     assert.deepEqual(offenders, []);
   });
 
-  it('lib/site.ts toma `site` de la configuración de Astro', () => {
+  it('lib/site.ts takes `site` from the Astro config', () => {
     assert.match(readFileSync(new URL('lib/site.ts', SRC), 'utf8'), /import\.meta\.env\?\.SITE/);
   });
 
-  it('fuera de Astro (estos tests) no inventa una URL: queda vacía y las rutas siguen siendo rutas', () => {
+  it('outside Astro (these tests) it invents no URL: it stays empty and paths stay paths', () => {
     assert.equal(site.url, '');
     assert.equal(absoluteUrl('/es/'), '/es/');
   });

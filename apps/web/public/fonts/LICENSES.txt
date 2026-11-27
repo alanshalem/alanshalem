@@ -1,7 +1,7 @@
-Fuentes self-hosted (subset latin, woff2)
+Self-hosted fonts (latin subset, woff2)
 
-- Gloock (gloock-latin.woff2) — SIL Open Font License 1.1. Fuente: @fontsource/gloock.
-- Hanken Grotesk (hanken-grotesk-latin.woff2) — SIL Open Font License 1.1. Fuente: @fontsource-variable/hanken-grotesk.
+- Gloock (gloock-latin.woff2) — SIL Open Font License 1.1. Source: @fontsource/gloock.
+- Hanken Grotesk (hanken-grotesk-latin.woff2) — SIL Open Font License 1.1. Source: @fontsource-variable/hanken-grotesk.
 - TeX Gyre Pagella (pagella-*-latin.woff2) — GUST Font License (https://www.gust.org.pl/projects/e-foundry/licenses).
-  Origen: https://mirrors.ctan.org/fonts/tex-gyre/opentype/ (texgyrepagella-{regular,italic,bold}.otf),
-  recortada con fontTools.subset al rango latin y convertida a woff2.
+  Origin: https://mirrors.ctan.org/fonts/tex-gyre/opentype/ (texgyrepagella-{regular,italic,bold}.otf),
+  subset with fontTools.subset to the latin range and converted to woff2.

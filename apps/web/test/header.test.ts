@@ -3,31 +3,31 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 /*
- * Orden de la cabecera (L13): en escritorio marca · links · ES|EN; en el celular marca · ES|EN · ☰ con el panel abajo.
- * El orden del HTML tiene que ser el que se ve en los dos tamaños (WCAG 2.4.3) sin `order` en el CSS.
+ * Header order: on desktop brand · links · ES|EN; on phones brand · ES|EN · ☰ with the panel below.
+ * The HTML order must be the one seen at both sizes (WCAG 2.4.3), without `order` in the CSS.
  */
 const header = readFileSync(new URL('../src/components/Header.astro', import.meta.url), 'utf8');
 const markup = header.slice(header.indexOf('<header'), header.indexOf('</header>'));
 
 const at = (needle: string): number => {
   const index = markup.indexOf(needle);
-  assert.ok(index >= 0, `falta ${needle}`);
+  assert.ok(index >= 0, `missing ${needle}`);
   return index;
 };
 
-describe('cabecera: el HTML va en el orden en que se ve (WCAG 2.4.3, L13)', () => {
-  it('marca, links de escritorio, ES|EN, ☰ y su panel', () => {
+describe('header: the HTML goes in the order it is seen (WCAG 2.4.3)', () => {
+  it('brand, desktop links, ES|EN, ☰ and its panel', () => {
     const order = ['class="brand"', 'site-nav--bar', 'class="lang-switch"', 'class="nav-toggle"', 'id="site-nav"'].map(at);
     assert.deepEqual([...order].sort((a, b) => a - b), order);
   });
 
-  it('el panel va justo después del ☰ (el CSS lo muestra con `.nav-toggle[aria-expanded="true"] + .site-nav`)', () => {
+  it('the panel comes right after the ☰ (the CSS shows it with `.nav-toggle[aria-expanded="true"] + .site-nav`)', () => {
     assert.match(markup, /aria-controls="site-nav"[^>]*>☰<\/button>\s*<nav id="site-nav"/);
   });
 
-  it('las dos ubicaciones del menú salen de la misma lista (sin copiar los enlaces)', () => {
+  it('the two places of the menu come from the same list (no copied links)', () => {
     assert.equal(markup.match(/\{links\.map\(/g)?.length, 2);
-    // Marca, idioma y los dos lugares del menú: ningún enlace del menú escrito a mano.
+    // Brand, language and the two places of the menu: no menu link written by hand.
     assert.equal(markup.match(/<a\b/g)?.length, 4);
     assert.equal(markup.match(/<a \{\.\.\.attributes\}>\{label\}<\/a>/g)?.length, 2);
   });
