@@ -1,6 +1,6 @@
 ---
 name: dotnet-api-conventions
-description: "Conventions of the .NET 10 API in apps/api (Clean Architecture with Domain, Application, Infrastructure and Api layers, EF Core + SQLite) covering entities and validated content records, DomainException with MessageKeys and the es/en MessageCatalog, ProblemDetails with a stable code for every error, ports and repositories, minimal-API endpoint modules, health endpoints, the command-line modes (hash-password, healthcheck, backup), the admin session epoch, trusted proxies, rebuild triggers and the EF Core migrations workflow. Use when adding or changing anything under apps/api, including a field, a validation rule, an error message, an endpoint, a CLI mode, authentication or a database migration."
+description: "Conventions of the .NET 11 API in apps/api (Clean Architecture with Domain, Application, Infrastructure and Api layers, EF Core + SQLite) covering entities and validated content records, DomainException with MessageKeys and the es/en MessageCatalog, ProblemDetails with a stable code for every error, ports and repositories, minimal-API endpoint modules, health endpoints, the command-line modes (hash-password, healthcheck, backup), the admin session epoch, trusted proxies, rebuild triggers and the EF Core migrations workflow. Use when adding or changing anything under apps/api, including a field, a validation rule, an error message, an endpoint, a CLI mode, authentication or a database migration."
 ---
 
 # .NET API conventions (`apps/api`)
@@ -125,7 +125,10 @@ dotnet test
 - Migrations preserve data: backfill new columns from existing rows (`AddPostContentUpdatedAt` copies the newest
   revision; `AddTranslations` puts each post in its own group). Never `EnsureCreated`; never delete a dev database —
   rename to `.bak` (`DatabaseInitializer` refuses legacy databases with a clear message).
-- `DatabaseInitializer` applies pending migrations at startup and enables WAL.
+- `DatabaseInitializer` applies pending migrations at startup and enables WAL. Since EF Core 9 a model that differs
+  from the snapshot makes `Migrate` throw at startup: run `dotnet ef migrations has-pending-model-changes` before
+  committing a model change.
+- EF Core 11 names new migration classes `_<timestamp>_Name`; existing migrations keep their names.
 - Each data-moving migration gets an upgrade test in `PersistenceTests.cs` named
   `Upgrading_from_<PreviousMigration>_keeps_...` that seeds the old schema and checks the migrated rows.
 - A schema/migration task is high risk: its own commit, with tests over the migrated data (skill `commit-and-review`).
