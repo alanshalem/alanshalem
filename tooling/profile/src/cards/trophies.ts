@@ -26,7 +26,7 @@ export function renderTrophies(data: ProfileData): string {
         t.text(label, x + TILE.padX, y + TILE.label, text.label),
         t.text(tier ?? '–', x + TILE.padX, y + TILE.tier, text.figure),
         t.text(next === null ? count(value) : `${count(value)} / ${count(next)}`, x + TILE.padX, y + TILE.meta, text.meta),
-        // Avance hasta el próximo rango: riel en el color de las reglas, tramo recorrido en el acento.
+        // Progress to the next rank: the track in the rule color, the covered part in the accent.
         rect(x + TILE.padX, y + TILE.bar, inner, 2, `fill="${color.border}"`),
         progress > 0 ? rect(x + TILE.padX, y + TILE.bar, inner * progress, 2, `fill="${color.accent}"`) : '',
       ].join('');

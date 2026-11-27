@@ -1,11 +1,11 @@
 /**
- * Genera las imágenes del README del perfil (assets/profile/*.svg) y la lista de últimos posts del README.
+ * Generates the profile README images (assets/profile/*.svg) and the README's list of latest posts.
  *
- *   node tooling/profile/generate.ts                   datos reales (necesita GITHUB_TOKEN)
- *   node tooling/profile/generate.ts --fixture <file>  sin red, desde un JSON guardado (tooling/profile/fixture.json)
+ *   node tooling/profile/generate.ts                   real data (needs GITHUB_TOKEN)
+ *   node tooling/profile/generate.ts --fixture <file>  offline, from a saved JSON (tooling/profile/fixture.json)
  *
- * BLOG_FEED_URL (opcional): RSS del blog. Sin ella, la sección de posts muestra una línea de "próximamente".
- * Lo corre a diario .github/workflows/profile.yml; acá solo se orquesta: el dibujo y los cálculos viven en src/.
+ * BLOG_FEED_URL (optional): the blog RSS. Without it, the posts section shows a "coming soon" line.
+ * .github/workflows/profile.yml runs it daily; this file only orchestrates: drawing and calculations live in src/.
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { parseArgs } from 'node:util';
@@ -32,7 +32,7 @@ for (const [name, svg] of Object.entries(renderProfile(data))) {
   console.log(`assets/profile/${name} ${(Buffer.byteLength(svg) / 1024).toFixed(1)} KB`);
 }
 
-/** Posts del feed; undefined si el feed falló, para no borrar la lista publicada por una caída pasajera del sitio. */
+/** Feed posts; undefined when the feed failed, so a brief site outage does not wipe the published list. */
 async function latestPosts(feedUrl: string | undefined): Promise<Post[] | undefined> {
   if (!feedUrl) return [];
   try {

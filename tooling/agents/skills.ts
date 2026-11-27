@@ -4,7 +4,8 @@ import { dirname, join, posix } from 'node:path';
 /**
  * Agent skills of this repository: one source (.agents/skills, the open Agent Skills layout read by Codex, Gemini CLI,
  * Cursor, Antigravity, OpenCode…) and byte-identical copies for the agents that look elsewhere (.claude/skills for
- * Claude Code, .github/skills for Copilot in VS Code). See odd/tasks/perfil-skills-produccion.md L2 and L4 (c).
+ * Claude Code, .github/skills for Copilot in VS Code). The copies are generated, never edited by hand, so every agent
+ * reads the same text.
  *
  * validateSkill checks the rules of https://agentskills.io/specification (the same ones as the reference validator,
  * `skills-ref validate`) plus two of this repo: a body of at most MAX_BODY_LINES lines and relative links that exist

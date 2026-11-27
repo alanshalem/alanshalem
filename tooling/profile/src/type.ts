@@ -5,19 +5,19 @@ import pagella from '../fonts/pagella.json' with { type: 'json' };
 import { num } from './svg.ts';
 
 /**
- * Texto dibujado como trazos. GitHub muestra las imágenes del README como <img>, donde un SVG no carga fuentes web
- * y las del sistema cambian según quien mire: con los glifos de las fuentes del sitio (fonts/, ver LICENSES.txt)
- * la tipografía sale igual en todos lados. Cada glifo se define una vez por SVG y cada letra es un <use>.
+ * Text drawn as outlines. GitHub shows README images as <img>, where an SVG loads no web fonts and system fonts vary
+ * by viewer: with the glyphs of the site's fonts (fonts/, see LICENSES.txt) the type looks the same everywhere. Each
+ * glyph is defined once per SVG and each letter is a <use>.
  */
 
 interface Font {
   unitsPerEm: number;
   glyphs: Record<string, { a: number; d: string }>;
-  /** Kerning por par de caracteres ("AV"), en unidades de la fuente. */
+  /** Kerning per character pair ("AV"), in font units. */
   kern: Record<string, number>;
 }
 
-/** Roles del sistema de diseño → glifos. La letra es el prefijo de los ids de esa cara en el SVG. */
+/** Design system roles → glyphs. The letter prefixes the ids of that face in the SVG. */
 const FACES = {
   display: { id: 'd', font: gloock as Font },
   reading: { id: 'r', font: pagella as Font },
@@ -32,18 +32,18 @@ export interface TextStyle {
   /** px */
   size: number;
   fill: string;
-  /** Espacio extra entre letras, en em (como `letter-spacing`). */
+  /** Extra space between letters, in em (like `letter-spacing`). */
   tracking?: number;
-  /** Como `text-transform: uppercase`: el texto se escribe normal y el estilo decide cómo se ve. */
+  /** Like `text-transform: uppercase`: the text is written normally and the style decides how it looks. */
   uppercase?: boolean;
 }
 
 export type Anchor = 'start' | 'middle' | 'end';
 
-// Fuera del juego de glifos (fonts/extract-glyphs.py) se dibuja "?": visible, en vez de un hueco que pase inadvertido.
+// Outside the glyph set (fonts/extract-glyphs.py) a "?" is drawn: visible, instead of a gap that goes unnoticed.
 const glyphOf = (font: Font, ch: string): string => (font.glyphs[ch] ? ch : '?');
 
-/** Posición x (en unidades de la fuente) de cada carácter y el ancho total. */
+/** The x position (in font units) of each character and the total width. */
 function layoutUnits(content: string, style: TextStyle): { chars: string[]; xs: number[]; width: number } {
   const { font } = FACES[style.face];
   const track = (style.tracking ?? 0) * font.unitsPerEm;
@@ -58,12 +58,12 @@ function layoutUnits(content: string, style: TextStyle): { chars: string[]; xs: 
   return { chars, xs, width: pen };
 }
 
-/** Ancho en px. El tracking va entre letras y no después de la última, para que centrar y alinear sea exacto. */
+/** Width in px. Tracking goes between letters and not after the last one, so centering and aligning are exact. */
 export function measure(content: string, style: TextStyle): number {
   return (layoutUnits(content, style).width * style.size) / FACES[style.face].font.unitsPerEm;
 }
 
-/** Corta en palabras sin pasar de `width`; una palabra más ancha que la línea queda sola. */
+/** Wraps at words without exceeding `width`; a word wider than the line stays alone. */
 export function wrap(content: string, style: TextStyle, width: number): string[] {
   const lines: string[] = [];
   for (const word of content.split(/\s+/).filter(Boolean)) {
@@ -74,11 +74,11 @@ export function wrap(content: string, style: TextStyle, width: number): string[]
   return lines;
 }
 
-/** Junta los glifos que usa un SVG para definirlos una sola vez en su <defs>. */
+/** Collects the glyphs an SVG uses to define each one once in its <defs>. */
 export function createTypesetter() {
   const used = new Map<string, string>();
   return {
-    /** Una línea de texto con la línea base en `y`. */
+    /** One line of text with its baseline at `y`. */
     text(content: string, x: number, y: number, style: TextStyle, anchor: Anchor = 'start'): string {
       const { id, font } = FACES[style.face];
       const { chars, xs, width } = layoutUnits(content, style);
@@ -86,7 +86,7 @@ export function createTypesetter() {
       const left = x - (anchor === 'start' ? 0 : anchor === 'middle' ? width / 2 : width) * scale;
       const uses = chars.flatMap((ch, i) => {
         const { d } = font.glyphs[ch]!;
-        if (!d) return []; // espacios: avanzan pero no se dibujan
+        if (!d) return []; // spaces: they advance but are not drawn
         const glyphId = `${id}${ch.codePointAt(0)!.toString(36)}`;
         used.set(glyphId, d);
         return [`<use href="#${glyphId}" x="${xs[i]}"/>`];

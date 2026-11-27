@@ -1,4 +1,4 @@
-/** Formatos en inglés (el README del perfil es en inglés), siempre en UTC para que el render sea determinista. */
+/** English formats (the profile README is in English), always in UTC so the render is deterministic. */
 
 export const count = (value: number): string => value.toLocaleString('en-US');
 
@@ -18,7 +18,7 @@ export const month = (iso: string): string => date(iso, { month: 'short' });
 /** "Mar 2019" */
 export const monthYear = (iso: string): string => date(iso, { month: 'short', year: 'numeric' });
 
-/** "Nov 20 – Nov 26, 2026"; con años distintos, los dos completos; un solo día, la fecha. */
+/** "Nov 20 – Nov 26, 2026"; with different years, both in full; a single day, just the date. */
 export function dayRange(start: string, end: string): string {
   if (start === end) return fullDate(start);
   const sameYear = start.slice(0, 4) === end.slice(0, 4);

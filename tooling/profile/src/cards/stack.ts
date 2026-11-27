@@ -5,7 +5,7 @@ import { createTypesetter, measure, type Typesetter } from '../type.ts';
 import { box, CONTENT_TOP, frame, HEADER_BASELINE, MARKER, marker, sectionHeader } from './frame.ts';
 
 const LABEL_COLUMN = 132;
-// Línea base del texto a 18,5 px del borde de arriba: centra ópticamente la altura de mayúsculas de Hanken a 13 px.
+// Text baseline 18.5 px below the top edge: optically centers Hanken's cap height at 13 px.
 const CHIP = { height: 28, baseline: 18.5, padX: 10, gap: 8, markerGap: 7 } as const;
 const SECTION_GAP = 16;
 const LEGEND = 'Used to build this blog';
@@ -23,7 +23,7 @@ function chip(t: Typesetter, tech: Tech, x: number, y: number): string {
   return parts + t.text(tech.name, textX, y + CHIP.baseline, text.body);
 }
 
-/** Chips de una categoría en filas que no pasan del ancho; devuelve el SVG y dónde terminó. */
+/** A category's chips in rows that stay within the width; returns the SVG and where it ended. */
 function chipRows(t: Typesetter, items: readonly Tech[], left: number, right: number, top: number) {
   let x = left;
   let y = top;

@@ -1,6 +1,6 @@
 import type { ProfileData } from './model.ts';
 
-/** Cálculos sobre los datos públicos del perfil. Puros: no leen el reloj ni la red. */
+/** Calculations over the profile's public data. Pure: they read neither the clock nor the network. */
 
 export const DAY = 86_400_000;
 const dayNumber = (date: string): number => Date.parse(`${date}T00:00:00Z`) / DAY;
@@ -18,8 +18,8 @@ export interface Streaks {
 }
 
 /**
- * Racha actual y más larga de días seguidos con contribuciones. Hoy sin contribuciones no corta la racha actual
- * (el día todavía no terminó); ayer sin contribuciones, sí.
+ * Current and longest streak of consecutive days with contributions. Today without contributions does not break the
+ * current streak (the day is not over yet); yesterday without contributions does.
  */
 export function streaks(contributions: Record<string, number>, today: string): Streaks {
   const active = Object.entries(contributions)
@@ -41,7 +41,7 @@ export function streaks(contributions: Record<string, number>, today: string): S
 
   const latest = runs.at(-1);
   const current = latest && dayNumber(today) - dayNumber(latest.end) <= 1 ? latest : { days: 0 };
-  // Ante un empate gana la primera: la racha más larga no "se mueve" cuando otra la iguala.
+  // On a tie the first one wins: the longest streak does not "move" when another one equals it.
   const longest = runs.reduce<Run>((best, run) => (run.days > best.days ? run : best), { days: 0 });
   return { total, current: { ...current }, longest: { ...longest } };
 }
@@ -51,7 +51,7 @@ export interface LanguageShare {
   share: number;
 }
 
-/** Los `limit` lenguajes con más bytes y el resto sumado como "Other", en proporción del total. */
+/** The `limit` languages with the most bytes and the rest summed as "Other", as shares of the total. */
 export function topLanguages(bytes: Record<string, number>, limit: number): LanguageShare[] {
   const sorted = Object.entries(bytes).sort(([a, x], [b, y]) => y - x || a.localeCompare(b));
   const total = sorted.reduce((sum, [, size]) => sum + size, 0);
@@ -61,7 +61,7 @@ export function topLanguages(bytes: Record<string, number>, limit: number): Lang
   return rest > 0 ? [...top, { name: 'Other', share: rest / total }] : top;
 }
 
-/** Años completos entre dos instantes: el aniversario cuenta desde ese día, sin mirar la hora. */
+/** Full years between two instants: the anniversary counts from that day on, regardless of the time. */
 export function fullYearsBetween(from: string, to: string): number {
   const [a, b] = [from, to].map((iso) => new Date(iso).toISOString().slice(0, 10));
   const years = Number(b!.slice(0, 4)) - Number(a!.slice(0, 4));
@@ -72,15 +72,15 @@ export const TIERS = ['C', 'B', 'A', 'AA', 'AAA', 'S'] as const;
 export type Tier = (typeof TIERS)[number];
 
 export interface Rank {
-  /** null: todavía no llegó al primer umbral. */
+  /** null: the first threshold is not reached yet. */
   tier: Tier | null;
-  /** Valor del próximo rango; null en el último. */
+  /** Value of the next rank; null on the last one. */
   next: number | null;
-  /** Avance de 0 a 1 desde el rango actual hasta el próximo. */
+  /** Progress from 0 to 1 from the current rank to the next one. */
   progress: number;
 }
 
-/** Rango según umbrales crecientes, uno por cada nivel de TIERS. */
+/** Rank by increasing thresholds, one per TIERS level. */
 export function rank(value: number, thresholds: readonly number[]): Rank {
   const reached = thresholds.filter((t) => value >= t).length;
   const floor = reached === 0 ? 0 : thresholds[reached - 1]!;
@@ -94,15 +94,15 @@ export function rank(value: number, thresholds: readonly number[]): Rank {
 
 export interface Trophy {
   key: string;
-  /** Corto: entra en una baldosa de la fila de trofeos. */
+  /** Short: it fits in one tile of the trophy row. */
   label: string;
   value: (data: ProfileData) => number;
   thresholds: readonly number[];
 }
 
 /**
- * Trofeos calculados acá, sin servicios externos. Umbrales pensados para un perfil personal: el primer nivel se
- * alcanza con la primera contribución de cada tipo y el último pide constancia de años (commits: del último año).
+ * Trophies computed here, without external services. Thresholds meant for a personal profile: the first level is
+ * reached with the first contribution of each kind and the last one takes years of consistency (commits: last year's).
  */
 export const TROPHIES: readonly Trophy[] = [
   { key: 'stars', label: 'Stars', value: (d) => d.stars, thresholds: [1, 10, 30, 60, 100, 200] },

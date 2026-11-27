@@ -48,7 +48,7 @@ const snapshot = (): Map<string, string> => {
 
 const SKILL_A = '---\nname: alpha\ndescription: Does A. Use when A.\n---\n# Alpha\n\nSee [rules](references/rules.md).\n';
 // CRLF, a tab and non-ASCII bytes: the copies must keep them exactly.
-const RULES_A = Buffer.from('Rule one\r\n\tRegla dos — “ñ”\r\n', 'utf8');
+const RULES_A = Buffer.from('Rule one\r\n\tRule two — “ñ”\r\n', 'utf8');
 const SKILL_B = '---\nname: beta\ndescription: Does B. Use when B.\n---\n# Beta\n';
 
 beforeEach(() => {

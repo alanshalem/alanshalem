@@ -5,19 +5,19 @@ import { postsMarkdown, replaceMarked } from '../src/readme.ts';
 describe('replaceMarked', () => {
   const readme = 'intro\n<!-- BLOG-POSTS:START -->\nold\nlines\n<!-- BLOG-POSTS:END -->\noutro\n';
 
-  it('reemplaza solo lo que está entre los marcadores y los conserva', () => {
+  it('replaces only what sits between the markers and keeps them', () => {
     assert.equal(
       replaceMarked(readme, 'BLOG-POSTS', 'new'),
       'intro\n<!-- BLOG-POSTS:START -->\nnew\n<!-- BLOG-POSTS:END -->\noutro\n',
     );
   });
 
-  it('es idempotente', () => {
+  it('is idempotent', () => {
     const once = replaceMarked(readme, 'BLOG-POSTS', 'same');
     assert.equal(replaceMarked(once, 'BLOG-POSTS', 'same'), once);
   });
 
-  it('sin marcadores, o en otro orden, falla en vez de no actualizar nada en silencio', () => {
+  it('without markers, or in another order, it fails instead of silently updating nothing', () => {
     assert.throws(() => replaceMarked('nothing', 'BLOG-POSTS', 'x'), /BLOG-POSTS:START/);
     assert.throws(
       () => replaceMarked('<!-- BLOG-POSTS:END -->\n<!-- BLOG-POSTS:START -->', 'BLOG-POSTS', 'x'),
@@ -25,13 +25,13 @@ describe('replaceMarked', () => {
     );
   });
 
-  it('un contenido con "$" se inserta literal (no como patrón de reemplazo)', () => {
+  it('content with "$" is inserted literally (not as a replacement pattern)', () => {
     assert.match(replaceMarked(readme, 'BLOG-POSTS', "costs $& and $1"), /costs \$& and \$1/);
   });
 });
 
 describe('postsMarkdown', () => {
-  it('lista los posts como enlaces con la fecha en inglés (UTC)', () => {
+  it('lists the posts as links with the date in English (UTC)', () => {
     const markdown = postsMarkdown([
       { title: 'Hello', url: 'https://example.com/en/articles/hello/', date: '2026-11-25T23:30:00.000Z' },
       { title: 'Second', url: 'https://example.com/en/articles/second/', date: '2026-01-02T00:00:00.000Z' },
@@ -45,7 +45,7 @@ describe('postsMarkdown', () => {
     );
   });
 
-  it('escapa en el título lo que Markdown o HTML interpretarían, y los paréntesis y espacios del enlace', () => {
+  it('escapes what Markdown or HTML would interpret in the title, and the link parentheses and spaces', () => {
     const markdown = postsMarkdown([
       { title: 'A [link] *bold* <b>x</b> `c` _u_ \\ |', url: 'https://example.com/a (b)/', date: '2026-11-25T00:00:00.000Z' },
     ]);
@@ -55,7 +55,7 @@ describe('postsMarkdown', () => {
     );
   });
 
-  it('a lo sumo 5 posts', () => {
+  it('at most 5 posts', () => {
     const posts = Array.from({ length: 7 }, (_, i) => ({
       title: `P${i}`,
       url: `https://example.com/${i}`,
@@ -64,7 +64,7 @@ describe('postsMarkdown', () => {
     assert.equal(postsMarkdown(posts).split('\n').length, 5);
   });
 
-  it('sin posts, una línea de "próximamente"', () => {
+  it('without posts, a "coming soon" line', () => {
     assert.equal(postsMarkdown([]), '<sub>The blog is on its way — new posts will show up here.</sub>');
   });
 });

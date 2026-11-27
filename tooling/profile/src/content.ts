@@ -1,6 +1,6 @@
 /**
- * Lo que dicen las imágenes que no sale de la API: quién es, el stack y el proyecto destacado. Separado del dibujo
- * para cambiar un texto sin tocar el layout (y al revés).
+ * What the images say that does not come from the API: who this is, the stack and the featured project. Kept apart
+ * from the drawing so a text changes without touching the layout (and the other way around).
  */
 
 export const person = {
@@ -12,11 +12,11 @@ export const person = {
 
 export interface Tech {
   name: string;
-  /** Parte del stack de este blog: la tarjeta lo marca con el acento. */
+  /** Part of this blog's stack: the card marks it with the accent. */
   blog?: true;
 }
 
-/** El stack de siempre más el de este proyecto, cada tecnología una sola vez en su categoría. */
+/** The usual stack plus this project's, each technology once in its category. */
 export const stack: ReadonlyArray<{ category: string; items: readonly Tech[] }> = [
   {
     category: 'Frontend',

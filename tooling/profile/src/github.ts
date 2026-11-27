@@ -1,8 +1,8 @@
 import type { ProfileData } from './model.ts';
 
 /**
- * Único módulo que habla con la red: datos públicos del usuario vía la API GraphQL de GitHub. El calendario de
- * contribuciones solo existe en GraphQL, y GraphQL exige token (en la Action, el GITHUB_TOKEN del workflow).
+ * The only module that talks to the network: the user's public data through GitHub's GraphQL API. The contribution
+ * calendar only exists in GraphQL, and GraphQL requires a token (in the Action, the workflow's GITHUB_TOKEN).
  */
 
 const ENDPOINT = 'https://api.github.com/graphql';
@@ -22,7 +22,7 @@ const PROFILE_QUERY = `query($login: String!, $after: String) {
   }
 }`;
 
-// Un rango de contributionsCollection puede abarcar como mucho un año: se pide un calendario por año calendario.
+// A contributionsCollection range spans at most one year: one calendar is requested per calendar year.
 const CALENDAR_QUERY = `query($login: String!, $from: DateTime!, $to: DateTime!) {
   user(login: $login) {
     contributionsCollection(from: $from, to: $to) {
@@ -52,7 +52,7 @@ interface CalendarPage {
 
 export interface FetchOptions {
   token: string | undefined;
-  /** Inyectables para los tests: la red y el reloj. */
+  /** Injectable for the tests: the network and the clock. */
   fetch?: typeof fetch;
   now?: Date;
 }
@@ -116,7 +116,7 @@ export async function fetchProfile(login: string, { token, fetch: request = fetc
   };
 }
 
-/** El feed del blog, como texto. */
+/** The blog feed, as text. */
 export async function fetchText(url: string): Promise<string> {
   const response = await fetch(url, { headers: { 'user-agent': 'alanshalem-profile' } });
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);

@@ -11,14 +11,14 @@ const CELL = 11;
 const STEP = 14;
 const GRID_TOP = 196;
 const FIGURES = { figure: 108, label: 130, meta: 150 } as const;
-// Niveles de intensidad del acento, como el calendario de GitHub pero en la paleta del sitio.
+// Accent intensity levels, like GitHub's calendar but in the site's palette.
 const LEVEL_OPACITY = [0, 0.32, 0.52, 0.76, 1] as const;
 
 const isoDay = (ms: number): string => new Date(ms).toISOString().slice(0, 10);
 
 const runRange = (run: Run): string => (run.start && run.end ? dayRange(run.start, run.end) : 'No streak right now');
 
-/** Calendario de las últimas 53 semanas (columnas de domingo a sábado), un path por nivel para que pese poco. */
+/** Calendar of the last 53 weeks (Sunday-to-Saturday columns), one path per level to keep it light. */
 function heatmap(t: Typesetter, contributions: Record<string, number>, today: string, left: number): string {
   const end = Date.parse(`${today}T00:00:00Z`);
   const start = end - (new Date(end).getUTCDay() + (WEEKS - 1) * 7) * DAY;
@@ -27,14 +27,14 @@ function heatmap(t: Typesetter, contributions: Record<string, number>, today: st
   for (let week = 0; week < WEEKS; week++) {
     const x = left + week * STEP;
     const weekStart = start + week * 7 * DAY;
-    // Cada mes se rotula sobre su primera semana completa, si queda lugar antes del borde.
+    // Each month is labeled over its first full week, when there is room before the edge.
     const first = isoDay(weekStart);
     if (first.slice(8) <= '07' && week < WEEKS - 2) months += t.text(month(first), x, GRID_TOP - 9, text.meta);
     for (let day = 0; day < 7 && weekStart + day * DAY <= end; day++) {
       cells.push({ x, y: GRID_TOP + day * STEP, value: contributions[isoDay(weekStart + day * DAY)] ?? 0 });
     }
   }
-  // La intensidad es relativa al día más activo del período que se ve, no de toda la historia.
+  // Intensity is relative to the busiest day of the visible period, not of the whole history.
   const max = Math.max(1, ...cells.map((cell) => cell.value));
   const levels = LEVEL_OPACITY.map(() => '');
   for (const { x, y, value } of cells) {

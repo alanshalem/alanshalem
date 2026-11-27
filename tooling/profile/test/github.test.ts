@@ -54,7 +54,7 @@ function fakeFetch(calls: Call[]): typeof fetch {
 }
 
 describe('fetchProfile', () => {
-  it('junta perfil, repos paginados y un calendario por año desde que existe la cuenta', async () => {
+  it('gathers the profile, paged repos and one calendar per year since the account exists', async () => {
     const calls: Call[] = [];
     const profile = await fetchProfile('alanshalem', { token: 't0k', now: new Date('2026-02-01T08:00:00Z'), fetch: fakeFetch(calls) });
 
@@ -83,11 +83,11 @@ describe('fetchProfile', () => {
     );
   });
 
-  it('sin token falla con un mensaje que dice qué hacer (GraphQL exige autenticación)', async () => {
+  it('without a token it fails with a message that says what to do (GraphQL requires authentication)', async () => {
     await assert.rejects(fetchProfile('alanshalem', { token: undefined }), /GITHUB_TOKEN.*--fixture/);
   });
 
-  it('un error HTTP o de GraphQL corta la generación con el detalle', async () => {
+  it('an HTTP or GraphQL error stops the generation with the details', async () => {
     const failing = (body: unknown, status: number) =>
       (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
     await assert.rejects(fetchProfile('x', { token: 't', fetch: failing({ message: 'Bad credentials' }, 401) }), /401.*Bad credentials/);

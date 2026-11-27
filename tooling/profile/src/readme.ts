@@ -1,9 +1,12 @@
 import { fullDate } from './format.ts';
 import type { Post } from './model.ts';
 
-/** Partes del README que escribe el generador; el resto del archivo es a mano y no se toca. */
+/** The README parts the generator writes; the rest of the file is hand-written and left alone. */
 
-/** Reemplaza lo que hay entre `<!-- NAME:START -->` y `<!-- NAME:END -->`. Sin marcadores falla: mejor un error en la Action que un README que deja de actualizarse sin aviso. */
+/**
+ * Replaces what sits between `<!-- NAME:START -->` and `<!-- NAME:END -->`. Without the markers it fails: an error in
+ * the Action is better than a README that silently stops updating.
+ */
 export function replaceMarked(text: string, name: string, content: string): string {
   const start = `<!-- ${name}:START -->`;
   const end = `<!-- ${name}:END -->`;
@@ -16,15 +19,15 @@ export function replaceMarked(text: string, name: string, content: string): stri
 export const LATEST_POSTS = 5;
 const COMING_SOON = '<sub>The blog is on its way — new posts will show up here.</sub>';
 
-/** Lo que GitHub interpretaría como Markdown o HTML en el texto de un enlace. */
+/** What GitHub would read as Markdown or HTML in a link text. */
 const escapeMarkdown = (text: string): string =>
   text.replace(/[\\`*_[\]|]/g, '\\$&').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** Lo que cortaría el destino `(...)` del enlace. El resto de la URL ya viene codificado del feed. */
+/** What would cut the link destination `(...)` short. The rest of the URL comes already encoded from the feed. */
 const escapeUrl = (url: string): string =>
   url.replace(/[ ()<>]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`);
 
-/** Lista de los últimos posts (ya ordenados, más nuevos primero) o una línea de "próximamente". */
+/** List of the latest posts (already sorted, newest first) or a "coming soon" line. */
 export function postsMarkdown(posts: readonly Post[]): string {
   if (posts.length === 0) return COMING_SOON;
   return posts

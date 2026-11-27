@@ -1,14 +1,14 @@
 /**
- * Observador de archivos de los servidores de desarrollo (Vite del admin y Astro del sitio).
+ * File watcher of the dev servers (the admin's Vite and the site's Astro).
  *
- * En Windows los eventos de cambio del sistema de archivos a veces se pierden (escrituras en ráfaga, procesos
- * cortados a mitad de una escritura). Cuando pasa, Vite se queda con la versión vieja de un módulo en memoria y
- * la sirve para siempre: el navegador ve, por ejemplo, un `client.ts` sin el export que el disco sí tiene.
- * Con polling Vite no depende de esos eventos: compara los archivos cada `interval` ms y un cambio perdido se
- * detecta en la vuelta siguiente. Solo afecta al modo desarrollo; los builds de producción no observan nada.
+ * On Windows, file system change events are sometimes lost (bursts of writes, processes killed halfway through a
+ * write). When that happens, Vite keeps the old version of a module in memory and serves it forever: the browser
+ * sees, for example, a `client.ts` without the export the disk does have.
+ * With polling, Vite does not depend on those events: it compares the files every `interval` ms and a lost change is
+ * caught on the next round. It only affects dev mode; production builds watch nothing.
  */
 export const reliableDevWatch = {
   usePolling: true,
-  // Equilibrio entre rapidez del recargado y CPU: el proyecto es chico y 300 ms no se nota al editar.
+  // Balance between reload speed and CPU: the project is small and 300 ms goes unnoticed while editing.
   interval: 300,
 } as const;

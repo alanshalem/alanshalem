@@ -1,33 +1,33 @@
 import type { Typesetter } from './type.ts';
 import { escapeXml } from './xml.ts';
 
-/** Primitivas SVG compartidas por todas las tarjetas. */
+/** SVG primitives shared by every card. */
 
-/** Número corto para atributos: sin ceros de más ni "-0". */
+/** Short number for attributes: no extra zeros and no "-0". */
 export const num = (value: number, digits = 2): string => String(+value.toFixed(digits) || 0);
 
 export const rect = (x: number, y: number, width: number, height: number, attrs: string): string =>
   `<rect x="${num(x)}" y="${num(y)}" width="${num(width)}" height="${num(height)}" ${attrs}/>`;
 
-/** Regla de 1px nítida: se corre medio píxel para que no se reparta entre dos filas. */
+/** A crisp 1px rule: shifted half a pixel so it does not spread over two pixel rows. */
 export const hline = (x1: number, x2: number, y: number, stroke: string): string =>
   `<path d="M${num(x1)} ${num(Math.round(y) + 0.5)}H${num(x2)}" stroke="${stroke}"/>`;
 
-// Sin movimiento si quien mira lo pidió (WCAG 2.3.3); las animaciones son solo de entrada y terminan antes de 5 s.
+// No motion when the viewer asked for it (WCAG 2.3.3); animations only play on entry and end within 5 s.
 const REDUCED_MOTION = '@media (prefers-reduced-motion: reduce){*{animation:none!important}}';
 
 export interface Document {
   width: number;
   height: number;
-  /** Nombre accesible corto. */
+  /** Short accessible name. */
   title: string;
-  /** Todo lo que la imagen dice: el texto está dibujado como trazos y un lector de pantalla solo lee esto. */
+  /** Everything the image says: the text is drawn as outlines and a screen reader only reads this. */
   desc: string;
-  /** Glifos del texto: se piden al final, cuando el cuerpo ya está armado y no falta ninguno. */
+  /** Text glyphs: requested at the end, once the body is built and none is missing. */
   glyphs: Typesetter;
-  /** Otras definiciones (por ejemplo, marcadores de flecha). */
+  /** Other definitions (for example, arrow markers). */
   defs?: string;
-  /** CSS de animaciones; si hay, se agrega la regla de movimiento reducido. */
+  /** Animation CSS; when present, the reduced-motion rule is added. */
   css?: string;
   body: string;
 }

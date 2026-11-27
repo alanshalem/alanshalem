@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { fullYearsBetween, rank, streaks, topLanguages, TROPHIES } from '../src/metrics.ts';
 
 describe('streaks', () => {
-  it('cuenta la racha actual hasta hoy y la más larga, con sus fechas', () => {
+  it('counts the current streak up to today and the longest one, with their dates', () => {
     const days = { '2026-01-01': 1, '2026-01-02': 3, '2026-01-03': 2, '2026-01-05': 1, '2026-01-06': 4 };
     assert.deepEqual(streaks(days, '2026-01-06'), {
       total: 11,
@@ -12,17 +12,17 @@ describe('streaks', () => {
     });
   });
 
-  it('hoy sin contribuciones no corta la racha (el día no terminó); ayer sin contribuciones, sí', () => {
+  it('today without contributions does not break the streak (the day is not over); yesterday without them does', () => {
     const days = { '2026-03-30': 1, '2026-03-31': 1 };
     assert.deepEqual(streaks(days, '2026-04-01').current, { days: 2, start: '2026-03-30', end: '2026-03-31' });
     assert.deepEqual(streaks(days, '2026-04-02').current, { days: 0 });
   });
 
-  it('sin contribuciones: todo en cero y sin fechas', () => {
+  it('without contributions: everything at zero and no dates', () => {
     assert.deepEqual(streaks({}, '2026-01-01'), { total: 0, current: { days: 0 }, longest: { days: 0 } });
   });
 
-  it('ignora días con 0 y fechas futuras', () => {
+  it('ignores days with 0 and future dates', () => {
     const days = { '2026-01-01': 0, '2026-01-02': 2, '2026-01-09': 5 };
     assert.deepEqual(streaks(days, '2026-01-02'), {
       total: 2,
@@ -33,7 +33,7 @@ describe('streaks', () => {
 });
 
 describe('topLanguages', () => {
-  it('ordena por bytes, calcula la proporción y agrupa el resto en "Other"', () => {
+  it('sorts by bytes, computes the share and groups the rest as "Other"', () => {
     const result = topLanguages({ Go: 100, TypeScript: 500, CSS: 50, 'C#': 300, HTML: 50 }, 3);
     assert.deepEqual(result, [
       { name: 'TypeScript', share: 0.5 },
@@ -43,7 +43,7 @@ describe('topLanguages', () => {
     ]);
   });
 
-  it('sin "Other" cuando entran todos, y vacío sin bytes', () => {
+  it('no "Other" when all of them fit, and empty without bytes', () => {
     assert.deepEqual(topLanguages({ Rust: 1, C: 3 }, 6), [{ name: 'C', share: 0.75 }, { name: 'Rust', share: 0.25 }]);
     assert.deepEqual(topLanguages({}, 6), []);
   });
@@ -52,21 +52,21 @@ describe('topLanguages', () => {
 describe('rank', () => {
   const thresholds = [1, 10, 50, 100, 250, 500] as const;
 
-  it('sin llegar al primer umbral no hay rango; el progreso es hacia el primero', () => {
+  it('below the first threshold there is no rank; progress goes toward the first one', () => {
     assert.deepEqual(rank(0, thresholds), { tier: null, next: 1, progress: 0 });
   });
 
-  it('en cada umbral sube de rango y mide el progreso hacia el siguiente', () => {
+  it('each threshold moves up a rank and measures progress toward the next one', () => {
     assert.deepEqual(rank(1, thresholds), { tier: 'C', next: 10, progress: 0 });
     assert.deepEqual(rank(30, thresholds), { tier: 'B', next: 50, progress: 0.5 });
     assert.deepEqual(rank(250, thresholds), { tier: 'AAA', next: 500, progress: 0 });
   });
 
-  it('el último rango no tiene siguiente y el progreso queda completo', () => {
+  it('the last rank has no next one and progress stays complete', () => {
     assert.deepEqual(rank(9000, thresholds), { tier: 'S', next: null, progress: 1 });
   });
 
-  it('cada trofeo tiene 6 umbrales estrictamente crecientes desde 1', () => {
+  it('every trophy has 6 strictly increasing thresholds starting at 1', () => {
     assert.deepEqual(TROPHIES.map((t) => t.key), ['stars', 'commits', 'pullRequests', 'issues', 'repos', 'followers', 'years']);
     for (const trophy of TROPHIES) {
       assert.equal(trophy.thresholds.length, 6, trophy.key);
@@ -77,7 +77,7 @@ describe('rank', () => {
 });
 
 describe('fullYearsBetween', () => {
-  it('cuenta años completos (el aniversario cuenta desde ese día)', () => {
+  it('counts full years (the anniversary counts from that day on)', () => {
     assert.equal(fullYearsBetween('2019-03-14T10:00:00Z', '2026-03-13T23:59:59Z'), 6);
     assert.equal(fullYearsBetween('2019-03-14T10:00:00Z', '2026-03-14T00:00:00Z'), 7);
     assert.equal(fullYearsBetween('2026-01-01T00:00:00Z', '2026-06-01T00:00:00Z'), 0);

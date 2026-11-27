@@ -1,9 +1,9 @@
 import type { Post } from './model.ts';
 
 /**
- * Lector mínimo del RSS 2.0 que genera el sitio (apps/web/src/lib/feeds.ts): título, enlace y fecha de cada item.
- * Con expresiones regulares alcanza porque solo se leen tres hijos de texto de <item>; un parser XML completo
- * sería una dependencia para nada.
+ * Minimal reader of the RSS 2.0 the site generates (apps/web/src/lib/feeds.ts): title, link and date of each item.
+ * Regular expressions are enough because only three text children of <item> are read; a full XML parser would be a
+ * dependency for nothing.
  */
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
@@ -20,15 +20,15 @@ function decode(raw: string): string {
     .trim();
 }
 
-/** Primer hijo `<tag>` del item. `content:encoded` no coincide con `title` porque el nombre se compara entero. */
+/** First `<tag>` child of the item. `content:encoded` does not match `title` because the whole name is compared. */
 const child = (item: string, tag: string): string =>
   decode(item.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`))?.[1] ?? '');
 
-/** Items del feed, más nuevos primero. Se descarta lo que no se podría mostrar bien o con seguridad. */
+/** Feed items, newest first. Whatever could not be shown correctly or safely is dropped. */
 export function parseRss(xml: string): Post[] {
   const posts: Post[] = [];
   for (const [, item] of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/g)) {
-    // El contenido HTML del post puede tener cualquier etiqueta: se saca antes de buscar los hijos.
+    // The post's HTML content may hold any tag: it is removed before looking for the children.
     const head = item!.replace(/<content:encoded>[\s\S]*?<\/content:encoded>/g, '');
     const title = child(head, 'title');
     const url = child(head, 'link');

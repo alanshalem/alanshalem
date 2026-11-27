@@ -7,7 +7,7 @@ import { renderStreak } from './cards/streak.ts';
 import { renderTrophies } from './cards/trophies.ts';
 import type { ProfileData } from './model.ts';
 
-/** Todas las imágenes del README (nombre de archivo en assets/profile/ → SVG), en el orden en que aparecen. */
+/** Every README image (file name in assets/profile/ → SVG), in the order they appear. */
 export function renderProfile(data: ProfileData): Record<string, string> {
   return {
     'header.svg': renderHeader(),

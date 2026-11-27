@@ -3,23 +3,23 @@ import { color, layout, text } from '../theme.ts';
 import type { Typesetter } from '../type.ts';
 
 /**
- * Piezas comunes de las tarjetas, como en el sitio: superficie con borde de 1px, sin radio ni sombra, y el
- * encabezado de sección (label a la izquierda, aclaración a la derecha, regla debajo). El fondo exterior queda
- * transparente: la tarjeta trae su propia superficie y se lee igual en el tema claro y el oscuro de GitHub.
+ * Pieces shared by the cards, as on the site: a surface with a 1px border, no radius or shadow, and the section header
+ * (label on the left, aside on the right, rule below). The outer background stays transparent: the card brings its
+ * own surface and reads the same in GitHub's light and dark themes.
  */
 
-/** Rectángulo con borde de 1px nítido (el trazo va centrado en el borde, por eso el medio píxel). */
+/** A rectangle with a crisp 1px border (the stroke is centered on the edge, hence the half pixel). */
 export const box = (x: number, y: number, width: number, height: number, fill: string = color.surfaceAlt): string =>
   rect(x + 0.5, y + 0.5, width - 1, height - 1, `fill="${fill}" stroke="${color.border}"`);
 
-/** La tarjeta entera. */
+/** The whole card. */
 export const frame = (width: number, height: number, fill: string = color.surface): string => box(0, 0, width, height, fill);
 
-/** Cuadradito de acento que encabeza un ítem (features del proyecto, tecnologías de este blog). */
+/** Small accent square that leads an item (project features, this blog's technologies). */
 export const MARKER = 6;
 export const marker = (x: number, y: number): string => rect(x, y, MARKER, MARKER, `fill="${color.accent}"`);
 
-/** Línea base del label del encabezado y primera y libre debajo de su regla. */
+/** Baseline of the header label, and the first free y below its rule. */
 export const HEADER_BASELINE = 38;
 /** The rule under the section header: content that hangs from it (the stats rows) starts here. */
 export const HEADER_RULE = HEADER_BASELINE + 12;
@@ -34,5 +34,5 @@ export function sectionHeader(t: Typesetter, width: number, label: string, aside
   ].join('');
 }
 
-/** Alto común de las tarjetas de media fila (stats y lenguajes van lado a lado y tienen que medir lo mismo). */
+/** Shared height of the half-row cards (stats and languages sit side by side and must match). */
 export const HALF_HEIGHT = 236;

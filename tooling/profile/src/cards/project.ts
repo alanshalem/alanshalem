@@ -10,7 +10,7 @@ const BOX = { width: 92, height: 30, gapX: 20, gapY: 34 } as const;
 const DIAGRAM_TOP = 100;
 const LINE = { dek: 22, feature: 24, caption: 17 } as const;
 
-/** Arquitectura del README del proyecto, resumida: [columna, fila, nombre]. */
+/** The architecture from the project README, summarized: [column, row, name]. */
 const BOXES = {
   visitor: [0, 0, 'Visitor'],
   caddy: [1, 0, 'Caddy'],
@@ -29,7 +29,7 @@ const CAPTION = 'Visitors only get pre-built HTML; publishing a post rebuilds th
 const boxX = (col: number): number => DIAGRAM_LEFT + col * (BOX.width + BOX.gapX);
 const boxY = (row: number): number => DIAGRAM_TOP + row * (BOX.height + BOX.gapY);
 
-/** Flecha entre los bordes enfrentados de dos cajas vecinas (misma fila o misma columna). */
+/** Arrow between the facing edges of two neighboring boxes (same row or same column). */
 function arrow([from, to]: [Box, Box]): string {
   const [c1, r1] = BOXES[from];
   const [c2, r2] = BOXES[to];
@@ -65,7 +65,7 @@ export function renderProject(): string {
 
   let y = CONTENT_TOP + 32;
   body += t.text(project.title, pad, y, text.title);
-  y += 8; // aire entre el título (Gloock) y la bajada, como en las cards del sitio
+  y += 8; // room between the title (Gloock) and the dek, as in the site's cards
   for (const line of wrap(project.dek, text.dek, TEXT_WIDTH)) {
     y += LINE.dek;
     body += t.text(line, pad, y, text.dek);

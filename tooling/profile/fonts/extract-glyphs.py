@@ -1,18 +1,17 @@
-"""Extrae de las fuentes del sitio los contornos de glifos que usan los SVG del perfil.
+"""Extracts from the site's fonts the glyph outlines that the profile SVGs use.
 
-Por qué: GitHub muestra las imágenes del README como <img> (vía su proxy camo), donde un SVG no carga fuentes
-web y las del sistema cambian según quien mire. Con el texto dibujado como trazos la tipografía del sistema de
-diseño sale igual en todos lados, y versionar estos JSON chicos deja al generador de Node sin dependencias
-para leer fuentes.
+Why: GitHub shows README images as <img> (through its camo proxy), where an SVG loads no web fonts and system
+fonts vary by viewer. With the text drawn as outlines the design system's type looks the same everywhere, and
+versioning these small JSON files keeps the Node generator free of font-reading dependencies.
 
-Se corre una vez desde la raíz del repo cuando cambian el juego de caracteres o las fuentes
-(requiere `pip install fonttools brotli`):
+Run it once from the repo root when the character set or the fonts change
+(requires `pip install fonttools brotli`):
 
     python tooling/profile/fonts/extract-glyphs.py
 
-Salida: tooling/profile/fonts/<cara>.json con, por carácter, su avance y un path SVG en unidades de la fuente
-con la y hacia abajo (ya invertida: el generador solo escala), más el kerning por pares (GPOS) entre los
-caracteres del juego.
+Output: tooling/profile/fonts/<face>.json with, per character, its advance and an SVG path in font units with y
+pointing down (already flipped: the generator only scales), plus the pair kerning (GPOS) between the characters
+of the set.
 """
 
 import json
@@ -27,10 +26,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 SOURCE = ROOT / "apps/web/public/fonts"
 OUT = pathlib.Path(__file__).resolve().parent
 
-# ASCII imprimible más la puntuación tipográfica de las tarjetas. Lo demás se dibuja como "?" (src/type.ts).
+# Printable ASCII plus the cards' typographic punctuation. Anything else is drawn as "?" (src/type.ts).
 CHARSET = [chr(c) for c in range(0x20, 0x7F)] + list("·–—’‘“”…×")
 
-# Roles del sistema de diseño (docs/design/DESIGN-SYSTEM.md §3): Gloock display, Pagella lectura, Hanken UI.
+# Design system roles (docs/design/DESIGN-SYSTEM.md §3): Gloock display, Pagella reading, Hanken UI.
 FACES = {
     "gloock": ("gloock-latin.woff2", None),
     "pagella": ("pagella-regular-latin.woff2", None),
@@ -40,7 +39,7 @@ FACES = {
 
 
 def kerning(font, names):
-    """Kerning por pares (XAdvance) entre glifos del juego; como en GPOS, gana la primera subtabla que coincide."""
+    """Pair kerning (XAdvance) between glyphs of the set; as in GPOS, the first matching subtable wins."""
     pairs = {}
     if "GPOS" not in font:
         return pairs
@@ -86,7 +85,7 @@ def extract(file, weight):
     names = {ch: cmap[ord(ch)] for ch in CHARSET if ord(ch) in cmap}
     glyphs = {}
     for ch, name in names.items():
-        # Unidades enteras: al tamaño más grande que se usa (60 px, 1000 upm) una unidad es 0,06 px.
+        # Whole units: at the largest size in use (60 px, 1000 upm) one unit is 0.06 px.
         svg = SVGPathPen(glyph_set, ntos=lambda n: str(round(n)))
         glyph_set[name].draw(TransformPen(svg, (1, 0, 0, -1, 0, 0)))
         glyphs[ch] = {"a": glyph_set[name].width, "d": svg.getCommands()}

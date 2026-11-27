@@ -6,7 +6,7 @@ import { layout, SERIES, text } from '../theme.ts';
 import { createTypesetter } from '../type.ts';
 import { frame, HALF_HEIGHT, sectionHeader } from './frame.ts';
 
-/** Cinco con nombre y "Other": seis tonos de la paleta, y la leyenda entra en 3 filas de 2. */
+/** Five named plus "Other": six palette tones, and the legend fits in 3 rows of 2. */
 const NAMED = 5;
 const BAR = { top: 78, height: 8, gap: 2 } as const;
 const LEGEND = { top: 124, row: 34, swatch: 8 } as const;
@@ -15,7 +15,7 @@ export function renderLanguages(data: ProfileData): string {
   const t = createTypesetter();
   const { half: width, pad } = layout;
   const languages = topLanguages(data.languages, NAMED);
-  // "Other" va siempre en el último tono (gris): no compite con los lenguajes con nombre.
+  // "Other" always takes the last tone (gray): it does not compete with the named languages.
   const tone = (name: string, i: number): string => (name === 'Other' ? SERIES[SERIES.length - 1] : SERIES[i])!;
 
   let body = '';

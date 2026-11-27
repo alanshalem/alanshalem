@@ -8,8 +8,8 @@ const HEIGHT = 230;
 const LEFT = 40;
 
 /**
- * Motivo del grafo de ideas del sitio (nodos en los colores dataviz unidos por líneas tenues). Posiciones fijas:
- * es decoración, no datos, y así el SVG no cambia entre corridas.
+ * The motif of the site's idea graph (nodes in the dataviz colors joined by faint lines). Fixed positions: it is
+ * decoration, not data, and that way the SVG does not change between runs.
  */
 const NODES: ReadonlyArray<[x: number, y: number, r: number, tone: number]> = [
   [628, 64, 4, 0], [700, 44, 3, 1], [770, 78, 5, 2], [664, 122, 6, 1], [742, 140, 3.5, 0],
@@ -19,7 +19,7 @@ const EDGES: ReadonlyArray<[number, number]> = [
   [0, 1], [1, 2], [0, 3], [1, 3], [2, 4], [3, 4], [3, 5], [3, 6], [4, 6], [4, 7], [5, 6],
 ];
 
-// Entrada escalonada: cada línea sube y aparece; la regla se dibuja; los nodos aparecen al final. Todo dura < 2 s.
+// Staggered entry: each line rises and fades in; the rule draws itself; the nodes appear last. All of it takes < 2 s.
 const CSS = [
   '.in{animation:rise .8s cubic-bezier(.2,.7,.2,1) both}',
   '.d1{animation-delay:.12s}.d2{animation-delay:.24s}.d3{animation-delay:.36s}',
