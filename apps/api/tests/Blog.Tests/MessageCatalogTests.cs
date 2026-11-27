@@ -5,8 +5,8 @@ using Blog.Domain;
 namespace Blog.Tests;
 
 /// <summary>
-/// El catálogo de mensajes: una entrada por clave declarada, los dos idiomas completos y con los mismos marcadores, y
-/// el formato de cada idioma (números, nombres de idioma anidados). El texto en español es el de siempre.
+/// The message catalog: one entry per declared key, both languages complete and with the same placeholders, and the
+/// format of each language (numbers, nested language names). The Spanish text is the usual one.
 /// </summary>
 public partial class MessageCatalogTests
 {
@@ -41,8 +41,8 @@ public partial class MessageCatalogTests
         Assert.All(MessageCatalog.Entries, entry =>
         {
             var (key, text) = (entry.Key, entry.Value);
-            Assert.False(string.IsNullOrWhiteSpace(text.Spanish), $"{key}: falta el español");
-            Assert.False(string.IsNullOrWhiteSpace(text.English), $"{key}: falta el inglés");
+            Assert.False(string.IsNullOrWhiteSpace(text.Spanish), $"{key}: Spanish is missing");
+            Assert.False(string.IsNullOrWhiteSpace(text.English), $"{key}: English is missing");
             Assert.Equal(text.Spanish.Trim(), text.Spanish);
             Assert.Equal(text.English.Trim(), text.English);
             Assert.NotEqual(text.Spanish, text.English);

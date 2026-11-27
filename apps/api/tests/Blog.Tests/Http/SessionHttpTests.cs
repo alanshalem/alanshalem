@@ -11,10 +11,10 @@ using Microsoft.Extensions.Options;
 namespace Blog.Tests.Http;
 
 /// <summary>
-/// La sesión del admin y el login: cerrar sesión invalida toda cookie emitida (también una copiada antes), una cookie
-/// sin la época de sesión no entra, los logins fallidos quedan registrados con la IP del cliente (sin la contraseña) y
-/// X-Forwarded-For solo se cree si viene de una red de proxies configurada. Fábrica propia: cerrar sesión acá no debe
-/// cerrar la sesión compartida de las demás pruebas HTTP.
+/// The admin session and the login: logging out invalidates every issued cookie (a copy made earlier too), a cookie
+/// without the session epoch does not get in, failed logins are logged with the client IP (without the password) and
+/// X-Forwarded-For is believed only from a configured proxy network. A factory of its own: logging out here must not
+/// log out the session shared by the other HTTP tests.
 /// </summary>
 public sealed class SessionHttpTests(ApiFactory api) : IClassFixture<ApiFactory>
 {
@@ -39,7 +39,7 @@ public sealed class SessionHttpTests(ApiFactory api) : IClassFixture<ApiFactory>
 
         using var after = await copy.GetAsync("/api/auth/me");
         Assert.Equal(HttpStatusCode.Unauthorized, after.StatusCode);
-        // La cookie rechazada se borra en el navegador.
+        // The rejected cookie is deleted in the browser.
         Assert.Contains(after.Headers.GetValues("Set-Cookie"), cookie => cookie.StartsWith(CookieName + "=;", StringComparison.Ordinal));
 
         using var again = CookieClient(await LoginCookieAsync());
@@ -51,7 +51,7 @@ public sealed class SessionHttpTests(ApiFactory api) : IClassFixture<ApiFactory>
     [Fact]
     public async Task A_cookie_without_the_session_epoch_is_rejected()
     {
-        // Como las cookies emitidas antes de este cambio: válidas y firmadas, pero sin la época de la sesión.
+        // Like the cookies issued before this change: valid and signed, but without the session epoch.
         var options = api.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
             .Get(CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "admin")], CookieAuthenticationDefaults.AuthenticationScheme));
@@ -82,7 +82,7 @@ public sealed class SessionHttpTests(ApiFactory api) : IClassFixture<ApiFactory>
     public async Task A_failed_login_is_logged_as_a_warning_with_the_client_ip_and_without_the_password()
     {
         const string attempt = "intento-equivocado-0123";
-        const string client = "203.0.113.10"; // propia de esta prueba: la fábrica es compartida por la clase
+        const string client = "203.0.113.10"; // this test's own: the factory is shared by the class
 
         using var response = await FailedLoginAsync(api, client, forwardedFor: null, attempt);
 
@@ -126,7 +126,7 @@ public sealed class SessionHttpTests(ApiFactory api) : IClassFixture<ApiFactory>
         return setCookie[(CookieName.Length + 1)..setCookie.IndexOf(';', StringComparison.Ordinal)];
     }
 
-    /// <summary>Un cliente que manda esa cookie tal cual, sin guardar las que recibe (como un ladrón con una copia).</summary>
+    /// <summary>A client that sends that cookie as is, without storing the ones it receives (like a thief with a copy).</summary>
     private HttpClient CookieClient(string cookie)
     {
         var client = api.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), HandleCookies = false });

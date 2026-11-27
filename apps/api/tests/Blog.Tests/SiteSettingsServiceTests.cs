@@ -4,7 +4,7 @@ using Blog.Domain;
 
 namespace Blog.Tests;
 
-/// <summary>Casos de uso de los ajustes del sitio con un repositorio en memoria.</summary>
+/// <summary>Use cases of the site settings with an in-memory repository.</summary>
 public class SiteSettingsServiceTests
 {
     private sealed class InMemorySiteSettingsRepository : ISiteSettingsRepository
@@ -81,7 +81,7 @@ public class SiteSettingsServiceTests
 
     [Theory]
     [InlineData("name", "   ")]
-    [InlineData("email", "no-es-mail")]
+    [InlineData("email", "not-an-email")]
     [InlineData("github", "javascript:alert(1)")]
     public async Task Invalid_settings_are_rejected_and_leave_the_stored_ones_unchanged(string field, string value)
     {

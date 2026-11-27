@@ -1,17 +1,17 @@
 namespace Blog.Api.Cli;
 
 /// <summary>
-/// El healthcheck del contenedor: la imagen de .NET no trae curl, así que la misma API se pregunta a sí misma.
+/// The container healthcheck: the .NET image has no curl, so the API asks itself.
 /// </summary>
 internal static class HealthCheckCommand
 {
-    /// <summary>El puerto es el de ASPNETCORE_URLS en el Dockerfile; el healthcheck corre dentro del contenedor.</summary>
+    /// <summary>The port is the one of ASPNETCORE_URLS in the Dockerfile; the healthcheck runs inside the container.</summary>
     public static readonly Uri ReadyUrl = new("http://localhost:8080/api/health/ready");
 
-    /// <summary>Corto: una API que tarda más que esto en contestar algo tan simple no está sana.</summary>
+    /// <summary>Short: an API that takes longer than this to answer something so simple is not healthy.</summary>
     public static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(3);
 
-    /// <returns>0 si ready responde 2xx; 1 si responde otra cosa, no responde o no se puede conectar.</returns>
+    /// <returns>0 if ready answers 2xx; 1 if it answers something else, does not answer or cannot be reached.</returns>
     public static async Task<int> RunAsync(Uri url, HttpMessageHandler handler, TimeSpan timeout, TextWriter error)
     {
         using var client = new HttpClient(handler) { Timeout = timeout };
@@ -23,15 +23,15 @@ internal static class HealthCheckCommand
                 return 0;
             }
 
-            error.WriteLine($"{url} respondió {(int)response.StatusCode}.");
+            error.WriteLine($"{url} answered {(int)response.StatusCode}.");
         }
         catch (HttpRequestException exception)
         {
-            error.WriteLine($"No se pudo conectar con {url}: {exception.Message}");
+            error.WriteLine($"Could not connect to {url}: {exception.Message}");
         }
         catch (TaskCanceledException)
         {
-            error.WriteLine($"{url} no respondió en {timeout.TotalSeconds} s.");
+            error.WriteLine($"{url} did not answer within {timeout.TotalSeconds} s.");
         }
 
         return 1;

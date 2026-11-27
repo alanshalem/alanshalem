@@ -3,10 +3,10 @@ using NetVips;
 
 namespace Blog.Tests;
 
-/// <summary>Imágenes generadas en memoria para probar el pipeline (no hay archivos binarios en el repo).</summary>
+/// <summary>Images generated in memory to test the pipeline (there are no binary files in the repo).</summary>
 internal static class TestImages
 {
-    /// <summary>Degradé suave en sRGB: se parece a una foto (sin bordes duros) y se codifica rápido.</summary>
+    /// <summary>Smooth sRGB gradient: it looks like a photo (no hard edges) and encodes fast.</summary>
     public static Image Gradient(int width, int height)
     {
         using var coordinates = Image.Xyz(width, height);
@@ -19,7 +19,7 @@ internal static class TestImages
         return bands.Cast(Enums.BandFormat.Uchar).Copy(interpretation: Enums.Interpretation.Srgb);
     }
 
-    /// <summary>Un solo valor = escala de grises; tres = sRGB.</summary>
+    /// <summary>A single value = grayscale; three = sRGB.</summary>
     public static Image Solid(int width, int height, params double[] channels)
     {
         using var black = Image.Black(width, height, bands: channels.Length);
@@ -32,13 +32,13 @@ internal static class TestImages
 
     public static byte[] Png(Image image) => image.PngsaveBuffer(keep: Enums.ForeignKeep.None);
 
-    /// <summary>GIF animado: un cuadro liso por color, de 100 ms cada uno.</summary>
+    /// <summary>Animated GIF: one flat frame per color, 100 ms each.</summary>
     public static byte[] AnimatedGif(int width, int height, params double[][] frameColors)
     {
         var frames = frameColors.Select(color => Solid(width, height, color)).ToArray();
         try
         {
-            // libvips representa una animación como una tira vertical de cuadros con "page-height".
+            // libvips represents an animation as a vertical strip of frames with "page-height".
             using var strip = Image.Arrayjoin(frames, across: 1);
             using var animated = strip.Mutate(image =>
             {
@@ -58,14 +58,14 @@ internal static class TestImages
     }
 
     /// <summary>
-    /// JPEG con un bloque EXIF armado a mano: orientación 6 (la cámara estaba girada 90°) y coordenadas GPS.
-    /// Se arma byte a byte para que la prueba no dependa de cómo escribe EXIF la misma biblioteca que se prueba.
+    /// JPEG with a hand-made EXIF block: orientation 6 (the camera was rotated 90°) and GPS coordinates.
+    /// It is built byte by byte so the test does not depend on how the library under test writes EXIF.
     /// </summary>
     public static byte[] JpegWithGpsAndOrientation(Image image)
     {
         var jpeg = Jpeg(image);
         var exif = ExifSegment(orientation: 6, latitude: [40, 26, 46]);
-        // El segmento APP1 va justo después del marcador de inicio (FF D8).
+        // The APP1 segment goes right after the start-of-image marker (FF D8).
         return [.. jpeg.AsSpan(0, 2), .. exif, .. jpeg.AsSpan(2)];
     }
 
@@ -83,12 +83,12 @@ internal static class TestImages
         BinaryPrimitives.WriteUInt16LittleEndian(span[2..], 42);
         BinaryPrimitives.WriteUInt32LittleEndian(span[4..], ifd0Offset);
 
-        // IFD0: orientación + puntero a la sub-IFD de GPS.
+        // IFD0: orientation + pointer to the GPS sub-IFD.
         BinaryPrimitives.WriteUInt16LittleEndian(span[ifd0Offset..], 2);
         WriteEntry(span[(ifd0Offset + 2)..], tag: 0x0112, type: 3, count: 1, value: orientation);
         WriteEntry(span[(ifd0Offset + 14)..], tag: 0x8825, type: 4, count: 1, value: gpsOffset);
 
-        // GPS: hemisferio "N" + latitud en grados, minutos, segundos (racionales n/1).
+        // GPS: hemisphere "N" + latitude in degrees, minutes, seconds (n/1 rationals).
         BinaryPrimitives.WriteUInt16LittleEndian(span[gpsOffset..], 2);
         WriteEntry(span[(gpsOffset + 2)..], tag: 0x0001, type: 2, count: 2, value: 'N');
         WriteEntry(span[(gpsOffset + 14)..], tag: 0x0002, type: 5, count: (uint)latitude.Length, value: latitudeOffset);

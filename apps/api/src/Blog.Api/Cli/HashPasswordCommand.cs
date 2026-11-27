@@ -3,24 +3,24 @@ using Blog.Api.Security;
 
 namespace Blog.Api.Cli;
 
-/// <summary>Imprime el hash PBKDF2 de la contraseña del admin (el valor de Admin__PasswordHash).</summary>
+/// <summary>Prints the PBKDF2 hash of the admin password (the value of Admin__PasswordHash).</summary>
 internal static class HashPasswordCommand
 {
-    /// <summary>Lo mínimo para una contraseña que protege un panel expuesto a internet (el login además tiene rate limit).</summary>
+    /// <summary>The minimum for a password protecting a panel exposed to the internet (the login is also rate limited).</summary>
     public const int MinLength = 12;
 
     /// <param name="readHiddenKey">
-    /// En una consola, lee tecla por tecla sin mostrarlas (Console.ReadKey interceptado). Null si la entrada está
-    /// redirigida (echo pw | ...): entonces se lee una línea de <paramref name="input"/>, como en un script.
+    /// In a console, reads key by key without showing them (intercepted Console.ReadKey). Null if the input is
+    /// redirected (echo pw | ...): then one line of <paramref name="input"/> is read, as in a script.
     /// </param>
     public static int Run(TextReader input, TextWriter output, TextWriter error, Func<ConsoleKeyInfo>? readHiddenKey)
     {
-        // El pedido va a la salida de errores: así la salida estándar es solo el hash (se puede redirigir o capturar).
-        error.Write("Contraseña: ");
+        // The prompt goes to standard error: this way standard output is only the hash (it can be redirected or captured).
+        error.Write("Password: ");
         var password = readHiddenKey is null ? input.ReadLine() ?? string.Empty : ReadHidden(readHiddenKey, error);
         if (password.Length < MinLength)
         {
-            error.WriteLine($"La contraseña tiene que tener al menos {MinLength} caracteres.");
+            error.WriteLine($"The password must be at least {MinLength} characters long.");
             return 1;
         }
 
@@ -28,7 +28,7 @@ internal static class HashPasswordCommand
         return 0;
     }
 
-    // Sin eco: nada de lo que se escribe aparece en la pantalla (ni asteriscos, que dirían el largo). Backspace borra.
+    // No echo: nothing typed shows on the screen (not even asterisks, which would reveal the length). Backspace deletes.
     private static string ReadHidden(Func<ConsoleKeyInfo> readKey, TextWriter error)
     {
         var password = new StringBuilder();

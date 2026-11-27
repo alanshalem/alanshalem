@@ -4,8 +4,8 @@ using Microsoft.AspNetCore.RateLimiting;
 namespace Blog.Api.Security;
 
 /// <summary>
-/// Anti fuerza bruta en el login: 10 intentos cada 15 minutos por IP (la del cliente real, ver <see cref="TrustedProxies"/>).
-/// Sin cola: el intento 11 es un 429 inmediato.
+/// Brute-force protection on the login: 10 attempts every 15 minutes per IP (the real client's, see <see cref="TrustedProxies"/>).
+/// No queue: attempt 11 is an immediate 429.
 /// </summary>
 internal static class LoginRateLimit
 {

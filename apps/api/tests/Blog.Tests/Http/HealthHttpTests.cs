@@ -6,8 +6,8 @@ using Blog.Api.Cli;
 namespace Blog.Tests.Http;
 
 /// <summary>
-/// Salud de la API: /api/health es vida del proceso; /api/health/ready además prueba la base (200 o 503 con problem
-/// details). El modo healthcheck de la línea de comandos le pregunta a ready y lo traduce a un código de salida.
+/// API health: /api/health is the process being alive; /api/health/ready also checks the database (200 or 503 with
+/// problem details). The healthcheck command-line mode asks ready and turns it into an exit code.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class HealthHttpTests(ApiFactory api)
@@ -97,20 +97,20 @@ public class HealthHttpTests(ApiFactory api)
         Assert.Equal((1, 1), (refused, hung));
     }
 
-    /// <summary>Como un puerto cerrado: la conexión falla enseguida.</summary>
+    /// <summary>Like a closed port: the connection fails right away.</summary>
     private sealed class Unreachable : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            throw new HttpRequestException("Conexión rechazada.");
+            throw new HttpRequestException("Connection refused.");
     }
 
-    /// <summary>Como un proceso colgado: nunca responde (solo se corta por el timeout).</summary>
+    /// <summary>Like a hung process: it never answers (only the timeout stops it).</summary>
     private sealed class Hung : HttpMessageHandler
     {
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             await Task.Delay(Timeout.Infinite, cancellationToken);
-            throw new InvalidOperationException("No se llega.");
+            throw new InvalidOperationException("Unreachable.");
         }
     }
 }

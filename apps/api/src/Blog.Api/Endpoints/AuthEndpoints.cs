@@ -23,12 +23,12 @@ public static class AuthEndpoints
     private static async Task<IResult> LoginAsync(
         LoginRequest request, HttpContext http, IOptions<AdminOptions> admin, IAdminSessionEpoch epoch, ILoggerFactory loggers)
     {
-        // Mismo resultado y mismo costo (PBKDF2) tanto si la contraseña está mal como si es vacía.
+        // Same result and same cost (PBKDF2) whether the password is wrong or empty.
         if (!Pbkdf2PasswordHasher.Verify(request.Password ?? string.Empty, admin.Value.PasswordHash))
         {
-            // Para ver un ataque en los logs: la IP (ya resuelta por TrustedProxies) y nada de lo que mandó el cliente.
+            // To spot an attack in the logs: the IP (already resolved by TrustedProxies) and nothing the client sent.
             loggers.CreateLogger(typeof(AuthEndpoints)).LogWarning(
-                "Inicio de sesión fallido desde {ClientIp}.", http.Connection.RemoteIpAddress?.ToString() ?? "desconocida");
+                "Failed login from {ClientIp}.", http.Connection.RemoteIpAddress?.ToString() ?? "unknown");
             return Results.Unauthorized();
         }
 
@@ -37,14 +37,14 @@ public static class AuthEndpoints
     }
 
     /// <summary>
-    /// Con una sesión válida, además de borrar la cookie revoca todas las emitidas (también una copiada). Sin sesión
-    /// solo borra la cookie: si no, cualquiera podría cerrarle la sesión al admin.
+    /// With a valid session, besides deleting the cookie it revokes every issued one (a copied one too). Without a
+    /// session it only deletes the cookie: otherwise anyone could log the admin out.
     /// </summary>
     private static async Task<IResult> LogoutAsync(HttpContext http, IAdminSessionEpoch epoch)
     {
         if (http.User.Identity?.IsAuthenticated == true)
         {
-            // Sin el token del pedido: si el cliente corta a mitad de camino, la revocación igual se completa.
+            // Without the request's token: if the client disconnects half way, the revocation completes anyway.
             await epoch.RevokeAllAsync(CancellationToken.None);
         }
 

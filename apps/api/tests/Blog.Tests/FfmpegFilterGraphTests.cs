@@ -4,7 +4,7 @@ using Blog.Infrastructure.Videos;
 
 namespace Blog.Tests;
 
-/// <summary>Los grafos de filtros y los techos de bitrate que arma el adaptador, sin correr ffmpeg.</summary>
+/// <summary>The filter graphs and bitrate ceilings the adapter builds, without running ffmpeg.</summary>
 public class FfmpegFilterGraphTests
 {
     private const string Enhanced1080 = "fps=30/1,hqdn3d=2:1.5:4:3,scale=-2:1080:flags=lanczos,unsharp=5:5:0.4:5:5:0";

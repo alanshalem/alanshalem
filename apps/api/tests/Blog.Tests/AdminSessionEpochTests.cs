@@ -9,8 +9,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Blog.Tests;
 
 /// <summary>
-/// La época de las sesiones del admin, contra una base real: arranca en 0, revocar la sube y queda guardada (otra
-/// instancia, como después de reiniciar la API, lee la nueva).
+/// The admin session epoch, against a real database: it starts at 0, revoking raises it and it stays stored (another
+/// instance, as after restarting the API, reads the new one).
 /// </summary>
 public class AdminSessionEpochTests
 {
@@ -41,7 +41,7 @@ public class AdminSessionEpochTests
         await epoch.RevokeAllAsync(default);
         var after = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => Task.Run(() => epoch.CurrentAsync(default).AsTask())));
 
-        // Las lecturas que empezaron antes pueden ver 0 o 1; las que empiezan después de revocar, nunca la vieja.
+        // Reads that started before may see 0 or 1; those that start after revoking, never the old one.
         Assert.All(await Task.WhenAll(before), value => Assert.InRange(value, 0, 1));
         Assert.All(after, value => Assert.Equal(1, value));
     }
@@ -59,11 +59,11 @@ public class AdminSessionEpochTests
         failNextEpochRead.Armed = true;
         await Assert.ThrowsAnyAsync<Exception>(() => epoch.RevokeAllAsync(default));
 
-        // La base ya quedó en 1: la memoria no puede seguir aceptando cookies de la época 0 (falla cerrado).
+        // The database is already at 1: the memory cannot keep accepting cookies of epoch 0 (fails closed).
         Assert.Equal(1, await epoch.CurrentAsync(default));
     }
 
-    /// <summary>Falla la primera lectura de la época que llega después del UPDATE que la revoca.</summary>
+    /// <summary>Fails the first read of the epoch that comes after the UPDATE that revokes it.</summary>
     private sealed class FailEpochReadAfterUpdate : DbCommandInterceptor
     {
         private bool _updateSeen;

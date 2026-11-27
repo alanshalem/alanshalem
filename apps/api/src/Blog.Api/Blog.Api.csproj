@@ -4,17 +4,18 @@
     <ProjectReference Include="..\Blog.Infrastructure\Blog.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Las pruebas llaman a los modos de línea de comandos (Cli/) sin abrir un proceso aparte. -->
+    <!-- The tests call the command-line modes (Cli/) without starting a separate process. -->
     <InternalsVisibleTo Include="Blog.Tests" />
   </ItemGroup>
   <PropertyGroup>
-    <!-- Menos memoria residente: este proceso comparte VPS con otras apps. -->
+    <!-- Less resident memory: this process shares a VPS with other apps. -->
     <TieredPGO>false</TieredPGO>
     <ServerGarbageCollector>false</ServerGarbageCollector>
     <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
     <UserSecretsId>66891b4d-dd09-4d5b-8fcb-b3af1627a333</UserSecretsId>
-    <!-- data/ es la base SQLite, la media y los videos en proceso de `dotnet run`: datos, no código. Fuera de los
-         archivos del proyecto, `dotnet watch` no reinicia la API cada vez que la base escribe, y nada de ahí se publica. -->
+    <!-- data/ holds the SQLite database, the media and the videos being processed by `dotnet run`: data, not code. Kept
+         out of the project files, `dotnet watch` does not restart the API every time the database writes, and nothing
+         there is published. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);data/**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>

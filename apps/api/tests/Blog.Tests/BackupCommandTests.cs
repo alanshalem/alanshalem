@@ -5,8 +5,8 @@ using Microsoft.Data.Sqlite;
 namespace Blog.Tests;
 
 /// <summary>
-/// El modo backup de la línea de comandos: copia consistente de la base (API de backup de SQLite) a
-/// {carpeta}/blog-{UTC}.db, aunque la API esté escribiendo, sin pisar nunca una copia existente. Exit 0 o 1.
+/// The backup command-line mode: consistent copy of the database (SQLite backup API) to {dir}/blog-{UTC}.db, even while
+/// the API is writing, never overwriting an existing copy. Exit 0 or 1.
 /// </summary>
 public class BackupCommandTests
 {
@@ -35,7 +35,7 @@ public class BackupCommandTests
         Assert.Equal(backup, output.ToString().Trim());
         Assert.Equal("ok", await ScalarAsync(backup, "PRAGMA integrity_check"));
         Assert.Equal(ids.Order(), (await PostIdsAsync(backup)).Order());
-        // Un solo archivo autosuficiente: sin -wal ni -shm al lado que haya que copiar también.
+        // A single self-contained file: no -wal or -shm next to it that would have to be copied too.
         Assert.Equal([ExpectedFileName], Directory.GetFiles(target).Select(Path.GetFileName));
     }
 
@@ -75,7 +75,7 @@ public class BackupCommandTests
         Assert.Equal(string.Empty, await ScalarAsync(backup, "PRAGMA foreign_key_check") ?? string.Empty);
         var copied = await PostIdsAsync(backup);
         var source = await PostIdsAsync(database.FilePath);
-        // Una foto de un instante: tiene todo lo de antes, y lo que trae de durante existe en la base.
+        // A snapshot of one instant: it has everything from before, and what it brings from during exists in the database.
         Assert.InRange(copied.Count, 20 + 3, source.Count);
         Assert.Subset(source.ToHashSet(), copied.ToHashSet());
     }
@@ -86,14 +86,14 @@ public class BackupCommandTests
         await using var database = await CreateDatabaseAsync();
         using var scratch = new ScratchDirectory();
         var existing = Path.Combine(scratch.Path, ExpectedFileName);
-        await File.WriteAllTextAsync(existing, "copia previa");
+        await File.WriteAllTextAsync(existing, "previous copy");
         using var output = new StringWriter();
         using var error = new StringWriter();
 
         var exitCode = await BackupCommand.RunAsync(scratch.Path, ConnectionStringOf(database), Now, output, error, default);
 
         Assert.Equal(1, exitCode);
-        Assert.Equal("copia previa", await File.ReadAllTextAsync(existing));
+        Assert.Equal("previous copy", await File.ReadAllTextAsync(existing));
         Assert.Equal(string.Empty, output.ToString());
         Assert.Contains(ExpectedFileName, error.ToString(), StringComparison.Ordinal);
     }
@@ -122,7 +122,7 @@ public class BackupCommandTests
         var exitCode = await CommandLine.RunAsync(["backup"], TextReader.Null, TextWriter.Null, error);
 
         Assert.Equal(1, exitCode);
-        Assert.Contains("backup <carpeta>", error.ToString(), StringComparison.Ordinal);
+        Assert.Contains("Usage: backup <dir>", error.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public class BackupCommandTests
         return ids;
     }
 
-    /// <summary>Carpeta temporal propia de la prueba, que se borra al terminar.</summary>
+    /// <summary>The test's own temporary folder, deleted at the end.</summary>
     private sealed class ScratchDirectory : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "blog-backup-tests-" + Guid.NewGuid().ToString("N"));

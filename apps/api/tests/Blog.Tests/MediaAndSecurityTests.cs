@@ -39,7 +39,7 @@ public class ImageSnifferTests
 
 public class Pbkdf2PasswordHasherTests
 {
-    // Pocas iteraciones: acá se prueba la lógica, no la fuerza (que son 600.000 en producción).
+    // Few iterations: this tests the logic, not the strength (which is 600,000 in production).
     private const int FastIterations = 1_000;
 
     [Theory]
@@ -75,5 +75,5 @@ public class Pbkdf2PasswordHasherTests
     [InlineData("otro-algoritmo$1000$AAAA$AAAA")]
     [InlineData("pbkdf2-sha256$1000$no-es-base64!$AAAA")]
     public void Verify_returns_false_for_malformed_hashes_instead_of_throwing(string stored) =>
-        Assert.False(Pbkdf2PasswordHasher.Verify("lo-que-sea", stored));
+        Assert.False(Pbkdf2PasswordHasher.Verify("anything", stored));
 }

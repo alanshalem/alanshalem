@@ -191,7 +191,7 @@ public class VideoEditTests
     public void Every_listed_fade_length_is_accepted(double fadeSeconds) =>
         Assert.Equal(fadeSeconds, VideoEdit.Create(20, 0, 10, VideoFade.Black, fadeSeconds).FadeSeconds);
 
-    // El mensaje es lo que lee el admin: se fija entero una vez, y así también los tres valores de corto, medio y largo.
+    // The message is what the admin reads: it is pinned whole once, and so are the three short, medium and long values.
     [Theory]
     [InlineData(VideoFade.Loop, 1.5)]
     [InlineData(VideoFade.Black, 0)]
@@ -210,7 +210,7 @@ public class VideoEditTests
 
         Assert.Equal("2-15-loop-1", edit.Key);
         Assert.Equal(edit, VideoEdit.Create(20, 2.0004, 14.9996, VideoFade.Loop, 1));
-        // Sin fundido, su duración no cambia nada: queda en la de por defecto.
+        // Without a fade, its duration changes nothing: it stays at the default one.
         var none = VideoEdit.Create(20, 2.5, 10, VideoFade.None, 2);
         Assert.Equal(VideoEdit.Create(20, 2.5, 10, VideoFade.None, 0.5), none);
         Assert.Equal("2.5-10-none-1", none.Key);
@@ -302,7 +302,7 @@ public class VideoAssetTests
 
         var failed = VideoAsset.Create(Hash, 1920, 1080, Edit, Now);
         failed.MarkFailed(MessageKeys.VideoProcessingFailed);
-        // Se guarda la clave del catálogo, no el texto: quien lo muestra lo escribe en el idioma de quien lee.
+        // The catalog key is stored, not the text: whoever shows it writes it in the reader's language.
         Assert.Equal((VideoStatus.Failed, MessageKeys.VideoProcessingFailed), (failed.Status, failed.Error));
 
         failed.Retry();
@@ -314,7 +314,7 @@ public class VideoAssetTests
     {
         var video = VideoAsset.Create(Hash, 1920, 1080, Edit, Now);
 
-        Assert.Throws<ArgumentException>(() => video.MarkFailed("ffmpeg falló"));
+        Assert.Throws<ArgumentException>(() => video.MarkFailed("ffmpeg failed"));
         Assert.Equal((VideoStatus.Processing, (string?)null), (video.Status, video.Error));
     }
 

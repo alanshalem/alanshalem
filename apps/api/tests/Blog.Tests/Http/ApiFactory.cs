@@ -12,22 +12,22 @@ using Microsoft.Extensions.Logging;
 namespace Blog.Tests.Http;
 
 /// <summary>
-/// La API entera en memoria (TestServer), armada por el mismo Program.cs, con base, media, carpeta de trabajo y claves
-/// de la cookie en una carpeta temporal propia. Solo se reemplazan el builder (cuenta pedidos) y ffmpeg (simulado: las
-/// pruebas HTTP no lo necesitan). Corre como Production; <see cref="Development"/> es la misma API en Development.
+/// The whole API in memory (TestServer), built by the same Program.cs, with database, media, work folder and cookie keys
+/// in a temporary folder of its own. Only the builder (counts requests) and ffmpeg (simulated: the HTTP tests do not
+/// need it) are replaced. Runs as Production; <see cref="Development"/> is the same API in Development.
 /// </summary>
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
-    public const string Password = "contraseña de prueba";
-    public const string BuilderToken = "token-del-builder-para-pruebas-http-0123456789";
+    public const string Password = "test password";
+    public const string BuilderToken = "builder-token-for-http-tests-0123456789";
 
-    /// <summary>La cabecera anti-CSRF que el middleware exige en toda petición que modifica datos.</summary>
+    /// <summary>The anti-CSRF header the middleware requires on every request that changes data.</summary>
     public const string CsrfHeader = "X-Requested-With";
     public const string CsrfValue = "blog-admin";
 
     /// <summary>
-    /// Solo en las pruebas: la IP desde la que "llega" la conexión (TestServer no tiene una). La pone un middleware que
-    /// corre antes que todo Program.cs, como si fuera la IP real del socket.
+    /// Tests only: the IP the connection "comes" from (TestServer has none). A middleware that runs before all of
+    /// Program.cs sets it, as if it were the real IP of the socket.
     /// </summary>
     public const string RemoteIpHeader = "X-Test-Remote-Ip";
 
@@ -38,43 +38,43 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     public string MediaDirectory => Path.Combine(_directory, "media");
 
-    /// <summary>Un archivo fuera de la carpeta de media: lo que un /media/../ intentaría leer.</summary>
+    /// <summary>A file outside the media folder: what a /media/../ would try to read.</summary>
     public string OutsideMediaFile => Path.Combine(_directory, "blog.db");
 
     internal CountingBuildTrigger Build { get; } = new();
 
     internal FakeVideoTranscoder Transcoder { get; } = new();
 
-    /// <summary>Todo lo que registra la API (también la de <see cref="Development"/> y las derivadas).</summary>
+    /// <summary>Everything the API logs (also the <see cref="Development"/> one and the derived ones).</summary>
     internal CapturingLoggerProvider Logs { get; } = new();
 
-    /// <summary>La misma API (misma configuración y carpetas) en Development, donde sirve /media.</summary>
+    /// <summary>The same API (same configuration and folders) in Development, where it serves /media.</summary>
     public WebApplicationFactory<Program> Development =>
         _development ??= WithWebHostBuilder(builder => builder.UseEnvironment("Development"));
 
-    /// <summary>Cliente sin sesión. HTTPS: la cookie de sesión es Secure y no viajaría por HTTP.</summary>
+    /// <summary>Client without a session. HTTPS: the session cookie is Secure and would not travel over HTTP.</summary>
     public HttpClient CreateHttpsClient(WebApplicationFactory<Program>? factory = null) =>
         (factory ?? this).CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
 
-    /// <summary>Un cliente con sesión, compartido: el login tiene rate limit (10 intentos cada 15 minutos por IP).</summary>
+    /// <summary>A client with a session, shared: the login is rate limited (10 attempts every 15 minutes per IP).</summary>
     public async Task<HttpClient> AdminClientAsync() => _admin ??= await LoggedInAsync(CreateHttpsClient());
 
-    /// <summary>Lo mismo que <see cref="AdminClientAsync"/> contra la API en <see cref="Development"/> (tiene su propio límite).</summary>
+    /// <summary>The same as <see cref="AdminClientAsync"/> against the API in <see cref="Development"/> (it has its own limit).</summary>
     public async Task<HttpClient> DevelopmentAdminClientAsync() => _developmentAdmin ??= await LoggedInAsync(CreateHttpsClient(Development));
 
-    /// <summary>Petición que modifica datos, con la cabecera anti-CSRF.</summary>
+    /// <summary>A request that changes data, with the anti-CSRF header.</summary>
     public static HttpRequestMessage Mutation(HttpMethod method, string url, HttpContent? content = null) =>
         new(method, url) { Content = content, Headers = { { CsrfHeader, CsrfValue } } };
 
     public static HttpContent JsonContent(object value) => System.Net.Http.Json.JsonContent.Create(value);
 
     /// <summary>
-    /// Rompe la base con la API andando: el archivo pasa a ser basura (como un disco dañado). Solo para una fábrica propia
-    /// de la prueba, nunca para la compartida. Reintenta porque un worker puede tener el archivo abierto un instante.
+    /// Breaks the database with the API running: the file becomes garbage (like a damaged disk). Only for a factory of the
+    /// test's own, never for the shared one. Retries because a worker may have the file open for an instant.
     /// </summary>
     public async Task BreakDatabaseAsync()
     {
-        var garbage = System.Text.Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("esto no es una base SQLite. ", 200)));
+        var garbage = System.Text.Encoding.UTF8.GetBytes(string.Concat(Enumerable.Repeat("this is not a SQLite database. ", 200)));
         for (var attempt = 1; ; attempt++)
         {
             try
@@ -109,7 +109,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // UseSetting entra como configuración de mayor prioridad: le gana a appsettings.json y a los user-secrets.
+        // UseSetting comes in as the highest-priority configuration: it beats appsettings.json and the user-secrets.
         builder.UseEnvironment("Production");
         builder.UseSetting("ConnectionStrings:Blog", $"Data Source={OutsideMediaFile};Pooling=False");
         builder.UseSetting("Media:Directory", MediaDirectory);
@@ -129,7 +129,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     }
 }
 
-/// <summary>Pone como IP de la conexión la de <see cref="ApiFactory.RemoteIpHeader"/>, antes que cualquier middleware de la API.</summary>
+/// <summary>Sets as the connection IP the one of <see cref="ApiFactory.RemoteIpHeader"/>, before any API middleware.</summary>
 internal sealed class RemoteIpFromHeader : IStartupFilter
 {
     public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
@@ -147,7 +147,7 @@ internal sealed class RemoteIpFromHeader : IStartupFilter
     };
 }
 
-/// <summary>Todas las pruebas HTTP comparten una sola API (arrancarla cuesta) y corren una por vez.</summary>
+/// <summary>All the HTTP tests share a single API (starting it is expensive) and run one at a time.</summary>
 [CollectionDefinition(Name)]
 public sealed class ApiCollection : ICollectionFixture<ApiFactory>
 {

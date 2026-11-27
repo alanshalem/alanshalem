@@ -20,16 +20,16 @@ public static class MediaEndpoints
     // admin's language) instead of a generic 413.
     private const long ImageEnvelopeMargin = 4 * 1024 * 1024;
 
-    // Margen para la envoltura multipart (cabeceras y separadores) por encima del máximo del archivo: así un video
-    // apenas más grande que el máximo recibe el mensaje propio del caso de uso (en el idioma del admin), no un 413 genérico.
+    // Margin for the multipart envelope (headers and boundaries) above the file maximum: this way a video barely larger
+    // than the maximum gets the use case's own message (in the admin's language), not a generic 413.
     private const long MultipartMargin = 1024 * 1024;
     private const long VideoRequestLimit = VideoService.MaxBytes + MultipartMargin;
 
-    /// <summary>Subida de imágenes y videos dentro del grupo /api/admin.</summary>
+    /// <summary>Image and video upload inside the /api/admin group.</summary>
     public static RouteGroupBuilder MapAdminMediaEndpoints(this RouteGroupBuilder admin)
     {
-        // La protección CSRF de ASP.NET (antiforgery) se reemplaza por la cabecera X-Requested-With que exige el middleware.
-        // Devuelve el asset optimizado (conserva "url").
+        // ASP.NET's CSRF protection (antiforgery) is replaced by the X-Requested-With header the middleware requires.
+        // Returns the optimized asset (keeps "url").
         admin.MapPost("/media", async (IFormFile file, MediaService media, CancellationToken ct) =>
             {
                 await using var stream = file.OpenReadStream();
@@ -37,10 +37,10 @@ public static class MediaEndpoints
             })
             .DisableAntiforgery();
 
-        // 202: el video queda validado y en cola; el admin consulta GET .../videos/{id} hasta que esté listo. El límite
-        // de 200 MB se sube solo en esta ruta (el resto de la API sigue con el de Kestrel). ASP.NET guarda en disco
-        // todo archivo de más de 64 KB al leer el formulario, así que la subida nunca queda entera en memoria.
-        // Recorte y fundido son campos opcionales del mismo formulario, como texto: los lee y valida el caso de uso.
+        // 202: the video is validated and queued; the admin polls GET .../videos/{id} until it is ready. The 200 MB
+        // limit is raised only on this route (the rest of the API keeps Kestrel's). ASP.NET stores on disk every file
+        // over 64 KB when reading the form, so the upload is never whole in memory.
+        // Trim and fade are optional fields of the same form, as text: the use case reads and validates them.
         admin.MapPost("/media/videos", async (
                 IFormFile file,
                 [FromForm] string? trimStart,
@@ -64,8 +64,8 @@ public static class MediaEndpoints
     }
 
     /// <summary>
-    /// Todas las imágenes subidas, para que el builder arme el srcset de cualquier /media/... del sitio. Dentro del
-    /// grupo /api/internal (token del builder).
+    /// Every uploaded image, so the builder builds the srcset of any /media/... on the site. Inside the
+    /// /api/internal group (builder token).
     /// </summary>
     public static RouteGroupBuilder MapInternalMediaEndpoints(this RouteGroupBuilder builderOnly)
     {
@@ -75,13 +75,13 @@ public static class MediaEndpoints
     }
 
     /// <summary>
-    /// Solo en Development: la API sirve la carpeta de media para que el admin muestre las vistas previas.
-    /// En producción /media lo sirve Caddy directo del volumen, con caché inmutable.
+    /// Development only: the API serves the media folder so the admin can show the previews.
+    /// In production Caddy serves /media straight from the volume, with an immutable cache.
     /// </summary>
     public static WebApplication UseDevelopmentMediaFiles(this WebApplication app)
     {
         var directory = Path.GetFullPath(app.Services.GetRequiredService<IOptions<MediaOptions>>().Value.Directory);
-        Directory.CreateDirectory(directory); // PhysicalFileProvider exige que la carpeta exista
+        Directory.CreateDirectory(directory); // PhysicalFileProvider requires the folder to exist
 
         app.UseStaticFiles(new StaticFileOptions
         {

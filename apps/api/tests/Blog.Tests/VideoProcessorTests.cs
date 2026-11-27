@@ -9,8 +9,9 @@ using Microsoft.Extensions.Logging;
 namespace Blog.Tests;
 
 /// <summary>
-/// Qué pasa cuando falla un guardado mientras se procesa un video (base real, ffmpeg simulado y un repositorio que falla
-/// cuando la prueba lo pide): el error original nunca se pierde y el fallo se guarda partiendo de lo que está en la base.
+/// What happens when a save fails while a video is processed (real database, simulated ffmpeg and a repository that
+/// fails when the test asks it to): the original error is never lost and the failure is saved starting from what is in
+/// the database.
 /// </summary>
 public class VideoProcessorTests
 {
@@ -20,8 +21,8 @@ public class VideoProcessorTests
     public async Task If_saving_the_ready_video_fails_it_is_stored_as_failed_and_the_original_error_is_rethrown()
     {
         await using var context = await TestContext.CreateAsync();
-        var job = await context.UploadAsync(TestVideos.Fake("listo sin guardar"));
-        var original = new InvalidOperationException("La base no respondió.");
+        var job = await context.UploadAsync(TestVideos.Fake("ready but not saved"));
+        var original = new InvalidOperationException("The database did not answer.");
         context.Saves.FailNext(original);
 
         var thrown = await Assert.ThrowsAnyAsync<Exception>(() => context.ProcessAsync(job, default));
@@ -39,7 +40,7 @@ public class VideoProcessorTests
     public async Task If_saving_the_failure_also_fails_both_errors_are_thrown_and_the_video_stays_processing()
     {
         await using var context = await TestContext.CreateAsync();
-        var job = await context.UploadAsync(TestVideos.Fake("FAIL y tampoco se guarda"));
+        var job = await context.UploadAsync(TestVideos.Fake("FAIL and not saved either"));
         var saveError = new IOException("Disco lleno.");
         context.Saves.FailNext(saveError);
 
@@ -48,7 +49,7 @@ public class VideoProcessorTests
         Assert.Equal(2, thrown.InnerExceptions.Count);
         Assert.IsType<VideoProcessingException>(thrown.InnerExceptions[0]);
         Assert.Same(saveError, thrown.InnerExceptions[1]);
-        // Queda en "processing": el próximo arranque lo marca como interrumpido (FailInterruptedAsync).
+        // It stays "processing": the next start marks it as interrupted (FailInterruptedAsync).
         Assert.Equal(VideoStatus.Processing, (await context.GetAsync(job.VideoId)).Status);
         Assert.Empty(context.Database.VideoWorkFiles());
     }
@@ -57,7 +58,7 @@ public class VideoProcessorTests
     public async Task A_shutdown_leaves_the_video_processing_without_saving_a_failure()
     {
         await using var context = await TestContext.CreateAsync();
-        var job = await context.UploadAsync(TestVideos.Fake("se apaga el servidor"));
+        var job = await context.UploadAsync(TestVideos.Fake("the server shuts down"));
         var savesBefore = context.Saves.Attempts;
         using var shutdown = new CancellationTokenSource();
         await shutdown.CancelAsync();
@@ -101,11 +102,11 @@ public class VideoProcessorTests
     {
         await using var context = await TestContext.CreateAsync();
 
-        // Primero arranca el worker: al arrancar marca como interrumpido todo lo que esté en "processing".
+        // The worker starts first: on start it marks as interrupted everything that is "processing".
         await context.Database.VideoWorker.StartAsync(default);
         try
         {
-            var job = await context.UploadAsync(TestVideos.Fake("FAIL en el worker"));
+            var job = await context.UploadAsync(TestVideos.Fake("FAIL in the worker"));
             context.Saves.FailNext(new IOException("Disco lleno."));
             context.Database.Services.GetRequiredService<ChannelVideoQueue>().Enqueue(job);
             await WaitForErrorLogAsync(context.Database);
@@ -133,7 +134,7 @@ public class VideoProcessorTests
         }
     }
 
-    /// <summary>Base + ffmpeg simulado + cola que solo anota + repositorio de videos con guardados que fallan a pedido.</summary>
+    /// <summary>Database + simulated ffmpeg + a queue that only records + a video repository with saves that fail on request.</summary>
     private sealed class TestContext : IAsyncDisposable
     {
         private readonly RecordingVideoQueue _queue = new();
@@ -160,7 +161,7 @@ public class VideoProcessorTests
             return context;
         }
 
-        /// <summary>Sube el video (queda en "processing") y devuelve su trabajo, sin procesarlo.</summary>
+        /// <summary>Uploads the video (it stays "processing") and returns its job, without processing it.</summary>
         public async Task<VideoJob> UploadAsync(byte[] content)
         {
             var video = await Database.WithVideosAsync(async videos =>
@@ -183,7 +184,7 @@ public class VideoProcessorTests
         public ValueTask DisposeAsync() => Database.DisposeAsync();
     }
 
-    /// <summary>Los próximos guardados que van a fallar, en orden, y cuántos se intentaron en total.</summary>
+    /// <summary>The next saves that will fail, in order, and how many were attempted in total.</summary>
     private sealed class SaveFailures
     {
         private readonly Queue<Exception> _pending = new();
@@ -202,7 +203,7 @@ public class VideoProcessorTests
         }
     }
 
-    /// <summary>El repositorio real, salvo que un guardado puede fallar antes de llegar a la base.</summary>
+    /// <summary>The real repository, except that a save can fail before reaching the database.</summary>
     private sealed class FailingSaveVideoAssetRepository(IVideoAssetRepository inner, SaveFailures failures) : IVideoAssetRepository
     {
         public Task<VideoAsset?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => inner.GetByIdAsync(id, cancellationToken);

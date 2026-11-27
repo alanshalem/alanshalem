@@ -74,7 +74,7 @@ public class PostTranslationTests
             ("Hola", "hola", "Resumen", "cuerpo", "/media/a.png", "Alt"),
             (translation.Title, translation.Slug, translation.Summary, translation.Body, translation.CoverUrl, translation.CoverAlt));
         Assert.Equal(["net", "ia"], translation.Tags);
-        // El original no cambia.
+        // The original does not change.
         Assert.Equal(("es", PostStatus.Published), (original.Lang, original.Status));
     }
 
@@ -94,8 +94,8 @@ public class PostTranslationTests
 }
 
 /// <summary>
-/// La fecha del último cambio de contenido (multiidioma L9): con ella el admin decide si una traducción quedó atrás, así
-/// que publicar, despublicar o programar no pueden moverla.
+/// The date of the last content change: with it the admin decides whether a translation fell behind, so publishing,
+/// unpublishing or scheduling cannot move it.
 /// </summary>
 public class PostContentUpdatedAtTests
 {
@@ -141,8 +141,8 @@ public class PostContentUpdatedAtTests
 }
 
 /// <summary>
-/// El slug copiado a la versión nueva puede estar tomado en su idioma por otro artículo (multiidioma L9): se le suma el
-/// sufijo del idioma, como un cambio de contenido más.
+/// The slug copied to the new version may be taken in its language by another article: the language suffix is added,
+/// as one more content change.
 /// </summary>
 public class TranslationSlugSuffixTests
 {
@@ -163,9 +163,9 @@ public class TranslationSlugSuffixTests
 
     public static TheoryData<string, string, string> LongSlugs => new()
     {
-        // Justo entra: no se corta nada.
+        // It just fits: nothing is cut.
         { new string('a', Slug.MaxLength - 3), "en", new string('a', Slug.MaxLength - 3) + "-en" },
-        // No entra: se corta la base, y el guion que queda colgando en el corte se quita (el slug no lo admite).
+        // It does not fit: the base is cut, and the hyphen left dangling at the cut is removed (the slug does not allow it).
         { new string('a', Slug.MaxLength - 4) + "-bbb", "en", new string('a', Slug.MaxLength - 4) + "-en" },
         { new string('a', Slug.MaxLength), "es", new string('a', Slug.MaxLength - 3) + "-es" },
     };

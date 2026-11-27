@@ -6,25 +6,25 @@ using System.Text.RegularExpressions;
 namespace Blog.Tests;
 
 /// <summary>
-/// Videos para las pruebas. Los falsos son bytes con cabecera MP4 (para el ffmpeg simulado); los reales se generan con
-/// ffmpeg (patrón de prueba + tono de audio), así no hay archivos binarios en el repo.
+/// Videos for the tests. The fake ones are bytes with an MP4 header (for the simulated ffmpeg); the real ones are
+/// generated with ffmpeg (test pattern + audio tone), so there are no binary files in the repo.
 /// </summary>
 internal static class TestVideos
 {
-    /// <summary>Caja ftyp de un MP4 ("isom"): lo mínimo para pasar la verificación de magic bytes.</summary>
+    /// <summary>ftyp box of an MP4 ("isom"): the minimum to pass the magic bytes check.</summary>
     public static readonly byte[] FtypHeader = [0x00, 0x00, 0x00, 0x18, .. "ftypisom"u8];
 
-    /// <summary>"Video" falso: cabecera MP4 + contenido propio (contenidos distintos = hashes distintos).</summary>
+    /// <summary>Fake "video": MP4 header + its own content (different contents = different hashes).</summary>
     public static byte[] Fake(string content) => [.. FtypHeader, .. System.Text.Encoding.UTF8.GetBytes(content)];
 
-    /// <summary>Clip real H.264 + AAC generado con ffmpeg en el archivo indicado.</summary>
+    /// <summary>Real H.264 + AAC clip generated with ffmpeg at the given file.</summary>
     public static async Task<string> GenerateAsync(
         string path, int width, int height, double seconds, int fps = 30, bool audio = true, int? displayRotation = null)
     {
         List<string> arguments = ["-hide_banner", "-loglevel", "error", "-y"];
         if (displayRotation is { } rotation)
         {
-            // Como un teléfono: los píxeles se guardan acostados y una matriz de rotación dice cómo mostrarlos.
+            // Like a phone: the pixels are stored lying down and a rotation matrix says how to show them.
             arguments.AddRange(["-display_rotation", rotation.ToString(System.Globalization.CultureInfo.InvariantCulture)]);
         }
 
@@ -47,8 +47,8 @@ internal static class TestVideos
     }
 
     /// <summary>
-    /// Una imagen fija que se desplaza 2 px por cuadro (30 fps): cuadros vecinos casi iguales y cuadros lejanos bien
-    /// distintos. Sirve para medir saltos (un corte se nota, un empalme sin salto no) y en qué cuadro empieza un recorte.
+    /// A still image that moves 2 px per frame (30 fps): neighboring frames almost equal and distant frames quite
+    /// different. Used to measure jumps (a cut shows, a seamless join does not) and on which frame a trim starts.
     /// </summary>
     public static async Task<string> GeneratePanAsync(string path, int width, int height, double seconds)
     {
@@ -63,8 +63,8 @@ internal static class TestVideos
     }
 
     /// <summary>
-    /// Gris oscuro liso hasta <paramref name="cutAtSeconds"/> y blanco después: un cambio de escena brusco en un segundo
-    /// conocido, para saber de qué lado salió un cuadro con solo medir su luminancia.
+    /// Flat dark gray until <paramref name="cutAtSeconds"/> and white afterwards: an abrupt scene change at a known
+    /// second, to tell which side a frame came from just by measuring its luminance.
     /// </summary>
     public static async Task<string> GenerateHardCutAsync(string path, int width, int height, double cutAtSeconds, double seconds, int fps)
     {
@@ -79,7 +79,7 @@ internal static class TestVideos
         return path;
     }
 
-    /// <summary>Patrón de prueba con ruido fuerte que cambia en cada cuadro: el peor caso para el peso (sin el techo, explota).</summary>
+    /// <summary>Test pattern with heavy noise that changes on every frame: the worst case for size (without the ceiling, it explodes).</summary>
     public static async Task<string> GenerateNoisyAsync(string path, int width, int height, double seconds)
     {
         await RunAsync("ffmpeg",
@@ -91,7 +91,7 @@ internal static class TestVideos
         return path;
     }
 
-    /// <summary>Cuántos cuadros tiene el video (decodificándolo entero, no lo que dice la cabecera).</summary>
+    /// <summary>How many frames the video has (decoding it whole, not what the header says).</summary>
     public static async Task<int> FrameCountAsync(string path)
     {
         var (output, _) = await RunAsync("ffprobe",
@@ -99,7 +99,7 @@ internal static class TestVideos
         return int.Parse(output.Trim(), CultureInfo.InvariantCulture);
     }
 
-    /// <summary>PSNR (dB) entre un cuadro de un video y uno de otro (o del mismo): más alto = más parecidos.</summary>
+    /// <summary>PSNR (dB) between a frame of one video and one of another (or the same): higher = more alike.</summary>
     public static async Task<double> PsnrAsync(string first, int firstFrame, string second, int secondFrame)
     {
         var (_, log) = await RunAsync("ffmpeg",
@@ -111,7 +111,7 @@ internal static class TestVideos
         return average == "inf" ? double.PositiveInfinity : double.Parse(average, CultureInfo.InvariantCulture);
     }
 
-    /// <summary>Luminancia media de un cuadro (0-255; el negro de video es 16).</summary>
+    /// <summary>Mean luminance of a frame (0-255; video black is 16).</summary>
     public static async Task<double> MeanLumaAsync(string path, int frame)
     {
         var (_, log) = await RunAsync("ffmpeg",
@@ -119,7 +119,7 @@ internal static class TestVideos
         return double.Parse(Regex.Match(log, @"lavfi\.signalstats\.YAVG=(?<value>[0-9.]+)").Groups["value"].Value, CultureInfo.InvariantCulture);
     }
 
-    /// <summary>Lo que ffprobe ve en un archivo: los streams (tipo, códec, perfil, tamaño, fps) y la duración.</summary>
+    /// <summary>What ffprobe sees in a file: the streams (type, codec, profile, size, fps) and the duration.</summary>
     public static async Task<JsonElement> ProbeAsync(string path)
     {
         var (json, _) = await RunAsync("ffprobe",
@@ -132,7 +132,7 @@ internal static class TestVideos
 
     private static string Invariant(double value) => value.ToString(CultureInfo.InvariantCulture);
 
-    /// <summary>La salida estándar y el log (stderr): ahí escriben psnr y signalstats sus mediciones.</summary>
+    /// <summary>The standard output and the log (stderr): that is where psnr and signalstats write their measurements.</summary>
     private static async Task<(string Output, string Log)> RunAsync(string fileName, IReadOnlyList<string> arguments)
     {
         var startInfo = new ProcessStartInfo(fileName)
@@ -152,7 +152,7 @@ internal static class TestVideos
         await process.WaitForExitAsync();
         if (process.ExitCode != 0)
         {
-            throw new InvalidOperationException($"{fileName} falló ({process.ExitCode}): {await error}");
+            throw new InvalidOperationException($"{fileName} failed ({process.ExitCode}): {await error}");
         }
 
         return (await output, await error);

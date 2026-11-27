@@ -3,18 +3,18 @@ using Blog.Infrastructure;
 namespace Blog.Api.Cli;
 
 /// <summary>
-/// Los modos de línea de comandos del mismo ejecutable de la API (en el contenedor no hay curl ni sqlite3):
+/// The command-line modes of the API's own executable (the container has no curl or sqlite3):
 /// <code>
-///   dotnet Blog.Api.dll hash-password      hash de la contraseña del admin (≥ 12 caracteres; sin eco en una consola)
-///   dotnet Blog.Api.dll healthcheck        0 si /api/health/ready responde 200; si no, 1 (healthcheck de compose)
-///   dotnet Blog.Api.dll backup &lt;carpeta&gt;   copia consistente de la base a &lt;carpeta&gt;/blog-{UTC}.db; 0 o 1
+///   dotnet Blog.Api.dll hash-password      admin password hash (≥ 12 characters; no echo in a console)
+///   dotnet Blog.Api.dll healthcheck        0 if /api/health/ready answers 200; otherwise 1 (compose healthcheck)
+///   dotnet Blog.Api.dll backup &lt;dir&gt;       consistent copy of the database to &lt;dir&gt;/blog-{UTC}.db; 0 or 1
 /// </code>
-/// Cualquier otro argumento arranca la API (por ejemplo --urls).
+/// Any other argument starts the API (for example --urls).
 /// </summary>
 internal static class CommandLine
 {
-    /// <param name="readHiddenKey">Para leer la contraseña sin eco en una consola; null si la entrada está redirigida.</param>
-    /// <returns>El código de salida del modo pedido, o null si los argumentos no piden ninguno.</returns>
+    /// <param name="readHiddenKey">To read the password without echo in a console; null if the input is redirected.</param>
+    /// <returns>The exit code of the requested mode, or null if the arguments request none.</returns>
     public static async Task<int?> RunAsync(
         string[] args, TextReader input, TextWriter output, TextWriter error, Func<ConsoleKeyInfo>? readHiddenKey = null) => args switch
     {
@@ -23,7 +23,7 @@ internal static class CommandLine
             HealthCheckCommand.ReadyUrl, new HttpClientHandler(), HealthCheckCommand.RequestTimeout, error),
         ["backup", var directory] => await BackupCommand.RunAsync(
             directory, ConfiguredConnectionString(), DateTime.UtcNow, output, error, CancellationToken.None),
-        ["backup", ..] => Usage(error, "Uso: backup <carpeta>"),
+        ["backup", ..] => Usage(error, "Usage: backup <dir>"),
         _ => null,
     };
 
@@ -33,8 +33,8 @@ internal static class CommandLine
         return 1;
     }
 
-    // La misma configuración que la API (appsettings, variables de entorno, user-secrets en Development), sin los
-    // argumentos del modo: el backup copia la base que usa la API, no otra.
+    // The same configuration as the API (appsettings, environment variables, user-secrets in Development), without the
+    // mode's arguments: the backup copies the database the API uses, not another one.
     private static string ConfiguredConnectionString() =>
         DependencyInjection.ConnectionStringOf(WebApplication.CreateBuilder(new WebApplicationOptions()).Configuration);
 }

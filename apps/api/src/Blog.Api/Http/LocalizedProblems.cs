@@ -4,16 +4,17 @@ using Microsoft.Net.Http.Headers;
 namespace Blog.Api.Http;
 
 /// <summary>
-/// El único lugar que termina de armar cada problem details de la API, lo escriba quien lo escriba (el manejador de
-/// excepciones, las páginas de estado para los 4xx vacíos del framework, Results.Problem): título en el idioma del pedido
-/// (<see cref="RequestLanguage"/>), "code" estable para que el cliente decida sin leer el texto, y Vary: Accept-Language.
+/// The only place that finishes every problem details of the API, whoever writes it (the exception handler, the
+/// status code pages for the framework's empty 4xx, Results.Problem): title in the language of the request
+/// (<see cref="RequestLanguage"/>), a stable "code" so the client decides without reading the text, and
+/// Vary: Accept-Language.
 /// </summary>
 internal static class LocalizedProblems
 {
-    /// <summary>La extensión del problem details con la clave del mensaje.</summary>
+    /// <summary>The problem details extension with the message key.</summary>
     public const string CodeExtension = "code";
 
-    // Un título por código; el resto cae en el genérico de su familia (4xx: datos inválidos; 5xx: error interno).
+    // One title per status; the rest falls back to the generic one of its family (4xx: invalid data; 5xx: internal error).
     private static readonly Dictionary<int, string> TitleKeys = new()
     {
         [StatusCodes.Status400BadRequest] = MessageKeys.ProblemBadRequest,
@@ -30,8 +31,8 @@ internal static class LocalizedProblems
     };
 
     /// <summary>
-    /// Para <c>ProblemDetailsOptions.CustomizeProblemDetails</c>. Si quien escribió el problema ya puso un "code" (la
-    /// clave del detalle de una excepción propia) lo respeta; si no, el code es la clave del título.
+    /// For <c>ProblemDetailsOptions.CustomizeProblemDetails</c>. If whoever wrote the problem already set a "code" (the
+    /// key of the detail of one of our exceptions) it is respected; otherwise, the code is the key of the title.
     /// </summary>
     public static void Localize(ProblemDetailsContext context)
     {
@@ -41,7 +42,7 @@ internal static class LocalizedProblems
         problem.Title = MessageCatalog.Format(new UserMessage(titleKey), RequestLanguage.Of(context.HttpContext.Request));
         problem.Extensions.TryAdd(CodeExtension, titleKey);
 
-        // La misma URL responde distinto según el idioma pedido: que ningún caché mezcle las dos versiones.
+        // The same URL answers differently depending on the requested language: no cache may mix the two versions.
         context.HttpContext.Response.Headers.Append(HeaderNames.Vary, HeaderNames.AcceptLanguage);
     }
 

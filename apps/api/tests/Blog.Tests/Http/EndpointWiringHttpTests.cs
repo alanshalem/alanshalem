@@ -9,9 +9,9 @@ using Xunit.Abstractions;
 namespace Blog.Tests.Http;
 
 /// <summary>
-/// La composición de rutas de Program.cs: cada módulo de endpoints mapea solo lo suyo, y la protección la pone el grupo
-/// (/api/admin exige la sesión, /api/internal el token del builder). Se recorre la tabla de rutas real, así una ruta
-/// nueva que quede fuera de su grupo falla acá aunque nadie la agregue a una lista.
+/// The route composition of Program.cs: each endpoint module maps only its own, and the group applies the protection
+/// (/api/admin requires the session, /api/internal the builder token). The real route table is walked, so a new route
+/// left outside its group fails here even if nobody adds it to a list.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public partial class EndpointWiringHttpTests(ApiFactory api, ITestOutputHelper output)
@@ -35,9 +35,9 @@ public partial class EndpointWiringHttpTests(ApiFactory api, ITestOutputHelper o
         using var client = api.CreateHttpsClient();
         foreach (var (method, pattern) in admin.Concat(builderOnly))
         {
-            // Con la cabecera anti-CSRF: así el 401 es de la sesión o del token, no el 403 del middleware.
+            // With the anti-CSRF header: this way the 401 comes from the session or the token, not the middleware's 403.
             using var response = await client.SendAsync(ApiFactory.Mutation(new HttpMethod(method), Url(pattern)));
-            Assert.True(response.StatusCode == HttpStatusCode.Unauthorized, $"{method} {pattern} respondió {(int)response.StatusCode} sin credenciales.");
+            Assert.True(response.StatusCode == HttpStatusCode.Unauthorized, $"{method} {pattern} answered {(int)response.StatusCode} without credentials.");
         }
     }
 
@@ -49,7 +49,7 @@ public partial class EndpointWiringHttpTests(ApiFactory api, ITestOutputHelper o
         Assert.Equal((string.Empty, ApiFactory.BuilderToken), (builder.Url, builder.Token));
     }
 
-    /// <summary>Método y patrón de cada endpoint de la API, ordenados (sin barra final, como se piden).</summary>
+    /// <summary>Method and pattern of every API endpoint, sorted (without a trailing slash, as they are requested).</summary>
     private List<(string Method, string Pattern)> Routes() =>
         [.. api.Services.GetRequiredService<EndpointDataSource>().Endpoints
             .OfType<RouteEndpoint>()

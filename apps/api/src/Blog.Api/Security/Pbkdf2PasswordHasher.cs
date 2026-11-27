@@ -3,18 +3,18 @@ using System.Security.Cryptography;
 namespace Blog.Api.Security;
 
 /// <summary>
-/// Hash de contraseña con PBKDF2-SHA256 (viene en .NET, sin paquetes extra).
-/// Formato guardado: pbkdf2-sha256$iteraciones$salt(base64)$hash(base64) — las iteraciones viajan con el hash,
-/// así se pueden subir más adelante sin invalidar hashes viejos.
+/// Password hashing with PBKDF2-SHA256 (built into .NET, no extra packages).
+/// Stored format: pbkdf2-sha256$iterations$salt(base64)$hash(base64) — the iterations travel with the hash, so they can
+/// be raised later without invalidating old hashes.
 /// </summary>
 internal static class Pbkdf2PasswordHasher
 {
     private const string Prefix = "pbkdf2-sha256";
-    private const int DefaultIterations = 600_000; // recomendación OWASP 2023 para PBKDF2-HMAC-SHA256
+    private const int DefaultIterations = 600_000; // OWASP 2023 recommendation for PBKDF2-HMAC-SHA256
     private const int SaltSize = 16;
     private const int HashSize = 32;
 
-    /// <summary>Si tiene la forma de un hash de este formato (para validar la configuración al arrancar).</summary>
+    /// <summary>Whether it has the shape of a hash of this format (to validate the configuration on start).</summary>
     public static bool IsHash(string stored) => stored.StartsWith(Prefix + "$", StringComparison.Ordinal);
 
     public static string Hash(string password, int iterations = DefaultIterations)
@@ -38,12 +38,12 @@ internal static class Pbkdf2PasswordHasher
             var expected = Convert.FromBase64String(parts[3]);
             if (salt.Length == 0 || expected.Length == 0)
             {
-                return false; // un hash vacío aceptaría cualquier contraseña
+                return false; // an empty hash would accept any password
             }
 
             var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
 
-            // Comparación en tiempo constante: no filtra cuántos bytes coinciden.
+            // Constant-time comparison: it does not leak how many bytes match.
             return CryptographicOperations.FixedTimeEquals(actual, expected);
         }
         catch (FormatException)

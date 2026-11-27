@@ -6,7 +6,7 @@ using Blog.Tests.Http;
 
 namespace Blog.Tests;
 
-/// <summary>Los casos de uso se prueban con dobles en memoria: sin base de datos, sin red, sin disco.</summary>
+/// <summary>The use cases are tested with in-memory doubles: no database, no network, no disk.</summary>
 public class PostServiceTests
 {
     private sealed class InMemoryPostRepository : IPostRepository
@@ -220,12 +220,12 @@ public class PostServiceTests
         await Assert.ThrowsAsync<DomainException>(() => _service.UpdateAsync(
             created.Id, new SavePostRequest("Cambiado", null, null, "otro", null, "javascript:alert(1)", "x"), default));
 
-        // Equivalent y no Equal: Translations es una lista nueva en cada lectura (el record la compararía por referencia).
+        // Equivalent and not Equal: Translations is a new list on every read (the record would compare it by reference).
         Assert.Equivalent(before, await _service.GetAsync(created.Id, default), strict: true);
         Assert.Equal(buildsBefore, _build.Requests);
     }
 
-    // ----- Idioma y versiones (traducciones) -----
+    // ----- Language and versions (translations) -----
 
     [Fact]
     public async Task Create_uses_spanish_by_default_accepts_english_and_starts_a_group_without_translations()
@@ -307,7 +307,7 @@ public class PostServiceTests
         Assert.Equal(
             [new PostTranslationDto(translation.Id, "en", "hola", PostStatus.Draft, _clock.UtcNow, _clock.UtcNow)],
             published.Translations);
-        // Un borrador nuevo no se ve en el sitio: no se regenera.
+        // A new draft is not seen on the site: nothing is regenerated.
         Assert.Equal(builds, _build.Requests);
     }
 
@@ -362,7 +362,7 @@ public class PostServiceTests
 
         Assert.Equal(("hola-en", "en", original.TranslationGroupId), (translation.Slug, translation.Lang, translation.TranslationGroupId));
         Assert.Equal("hola-en", (await _service.GetRevisionAsync(translation.Id, Assert.Single(await RevisionsAsync(translation.Id)).Id, default)).Slug);
-        // El original y el otro post en inglés no cambian.
+        // The original and the other English post do not change.
         Assert.Equal("hola", (await _service.GetAsync(original.Id, default)).Slug);
         Assert.Equal("hola", (await _service.GetAsync(unrelated.Id, default)).Slug);
     }
@@ -403,7 +403,7 @@ public class PostServiceTests
         Assert.Equal(created, summaries[original.Id].ContentUpdatedAt);
         Assert.Equal(created, Assert.Single(summaries[english.Id].Translations).ContentUpdatedAt);
 
-        // Editar el contenido sí la mueve.
+        // Editing the content does move it.
         _clock.UtcNow = created.AddHours(3);
         var edited = await _service.UpdateAsync(original.Id, Request("Hola editado", "hola"), default);
         Assert.Equal(created.AddHours(3), edited.ContentUpdatedAt);
@@ -455,7 +455,7 @@ public class PostServiceTests
         Assert.Equal([original.Id], published[english.Id].Translations.Select(version => version.Id));
     }
 
-    // ----- Historial de versiones -----
+    // ----- Version history -----
 
     private Task<IReadOnlyList<PostRevisionSummaryDto>> RevisionsAsync(Guid id) => _service.ListRevisionsAsync(id, default);
 
@@ -537,7 +537,7 @@ public class PostServiceTests
             (restored.Title, restored.Slug, restored.Summary, restored.Body, restored.CoverUrl, restored.CoverAlt, restored.Status));
         Assert.Equal(["net"], restored.Tags);
         Assert.Equal([3, 2, 1], (await RevisionsAsync(post.Id)).Select(revision => revision.Number));
-        // Es un guardado más: un post publicado pide regenerar el sitio.
+        // It is one more save: a published post asks to regenerate the site.
         Assert.Equal(builds + 1, _build.Requests);
     }
 
@@ -573,7 +573,7 @@ public class PostServiceTests
         Assert.Single(await RevisionsAsync(post.Id));
     }
 
-    // ----- Publicación programada -----
+    // ----- Scheduled publishing -----
 
     [Fact]
     public async Task Schedule_stores_the_time_in_utc_and_cancel_clears_it_without_rebuilding()
@@ -594,7 +594,7 @@ public class PostServiceTests
     [Theory]
     [InlineData(null, ScheduleMessages.Missing)]
     [InlineData("  ", ScheduleMessages.Missing)]
-    [InlineData("mañana", ScheduleMessages.BadFormat)]
+    [InlineData("tomorrow", ScheduleMessages.BadFormat)]
     [InlineData("2026-11-26T09:00:00", ScheduleMessages.BadFormat)]
     [InlineData("2026-11-25T11:59:59Z", ScheduleMessages.Past)]
     [InlineData("2026-11-25T09:00:00-03:00", ScheduleMessages.Past)]
@@ -645,7 +645,7 @@ public class PostServiceTests
         Assert.Equal((PostStatus.Published, (DateTime?)null, (DateTime?)_clock.UtcNow), (published.Status, published.ScheduledAt, published.PublishedAt));
         Assert.Equal(PostStatus.Draft, (await _service.GetAsync(later.Id, default)).Status);
         Assert.Empty(await _service.ListDueAsync(default));
-        // La tanda pide un solo rebuild al final (lo hace el proceso en segundo plano), no uno por post.
+        // The batch requests a single rebuild at the end (the background process does it), not one per post.
         Assert.Equal(0, _build.Requests);
     }
 }

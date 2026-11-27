@@ -7,8 +7,8 @@ public static class HealthEndpoints
     private static readonly object Healthy = new { status = "ok" };
 
     /// <summary>
-    /// /api/health: el proceso está vivo (no toca nada). /api/health/ready: además la base responde; si no, 503 (un
-    /// problem details como cualquier error). Lo usa el healthcheck del contenedor (modo healthcheck de la línea de comandos).
+    /// /api/health: the process is alive (it touches nothing). /api/health/ready: the database answers too; otherwise
+    /// 503 (a problem details like any error). Used by the container healthcheck (the healthcheck command-line mode).
     /// </summary>
     public static IEndpointRouteBuilder MapHealthEndpoints(this IEndpointRouteBuilder app)
     {

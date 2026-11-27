@@ -8,8 +8,8 @@ using Microsoft.AspNetCore.Http;
 namespace Blog.Tests.Http;
 
 /// <summary>
-/// El contrato HTTP tal como lo ven el admin y el builder: rutas, códigos de estado, cookie de sesión, cabecera
-/// anti-CSRF, token del builder y mensajes en español. Lo de adentro (casos de uso, pipeline) se prueba aparte.
+/// The HTTP contract as the admin and the builder see it: routes, status codes, session cookie, anti-CSRF header,
+/// builder token and Spanish messages. The inside (use cases, pipeline) is tested separately.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class HttpApiTests(ApiFactory api)
@@ -101,7 +101,7 @@ public class HttpApiTests(ApiFactory api)
 
         using var created = await admin.SendAsync(ApiFactory.Mutation(
             HttpMethod.Post, "/api/admin/hero-images",
-            // El crédito es uno solo en los dos idiomas (L13): un cliente viejo que todavía manda creditEn no se rompe.
+            // The credit is a proper name, one single field for both languages: an old client that still sends creditEn does not break.
             ApiFactory.JsonContent(new { mediaId, alt = "Nebulosa", credit = "Foto: Ana", altEn = "Nebula", creditEn = "Photo: Ana" })));
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var image = await created.Content.ReadFromJsonAsync<JsonElement>();
@@ -127,7 +127,7 @@ public class HttpApiTests(ApiFactory api)
         using var deletedAgain = await admin.SendAsync(ApiFactory.Mutation(HttpMethod.Delete, $"/api/admin/hero-images/{id}"));
         await AssertProblemAsync(deletedAgain, HttpStatusCode.NotFound, "La foto del hero no existe.");
 
-        // Alta, edición y baja piden regenerar el sitio; lo rechazado no.
+        // Adding, editing and deleting ask to regenerate the site; what was rejected does not.
         Assert.Equal(buildsBefore + 3, api.Build.Requests);
     }
 
@@ -169,7 +169,7 @@ public class HttpApiTests(ApiFactory api)
             .Single(item => item.GetProperty("id").GetGuid() == id);
         Assert.Equal(("es", group), (summary.GetProperty("lang").GetString(), summary.GetProperty("translationGroupId").GetGuid()));
         Assert.Equal([translationId], summary.GetProperty("translations").EnumerateArray().Select(item => item.GetProperty("id").GetGuid()));
-        // Un borrador nuevo no se ve en el sitio: no se regenera.
+        // A new draft is not seen on the site: nothing is regenerated.
         Assert.Equal(buildsBefore, api.Build.Requests);
     }
 
@@ -198,7 +198,7 @@ public class HttpApiTests(ApiFactory api)
         Assert.Equal(
             translation.GetProperty("contentUpdatedAt").GetString(), summary.GetProperty("translations")[0].GetProperty("contentUpdatedAt").GetString());
 
-        // Un cambio de contenido sí la mueve: queda igual a la fecha del guardado.
+        // A content change does move it: it becomes the date of the save.
         using var editResponse = await admin.SendAsync(ApiFactory.Mutation(
             HttpMethod.Put, $"/api/admin/posts/{id}", ApiFactory.JsonContent(new { title = "Fecha de contenido", slug = "fecha-de-contenido", body = "otro" })));
         var edited = await editResponse.Content.ReadFromJsonAsync<JsonElement>();
@@ -236,7 +236,7 @@ public class HttpApiTests(ApiFactory api)
     {
         var admin = await api.AdminClientAsync();
 
-        // El nombre es uno solo en los dos idiomas (L12): un cliente viejo que todavía manda nameEn no se rompe.
+        // The name is a proper name, one single field for both languages: an old client that still sends nameEn does not break.
         using var saved = await admin.SendAsync(ApiFactory.Mutation(HttpMethod.Put, "/api/admin/settings", ApiFactory.JsonContent(
             new { name = "Alan", nameEn = "Alan S.", taglineEn = "Notes on software", bioEn = " " })));
         var savedBody = await saved.Content.ReadFromJsonAsync<JsonElement>();
@@ -275,7 +275,7 @@ public class HttpApiTests(ApiFactory api)
     }
 
     [Theory]
-    [InlineData("texto", null, null, "Formato no soportado. Subí un video MP4, MOV, WebM o MKV.")]
+    [InlineData("text", null, null, "Formato no soportado. Subí un video MP4, MOV, WebM o MKV.")]
     [InlineData("mp4", "fade", "fast", "Fundido no válido: tiene que ser loop, black o none.")]
     [InlineData("mp4", "trimStart", "2,5", "El inicio del recorte no es un número válido: usá segundos con punto decimal (ej. 2.5).")]
     [InlineData("mp4", "trimEnd", "16", "El fin del recorte (16 s) pasa el final del video, que dura 10 s.")]
@@ -284,7 +284,7 @@ public class HttpApiTests(ApiFactory api)
     {
         var admin = await api.AdminClientAsync();
         using var form = new MultipartFormDataContent();
-        var content = kind == "mp4" ? TestVideos.Fake("http") : "esto no es un video"u8.ToArray();
+        var content = kind == "mp4" ? TestVideos.Fake("http") : "this is not a video"u8.ToArray();
         form.Add(new ByteArrayContent(content) { Headers = { ContentType = new MediaTypeHeaderValue("video/mp4") } }, "file", "clip.mp4");
         if (field is not null)
         {
@@ -310,8 +310,8 @@ public class HttpApiTests(ApiFactory api)
 
         using var inProduction = await production.GetAsync($"/media/{relativePath}");
         using var inDevelopment = await development.GetAsync($"/media/{relativePath}");
-        // HttpClient resolvería el %2e%2e en el cliente (al servidor llegaría /blog.db), así que la ruta se arma a mano:
-        // tal cual (%2e%2e) y ya decodificada sin normalizar (..), lo peor que podría entregar un servidor.
+        // HttpClient would resolve the %2e%2e on the client (the server would get /blog.db), so the path is built by hand:
+        // as is (%2e%2e) and already decoded without normalizing (..), the worst a server could deliver.
         var outsideName = Path.GetFileName(api.OutsideMediaFile);
         var escapes = new List<int>();
         foreach (var path in new[] { $"/media/%2e%2e/{outsideName}", $"/media/../{outsideName}" })

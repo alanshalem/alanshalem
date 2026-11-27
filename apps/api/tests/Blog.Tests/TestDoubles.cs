@@ -23,9 +23,9 @@ internal sealed class CountingBuildTrigger : ISiteBuildTrigger
 }
 
 /// <summary>
-/// El builder simulado: cuenta los envíos y acepta o rechaza según <see cref="Accepts"/>. Con el token cancelado
-/// nunca acepta, como el envío HTTP real (el pedido no llega a salir). Un envío con respuesta encolada en
-/// <see cref="Respond"/> la usa en su lugar: así una prueba decide qué pasa mientras un pedido está en vuelo.
+/// The simulated builder: counts the sends and accepts or rejects according to <see cref="Accepts"/>. With the token
+/// cancelled it never accepts, like the real HTTP send (the request never goes out). A send with a response queued in
+/// <see cref="Respond"/> uses it instead: this way a test decides what happens while a request is in flight.
 /// </summary>
 internal sealed class FakeBuildRequestSender : IBuildRequestSender
 {
@@ -36,7 +36,7 @@ internal sealed class FakeBuildRequestSender : IBuildRequestSender
 
     public int Requests => Volatile.Read(ref _requests);
 
-    /// <summary>La respuesta del próximo envío (en orden de llegada); sin ninguna encolada, rige <see cref="Accepts"/>.</summary>
+    /// <summary>The response of the next send (in order of arrival); with none queued, <see cref="Accepts"/> rules.</summary>
     public void Respond(Func<CancellationToken, Task<bool>> response) => _scripted.Enqueue(response);
 
     public Task<bool> SendAsync(CancellationToken cancellationToken)
@@ -50,7 +50,7 @@ internal sealed class FakeBuildRequestSender : IBuildRequestSender
 
 internal sealed record LogEntry(string Category, LogLevel Level, string Message, Exception? Exception);
 
-/// <summary>Guarda cada log para que la prueba verifique qué se registró (categoría, nivel y excepción).</summary>
+/// <summary>Keeps every log entry so the test checks what was logged (category, level and exception).</summary>
 internal sealed class CapturingLoggerProvider : ILoggerProvider
 {
     private readonly ConcurrentQueue<LogEntry> _entries = new();
@@ -76,7 +76,7 @@ internal sealed class CapturingLoggerProvider : ILoggerProvider
     }
 }
 
-/// <summary>Cola que solo anota lo encolado: para probar la subida sin que nada procese en segundo plano.</summary>
+/// <summary>A queue that only records what was enqueued: to test the upload without anything processing in the background.</summary>
 internal sealed class RecordingVideoQueue : IVideoQueue
 {
     private readonly ConcurrentQueue<VideoJob> _jobs = new();
@@ -87,9 +87,9 @@ internal sealed class RecordingVideoQueue : IVideoQueue
 }
 
 /// <summary>
-/// ffmpeg simulado: rápido y determinista. El probe devuelve <see cref="Probe"/>; un original que empieza con
-/// <see cref="FailMarker"/> (después de la cabecera ftyp) hace fallar el proceso, y uno que empieza con
-/// <see cref="BrokenPosterMarker"/> devuelve un póster ilegible. Cuenta cuántos procesos corren a la vez.
+/// Simulated ffmpeg: fast and deterministic. The probe returns <see cref="Probe"/>; an original that starts with
+/// <see cref="FailMarker"/> (after the ftyp header) makes the process fail, and one that starts with
+/// <see cref="BrokenPosterMarker"/> returns an unreadable poster. Counts how many processes run at the same time.
 /// </summary>
 internal sealed class FakeVideoTranscoder : IVideoTranscoder
 {
@@ -108,7 +108,7 @@ internal sealed class FakeVideoTranscoder : IVideoTranscoder
 
     public int Transcodes => _transcodes;
 
-    /// <summary>La edición con que se pidió cada conversión.</summary>
+    /// <summary>The edit each conversion was requested with.</summary>
     public IReadOnlyList<VideoEdit> Edits => [.. _edits];
 
     public Task<VideoProbe?> ProbeAsync(string sourcePath, CancellationToken cancellationToken) => Task.FromResult(Probe);
@@ -122,7 +122,7 @@ internal sealed class FakeVideoTranscoder : IVideoTranscoder
         InterlockedMax(ref _maxRunning, running);
         try
         {
-            // Una pausa real: si dos procesos se pisaran, MaxConcurrent lo mostraría.
+            // A real pause: if two processes overlapped, MaxConcurrent would show it.
             await Task.Delay(50, cancellationToken);
             var original = await File.ReadAllBytesAsync(sourcePath, cancellationToken);
             if (original.AsSpan(TestVideos.FtypHeader.Length).StartsWith(FailMarker))

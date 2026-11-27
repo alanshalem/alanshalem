@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace Blog.Tests.Http;
 
-/// <summary>Historial de versiones y publicación programada tal como los ve el admin: rutas, formas del JSON y códigos.</summary>
+/// <summary>Version history and scheduled publishing as the admin sees them: routes, JSON shapes and status codes.</summary>
 [Collection(ApiCollection.Name)]
 public class PostHistoryAndScheduleHttpTests(ApiFactory api)
 {
@@ -58,7 +58,7 @@ public class PostHistoryAndScheduleHttpTests(ApiFactory api)
         Assert.Equal("2999-01-01T12:00:00Z", summary.GetProperty("scheduledAt").GetString());
 
         await AssertProblemAsync(await ScheduleAsync(admin, id, "2000-01-01T00:00:00Z"), HttpStatusCode.BadRequest, ScheduleMessages.Past);
-        await AssertProblemAsync(await ScheduleAsync(admin, id, "mañana"), HttpStatusCode.BadRequest, ScheduleMessages.BadFormat);
+        await AssertProblemAsync(await ScheduleAsync(admin, id, "tomorrow"), HttpStatusCode.BadRequest, ScheduleMessages.BadFormat);
         await AssertProblemAsync(await ScheduleAsync(admin, Guid.NewGuid(), "2999-01-01T09:00:00Z"), HttpStatusCode.NotFound, "El post no existe.");
 
         var cancelled = await SendAsync(admin, HttpMethod.Delete, $"/api/admin/posts/{id}/schedule");
@@ -66,18 +66,18 @@ public class PostHistoryAndScheduleHttpTests(ApiFactory api)
 
         await SendAsync(admin, HttpMethod.Post, $"/api/admin/posts/{id}/publish");
         await AssertProblemAsync(await ScheduleAsync(admin, id, "2999-01-01T09:00:00Z"), HttpStatusCode.BadRequest, ScheduleMessages.Published);
-        // Solo la publicación manual regenera el sitio: programar o cancelar un borrador no cambia lo que ve el público.
+        // Only manual publishing regenerates the site: scheduling or cancelling a draft does not change what the public sees.
         Assert.Equal(buildsBefore + 1, api.Build.Requests);
     }
 
     private static Task<HttpResponseMessage> ScheduleAsync(HttpClient admin, Guid id, string publishAt) =>
         admin.SendAsync(ApiFactory.Mutation(HttpMethod.Put, $"/api/admin/posts/{id}/schedule", ApiFactory.JsonContent(new { publishAt })));
 
-    /// <summary>Envía la mutación con la cabecera anti-CSRF y exige un 2xx con cuerpo JSON.</summary>
+    /// <summary>Sends the mutation with the anti-CSRF header and requires a 2xx with a JSON body.</summary>
     private static async Task<JsonElement> SendAsync(HttpClient admin, HttpMethod method, string url, object? body = null)
     {
         using var response = await admin.SendAsync(ApiFactory.Mutation(method, url, body is null ? null : ApiFactory.JsonContent(body)));
-        Assert.True(response.IsSuccessStatusCode, $"{method} {url} respondió {(int)response.StatusCode}");
+        Assert.True(response.IsSuccessStatusCode, $"{method} {url} answered {(int)response.StatusCode}");
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
@@ -92,7 +92,7 @@ public class PostHistoryAndScheduleHttpTests(ApiFactory api)
     }
 }
 
-/// <summary>Los mensajes de la programación, compartidos por las pruebas de dominio, de casos de uso y HTTP.</summary>
+/// <summary>The scheduling messages, shared by the domain, use case and HTTP tests.</summary>
 internal static class ScheduleMessages
 {
     public const string Missing = "Indicá la fecha y hora de publicación.";

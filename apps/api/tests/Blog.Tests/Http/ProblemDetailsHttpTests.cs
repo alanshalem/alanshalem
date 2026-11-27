@@ -11,9 +11,9 @@ using Microsoft.Extensions.Options;
 namespace Blog.Tests.Http;
 
 /// <summary>
-/// Todo error de la API es un problem details con "code" estable, título en el idioma del pedido y
-/// Vary: Accept-Language, también los que arma el framework sin cuerpo (401, 403, 404, 405, 413, 415, 429) y los
-/// pedidos mal formados (JSON inválido, formulario sin archivo), igual en Development que en Production.
+/// Every API error is a problem details with a stable "code", a title in the language of the request and
+/// Vary: Accept-Language, also those the framework produces without a body (401, 403, 404, 405, 413, 415, 429) and
+/// malformed requests (invalid JSON, form without a file), the same in Development as in Production.
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class ProblemDetailsHttpTests(ApiFactory api)
@@ -97,7 +97,7 @@ public class ProblemDetailsHttpTests(ApiFactory api)
     [InlineData(true)]
     public async Task A_body_over_the_server_limit_is_a_413_problem(bool development)
     {
-        // TestServer no aplica el límite de Kestrel: esta prueba levanta la API en un Kestrel real (fábrica propia).
+        // TestServer does not apply Kestrel's limit: this test starts the API on a real Kestrel (a factory of its own).
         await using var own = new ApiFactory();
         var server = development ? own.Development : own;
         server.UseKestrel(options => options.Listen(System.Net.IPAddress.Loopback, 0));
@@ -107,7 +107,7 @@ public class ProblemDetailsHttpTests(ApiFactory api)
         {
             Headers = { ContentType = new MediaTypeHeaderValue("application/json") },
         }), "en");
-        // Con Expect: 100-continue el cliente espera la respuesta antes de mandar los 13 MB que el servidor no va a leer.
+        // With Expect: 100-continue the client waits for the response before sending the 13 MB the server will not read.
         request.Headers.ExpectContinue = true;
 
         using var response = await client.SendAsync(request);
@@ -182,7 +182,7 @@ public class ProblemDetailsHttpTests(ApiFactory api)
     [InlineData("en", "Too many requests")]
     public async Task Too_many_login_attempts_are_a_429_problem(string? language, string title)
     {
-        // Fábrica propia: agotar el límite del login en la compartida bloquearía al resto de las pruebas.
+        // A factory of its own: exhausting the login limit on the shared one would block the rest of the tests.
         await using var own = new ApiFactory();
         using var client = own.CreateHttpsClient();
         HttpResponseMessage? last = null;

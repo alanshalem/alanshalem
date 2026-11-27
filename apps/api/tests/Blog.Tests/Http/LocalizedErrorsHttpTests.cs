@@ -10,8 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Blog.Tests.Http;
 
 /// <summary>
-/// Los errores de la API en el idioma del admin: la primera preferencia de Accept-Language decide (en → inglés; lo
-/// demás, o sin cabecera, español, como la redirección de Caddy). La forma del JSON no cambia y suma un "code" estable.
+/// The API errors in the admin's language: the first Accept-Language preference decides (en → English; anything else,
+/// or no header, Spanish, like Caddy's redirect). The JSON shape does not change and adds a stable "code".
 /// </summary>
 [Collection(ApiCollection.Name)]
 public class LocalizedErrorsHttpTests(ApiFactory api)
@@ -83,10 +83,10 @@ public class LocalizedErrorsHttpTests(ApiFactory api)
     [InlineData(EnglishBrowser, "ffmpeg couldn't convert the video. Try exporting it again as MP4 and upload it again.")]
     public async Task A_failed_video_shows_its_error_in_the_language_of_the_request(string? acceptLanguage, string error)
     {
-        // Fábrica propia: procesar videos cambia el contador del ffmpeg simulado que miran otras pruebas.
+        // A factory of its own: processing videos changes the simulated ffmpeg counter other tests look at.
         await using var own = new ApiFactory();
         var admin = await own.AdminClientAsync();
-        var id = await UploadVideoAsync(admin, "FAIL por idioma");
+        var id = await UploadVideoAsync(admin, "FAIL by language");
 
         var video = await WaitUntilFailedAsync(admin, id, acceptLanguage);
 
@@ -104,7 +104,7 @@ public class LocalizedErrorsHttpTests(ApiFactory api)
         own.Transcoder.Probe = new VideoProbe(1280, 720, 10);
         var admin = await own.AdminClientAsync();
         using var form = new MultipartFormDataContent();
-        form.Add(new ByteArrayContent(TestVideos.Fake("aviso por idioma")) { Headers = { ContentType = new MediaTypeHeaderValue("video/mp4") } }, "file", "clip.mp4");
+        form.Add(new ByteArrayContent(TestVideos.Fake("warning by language")) { Headers = { ContentType = new MediaTypeHeaderValue("video/mp4") } }, "file", "clip.mp4");
 
         using var uploaded = await admin.SendAsync(WithLanguage(ApiFactory.Mutation(HttpMethod.Post, "/api/admin/media/videos", form), acceptLanguage));
         Assert.Equal(HttpStatusCode.Accepted, uploaded.StatusCode);
@@ -123,11 +123,11 @@ public class LocalizedErrorsHttpTests(ApiFactory api)
     {
         await using var own = new ApiFactory();
         var admin = await own.AdminClientAsync();
-        var id = await UploadVideoAsync(admin, "FAIL de antes");
+        var id = await UploadVideoAsync(admin, "FAIL from before");
         await WaitUntilFailedAsync(admin, id, acceptLanguage: null);
         await using (var scope = own.Services.CreateAsyncScope())
         {
-            // Como lo dejaba la versión anterior: el texto en español en la columna, en vez de la clave.
+            // As the previous version left it: the Spanish text in the column, instead of the key.
             var updated = await scope.ServiceProvider.GetRequiredService<BlogDbContext>().Database.ExecuteSqlAsync(
                 $"UPDATE video_assets SET Error = {"Texto viejo guardado en español."} WHERE Id = {id.ToString().ToUpperInvariant()} COLLATE NOCASE");
             Assert.Equal(1, updated);

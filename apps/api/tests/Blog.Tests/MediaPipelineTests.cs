@@ -5,7 +5,7 @@ using NetVips;
 
 namespace Blog.Tests;
 
-/// <summary>Subida de imágenes de punta a punta: pipeline real (NetVips), disco real y base SQLite real.</summary>
+/// <summary>End-to-end image upload: real pipeline (NetVips), real disk and real SQLite database.</summary>
 public class MediaPipelineTests
 {
     private const string UnsupportedFormatMessage = "Formato no soportado. Subí una imagen PNG, JPG, GIF, WebP o AVIF.";
@@ -74,7 +74,7 @@ public class MediaPipelineTests
         var original = TestImages.JpegWithGpsAndOrientation(photo);
         using (var fixture = Image.NewFromBuffer(original))
         {
-            // La prueba solo vale si el original realmente trae GPS y orientación.
+            // The test is only valid if the original really carries GPS and orientation.
             Assert.Contains("exif-ifd3-GPSLatitude", fixture.GetFields());
             Assert.Equal(6, fixture.Get("orientation"));
         }
@@ -115,7 +115,7 @@ public class MediaPipelineTests
     public async Task Placeholder_stays_within_the_limit_even_when_every_preview_pixel_is_a_different_color()
     {
         await using var database = await CreateDatabaseAsync();
-        // 16 × 16 bloques de color al azar: al achicar a 16 px cada píxel queda distinto de sus vecinos (lo peor para WebP).
+        // 16 × 16 random color blocks: when shrinking to 16 px every pixel differs from its neighbors (the worst for WebP).
         using var noise = Image.Gaussnoise(16, 16, sigma: 120, mean: 128);
         using var bands = noise.Bandjoin(noise.Rot90(), noise.FlipVer());
         using var blocks = bands.Cast(Enums.BandFormat.Uchar).Copy(interpretation: Enums.Interpretation.Srgb);
@@ -141,7 +141,7 @@ public class MediaPipelineTests
         var truncated = complete[..(complete.Length * 6 / 10)];
         using (var header = Image.NewFromBuffer(truncated))
         {
-            // La prueba solo vale si la cabecera se sigue leyendo bien: lo cortado son los píxeles.
+            // The test is only valid if the header is still read correctly: what was cut are the pixels.
             Assert.Equal((1200, 800), (header.Width, header.Height));
         }
 
@@ -155,7 +155,7 @@ public class MediaPipelineTests
     public async Task A_decoding_failure_is_logged_for_the_operator_while_the_user_gets_the_damaged_file_message()
     {
         await using var database = await CreateDatabaseAsync();
-        byte[] fakePng = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, .. "esto no es un PNG"u8];
+        byte[] fakePng = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, .. "this is not a PNG"u8];
 
         var error = await Assert.ThrowsAsync<DomainException>(() => UploadAsync(database, fakePng));
 
@@ -182,9 +182,9 @@ public class MediaPipelineTests
         Assert.Equal("webpload_buffer", file.Get("vips-loader"));
         Assert.Equal(2, file.Get("n-pages"));
         Assert.Equal((640, 480), (file.Width, file.PageHeight));
-        // Cada cuadro conserva su color: no se aplanó la animación en el primero.
-        Assert.True(file.Getpoint(320, 240)[0] > 150, "El primer cuadro debería ser rojo.");
-        Assert.True(file.Getpoint(320, 480 + 240)[2] > 150, "El segundo cuadro debería ser azul.");
+        // Each frame keeps its color: the animation was not flattened into the first one.
+        Assert.True(file.Getpoint(320, 240)[0] > 150, "The first frame should be red.");
+        Assert.True(file.Getpoint(320, 480 + 240)[2] > 150, "The second frame should be blue.");
         Assert.Equal("#dc1e1e", asset.Color);
     }
 
@@ -228,7 +228,7 @@ public class MediaPipelineTests
 
         var asset = await UploadAsync(database, original);
 
-        // Sin convertir, los valores P3 crudos se verían como otro rojo (más apagado) en el navegador.
+        // Without converting, the raw P3 values would look like another red (duller) in the browser.
         AssertCloseTo([220, 30, 30], asset.Color);
         using var file = LoadFile(database, asset.Url);
         Assert.DoesNotContain("icc-profile-data", file.GetFields());
@@ -291,7 +291,7 @@ public class MediaPipelineTests
     public async Task Rejects_an_image_over_the_pixel_limit_and_stores_nothing()
     {
         await using var database = await CreateDatabaseAsync();
-        // 100.010.000 píxeles en un PNG de 1 bit: pocos KB que descomprimidos serían cientos de MB.
+        // 100,010,000 pixels in a 1-bit PNG: a few KB that decompressed would be hundreds of MB.
         using var huge = Image.Black(10_001, 10_000);
         var original = huge.PngsaveBuffer(bitdepth: 1, compression: 9, keep: Enums.ForeignKeep.None);
         Assert.True(original.Length < MediaService.MaxBytes);
@@ -320,7 +320,7 @@ public class MediaPipelineTests
     public async Task Rejects_a_file_that_starts_like_an_image_but_cannot_be_decoded()
     {
         await using var database = await CreateDatabaseAsync();
-        byte[] fakePng = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, .. "esto no es un PNG"u8];
+        byte[] fakePng = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, .. "this is not a PNG"u8];
 
         var error = await Assert.ThrowsAsync<DomainException>(() => UploadAsync(database, fakePng));
 
@@ -333,7 +333,7 @@ public class MediaPipelineTests
     {
         await using var database = await CreateDatabaseAsync();
         var big = new byte[MediaService.MaxBytes + 1];
-        big[0] = 0x89; // aunque empiece como PNG, el tamaño lo descarta primero
+        big[0] = 0x89; // even if it starts like a PNG, the size rules it out first
 
         var error = await Assert.ThrowsAsync<DomainException>(() => UploadAsync(database, big));
 
@@ -364,7 +364,7 @@ public class MediaPipelineTests
     private static string PathOf(SqliteTestDatabase database, string url) =>
         Path.Combine(database.MediaDirectory, url[WebUrl.MediaPrefix.Length..]);
 
-    // Se lee a memoria: un archivo abierto por NetVips impediría borrar la carpeta temporal en Windows.
+    // Read into memory: a file opened by NetVips would prevent deleting the temporary folder on Windows.
     private static Image LoadFile(SqliteTestDatabase database, string url) =>
         Image.NewFromBuffer(File.ReadAllBytes(PathOf(database, url)));
 
@@ -375,6 +375,6 @@ public class MediaPipelineTests
         int[] actual = [.. Enumerable.Range(0, 3).Select(channel => Convert.ToInt32(color.Substring(1 + (channel * 2), 2), 16))];
         Assert.True(
             expected.Zip(actual).All(pair => Math.Abs(pair.First - pair.Second) <= tolerance),
-            $"Se esperaba un color cercano a ({string.Join(", ", expected)}) y se obtuvo {color}.");
+            $"Expected a color close to ({string.Join(", ", expected)}) and got {color}.");
     }
 }

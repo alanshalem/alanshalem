@@ -14,7 +14,7 @@ using Blog.Infrastructure.Build;
 using Blog.Infrastructure.Persistence;
 using Microsoft.AspNetCore.DataProtection;
 
-// Modos de línea de comandos (hash-password, healthcheck, backup): corren y terminan sin levantar la API.
+// Command-line modes (hash-password, healthcheck, backup): they run and exit without starting the API.
 var readHiddenKey = Console.IsInputRedirected ? null : new Func<ConsoleKeyInfo>(() => Console.ReadKey(intercept: true));
 if (await CommandLine.RunAsync(args, Console.In, Console.Out, Console.Error, readHiddenKey) is { } exitCode)
 {
@@ -26,21 +26,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Image uploads up to MediaService.MaxBytes plus a multipart margin (12 MB). The video upload raises its own limit.
 builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = MediaEndpoints.ServerRequestLimit);
 
-// ---------- Configuración obligatoria: si falta algo, la app no arranca (mejor que fallar en producción) ----------
+// ---------- Required configuration: if anything is missing, the app does not start (better than failing in production) ----------
 builder.Services
     .AddOptions<AdminOptions>()
     .Bind(builder.Configuration.GetSection("Admin"))
     .Validate(options => Pbkdf2PasswordHasher.IsHash(options.PasswordHash),
-        "Admin:PasswordHash falta o no es un hash válido (generalo con el comando hash-password).")
+        "Admin:PasswordHash is missing or is not a valid hash (generate it with the hash-password command).")
     .ValidateOnStart();
 
 builder.Services
     .AddOptions<BuilderOptions>()
     .Bind(builder.Configuration.GetSection("Builder"))
-    .Validate(options => options.Token.Length >= 32, "Builder:Token debe tener al menos 32 caracteres.")
+    .Validate(options => options.Token.Length >= 32, "Builder:Token must be at least 32 characters long.")
     .ValidateOnStart();
 
-// ---------- Capas ----------
+// ---------- Layers ----------
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<PostService>();
 builder.Services.AddScoped<MediaService>();
@@ -62,25 +62,25 @@ builder.Services.AddOptions<Microsoft.AspNetCore.Http.Json.JsonOptions>().Config
     options.SerializerOptions.Converters.Add(new UserMessageJsonConverter(http));
 });
 
-// Todo error es un problem details con code, título en el idioma del pedido y Vary (LocalizedProblems).
+// Every error is a problem details with a code, a title in the language of the request and Vary (LocalizedProblems).
 builder.Services.AddProblemDetails(options => options.CustomizeProblemDetails = LocalizedProblems.Localize);
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 
-// X-Forwarded-* solo se cree si viene de Caddy (redes de Docker, configurables): la IP del rate limit y de los logs.
+// X-Forwarded-* is believed only when it comes from Caddy (Docker networks, configurable): the IP of the rate limit and the logs.
 builder.Services.AddTrustedProxies(builder.Configuration);
 
-// ---------- Autenticación: cookie de sesión de un único usuario ----------
-// Las claves que cifran la cookie se guardan en disco: si no, cada redeploy cerraría la sesión.
+// ---------- Authentication: session cookie of a single user ----------
+// The keys that encrypt the cookie are stored on disk: otherwise every redeploy would log the admin out.
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("blog");
 if (builder.Configuration["DataProtection:KeysDirectory"] is { Length: > 0 } keysDirectory)
 {
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysDirectory));
 }
 
-// Cookie __Host-admin con la época de sesiones: cerrar sesión invalida toda cookie emitida (AdminSession).
+// __Host-admin cookie with the session epoch: logging out invalidates every issued cookie (AdminSession).
 builder.Services.AddAdminSession();
 
-// Anti fuerza bruta: 10 intentos de login cada 15 minutos por IP (LoginRateLimit).
+// Brute-force protection: 10 login attempts every 15 minutes per IP (LoginRateLimit).
 builder.Services.AddLoginRateLimit();
 
 var app = builder.Build();
@@ -88,8 +88,8 @@ var app = builder.Build();
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
 
-// Los 4xx/5xx que el framework (o un middleware de acá) deja sin cuerpo salen como problem details: 401 sin sesión, 403
-// sin cabecera anti-CSRF, 404, 405, 413, 415, 429 del rate limit. Va antes que todos ellos para envolverlos.
+// The 4xx/5xx the framework (or a middleware here) leaves without a body come out as problem details: 401 without a
+// session, 403 without the anti-CSRF header, 404, 405, 413, 415, 429 from the rate limit. It goes before all of them to wrap them.
 app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
@@ -97,9 +97,9 @@ if (app.Environment.IsDevelopment())
     app.UseDevelopmentMediaFiles();
 }
 
-// Defensa CSRF: toda petición que modifica datos debe traer una cabecera personalizada. Un formulario o una
-// etiqueta de otro sitio no puede agregarla, y para un fetch con cabecera propia el navegador exige permiso CORS
-// (que no concedemos). Se suma a SameSite=Strict de la cookie.
+// CSRF defense: every request that changes data must carry a custom header. A form or a tag from another site cannot
+// add it, and for a fetch with a custom header the browser requires CORS permission (which we do not grant). It adds
+// to the cookie's SameSite=Strict.
 app.Use(async (context, next) =>
 {
     var request = context.Request;
@@ -119,18 +119,18 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ---------- Rutas: cada módulo mapea solo lo suyo; la protección la pone el grupo, una sola vez ----------
+// ---------- Routes: each module maps only its own; the group applies the protection, once ----------
 app.MapHealthEndpoints();
 app.MapAuthEndpoints();
 
-// Admin: requiere la cookie de sesión (y la cabecera anti-CSRF del middleware en lo que modifica datos).
+// Admin: requires the session cookie (and the middleware's anti-CSRF header on what changes data).
 var admin = app.MapGroup("/api/admin").RequireAuthorization();
 admin.MapAdminPostEndpoints();
 admin.MapAdminMediaEndpoints();
 admin.MapAdminSettingsEndpoints();
 admin.MapAdminHeroImageEndpoints();
 
-// Interno: lo consume el builder de Astro, con su token. Caddy no lo expone hacia afuera.
+// Internal: consumed by the Astro builder, with its token. Caddy does not expose it to the outside.
 var builderOnly = app.MapGroup("/api/internal").AddEndpointFilter<BuilderTokenFilter>();
 builderOnly.MapInternalPostEndpoints();
 builderOnly.MapInternalSettingsEndpoints();

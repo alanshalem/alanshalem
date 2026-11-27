@@ -4,7 +4,7 @@ namespace Blog.Api.Endpoints;
 
 public static class HeroImageEndpoints
 {
-    /// <summary>Galería del hero dentro del grupo /api/admin. Cada cambio pide un rebuild (la galería se ve en la home).</summary>
+    /// <summary>Hero gallery inside the /api/admin group. Every change requests a rebuild (the gallery shows on the home page).</summary>
     public static RouteGroupBuilder MapAdminHeroImageEndpoints(this RouteGroupBuilder admin)
     {
         var heroImages = admin.MapGroup("/hero-images");
@@ -19,7 +19,7 @@ public static class HeroImageEndpoints
         heroImages.MapPut("/{id:guid}", (Guid id, UpdateHeroImageRequest request, HeroImageService service, CancellationToken ct) =>
             service.UpdateAsync(id, request, ct));
 
-        // Solo saca la foto de la galería: los archivos del asset quedan (pueden estar usados en posts).
+        // Only removes the photo from the gallery: the asset's files stay (they may be used in posts).
         heroImages.MapDelete("/{id:guid}", async (Guid id, HeroImageService service, CancellationToken ct) =>
         {
             await service.DeleteAsync(id, ct);
@@ -30,8 +30,8 @@ public static class HeroImageEndpoints
     }
 
     /// <summary>
-    /// Lo que lee el builder, ordenado por fecha de alta: la primera es la de &lt;noscript&gt; y og:image. Solo fotos
-    /// y videos listos. Dentro del grupo /api/internal (token del builder).
+    /// What the builder reads, sorted by date added: the first one is the one of &lt;noscript&gt; and og:image. Only
+    /// photos and ready videos. Inside the /api/internal group (builder token).
     /// </summary>
     public static RouteGroupBuilder MapInternalHeroImageEndpoints(this RouteGroupBuilder builderOnly)
     {

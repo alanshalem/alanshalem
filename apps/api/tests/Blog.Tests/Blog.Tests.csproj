@@ -4,7 +4,7 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Levanta la API entera en memoria (TestServer) para probar el contrato HTTP: rutas, códigos, cookies, cabeceras. -->
+    <!-- Starts the whole API in memory (TestServer) to test the HTTP contract: routes, status codes, cookies, headers. -->
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />

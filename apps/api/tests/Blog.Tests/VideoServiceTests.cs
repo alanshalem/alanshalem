@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Blog.Tests;
 
-/// <summary>Subida de videos con ffmpeg simulado: base SQLite real y carpeta de trabajo real, sin proceso en segundo plano.</summary>
+/// <summary>Video upload with simulated ffmpeg: real SQLite database and real work folder, no background process.</summary>
 public class VideoServiceTests
 {
     private const string UnsupportedMessage = "Formato no soportado. Subí un video MP4, MOV, WebM o MKV.";
@@ -24,7 +24,7 @@ public class VideoServiceTests
         Assert.NotEqual(Guid.Empty, video.Id);
         Assert.Equal(VideoStatus.Processing, video.Status);
         Assert.Null(video.Error);
-        // Sin campos de edición: el video entero con loop de 1 s, que lo deja 1 s más corto.
+        // No edit fields: the whole video with a 1 s loop, which makes it 1 s shorter.
         Assert.Equal((1280, 720, 11.5), (video.Width, video.Height, video.DurationSeconds));
         Assert.Equal(new VideoEditDto(0, 12.5, VideoFade.Loop, 1), video.Edit);
         Assert.Null(video.Poster);
@@ -73,10 +73,10 @@ public class VideoServiceTests
     {
         await using var context = await TestContext.CreateAsync();
         context.Transcoder.Probe = new VideoProbe(1920, 1080, 20);
-        var original = TestVideos.Fake("mismo archivo");
+        var original = TestVideos.Fake("same file");
         var first = await context.UploadAsync(original, new VideoEditInput("2", "10", "none", "0.5"));
 
-        // Mismo tramo escrito de otra forma y, sin fundido, otra duración de fundido: es la misma edición.
+        // The same stretch written another way and, without a fade, another fade duration: it is the same edit.
         var same = await context.UploadAsync(original, new VideoEditInput("2.0", "10.0004", "none", "2"));
         var otherTrim = await context.UploadAsync(original, new VideoEditInput("3", "10", "none", null));
         var otherFade = await context.UploadAsync(original, new VideoEditInput("2", "10", "loop", null));
@@ -122,8 +122,8 @@ public class VideoServiceTests
         await using var context = await TestContext.CreateAsync();
         context.Transcoder.Probe = new VideoProbe(1920, 1080, 20);
 
-        var blank = await context.UploadAsync(TestVideos.Fake("vacíos"), new VideoEditInput("", " ", "", ""));
-        var omitted = await context.UploadAsync(TestVideos.Fake("vacíos"));
+        var blank = await context.UploadAsync(TestVideos.Fake("empty"), new VideoEditInput("", " ", "", ""));
+        var omitted = await context.UploadAsync(TestVideos.Fake("empty"));
 
         Assert.Equal(new VideoEditDto(0, 15, VideoFade.Loop, 1), blank.Edit);
         Assert.Equal(14, blank.DurationSeconds);
@@ -136,9 +136,9 @@ public class VideoServiceTests
         await using var context = await TestContext.CreateAsync();
         context.Transcoder.Probe = new VideoProbe(1920, 1080, 20);
 
-        var video = await context.UploadAsync(TestVideos.Fake("con espacios"), new VideoEditInput(" 2 ", null, " black ", " 0.5 "));
+        var video = await context.UploadAsync(TestVideos.Fake("with spaces"), new VideoEditInput(" 2 ", null, " black ", " 0.5 "));
 
-        // Solo el inicio: el tramo sigue hasta 15 s después de él.
+        // Only the start: the stretch runs until 15 s after it.
         Assert.Equal(new VideoEditDto(2, 17, VideoFade.Black, 0.5), video.Edit);
     }
 
@@ -147,9 +147,9 @@ public class VideoServiceTests
     {
         await using var context = await TestContext.CreateAsync();
         context.Transcoder.Probe = new VideoProbe(1920, 1080, 12.5);
-        var original = TestVideos.Fake("anterior a la edición");
+        var original = TestVideos.Fake("before the edit");
         var legacyId = Guid.Parse("0195f0a4-1c2b-7d3e-8f40-5a6b7c8d9e21").ToString().ToUpperInvariant();
-        // Como lo dejó AddVideoEdit: el hash del original sin edición, el video entero y sin fundido.
+        // As AddVideoEdit left it: the original's hash without an edit, the whole video and no fade.
         await context.Database.ExecuteAsync($"""
             INSERT INTO video_assets (Id, Hash, Width, Height, TrimStart, TrimEnd, Fade, FadeSeconds, Status, Error, PosterId, Sources, CreatedAtUtc)
             VALUES ('{legacyId}', '{Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(original))}', 1920, 1080,
@@ -185,14 +185,14 @@ public class VideoServiceTests
     public async Task Uploading_again_a_video_that_failed_queues_it_again()
     {
         await using var context = await TestContext.CreateAsync();
-        var failed = await context.UploadAsync(TestVideos.Fake("falló"));
+        var failed = await context.UploadAsync(TestVideos.Fake("failed"));
         await context.Database.WithVideoProcessorAsync(async processor =>
         {
             await processor.FailInterruptedAsync(default);
             return true;
         });
 
-        var retried = await context.UploadAsync(TestVideos.Fake("falló"));
+        var retried = await context.UploadAsync(TestVideos.Fake("failed"));
 
         Assert.Equal(failed.Id, retried.Id);
         Assert.Equal((VideoStatus.Processing, (StoredMessage?)null), (retried.Status, retried.Error));
@@ -220,12 +220,12 @@ public class VideoServiceTests
     public async Task Uploading_again_a_ready_video_whose_files_are_missing_processes_it_again(string missing)
     {
         await using var context = await TestContext.CreateAsync();
-        var ready = await context.UploadAndProcessAsync(TestVideos.Fake("sin archivos"));
+        var ready = await context.UploadAndProcessAsync(TestVideos.Fake("no files"));
         var missingFile = context.MediaPathOf(missing == "source" ? ready.Sources[0].Url : ready.Poster!.Variants[0].Url);
-        // Como una base restaurada sin su carpeta de media: la fila dice "ready" pero un archivo ya no está.
+        // Like a database restored without its media folder: the row says "ready" but a file is gone.
         File.Delete(missingFile);
 
-        var again = await context.UploadAsync(TestVideos.Fake("sin archivos"));
+        var again = await context.UploadAsync(TestVideos.Fake("no files"));
 
         Assert.Equal(ready.Id, again.Id);
         Assert.Equal((VideoStatus.Processing, (StoredMessage?)null), (again.Status, again.Error));
@@ -257,7 +257,7 @@ public class VideoServiceTests
     }
 
     [Theory]
-    [InlineData("esto no es un video")]
+    [InlineData("this is not a video")]
     [InlineData("<html><script>alert(1)</script></html>")]
     public async Task A_file_that_is_not_a_video_is_rejected_by_its_magic_bytes(string content)
     {
@@ -315,7 +315,7 @@ public class VideoServiceTests
         Assert.Equal("El video no existe.", error.Message);
     }
 
-    /// <summary>Base + ffmpeg simulado + cola que solo anota.</summary>
+    /// <summary>Database + simulated ffmpeg + a queue that only records.</summary>
     private sealed class TestContext : IAsyncDisposable
     {
         private TestContext()
@@ -354,7 +354,7 @@ public class VideoServiceTests
                 return true;
             });
 
-        /// <summary>Sube y procesa (con el ffmpeg simulado y el pipeline de imágenes real): queda listo, con sus archivos.</summary>
+        /// <summary>Uploads and processes (with the simulated ffmpeg and the real image pipeline): it ends up ready, with its files.</summary>
         public async Task<VideoAssetDto> UploadAndProcessAsync(byte[] content)
         {
             var uploaded = await UploadAsync(content);
@@ -362,7 +362,7 @@ public class VideoServiceTests
             return await Database.WithVideosAsync(videos => videos.GetAsync(uploaded.Id, default));
         }
 
-        /// <summary>Dónde está en disco el archivo de una URL /media/...</summary>
+        /// <summary>Where on disk the file of a /media/... URL is.</summary>
         public string MediaPathOf(string url) => Path.Combine(Database.MediaDirectory, url[WebUrl.MediaPrefix.Length..]);
 
         public async Task AssertNothingStoredAsync()
@@ -376,7 +376,7 @@ public class VideoServiceTests
         public ValueTask DisposeAsync() => Database.DisposeAsync();
     }
 
-    /// <summary>Un "video" de N bytes generado al leer (cabecera MP4 + ceros), sin ocupar esa memoria.</summary>
+    /// <summary>A "video" of N bytes generated while reading (MP4 header + zeros), without taking that memory.</summary>
     private sealed class FakeVideoStream(long length) : Stream
     {
         private long _position;

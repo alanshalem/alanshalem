@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Blog.Tests;
 
-/// <summary>Cola y proceso en segundo plano tal como los registra AddInfrastructure, con ffmpeg simulado.</summary>
+/// <summary>Queue and background process as AddInfrastructure registers them, with simulated ffmpeg.</summary>
 public class VideoProcessingTests
 {
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(30);
@@ -19,7 +19,7 @@ public class VideoProcessingTests
         Guid[] ids;
         var failingContent = TestVideos.Fake("FAIL primero");
 
-        // Primero arranca el worker (como en la API, antes de aceptar pedidos); las subidas se encolan mientras procesa.
+        // The worker starts first (as in the API, before accepting requests); uploads are queued while it processes.
         await database.VideoWorker.StartAsync(default);
         try
         {
@@ -36,7 +36,7 @@ public class VideoProcessingTests
 
         Assert.Equal(3, transcoder.Transcodes);
         Assert.Equal(1, transcoder.MaxConcurrent);
-        // Cada video se procesa con la edición que quedó guardada (sin campos: el original de 10 s con loop de 1 s).
+        // Each video is processed with the edit that was stored (no fields: the 10 s original with a 1 s loop).
         Assert.All(transcoder.Edits, edit => Assert.Equal(VideoEdit.DefaultFor(10), edit));
 
         var failed = await GetAsync(database, ids[0]);
@@ -72,8 +72,8 @@ public class VideoProcessingTests
     {
         await using var database = new SqliteTestDatabase(services => services.AddSingleton<IVideoTranscoder>(new FakeVideoTranscoder()));
         await database.InitializeAsync();
-        // Como lo deja un corte a mitad de camino: la fila en "processing" y su original en la carpeta de trabajo,
-        // pero la cola (en memoria) vacía.
+        // As an interruption half way leaves it: the row "processing" and its original in the work folder, but the
+        // queue (in memory) empty.
         var interrupted = await database.InScopeAsync(async provider =>
         {
             var videos = provider.GetRequiredService<IVideoAssetRepository>();
@@ -83,7 +83,7 @@ public class VideoProcessingTests
             return video;
         });
         Directory.CreateDirectory(database.VideoWorkDirectory);
-        await File.WriteAllBytesAsync(Path.Combine(database.VideoWorkDirectory, "huérfano.source"), [1, 2, 3]);
+        await File.WriteAllBytesAsync(Path.Combine(database.VideoWorkDirectory, "orphan.source"), [1, 2, 3]);
         Directory.CreateDirectory(Path.Combine(database.VideoWorkDirectory, "salida-a-medias"));
 
         await database.VideoWorker.StartAsync(default);

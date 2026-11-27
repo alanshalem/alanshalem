@@ -6,8 +6,8 @@ using Microsoft.Extensions.Options;
 namespace Blog.Api.Security;
 
 /// <summary>
-/// Protege los endpoints internos (los que lee el builder): exige "Authorization: Bearer {Builder:Token}".
-/// Además, Caddy no los expone hacia afuera; esto es la segunda barrera.
+/// Protects the internal endpoints (the ones the builder reads): requires "Authorization: Bearer {Builder:Token}".
+/// Besides, Caddy does not expose them to the outside; this is the second barrier.
 /// </summary>
 internal sealed class BuilderTokenFilter(IOptions<BuilderOptions> options) : IEndpointFilter
 {
@@ -21,7 +21,7 @@ internal sealed class BuilderTokenFilter(IOptions<BuilderOptions> options) : IEn
         var expectedBytes = Encoding.UTF8.GetBytes(options.Value.Token);
         var providedBytes = Encoding.UTF8.GetBytes(provided);
 
-        // Tiempo constante: no se puede ir adivinando el token por diferencias de tiempo de respuesta.
+        // Constant time: the token cannot be guessed bit by bit from differences in response time.
         if (expectedBytes.Length == 0 || !CryptographicOperations.FixedTimeEquals(expectedBytes, providedBytes))
         {
             return Results.Unauthorized();

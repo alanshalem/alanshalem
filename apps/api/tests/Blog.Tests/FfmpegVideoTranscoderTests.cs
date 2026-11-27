@@ -7,8 +7,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Blog.Tests;
 
 /// <summary>
-/// ffmpeg y ffprobe reales (deben estar en el PATH) sobre clips chicos generados en el momento. Son las pruebas
-/// lentas: se pueden filtrar con --filter "Category!=Ffmpeg", pero son las que prueban el adaptador de verdad.
+/// Real ffmpeg and ffprobe (they must be on the PATH) on small clips generated on the spot. These are the slow tests:
+/// they can be filtered out with --filter "Category!=Ffmpeg", but they are the ones that really test the adapter.
 /// </summary>
 [Trait("Category", "Ffmpeg")]
 public class FfmpegVideoTranscoderTests
@@ -42,7 +42,7 @@ public class FfmpegVideoTranscoderTests
     {
         await using var database = await CreateDatabaseAsync();
         var path = ScratchPath(database, "falso.mp4");
-        await File.WriteAllBytesAsync(path, TestVideos.Fake("no hay ningún video acá"));
+        await File.WriteAllBytesAsync(path, TestVideos.Fake("there is no video here"));
 
         Assert.Null(await Transcoder(database).ProbeAsync(path, default));
     }
@@ -61,11 +61,11 @@ public class FfmpegVideoTranscoderTests
         var video = await database.WithVideosAsync(videos => videos.GetAsync(uploaded.Id, default));
         Assert.Equal(VideoStatus.Ready, video.Status);
         Assert.Null(video.Error);
-        // Sin campos de edición: el video entero (dura menos de 15 s) con loop de 1 s.
+        // No edit fields: the whole video (shorter than 15 s) with a 1 s loop.
         Assert.Equal((0, VideoFade.Loop, 1), (video.Edit.TrimStart, video.Edit.Fade, video.Edit.FadeSeconds));
         Assert.InRange(video.Edit.TrimEnd, 2.9, 3.1);
         Assert.Equal(video.Edit.TrimEnd - 1, video.DurationSeconds, precision: 3);
-        // Nunca se agranda: de un original de 720p no sale una versión de 1080p.
+        // Never enlarged: a 720p original does not produce a 1080p version.
         Assert.Equal([(VideoCodec.Av1, 720), (VideoCodec.H264, 720)], video.Sources.Select(source => (source.Codec, source.Height)));
         foreach (var source in video.Sources)
         {
@@ -135,11 +135,11 @@ public class FfmpegVideoTranscoderTests
         Assert.Equal(3, video.DurationSeconds);
         var output = OutputPath(database, video.Sources.Single(source => source.Codec == VideoCodec.H264));
         Assert.InRange(await TestVideos.FrameCountAsync(output), 89, 91);
-        // Empieza en el cuadro 45 del original (1,5 s a 30 fps): se parece más a ese que a sus vecinos.
+        // It starts at frame 45 of the original (1.5 s at 30 fps): it looks more like that one than like its neighbors.
         var atStart = await TestVideos.PsnrAsync(output, 0, clip, 45);
-        Assert.True(atStart > await TestVideos.PsnrAsync(output, 0, clip, 42), $"PSNR con el cuadro 45: {atStart}");
-        Assert.True(atStart > await TestVideos.PsnrAsync(output, 0, clip, 48), $"PSNR con el cuadro 45: {atStart}");
-        // Sin fundido, del último cuadro al primero hay un salto de 3 s: mucho más distinto que dos cuadros vecinos.
+        Assert.True(atStart > await TestVideos.PsnrAsync(output, 0, clip, 42), $"PSNR against frame 45: {atStart}");
+        Assert.True(atStart > await TestVideos.PsnrAsync(output, 0, clip, 48), $"PSNR against frame 45: {atStart}");
+        // Without a fade, from the last frame to the first there is a 3 s jump: much more different than two neighboring frames.
         var adjacent = await TestVideos.PsnrAsync(output, 44, output, 45);
         var wrap = await TestVideos.PsnrAsync(output, 89, output, 0);
         Assert.True(wrap < adjacent - 10, $"vecinos: {adjacent} dB, vuelta: {wrap} dB");
@@ -155,13 +155,13 @@ public class FfmpegVideoTranscoderTests
         var video = await UploadAndProcessAsync(database, queue, clip, new VideoEditInput("1", "5", "loop", "1"));
 
         Assert.Equal(new VideoEditDto(1, 5, VideoFade.Loop, 1), video.Edit);
-        // El recorte dura 4 s; el último segundo se superpone con el principio: quedan 3 s.
+        // The trim lasts 4 s; the last second overlaps the start: 3 s are left.
         Assert.Equal(3, video.DurationSeconds);
         foreach (var source in video.Sources)
         {
             var output = OutputPath(database, source);
             Assert.InRange(await TestVideos.FrameCountAsync(output), 89, 91);
-            // Al repetirse, del último cuadro al primero cambia lo mismo que entre dos cuadros vecinos: no hay salto.
+            // When it repeats, from the last frame to the first the change is the same as between two neighboring frames: no jump.
             var adjacent = await TestVideos.PsnrAsync(output, 44, output, 45);
             var wrap = await TestVideos.PsnrAsync(output, 89, output, 0);
             Assert.True(wrap > adjacent - 3, $"{source.Url}: vecinos {adjacent} dB, vuelta {wrap} dB");
@@ -181,13 +181,13 @@ public class FfmpegVideoTranscoderTests
         Assert.Equal(3, video.DurationSeconds);
         var output = OutputPath(database, video.Sources.Single(source => source.Codec == VideoCodec.H264));
         Assert.InRange(await TestVideos.FrameCountAsync(output), 89, 91);
-        const double NearBlack = 20; // el negro de video es 16
+        const double NearBlack = 20; // video black is 16
         Assert.InRange(await TestVideos.MeanLumaAsync(output, 0), 0, NearBlack);
         Assert.InRange(await TestVideos.MeanLumaAsync(output, 89), 0, NearBlack + 5);
-        Assert.True(await TestVideos.MeanLumaAsync(output, 45) > 60, "El medio del video no debería estar oscuro.");
-        // El póster se toma después del fundido de entrada: se ve el patrón, no negro.
+        Assert.True(await TestVideos.MeanLumaAsync(output, 45) > 60, "The middle of the video should not be dark.");
+        // The poster is taken after the fade-in: the pattern shows, not black.
         var poster = Path.Combine(database.MediaDirectory, video.Poster!.Url[WebUrl.MediaPrefix.Length..]);
-        Assert.True(await TestVideos.MeanLumaAsync(poster, 0) > 60, "El póster no debería estar oscuro.");
+        Assert.True(await TestVideos.MeanLumaAsync(poster, 0) > 60, "The poster should not be dark.");
     }
 
     [Fact]
@@ -195,15 +195,15 @@ public class FfmpegVideoTranscoderTests
     {
         var queue = new RecordingVideoQueue();
         await using var database = await CreateDatabaseAsync(queue);
-        // A 10 fps los cuadros candidatos al póster cubren 1,5 s: desde el primer cuadro visible (1,5 s, tras el fundido
-        // de 0,5 s) llegarían al blanco que empieza justo donde termina el recorte (2 s), y serían mayoría.
+        // At 10 fps the poster candidate frames cover 1.5 s: from the first visible frame (1.5 s, after the 0.5 s fade)
+        // they would reach the white that starts right where the trim ends (2 s), and would be the majority.
         var clip = await TestVideos.GenerateHardCutAsync(ScratchPath(database, "corte.mp4"), 1280, 720, cutAtSeconds: 2, seconds: 4, fps: 10);
 
         var video = await UploadAndProcessAsync(database, queue, clip, new VideoEditInput("1", "2", "loop", "0.5"));
 
         var poster = Path.Combine(database.MediaDirectory, video.Poster!.Url[WebUrl.MediaPrefix.Length..]);
         var luma = await TestVideos.MeanLumaAsync(poster, 0);
-        Assert.True(luma < 100, $"El póster salió del blanco posterior al recorte (luminancia {luma}).");
+        Assert.True(luma < 100, $"The poster came from the white after the trim (luminance {luma}).");
     }
 
     [Fact]
@@ -211,8 +211,8 @@ public class FfmpegVideoTranscoderTests
     {
         var queue = new RecordingVideoQueue();
         await using var database = await CreateDatabaseAsync(queue);
-        // 8 s, como un video de hero típico: el techo de H.264 admite pasarse a lo sumo un búfer (1 s) en todo el clip,
-        // y en uno muy corto ese búfer pesaría más que el margen del 10 %.
+        // 8 s, like a typical hero video: the H.264 ceiling allows going over by at most one buffer (1 s) in the whole
+        // clip, and in a very short one that buffer would weigh more than the 10 % margin.
         var clip = await TestVideos.GenerateNoisyAsync(ScratchPath(database, "ruido.mp4"), 1280, 720, seconds: 8);
 
         var video = await UploadAndProcessAsync(database, queue, clip, new VideoEditInput(null, null, "none", null));
@@ -241,7 +241,7 @@ public class FfmpegVideoTranscoderTests
 
     private static IVideoTranscoder Transcoder(SqliteTestDatabase database) => database.Services.GetRequiredService<IVideoTranscoder>();
 
-    // Junto a la base (no en la carpeta de trabajo de video, que la prueba verifica vacía al final).
+    // Next to the database (not in the video work folder, which the test checks is empty at the end).
     private static string ScratchPath(SqliteTestDatabase database, string name) =>
         Path.Combine(Path.GetDirectoryName(database.FilePath)!, name);
 
@@ -280,8 +280,8 @@ public class FfmpegVideoTranscoderTests
         var path = Path.Combine(database.MediaDirectory, source.Url[WebUrl.MediaPrefix.Length..]);
         var bytes = await File.ReadAllBytesAsync(path);
         Assert.Equal(source.Bytes, bytes.Length);
-        // +faststart: el índice (moov) va antes que los datos (mdat), así el navegador empieza a reproducir enseguida.
-        Assert.True(bytes.AsSpan().IndexOf("moov"u8) < bytes.AsSpan().IndexOf("mdat"u8), $"{source.Url} no tiene faststart.");
+        // +faststart: the index (moov) goes before the data (mdat), so the browser starts playing right away.
+        Assert.True(bytes.AsSpan().IndexOf("moov"u8) < bytes.AsSpan().IndexOf("mdat"u8), $"{source.Url} has no faststart.");
 
         var stream = Assert.Single(Streams(await TestVideos.ProbeAsync(path)));
         Assert.Equal("video", stream.GetProperty("codec_type").GetString());

@@ -4,7 +4,7 @@ namespace Blog.Api.Endpoints;
 
 public static class PostEndpoints
 {
-    /// <summary>Posts, historial y programación dentro del grupo /api/admin (cookie de sesión + cabecera anti-CSRF).</summary>
+    /// <summary>Posts, history and scheduling inside the /api/admin group (session cookie + anti-CSRF header).</summary>
     public static RouteGroupBuilder MapAdminPostEndpoints(this RouteGroupBuilder admin)
     {
         var posts = admin.MapGroup("/posts");
@@ -26,7 +26,7 @@ public static class PostEndpoints
         posts.MapPost("/{id:guid}/unpublish", (Guid id, PostService service, CancellationToken ct) =>
             service.UnpublishAsync(id, ct));
 
-        // Crea el borrador de la versión en otro idioma (contenido copiado); responde con ese borrador nuevo.
+        // Creates the draft of the version in another language (content copied); answers with that new draft.
         posts.MapPost("/{id:guid}/translations", async (Guid id, CreateTranslationRequest request, PostService service, CancellationToken ct) =>
         {
             var translation = await service.CreateTranslationAsync(id, request, ct);
@@ -39,7 +39,7 @@ public static class PostEndpoints
             return Results.NoContent();
         });
 
-        // Historial: la lista sin cuerpos, una versión entera, y restaurarla (un guardado más; responde con el post).
+        // History: the list without bodies, a whole version, and restoring it (one more save; answers with the post).
         posts.MapGet("/{id:guid}/revisions", (Guid id, PostService service, CancellationToken ct) =>
             service.ListRevisionsAsync(id, ct));
         posts.MapGet("/{id:guid}/revisions/{revisionId:guid}", (Guid id, Guid revisionId, PostService service, CancellationToken ct) =>
@@ -47,7 +47,7 @@ public static class PostEndpoints
         posts.MapPost("/{id:guid}/revisions/{revisionId:guid}/restore", (Guid id, Guid revisionId, PostService service, CancellationToken ct) =>
             service.RestoreRevisionAsync(id, revisionId, ct));
 
-        // Publicación programada de un borrador; las dos responden con el post.
+        // Scheduled publishing of a draft; both answer with the post.
         posts.MapPut("/{id:guid}/schedule", (Guid id, SchedulePostRequest request, PostService service, CancellationToken ct) =>
             service.ScheduleAsync(id, request, ct));
         posts.MapDelete("/{id:guid}/schedule", (Guid id, PostService service, CancellationToken ct) =>
@@ -56,7 +56,7 @@ public static class PostEndpoints
         return admin;
     }
 
-    /// <summary>Los posts publicados que lee el builder, dentro del grupo /api/internal (token del builder).</summary>
+    /// <summary>The published posts the builder reads, inside the /api/internal group (builder token).</summary>
     public static RouteGroupBuilder MapInternalPostEndpoints(this RouteGroupBuilder builderOnly)
     {
         builderOnly.MapGet("/posts", (PostService service, CancellationToken ct) => service.ListPublishedAsync(ct));

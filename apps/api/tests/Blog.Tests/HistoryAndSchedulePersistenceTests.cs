@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Blog.Tests;
 
-/// <summary>Historial y programación contra la base SQLite real (índices, cascada, conversiones de fechas).</summary>
+/// <summary>History and scheduling against the real SQLite database (indexes, cascade, date conversions).</summary>
 public class HistoryPersistenceTests
 {
     [Fact]
@@ -33,7 +33,7 @@ public class HistoryPersistenceTests
             return true;
         });
 
-        // La cascada de la clave foránea: solo queda la versión del otro post.
+        // The foreign key cascade: only the other post's version is left.
         Assert.Equal([other.Id.ToString().ToUpperInvariant()], await database.ListAsync("SELECT PostId FROM post_revisions"));
     }
 
@@ -54,7 +54,7 @@ public class HistoryPersistenceTests
     }
 }
 
-/// <summary>El proceso en segundo plano tal como lo registra AddInfrastructure, con el reloj y el builder de la prueba.</summary>
+/// <summary>The background process as AddInfrastructure registers it, with the test's clock and builder.</summary>
 public class ScheduledPublishingTests
 {
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(30);
@@ -68,7 +68,7 @@ public class ScheduledPublishingTests
         var second = await CreateScheduledAsync(database, "Dos", "2026-11-25T14:00:00Z");
         var later = await CreateScheduledAsync(database, "Tres", "2026-11-30T00:00:00Z");
         var plain = await database.WithPostsAsync(posts => posts.CreateAsync(new SavePostRequest("Cuatro", null, null, "c", null), default));
-        // Como si la API hubiera estado apagada mientras vencían los dos primeros.
+        // As if the API had been down while the first two came due.
         database.Clock.UtcNow = database.Clock.UtcNow.AddHours(3);
 
         await database.SchedulerWorker.StartAsync(default);
@@ -102,7 +102,7 @@ public class ScheduledPublishingTests
         var failing = await CreateScheduledAsync(database, "Falla", "2026-11-25T13:30:00Z");
         var third = await CreateScheduledAsync(database, "Tres", "2026-11-25T14:00:00Z");
         database.Clock.UtcNow = database.Clock.UtcNow.AddHours(3);
-        // Una falla real de la base, solo para ese post.
+        // A real database failure, only for that post.
         await database.ExecuteAsync($"""
             CREATE TRIGGER fail_publish BEFORE UPDATE OF Status ON posts WHEN NEW.Id = '{failing.ToString().ToUpperInvariant()}'
             BEGIN SELECT RAISE(ABORT, 'falla simulada'); END;
@@ -116,7 +116,7 @@ public class ScheduledPublishingTests
         Assert.Equal(PostStatus.Published, (await database.WithPostsAsync(posts => posts.GetAsync(first, default))).Status);
         Assert.Equal(PostStatus.Published, (await database.WithPostsAsync(posts => posts.GetAsync(third, default))).Status);
         Assert.Equal(1, database.Build.Requests);
-        // EF registra por su lado el comando que falló; acá importa el registro del worker.
+        // EF logs the failed command on its own; what matters here is the worker's log entry.
         var error = Assert.Single(database.Logs.Entries, entry => entry.Category == typeof(ScheduledPublishingWorker).FullName && entry.Level >= LogLevel.Warning);
         Assert.Equal(LogLevel.Error, error.Level);
         Assert.Contains(failing.ToString(), error.Message, StringComparison.Ordinal);
@@ -147,7 +147,7 @@ public class ScheduledPublishingTests
         var deadline = DateTime.UtcNow + WaitLimit;
         while (!await condition())
         {
-            Assert.True(DateTime.UtcNow < deadline, "El proceso en segundo plano no terminó a tiempo.");
+            Assert.True(DateTime.UtcNow < deadline, "The background process did not finish in time.");
             await Task.Delay(50);
         }
     }

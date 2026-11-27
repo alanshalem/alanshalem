@@ -7,15 +7,15 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 namespace Blog.Api.Security;
 
 /// <summary>
-/// La sesión del único usuario (el admin): una cookie cifrada que lleva la época de sesiones vigente al iniciarla
-/// (<see cref="IAdminSessionEpoch"/>). Cada pedido la compara con la actual: después de revocar (cerrar sesión), ninguna
-/// cookie emitida antes entra, aunque se haya copiado; tampoco una sin época (las de antes de este cambio).
+/// The session of the only user (the admin): an encrypted cookie carrying the session epoch current when it started
+/// (<see cref="IAdminSessionEpoch"/>). Every request compares it with the current one: after revoking (logging out), no
+/// cookie issued before gets in, even if it was copied; nor does one without an epoch (those from before this change).
 /// </summary>
 internal static class AdminSession
 {
     public const string Scheme = CookieAuthenticationDefaults.AuthenticationScheme;
 
-    /// <summary>El prefijo __Host- obliga a Secure + Path=/ y prohíbe Domain.</summary>
+    /// <summary>The __Host- prefix forces Secure + Path=/ and forbids Domain.</summary>
     public const string CookieName = "__Host-admin";
 
     private const string EpochClaim = "session_epoch";
@@ -28,13 +28,13 @@ internal static class AdminSession
             .AddCookie(options =>
             {
                 options.Cookie.Name = CookieName;
-                options.Cookie.HttpOnly = true; // JavaScript no puede leerla (mitiga robo por XSS)
-                options.Cookie.SameSite = SameSiteMode.Strict; // no viaja en peticiones iniciadas desde otros sitios
+                options.Cookie.HttpOnly = true; // JavaScript cannot read it (mitigates theft through XSS)
+                options.Cookie.SameSite = SameSiteMode.Strict; // it does not travel on requests started from other sites
                 options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                 options.ExpireTimeSpan = Lifetime;
                 options.SlidingExpiration = false;
 
-                // Es una API: sin sesión se responde 401/403 (con su problem details), no se redirige a una página de login.
+                // It is an API: without a session it answers 401/403 (with its problem details), it does not redirect to a login page.
                 options.Events.OnRedirectToLogin = context =>
                 {
                     context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -51,7 +51,7 @@ internal static class AdminSession
         return services;
     }
 
-    /// <summary>Inicia la sesión con la época vigente.</summary>
+    /// <summary>Starts the session with the current epoch.</summary>
     public static async Task SignInAsync(HttpContext http, IAdminSessionEpoch epoch)
     {
         var current = await epoch.CurrentAsync(http.RequestAborted);
@@ -60,7 +60,7 @@ internal static class AdminSession
         await http.SignInAsync(Scheme, new ClaimsPrincipal(identity));
     }
 
-    // Barato: la época actual está en memoria (IAdminSessionEpoch); la base se lee una sola vez por proceso.
+    // Cheap: the current epoch is in memory (IAdminSessionEpoch); the database is read once per process.
     private static async Task RejectRevokedAsync(CookieValidatePrincipalContext context)
     {
         var epoch = context.HttpContext.RequestServices.GetRequiredService<IAdminSessionEpoch>();
@@ -68,7 +68,7 @@ internal static class AdminSession
         if (context.Principal?.FindFirst(EpochClaim)?.Value != current.ToString(CultureInfo.InvariantCulture))
         {
             context.RejectPrincipal();
-            await context.HttpContext.SignOutAsync(Scheme); // borra la cookie inválida del navegador
+            await context.HttpContext.SignOutAsync(Scheme); // deletes the invalid cookie from the browser
         }
     }
 }

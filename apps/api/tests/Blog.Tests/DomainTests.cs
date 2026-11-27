@@ -23,7 +23,7 @@ public class SlugTests
     [InlineData("mi-primer-post", true)]
     [InlineData("a", true)]
     [InlineData("Mayuscula", false)]
-    [InlineData("con espacio", false)]
+    [InlineData("with space", false)]
     [InlineData("-empieza-con-guion", false)]
     [InlineData("termina-con-guion-", false)]
     [InlineData("doble--guion", false)]

@@ -159,7 +159,7 @@ public class SiteSettingsContentTests
     }
 
     [Theory]
-    [InlineData("no-es-mail")]
+    [InlineData("not-an-email")]
     [InlineData("a@b")]
     [InlineData("a b@example.com")]
     [InlineData("@example.com")]
@@ -184,8 +184,8 @@ public class SiteSettingsContentTests
             "github" => Valid(githubUrl: value),
             "linkedin" => Valid(linkedinUrl: value),
             "x" => Valid(xUrl: value),
-            // Un error de tipeo en InlineData tiene que romper la prueba, no probar X sin querer.
-            _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Campo de enlace desconocido."),
+            // A typo in InlineData must break the test, not test X by accident.
+            _ => throw new ArgumentOutOfRangeException(nameof(field), field, "Unknown link field."),
         });
         Assert.Equal(expectedMessage, error.Message);
     }
