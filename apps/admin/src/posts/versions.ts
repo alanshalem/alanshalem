@@ -3,21 +3,21 @@ import type { I18n } from '../i18n/i18n.ts';
 import { DEFAULT_LANG, langCode, LANGS, type Lang } from '../languages.ts';
 
 /*
- * Reglas puras de las versiones de un post por idioma (L3, L4). Cada versión es un post propio unido a las otras
- * por `translationGroupId`; la traducción es manual (S2) y queda como borrador hasta que se revisa (S3).
+ * Pure rules of a post's language versions. Each version is its own post joined to the others by
+ * `translationGroupId`; translation is manual and stays a draft until reviewed.
  */
 
-/** Una fila de la lista: todas las versiones de un mismo post. */
+/** A list row: all the versions of one post. */
 export interface PostGroup {
   id: string;
-  /** La versión que da título y enlace a la fila: la del idioma principal si existe. */
+  /** The version that gives the row its title and link: the main language's if it exists. */
   main: PostSummary;
   versions: PostSummary[];
-  /** La última edición de cualquiera de sus versiones. */
+  /** The latest edit of any of its versions. */
   updatedAt: string;
 }
 
-/** Agrupa por `translationGroupId`; cada grupo aparece donde llegó su primera versión (la API ordena la lista). */
+/** Groups by `translationGroupId`; each group appears where its first version arrived (the API sorts the list). */
 export function groupPosts(posts: readonly PostSummary[]): PostGroup[] {
   const byGroup = new Map<string, PostSummary[]>();
   for (const post of posts) {
@@ -27,7 +27,7 @@ export function groupPosts(posts: readonly PostSummary[]): PostGroup[] {
   }
   return [...byGroup].map(([id, versions]) => ({
     id,
-    // Hay al menos una versión: el grupo nace con la primera.
+    // There is at least one version: the group is born with the first.
     main: versions.find((version) => version.lang === DEFAULT_LANG) ?? versions[0]!,
     versions,
     updatedAt: versions.reduce(
@@ -43,8 +43,8 @@ export interface VersionSlot<T> {
 }
 
 /**
- * Un lugar por idioma (en el orden de `LANGS`) con su versión o `null` si falta. `except` deja afuera el idioma
- * propio: el editor solo lista las otras versiones; la lista, todas.
+ * One slot per language (in `LANGS` order) with its version or `null` if missing. `except` leaves out the own
+ * language: the editor only lists the other versions; the list, all of them.
  */
 export function versionSlots<T extends { lang: Lang }>(versions: readonly T[], except?: Lang): VersionSlot<T>[] {
   return LANGS.filter((lang) => lang !== except).map((lang) => ({
@@ -53,16 +53,17 @@ export function versionSlots<T extends { lang: Lang }>(versions: readonly T[], e
   }));
 }
 
-/** Estado de un post en el idioma de la interfaz: "Borrador" / "Draft". */
+/** A post's status in the UI language: "Borrador" / "Draft". */
 export const statusLabel = (status: PostStatus, i18n: I18n): string => i18n.t(`status.${status}`);
 
-/** El texto del chip de una versión: "ES · Publicado" o "EN · Borrador" (el código no se traduce). */
+/** The text of a version chip: "ES · Publicado" or "EN · Borrador" (the code is not translated). */
 export const versionLabel = (lang: Lang, status: PostStatus, i18n: I18n): string =>
   `${langCode(lang)} · ${statusLabel(status, i18n)}`;
 
 /**
- * El chip de una versión que falta es un botón que la crea: se ve "+ EN" (antes "EN · Falta", que parecía un estado y
- * no una acción) y se anuncia "Crear versión en inglés (EN)", con el texto visible dentro del nombre (WCAG 2.5.3).
+ * The chip of a missing version is a button that creates it: it shows "+ EN" (before, "EN · Falta", which looked like a
+ * status and not an action) and announces "Crear versión en inglés (EN)", with the visible text inside the name
+ * (WCAG 2.5.3).
  */
 export const missingVersion = (lang: Lang, i18n: I18n): { text: string; label: string } => {
   const code = langCode(lang);
@@ -74,20 +75,20 @@ export const missingVersion = (lang: Lang, i18n: I18n): { text: string; label: s
 
 export type TranslationWarning = 'untranslated' | 'outdated';
 
-/** Lo que hace falta de una versión para compararla con la otra. */
+/** What a version needs to be compared with the other. */
 export interface VersionContent {
   title: string;
   body: string;
   createdAt: string;
-  /** No `updatedAt`: publicar o programar también lo cambian, y eso no vuelve vieja a ninguna traducción. */
+  /** Not `updatedAt`: publishing or scheduling also change it, and that does not make any translation outdated. */
   contentUpdatedAt: string;
 }
 
 /**
- * Avisos de la traducción respecto de la otra versión (L3). La traducción es la versión creada después: "Crear
- * versión" copia el original, así que el original nunca se avisa a sí mismo.
- * - `untranslated`: el título o el cuerpo siguen iguales al original (el contenido copiado sin traducir).
- * - `outdated`: el contenido del original cambió después del último cambio de contenido de la traducción.
+ * Warnings of the translation against the other version. The translation is the version created later: "Crear
+ * versión" copies the original, so the original never warns about itself.
+ * - `untranslated`: the title or the body still equal the original (the copied content not translated).
+ * - `outdated`: the original's content changed after the translation's last content change.
  */
 export function translationWarnings(current: VersionContent, other: VersionContent): TranslationWarning[] {
   if (Date.parse(current.createdAt) <= Date.parse(other.createdAt)) return [];

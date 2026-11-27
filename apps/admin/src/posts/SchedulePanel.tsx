@@ -14,10 +14,10 @@ import {
 } from './schedule.ts';
 
 interface Props {
-  /** Un borrador: un post publicado no se programa. */
+  /** A draft: a published post is not scheduled. */
   post: Post;
   busy: boolean;
-  /** Programa (guardando antes lo pendiente); null si no se pudo empezar. Un error de la API se lanza. */
+  /** Schedules (saving pending changes first); null if it could not start. An API error is thrown. */
   onSchedule: (publishAt: string) => Promise<Post | null>;
   onUnschedule: () => Promise<Post | null>;
   onError: (error: unknown) => boolean;
@@ -25,14 +25,14 @@ interface Props {
 
 const EMPTY: LocalDateTime = { date: '', time: '' };
 
-/** Publicación programada (S5): fecha y hora en la zona del navegador; el servidor publica y regenera el sitio. */
+/** Scheduled publishing: date and time in the browser's zone; the server publishes and rebuilds the site. */
 export function SchedulePanel({ post, busy, onSchedule, onUnschedule, onError }: Props) {
   const id = useId();
   const i18n = useUiLanguage();
   const { t, formatDateTime } = i18n;
   const at = scheduledAt(post);
   const [local, setLocal] = useState<LocalDateTime>(() => (at ? toLocalDateTime(at, browserTimeZone) : EMPTY));
-  // `invalid`: un error de los campos (lo de la API no es de un campo en particular).
+  // `invalid`: a field error (the API's is not about a particular field).
   const [error, setError] = useState<{ text: string; invalid: boolean } | null>(null);
   const [status, setStatus] = useState('');
   const dateRef = useRef<HTMLInputElement>(null);
@@ -40,13 +40,13 @@ export function SchedulePanel({ post, busy, onSchedule, onUnschedule, onError }:
 
   const now = new Date();
   const check = checkSchedule(local, now, browserTimeZone);
-  // El desplazamiento de la fecha elegida (con horario de verano puede no ser el de hoy).
+  // The offset of the chosen date (with daylight saving time it may differ from today's).
   const offset = browserTimeZone.offsetMinutes(check.ok ? new Date(check.publishAt) : now);
   const today = toLocalDateTime(now.toISOString(), browserTimeZone).date;
   const errorId = `${id}-error`;
   const describedBy = error ? `${id}-zone ${errorId}` : `${id}-zone`;
 
-  /** Corre la acción y anuncia el resultado; el mensaje de la API se muestra tal cual (ya viene traducido). */
+  /** Runs the action and announces the result; the API message is shown as is (it comes translated). */
   const run = async (action: () => Promise<Post | null>, success: (result: Post) => string): Promise<Post | null> => {
     setStatus('');
     setError(null);
@@ -66,7 +66,7 @@ export function SchedulePanel({ post, busy, onSchedule, onUnschedule, onError }:
     if (!result.ok) {
       setStatus('');
       setError({ text: t(`schedule.${result.error}`), invalid: true });
-      // El foco al campo que hay que corregir: el vacío o, si la fecha ya pasó, la fecha.
+      // Focus to the field to fix: the empty one or, if the date already passed, the date.
       (result.error === 'required' && local.date !== '' ? timeRef : dateRef).current?.focus();
       return;
     }
@@ -77,7 +77,7 @@ export function SchedulePanel({ post, busy, onSchedule, onUnschedule, onError }:
   };
 
   const cancel = async (): Promise<void> => {
-    // "Cancelar" desaparece: el foco no se pierde, va a la fecha.
+    // "Cancelar" goes away: focus is not lost, it goes to the date.
     if (await run(onUnschedule, () => t('schedule.canceled'))) dateRef.current?.focus();
   };
 

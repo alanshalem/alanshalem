@@ -9,7 +9,7 @@ export interface UiLanguage extends I18n {
 
 const UiLanguageContext = createContext<UiLanguage | null>(null);
 
-// Leer `window.localStorage` ya puede lanzar (cookies bloqueadas): sin almacenamiento, `null` (lo usa también el editor).
+// Reading `window.localStorage` can already throw (blocked cookies): without storage, `null` (the editor uses it too).
 export function browserStorage(): Storage | null {
   try {
     return window.localStorage;
@@ -18,17 +18,17 @@ export function browserStorage(): Storage | null {
   }
 }
 
-/** Idioma de la interfaz para todo el admin: el elegido (persistido) o el del navegador, y `<html lang>` al día. */
+/** UI language for the whole admin: the chosen one (persisted) or the browser's, keeping `<html lang>` up to date. */
 export function UiLanguageProvider({ children }: { children: ReactNode }) {
-  // El cliente de la API se sincroniza acá y no en un efecto: los efectos de los hijos (el primer pedido, el chequeo
-  // de sesión) corren antes que los del proveedor y saldrían con el idioma por defecto.
+  // The API client is synced here and not in an effect: the children's effects (the first request, the session
+  // check) run before the provider's and would go out with the default language.
   const [lang, setLang] = useState<Lang>(() => {
     const initial = loadUiLang(browserStorage(), navigator.language);
     setApiLanguage(initial);
     return initial;
   });
 
-  // Lectores de pantalla y el corrector del navegador leen la interfaz con el idioma correcto.
+  // Screen readers and the browser's spell checker read the UI with the right language.
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
@@ -48,14 +48,14 @@ export function UiLanguageProvider({ children }: { children: ReactNode }) {
   return <UiLanguageContext value={value}>{children}</UiLanguageContext>;
 }
 
-/** El idioma de la interfaz y sus textos (`t`, `plural`, fechas). Solo dentro de `UiLanguageProvider`. */
+/** The UI language and its texts (`t`, `plural`, dates). Only inside `UiLanguageProvider`. */
 export function useUiLanguage(): UiLanguage {
   const value = useContext(UiLanguageContext);
-  if (!value) throw new Error('useUiLanguage necesita un UiLanguageProvider arriba.');
+  if (!value) throw new Error('useUiLanguage needs a UiLanguageProvider above it.');
   return value;
 }
 
-/** Selector "ES | EN" (header y login): botones con aria-pressed, nombrados "ES – Español" (uiLangButtonName). */
+/** "ES | EN" selector (header and login): aria-pressed buttons named "ES – Español" (uiLangButtonName). */
 export function UiLanguageSwitch() {
   const { lang: current, setLang, t } = useUiLanguage();
   return (

@@ -6,9 +6,10 @@ import type { Lang } from '../languages.ts';
 import { confirmNavigation, href, navigate } from '../useRoute.ts';
 
 /**
- * "Crear versión en …" (L3): pide el borrador del otro idioma y abre su editor. La lista y el editor lo comparten.
- * El mensaje de la API (409 si ya existe, en español) se muestra tal cual. Con cambios sin guardar se pregunta antes
- * de crearla (se sale del editor); después se navega sin volver a preguntar.
+ * "Crear versión en …": requests the draft in the other language and opens its editor. Shared by the list and the
+ * editor. The API message (409 if it already exists, already in the UI language through Accept-Language) is shown as
+ * is. With unsaved changes it asks before creating it (it leaves the editor); afterwards it navigates without asking
+ * again.
  */
 export function useCreateTranslation(onError: (error: unknown) => boolean) {
   const { t } = useUiLanguage();

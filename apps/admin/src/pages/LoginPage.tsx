@@ -13,7 +13,7 @@ interface Props {
 export function LoginPage({ onLoggedIn }: Props) {
   const { t } = useUiLanguage();
   const [password, setPassword] = useState('');
-  // La clave y no el texto: si se cambia de idioma con el error a la vista, el error también cambia.
+  // The key and not the text: if the language changes with the error showing, the error changes too.
   const [error, setError] = useState<MessageKey | null>(null);
   const [busy, setBusy] = useState(false);
   useDocumentTitle(pageTitle({ name: 'login' }, t));
@@ -26,7 +26,7 @@ export function LoginPage({ onLoggedIn }: Props) {
       await api.login(password);
       onLoggedIn();
     } catch (caught) {
-      // Mensaje genérico a propósito: no revelamos nada útil para adivinar la contraseña.
+      // Generic message on purpose: we reveal nothing useful for guessing the password.
       setError(caught instanceof ApiError && caught.status === 429 ? 'login.tooManyAttempts' : 'login.wrongPassword');
     } finally {
       setBusy(false);

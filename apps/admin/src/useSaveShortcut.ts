@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import { matchesChord, SAVE_CHORD } from './editor/shortcuts.ts';
 
 /**
- * Ctrl/Cmd+S guarda (editor de posts y ajustes) en vez de abrir "Guardar página" del navegador. El ref evita
- * re-registrar el listener en cada tecla: `save` cambia en cada render.
+ * Ctrl/Cmd+S saves (post editor and settings) instead of opening the browser's "Save page". The ref avoids
+ * re-registering the listener on every key: `save` changes on every render.
  */
 export function useSaveShortcut(save: () => unknown): void {
   const saveRef = useRef(save);

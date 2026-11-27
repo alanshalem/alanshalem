@@ -7,22 +7,22 @@ import { VersionLink } from './VersionLink.tsx';
 
 interface Props {
   post: Post;
-  /** Lo que se está editando: "Sin traducir" se actualiza mientras se escribe. */
+  /** What is being edited: "Sin traducir" updates while typing. */
   draft: { title: string; body: string };
   /**
-   * Con cambios sin guardar, la versión nueva copiaría lo guardado y no lo que se ve: se avisa debajo y, al crearla, se
-   * pregunta antes de salir (useCreateTranslation). El botón no se deshabilita: un botón deshabilitado no explica por
-   * qué ni se alcanza con Tab.
+   * With unsaved changes, the new version would copy what is saved and not what is shown: a warning shows below and,
+   * on create, it asks before leaving (useCreateTranslation). The button is not disabled: a disabled button does not
+   * explain why and cannot be reached with Tab.
    */
   dirty: boolean;
-  /** La otra versión completa (useOtherVersion, en la página: el editor también la muestra al lado); null si no hay. */
+  /** The full other version (useOtherVersion, in the page: the editor also shows it alongside); null if none. */
   other: Post | null;
   onError: (error: unknown) => boolean;
 }
 
 /**
- * Idioma de un post existente (solo lectura, L4) y sus otras versiones: enlace a cada una o "Crear versión en …".
- * En la traducción, avisa si sigue sin traducir o si el original cambió después (L3).
+ * The language of an existing post (read-only) and its other versions: a link to each or "Crear versión en …".
+ * In the translation, it warns if it is still untranslated or if the original changed afterwards.
  */
 export function PostVersions({ post, draft, dirty, other, onError }: Props) {
   const id = useId();

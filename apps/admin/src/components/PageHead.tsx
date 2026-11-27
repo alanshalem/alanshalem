@@ -2,22 +2,22 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { useDocumentTitle, useHeadingFocus } from '../navigation/usePageHeading.ts';
 
 interface Props {
-  /** Lo que dice el <h1>. */
+  /** What the <h1> says. */
   heading: ReactNode;
-  /** El título del documento (pageTitle). */
+  /** The document title (pageTitle). */
   documentTitle: string;
-  /** Arriba del título: el eyebrow o "← Posts". */
+  /** Above the heading: the eyebrow or "← Posts". */
   above?: ReactNode;
-  /** Las acciones a la derecha (Guardar, Publicar). */
+  /** The actions on the right (Guardar, Publicar). */
   children?: ReactNode;
-  /** Fijo arriba al scrollear (editor, ajustes): sus acciones quedan siempre a mano en pantallas grandes. */
+  /** Sticky at the top while scrolling (editor, settings): its actions stay at hand on large screens. */
   sticky?: boolean;
 }
 
 /**
- * Encabezado de página: el título de la vista (documento y <h1>, que recibe el foco al cambiar de vista) y sus acciones.
- * Si es fijo, publica su alto en `--sticky-head` para que `scroll-padding-top` (admin.css) no deje controles
- * enfocados debajo de él (WCAG 2.4.11). El CSS decide cuándo es fijo; acá solo se mide.
+ * Page header: the view's title (document and <h1>, which receives focus on view change) and its actions.
+ * When sticky, it publishes its height in `--sticky-head` so `scroll-padding-top` (admin.css) does not leave focused
+ * controls under it (WCAG 2.4.11). The CSS decides when it is sticky; here it is only measured.
  */
 export function PageHead({ heading, documentTitle, above, children, sticky = false }: Props) {
   const headingRef = useHeadingFocus();
@@ -28,7 +28,7 @@ export function PageHead({ heading, documentTitle, above, children, sticky = fal
     const head = headRef.current;
     if (!sticky || !head) return;
     const root = document.documentElement;
-    // ResizeObserver: el alto cambia con el ancho (las acciones bajan de renglón) y con títulos largos.
+    // ResizeObserver: the height changes with the width (the actions wrap) and with long titles.
     const observer = new ResizeObserver(() => root.style.setProperty('--sticky-head', `${head.offsetHeight}px`));
     observer.observe(head);
     return () => {

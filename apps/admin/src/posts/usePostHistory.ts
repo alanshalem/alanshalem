@@ -3,22 +3,22 @@ import { api } from '../api/client.ts';
 import type { PostRevision, PostRevisionSummary } from '../api/types.ts';
 
 export interface PostHistory {
-  /** `null` hasta que se abre el panel (o mientras carga la primera vez). */
+  /** `null` until the panel opens (or while it loads the first time). */
   revisions: PostRevisionSummary[] | null;
-  /** La versión elegida, completa (con el cuerpo); null si no hay ninguna o todavía carga. */
+  /** The chosen revision, in full (with the body); null if none or still loading. */
   revision: PostRevision | null;
   selectedId: string | null;
   loadFailed: boolean;
   revisionFailed: boolean;
-  /** El panel se abrió: desde ahí la lista se carga y se mantiene al día. */
+  /** The panel opened: from then on the list loads and stays up to date. */
   open: () => void;
   select: (revisionId: string) => void;
 }
 
 /**
- * Los datos del historial, a pedido: la lista recién cuando se abre el panel y cada versión cuando se elige (el cuerpo
- * puede ser largo). `contentVersion` (el `contentUpdatedAt` del post) cambia con cada guardado o restauración que
- * crea una versión: entonces la lista se vuelve a pedir.
+ * The history data, on demand: the list only when the panel opens and each revision when chosen (the body can be
+ * long). `contentVersion` (the post's `contentUpdatedAt`) changes with every save or restore that creates a revision:
+ * then the list is fetched again.
  */
 export function usePostHistory(postId: string, contentVersion: string, onError: (error: unknown) => boolean): PostHistory {
   const [opened, setOpened] = useState(false);
@@ -27,7 +27,7 @@ export function usePostHistory(postId: string, contentVersion: string, onError: 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [revision, setRevision] = useState<PostRevision | null>(null);
   const [revisionFailed, setRevisionFailed] = useState(false);
-  // La última versión pedida: con clics rápidos, una respuesta vieja no pisa a la nueva.
+  // The last requested revision: with quick clicks, an old response does not overwrite the new one.
   const requested = useRef<string | null>(null);
 
   useEffect(() => {

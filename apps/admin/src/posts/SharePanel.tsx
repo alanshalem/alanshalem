@@ -9,11 +9,11 @@ interface Props {
   input: Omit<ShareInput, 'siteName' | 'origin'>;
 }
 
-/** Cómo se ve el post al compartirlo (X, LinkedIn, WhatsApp) y en Google (S3). Solo presenta: la lógica está en seo.ts. */
+/** How the post looks when shared (X, LinkedIn, WhatsApp) and on Google. Presentation only: the logic is in seo.ts. */
 export function SharePanel({ input }: Props) {
   const { t } = useUiLanguage();
   const siteName = useSiteName();
-  // En producción el sitio y el admin comparten dominio (SITE_URL = "/"); en desarrollo, el de Astro.
+  // In production the site and the admin share a domain (SITE_URL = "/"); in development, Astro's.
   const origin = new URL(SITE_URL, window.location.href).origin;
   const preview = useMemo(() => sharePreview({ ...input, siteName, origin }), [input, siteName, origin]);
   const title = preview.title || t('common.untitled');

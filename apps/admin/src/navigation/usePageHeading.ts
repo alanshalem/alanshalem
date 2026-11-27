@@ -1,7 +1,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import { hasViewChanged } from '../useRoute.ts';
 
-/** El título del documento de la vista (pageTitle): la pestaña y el lector de pantalla dicen dónde se está. */
+/** The view's document title (pageTitle): the tab and the screen reader say where you are. */
 export function useDocumentTitle(title: string): void {
   useEffect(() => {
     document.title = title;
@@ -9,9 +9,9 @@ export function useDocumentTitle(title: string): void {
 }
 
 /**
- * Al llegar a una vista nueva (un enlace, atrás, después de entrar) el foco va a su <h1> (tabindex -1): el lector de
- * pantalla anuncia la vista nueva y el próximo Tab sigue desde ahí, no desde el principio de la página. La primera
- * vista después de cargar no se toca: ahí el lector ya lee la página desde arriba (y el enlace "Saltar al contenido").
+ * On arriving at a new view (a link, back, after logging in) focus moves to its <h1> (tabindex -1): the screen reader
+ * announces the new view and the next Tab continues from there, not from the top of the page. The first view after
+ * loading is left alone: there the reader already reads the page from the top (and the "Saltar al contenido" link).
  */
 export function useHeadingFocus(): RefObject<HTMLHeadingElement | null> {
   const ref = useRef<HTMLHeadingElement>(null);

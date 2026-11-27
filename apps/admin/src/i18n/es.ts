@@ -1,11 +1,11 @@
 /**
- * Textos de la interfaz del admin en español (S6, L4): el diccionario de referencia. Sus claves definen el tipo
- * `MessageKey`, así que al inglés no le puede faltar ni sobrar ninguna (lo marca el compilador y lo repite un test).
+ * The admin UI texts in Spanish: the reference dictionary. Its keys define the `MessageKey` type, so English cannot
+ * miss or add any (the compiler flags it and a test repeats the check).
  *
- * - `{nombre}` es un parámetro de `t()`; los números se formatean según el idioma.
- * - `.one` / `.other`: el par que elige `plural()`.
- * - Las claves con `${...}` en el código (`status.${status}`) dependen de un tipo de la API o del dominio: si se
- *   suma un valor, el compilador pide su texto.
+ * - `{name}` is a `t()` parameter; numbers are formatted per language.
+ * - `.one` / `.other`: the pair `plural()` chooses from.
+ * - Keys built with `${...}` in the code (`status.${status}`) depend on an API or domain type: if a value is added,
+ *   the compiler asks for its text.
  */
 export const es = {
   // ----- General -----
@@ -18,11 +18,11 @@ export const es = {
   'common.allSaved': 'Todo guardado',
   'common.untitled': '(sin título)',
   'common.preview': 'Vista previa',
-  // Dos formas porque una va dentro de una frase ("No se pudo subir x: error desconocido") y la otra sola.
+  // Two forms because one goes inside a sentence ("No se pudo subir x: error desconocido") and the other stands alone.
   'error.unknown': 'error desconocido',
   'error.unknownSentence': 'Error desconocido.',
 
-  // ----- Estructura y navegación -----
+  // ----- Structure and navigation -----
   'nav.skip': 'Saltar al contenido',
   'nav.sections': 'Secciones',
   'nav.posts': 'Posts',
@@ -31,12 +31,12 @@ export const es = {
   'nav.newTab': '(se abre en una pestaña nueva)',
   'nav.logout': 'Salir',
   'uiLang.label': 'Idioma de la interfaz',
-  // Título del documento (pestaña, historial, lector de pantalla): uno distinto por vista.
+  // Document title (tab, history, screen reader): a different one per view.
   'title.page': '{page} · Admin',
   'title.edit': 'Editar: {title}',
   'unsaved.confirm': 'Hay cambios sin guardar. ¿Salir igual? Se van a perder.',
 
-  // ----- Idiomas del contenido (el de cada post, no el de la interfaz) -----
+  // ----- Content languages (each post's, not the UI's) -----
   'lang.label.es': 'Español',
   'lang.label.en': 'Inglés',
   'lang.inSentence.es': 'español',
@@ -52,7 +52,7 @@ export const es = {
   'login.wrongPassword': 'Contraseña incorrecta.',
   'login.back': '← Volver al sitio',
 
-  // ----- Lista de posts -----
+  // ----- Post list -----
   'posts.eyebrow': 'Escritura',
   'posts.loadError': 'No se pudieron cargar los posts.',
   'posts.empty': 'Todavía no hay posts.',
@@ -63,12 +63,12 @@ export const es = {
   'posts.published.one': '{count} publicado',
   'posts.published.other': '{count} publicados',
 
-  // ----- Versiones por idioma -----
+  // ----- Language versions -----
   'status.draft': 'Borrador',
   'status.published': 'Publicado',
   'versions.label': 'Versiones',
   'versions.create': 'Crear versión en {lang}',
-  // Chip de una versión que falta: se ve "+ EN" y se anuncia la acción; el código va en el nombre (WCAG 2.5.3).
+  // Chip of a missing version: "+ EN" is shown and the action is announced; the code is in the name (WCAG 2.5.3).
   'versions.add': '+ {code}',
   'versions.createAria': 'Crear versión en {lang} ({code})',
   'versions.creating': 'Creando…',
@@ -80,7 +80,7 @@ export const es = {
   'versions.outdated.text':
     'La versión en {lang} cambió después de la última edición de esta: pasá esos cambios acá y guardá.',
 
-  // ----- Editor de posts -----
+  // ----- Post editor -----
   'post.new': 'Nuevo post',
   'post.language': 'Idioma',
   'post.title': 'Título',
@@ -108,7 +108,7 @@ export const es = {
   'post.unpublishError': 'No se pudo despublicar.',
   'post.deleteError': 'No se pudo eliminar.',
 
-  // ----- Editor Markdown (el atajo se agrega en el código: no se traduce) -----
+  // ----- Markdown editor (the shortcut is added in code: not translated) -----
   'editor.format': 'Formato',
   'editor.bold': 'Negrita',
   'editor.italic': 'Cursiva',
@@ -165,7 +165,7 @@ export const es = {
   'editor.short.compare': 'Original',
   'editor.original': 'Original en {lang} · solo lectura',
 
-  // ----- Contador, esquema, revisión y vista al compartir (debajo del editor) -----
+  // ----- Counter, outline, review and share preview (below the editor) -----
   'stats.words.one': '{count} palabra',
   'stats.words.other': '{count} palabras',
   'stats.characters.one': '{count} carácter',
@@ -201,7 +201,7 @@ export const es = {
   'autosave.error': 'No se pudo guardar',
   'autosave.manual': 'Cambios sin guardar · publicado: se guarda a mano',
 
-  // ----- Historial de versiones y publicación programada (S5) -----
+  // ----- Version history and scheduled publishing -----
   'history.title': 'Historial de versiones',
   'history.help': 'Cada guardado queda registrado (las últimas {max} versiones). Elegí una para compararla con lo que estás editando.',
   'history.loadError': 'No se pudo cargar el historial.',
@@ -245,7 +245,7 @@ export const es = {
   'schedule.canceled': 'Programación cancelada: sigue como borrador.',
   'schedule.error': 'No se pudo programar la publicación.',
 
-  // ----- Buscar y reemplazar, paleta -----
+  // ----- Find and replace, palette -----
   'find.query': 'Texto a buscar',
   'find.replacement': 'Reemplazar por',
   'find.caseSensitive': 'Distinguir mayúsculas',
@@ -261,7 +261,7 @@ export const es = {
   'palette.search': 'Buscá una acción…',
   'palette.empty': 'Ninguna acción coincide.',
 
-  // ----- Imágenes (portada, editor) -----
+  // ----- Images (cover, editor) -----
   'image.upload': 'Subir imagen',
   'image.remove': 'Quitar',
   'image.removed': 'Imagen quitada.',
@@ -277,7 +277,7 @@ export const es = {
   'upload.progress': 'Subiendo {name}…',
   'upload.failed': 'No se pudo subir {name}: {error}',
 
-  // ----- Validación compartida (ajustes, portada, hero) -----
+  // ----- Shared validation (settings, cover, hero) -----
   'validation.tooLong': '{subject} no puede superar {max} caracteres.',
   'subject.name': 'El nombre',
   'subject.tagline': 'La frase',
@@ -296,7 +296,7 @@ export const es = {
   'settings.linkNotHttp': 'El enlace de {site} debe ser una URL http(s).',
   'cover.notImage': 'La portada debe ser una ruta /media/... o una URL http(s).',
 
-  // ----- Ajustes -----
+  // ----- Settings -----
   'settings.eyebrow': 'Sitio',
   'settings.author': 'Autor',
   'settings.authorNote': 'Lo que se ve en el hero y el footer de todas las páginas.',
@@ -320,7 +320,7 @@ export const es = {
   'settings.loadError': 'No se pudieron cargar los ajustes: {error}',
   'settings.saveError': 'No se pudieron guardar los ajustes.',
 
-  // ----- Fotos y videos del hero -----
+  // ----- Hero photos and videos -----
   'hero.title': 'Fotos y videos del hero',
   'hero.note':
     'La home muestra uno al azar en cada visita, nunca el mismo dos veces seguidas. Cada cambio regenera el sitio.',
@@ -374,7 +374,7 @@ export const es = {
   'hero.notLandscape': 'Formato vertical o cuadrado ({received}): el hero necesita uno horizontal. Ideal: {ideal} (16:9).',
   'hero.tooSmall': 'Tamaño insuficiente ({received}): el mínimo es {min}. Ideal: {ideal} o más.',
   'hero.belowIdeal': 'Mide {received}, menos que lo ideal ({ideal}): puede perder nitidez en pantallas grandes.',
-  // Grilla de miniaturas y panel lateral (U7)
+  // Thumbnail grid and side panel
   'hero.count.photos.one': '{count} foto',
   'hero.count.photos.other': '{count} fotos',
   'hero.count.videos.one': '{count} video',
@@ -396,7 +396,7 @@ export const es = {
   'hero.previous': 'Anterior',
   'hero.next': 'Siguiente',
 
-  // ----- Recorte y fundido de videos -----
+  // ----- Video trim and fade -----
   'video.editorTitle': 'Recorte y fundido',
   'video.previewLabel': 'Vista previa del tramo elegido',
   'video.play': 'Reproducir',
@@ -440,5 +440,5 @@ export const es = {
 
 export type MessageKey = keyof typeof es;
 
-/** Lo que tiene que cumplir cada traducción: las mismas claves, todas con texto. */
+/** What every translation must meet: the same keys, all with text. */
 export type Dictionary = Record<MessageKey, string>;

@@ -20,7 +20,7 @@ import {
 import { useSaveShortcut } from '../useSaveShortcut.ts';
 
 interface Props {
-  /** Devuelve true si el error era una sesión vencida (y ya se manejó). */
+  /** Returns true if the error was an expired session (already handled). */
   onError: (error: unknown) => boolean;
 }
 
@@ -36,19 +36,19 @@ interface TextFieldSpec {
   hint?: string;
   maxLength?: number;
   required?: boolean;
-  /** Ocupa toda la fila de la grilla (el nombre: no tiene par en inglés). */
+  /** Takes the whole grid row (the name: it has no English counterpart). */
   wide?: boolean;
 }
 
-// Los textos en inglés son opcionales (L3, L6): vacíos, el sitio en inglés muestra los de español (`fallbackHint`).
-// El nombre es uno solo en los dos idiomas (L12).
+// The English texts are optional: when empty, the English site shows the Spanish ones (`fallbackHint`).
+// The name is a single field for both languages.
 const identityFields = (t: Translate): TextFieldSpec[] => [
   { key: 'name', label: t('settings.name'), required: true, maxLength: LIMITS.settings.name, hint: t('settings.nameHint'), wide: true },
   { key: 'tagline', label: t('settings.tagline'), maxLength: LIMITS.settings.tagline, hint: t('settings.taglineHint') },
   { key: 'taglineEn', label: t('settings.taglineEn'), maxLength: LIMITS.settings.tagline, hint: t('settings.fallbackHint') },
 ];
 
-// GitHub, LinkedIn y X son marcas: no se traducen.
+// GitHub, LinkedIn and X are brands: not translated.
 const linkFields = (t: Translate): TextFieldSpec[] => [
   { key: 'email', label: t('settings.email'), type: 'email', placeholder: t('settings.emailPlaceholder') },
   { key: 'githubUrl', label: 'GitHub', type: 'url', placeholder: 'https://github.com/…' },
@@ -57,8 +57,8 @@ const linkFields = (t: Translate): TextFieldSpec[] => [
 ];
 
 /**
- * Datos del autor (S4): nombre, bio y links; guardar regenera el sitio. Las fotos del hero van debajo, fuera del
- * <form>: cada una se guarda por separado y sus campos no deben disparar el "Guardar" de los ajustes.
+ * Author data: name, bio and links; saving rebuilds the site. The hero photos go below, outside the <form>: each is
+ * saved separately and their fields must not trigger the settings' "Guardar".
  */
 export function SettingsPage({ onError }: Props) {
   const i18n = useUiLanguage();
@@ -87,7 +87,7 @@ export function SettingsPage({ onError }: Props) {
         }
       })
       .finally(() => setLoading(false));
-    // Sin `t`: cambiar el idioma de la interfaz no vuelve a cargar los ajustes (pisaría lo que se está editando).
+    // Without `t`: switching the UI language does not reload the settings (it would overwrite what is being edited).
   }, [onError]);
 
   const update = (key: keyof SettingsForm, value: string): void => {
@@ -104,7 +104,7 @@ export function SettingsPage({ onError }: Props) {
     if (!result.ok) {
       setErrors(result.errors);
       setMessage({ kind: 'error', text: t('settings.checkFields') });
-      // Llevar el foco al primer campo con error, para teclado y lectores de pantalla.
+      // Move focus to the first field with an error, for keyboard and screen reader users.
       const first = Object.keys(result.errors)[0];
       if (first) document.getElementById(`settings-${first}`)?.focus();
       return;
@@ -119,7 +119,7 @@ export function SettingsPage({ onError }: Props) {
       setMessage({ kind: 'ok', text: t('settings.saved') });
     } catch (caught) {
       if (!onError(caught)) {
-        // El mensaje de la API (ProblemDetails) es la autoridad: se muestra tal cual.
+        // The API message (ProblemDetails) is the authority: shown as is.
         setMessage({ kind: 'error', text: errorMessage(caught, t('settings.saveError')) });
       }
     } finally {
@@ -127,7 +127,7 @@ export function SettingsPage({ onError }: Props) {
     }
   }, [form, onError, i18n, t]);
 
-  useSaveShortcut(save); // igual que en el editor de posts
+  useSaveShortcut(save); // same as in the post editor
 
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
@@ -190,7 +190,7 @@ export function SettingsPage({ onError }: Props) {
 
       <Banner notice={message} />
 
-      {/* noValidate: la validación propia marca todos los campos a la vez y con los mismos mensajes que la API. */}
+      {/* noValidate: our validation flags every field at once and with the same messages as the API. */}
       <form id={FORM_ID} onSubmit={handleSubmit} noValidate>
         <section className="settings-section" aria-labelledby="settings-identity">
           <div className="section-head">

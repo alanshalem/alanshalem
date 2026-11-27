@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { confirmLeave } from './navigation/leaveGuard.ts';
 
 /**
- * Router mínimo basado en el hash (#/posts/abc). Con 4 pantallas no hace falta una librería,
- * y el hash evita configurar rewrites en el servidor estático.
+ * Minimal hash-based router (#/posts/abc). With 4 screens no library is needed, and the hash avoids configuring
+ * rewrites on the static server.
  */
 export type Route =
   | { name: 'posts' }
@@ -22,18 +22,18 @@ function parse(hash: string): Route {
 
 const currentRoute = (): Route => parse(window.location.hash);
 
-// El destino que ya se confirmó (enlace o `navigate`): el hashchange que sigue no vuelve a preguntar.
+// The target already confirmed (link or `navigate`): the following hashchange does not ask again.
 let approved: string | null = null;
-// Si ya hubo un cambio de vista: la primera vista después de cargar no mueve el foco (usePageHeading).
+// Whether a view change already happened: the first view after loading does not move focus (usePageHeading).
 let viewChanged = false;
 
-/** Si hubo un cambio de vista desde que se cargó el admin (enlace, atrás, entrar). */
+/** Whether the view changed since the admin loaded (link, back, log in). */
 export const hasViewChanged = (): boolean => viewChanged;
 export const markViewChange = (): void => void (viewChanged = true);
 
 /**
- * Pregunta antes de dejar la vista con cambios sin guardar (useUnsavedGuard); true = seguir. `target` null = algo
- * sin ruta todavía (cerrar sesión, la versión que se va a crear).
+ * Asks before leaving the view with unsaved changes (useUnsavedGuard); true = go on. `target` null = something without
+ * a route yet (logging out, the version about to be created).
  */
 export function confirmNavigation(target: string | null): boolean {
   return confirmLeave(currentRoute(), target === null ? null : parse(target));
@@ -42,7 +42,7 @@ export function confirmNavigation(target: string | null): boolean {
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(currentRoute);
   useEffect(() => {
-    // Los enlaces se deciden antes de que cambie el hash: si se cancela, no queda una entrada de historial que deshacer.
+    // Links are decided before the hash changes: if cancelled, no history entry is left to undo.
     const onClick = (event: MouseEvent): void => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const link = event.target instanceof Element ? event.target.closest('a[href^="#/"]') : null;
@@ -51,7 +51,7 @@ export function useRoute(): Route {
       if (confirmNavigation(target)) approved = target;
       else event.preventDefault();
     };
-    // Atrás/adelante o la URL a mano: el hash ya cambió; si se cancela, se vuelve a la vista de antes.
+    // Back/forward or a hand-typed URL: the hash already changed; if cancelled, go back to the previous view.
     const onHashChange = (event: HashChangeEvent): void => {
       const next = window.location.hash;
       const wasApproved = approved !== null && JSON.stringify(parse(approved)) === JSON.stringify(parse(next));
@@ -81,8 +81,8 @@ export const href = {
 };
 
 /**
- * Cambia de vista preguntando antes si hay cambios sin guardar. `confirmed`: ya se preguntó (o no hay nada que perder,
- * como después de eliminar el post) y no se vuelve a preguntar.
+ * Changes the view, asking first if there are unsaved changes. `confirmed`: already asked (or nothing to lose, as after
+ * deleting the post), so it does not ask again.
  */
 export function navigate(target: string, { confirmed = false }: { confirmed?: boolean } = {}): void {
   if (!confirmed && !confirmNavigation(target)) return;

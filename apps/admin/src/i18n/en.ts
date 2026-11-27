@@ -1,6 +1,6 @@
 import type { Dictionary } from './es.ts';
 
-/** Textos de la interfaz en inglés: las mismas claves que `es.ts` (el tipo `Dictionary` no deja faltar ni sobrar). */
+/** The UI texts in English: the same keys as `es.ts` (the `Dictionary` type allows none missing or extra). */
 export const en: Dictionary = {
   // ----- General -----
   'common.loading': 'Loading…',
@@ -190,7 +190,7 @@ export const en: Dictionary = {
   'autosave.error': 'Couldn’t save',
   'autosave.manual': 'Unsaved changes · published: save manually',
 
-  // ----- Version history and scheduled publishing (S5) -----
+  // ----- Version history and scheduled publishing -----
   'history.title': 'Version history',
   'history.help': 'Every save is recorded (the latest {max} versions). Pick one to compare it with what you’re editing.',
   'history.loadError': 'Couldn’t load the history.',

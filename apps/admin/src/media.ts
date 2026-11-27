@@ -1,5 +1,5 @@
 /**
- * Formatos de imagen que acepta la subida de media (el `accept` de los <input type="file">): la portada, el editor y
- * las fotos del hero usan esta misma lista, la de la API.
+ * Image formats the media upload accepts (the `accept` of the <input type="file">): the cover, the editor and the hero
+ * photos use this same list, the API's.
  */
 export const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/avif';

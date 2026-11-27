@@ -9,17 +9,17 @@ import { usePostHistory } from './usePostHistory.ts';
 
 interface Props {
   post: Post;
-  /** Lo que se ve en el editor: contra eso se compara (es lo que la restauración reemplaza). */
+  /** What the editor shows: the comparison is against it (it is what the restore replaces). */
   current: PostInput;
   dirty: boolean;
-  /** Un guardado u otra acción en curso: restaurar espera. */
+  /** A save or another action in progress: restoring waits. */
   busy: boolean;
-  /** Restaura en la API y recarga el post en el editor; null si no se pudo empezar (otra acción en curso). */
+  /** Restores in the API and reloads the post in the editor; null if it could not start (another action in progress). */
   onRestore: (revisionId: string) => Promise<Post | null>;
   onError: (error: unknown) => boolean;
 }
 
-/** Historial de versiones (S5): la lista de guardados, el diff de la elegida contra lo actual y "Restaurar". */
+/** Revision history: the list of saves, the diff of the chosen one against the current state and "Restaurar". */
 export function HistoryPanel({ post, current, dirty, busy, onRestore, onError }: Props) {
   const id = useId();
   const { t, plural, formatDateTime } = useUiLanguage();
@@ -30,7 +30,7 @@ export function HistoryPanel({ post, current, dirty, busy, onRestore, onError }:
   const headingRef = useRef<HTMLHeadingElement>(null);
   const { revision, revisions } = history;
   const comparison = useMemo(() => revision && compareRevision(revision, current), [revision, current]);
-  // Mientras carga la versión elegida, el encabezado sale de la fila de la lista.
+  // While the chosen revision loads, the heading comes from the list row.
   const shown = revision ?? revisions?.find((candidate) => candidate.id === history.selectedId) ?? null;
 
   const select = (revisionId: string): void => {
@@ -47,11 +47,11 @@ export function HistoryPanel({ post, current, dirty, busy, onRestore, onError }:
     try {
       if (await onRestore(revision.id)) {
         setStatus(t('history.restored', { number: revision.number }));
-        // El botón desaparece (la versión ya es igual a lo actual): el foco va al encabezado de la comparación.
+        // The button goes away (the revision now equals the current state): focus goes to the comparison heading.
         headingRef.current?.focus();
       }
     } catch (caught) {
-      // El mensaje de la API tal cual (un 409 de slug, por ejemplo), ya en el idioma de la interfaz.
+      // The API message as is (a slug 409, for example), already in the UI language.
       if (!onError(caught)) setError(errorMessage(caught, t('history.restoreError')));
     } finally {
       setRestoring(false);
@@ -122,7 +122,7 @@ export function HistoryPanel({ post, current, dirty, busy, onRestore, onError }:
           {error}
         </p>
       )}
-      {/* Siempre presente: una región viva que aparece junto con su texto no siempre se anuncia. */}
+      {/* Always present: a live region that appears together with its text is not always announced. */}
       <p className="field-status" role="status">
         {status}
       </p>

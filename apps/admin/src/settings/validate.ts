@@ -3,15 +3,14 @@ import type { I18n, MessageKey } from '../i18n/i18n.ts';
 import { LIMITS } from '../limits.ts';
 
 /*
- * Validación y normalización del lado del admin para los ajustes del sitio y la portada de un post.
- * Es un espejo de las reglas del dominio de la API (SiteSettingsContent, PostContent y WebUrl, ver L4; los números,
- * de src/limits.ts),
- * con los mismos mensajes (en español; en inglés, su traducción): sirve para avisar antes de enviar. La API sigue
- * siendo la autoridad y sus errores (ProblemDetails) se muestran igual. Los textos salen del `I18n` recibido: las
- * reglas siguen puras y se prueban en los dos idiomas.
+ * Admin-side validation and normalization of the site settings and a post's cover. It mirrors the API domain rules
+ * (SiteSettingsContent, PostContent and WebUrl; the numbers come from src/limits.ts), with the same messages (in
+ * Spanish; in English, their translation): it warns before sending. The API stays the authority and its errors
+ * (ProblemDetails) are shown anyway. Texts come from the received `I18n`: the rules stay pure and are tested in both
+ * languages.
  */
 
-/** Lo que editan los inputs: todo texto (los `null` de la API se ven como vacío). */
+/** What the inputs edit: all text (the API's `null` shows as empty). */
 export type SettingsForm = { [K in keyof SiteSettings]: string };
 export type SettingsErrors = Partial<Record<keyof SiteSettings, string>>;
 
@@ -29,18 +28,18 @@ export const emptySettingsForm = (): SettingsForm => ({
   xUrl: '',
 });
 
-/** Recorta; el vacío se guarda como `null` (igual que la API). */
+/** Trims; empty is stored as `null` (like the API). */
 export function cleanOptional(value: string): string | null {
   const clean = value.trim();
   return clean === '' ? null : clean;
 }
 
-// Sin espacios, caracteres de control, barras invertidas ni comillas/ángulos: nada que pueda cortar un atributo HTML.
+// No spaces, control characters, backslashes or quotes/angle brackets: nothing that could break an HTML attribute.
 function hasSafeCharacters(value: string): boolean {
   return value.length <= LIMITS.url && !/[\s\u0000-\u001f\u007f-\u009f\\"'<>`]/.test(value);
 }
 
-/** URL absoluta http:// o https:// con host. */
+/** Absolute http:// or https:// URL with a host. */
 export function isHttpUrl(value: string): boolean {
   if (!hasSafeCharacters(value) || !/^https?:\/\//i.test(value)) return false;
   try {
@@ -51,19 +50,19 @@ export function isHttpUrl(value: string): boolean {
   }
 }
 
-/** Imagen: lo que devuelve la subida de media (`/media/...`) o una URL absoluta http(s). */
+/** Image: what the media upload returns (`/media/...`) or an absolute http(s) URL. */
 export function isImageUrl(value: string): boolean {
   const isMediaPath =
     hasSafeCharacters(value) &&
     value.startsWith(MEDIA_PREFIX) &&
     value.length > MEDIA_PREFIX.length &&
-    // Igual que la API: sin '%', para que no pase un ".." codificado (%2e%2e).
+    // Like the API: no '%', so an encoded ".." (%2e%2e) cannot get through.
     !value.includes('%') &&
     !value.split('/').includes('..');
   return isMediaPath || isHttpUrl(value);
 }
 
-/** Forma mínima (algo@dominio.tld, sin espacios). La validación real de un email es mandarle un correo. */
+/** Minimal shape (something@domain.tld, no spaces). The real validation of an email is sending it a message. */
 export function isEmail(value: string): boolean {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value) && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
 }
@@ -82,11 +81,11 @@ export const toSettingsForm = (settings: SiteSettings): SettingsForm => ({
 
 export type SettingsValidation = { ok: true; input: SiteSettings } | { ok: false; errors: SettingsErrors };
 
-/** "{sujeto} no puede superar {max} caracteres.": una sola frase para todo límite de largo (ajustes, portada, hero). */
+/** "{subject} no puede superar {max} caracteres.": one sentence for every length limit (settings, cover, hero). */
 export const tooLongMessage = (i18n: I18n, subject: MessageKey, max: number, params?: Record<string, string>): string =>
   i18n.t('validation.tooLong', { subject: i18n.t(subject, params), max });
 
-/** Valida todo de una vez (para marcar cada campo) y devuelve el cuerpo listo para el PUT. */
+/** Validates everything at once (to flag every field) and returns the body ready for the PUT. */
 export function validateSettings(form: SettingsForm, i18n: I18n): SettingsValidation {
   const errors: SettingsErrors = {};
   const tooLong = (key: keyof SiteSettings, value: string | null, max: number, subject: MessageKey): void => {
@@ -110,8 +109,8 @@ export function validateSettings(form: SettingsForm, i18n: I18n): SettingsValida
   const bio = cleanOptional(form.bio);
   tooLong('bio', bio, LIMITS.settings.bio, 'subject.bio');
 
-  // Las versiones en inglés tienen los mismos límites que sus pares en español (L4); ninguna es obligatoria. El
-  // nombre es uno solo en los dos idiomas (L12).
+  // The English versions have the same limits as their Spanish counterparts; none is required. The name is a single
+  // field for both languages.
   const taglineEn = cleanOptional(form.taglineEn);
   tooLong('taglineEn', taglineEn, LIMITS.settings.tagline, 'subject.taglineEn');
 
@@ -135,8 +134,8 @@ export function validateSettings(form: SettingsForm, i18n: I18n): SettingsValida
 export type CoverValidation = { ok: true; coverUrl: string | null; coverAlt: string | null } | { ok: false; error: string };
 
 /**
- * Portada de un post. Sin URL no hay portada y el alt se descarta: el sitio cae a la primera imagen
- * del texto o, si no hay ninguna, a una portada generativa (L5).
+ * A post's cover. Without a URL there is no cover and the alt is dropped: the site falls back to the first image of
+ * the text or, if there is none, to a generated cover.
  */
 export function validateCover(url: string, alt: string, i18n: I18n): CoverValidation {
   const coverUrl = cleanOptional(url);

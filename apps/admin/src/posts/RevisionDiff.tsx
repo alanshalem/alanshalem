@@ -4,23 +4,23 @@ import type { RevisionComparison } from './history.ts';
 import type { DiffKind } from './lineDiff.ts';
 
 interface Props {
-  /** El número de la versión comparada: nombra lo que solo está en ella. */
+  /** The number of the compared revision: it names what is only in it. */
   number: number;
   comparison: RevisionComparison;
 }
 
-// El signo es texto, no solo color (WCAG 1.4.1); el menos tipográfico se distingue mejor que un guion.
+// The sign is text, not only color (WCAG 1.4.1); the typographic minus stands out better than a hyphen.
 const SIGNS: Record<DiffKind, string> = { removed: '−', added: '+', same: ' ' };
 
 interface LineProps {
   kind: DiffKind;
   text: string;
-  /** Lo que dice un lector de pantalla antes de la línea ("Solo en la versión 3"); el signo se oculta. */
+  /** What a screen reader says before the line ("Solo en la versión 3"); the sign is hidden. */
   label?: string;
 }
 
 function DiffRow({ kind, text, label }: LineProps) {
-  // <del>/<ins>: la semántica de "quitado/agregado" además del signo y el color.
+  // <del>/<ins>: the "removed/added" semantics besides the sign and the color.
   const Tag = kind === 'removed' ? 'del' : kind === 'added' ? 'ins' : 'span';
   return (
     <Tag className={`diff-line diff-${kind}`}>
@@ -28,13 +28,13 @@ function DiffRow({ kind, text, label }: LineProps) {
         {SIGNS[kind]}
       </span>
       {label && <span className="visually-hidden">{label}: </span>}
-      {/* Un espacio mantiene el alto de una línea vacía. */}
+      {/* A space keeps the height of an empty line. */}
       {text || ' '}
     </Tag>
   );
 }
 
-/** Qué cambia entre una versión y lo que se está editando: los campos distintos y el diff de líneas del texto. */
+/** What changes between a revision and what is being edited: the differing fields and the text's line diff. */
 export function RevisionDiff({ number, comparison }: Props) {
   const id = useId();
   const { t, plural } = useUiLanguage();
@@ -78,7 +78,7 @@ export function RevisionDiff({ number, comparison }: Props) {
           <p className="label" id={`${id}-body`}>
             {t('history.field.body')}
           </p>
-          {/* Con scroll propio: tabIndex y nombre para que se pueda recorrer con el teclado (WCAG 2.1.1). */}
+          {/* With its own scroll: tabIndex and a name so it can be walked with the keyboard (WCAG 2.1.1). */}
           <div className="diff-body" role="region" aria-labelledby={`${id}-body`} tabIndex={0}>
             {comparison.body.map((chunk, index) =>
               chunk.kind === 'skipped' ? (
@@ -86,7 +86,7 @@ export function RevisionDiff({ number, comparison }: Props) {
                   {plural(chunk.count, 'history.skipped')}
                 </p>
               ) : (
-                // Los tramos no tienen id propio y el diff se recalcula entero: el índice alcanza.
+                // Runs have no id of their own and the diff is recomputed whole: the index is enough.
                 <div key={index}>
                   {chunk.lines.map((line, lineIndex) => (
                     <DiffRow key={lineIndex} kind={line.kind} text={line.text} label={labels[line.kind]} />

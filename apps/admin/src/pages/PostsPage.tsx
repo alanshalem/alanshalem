@@ -12,11 +12,11 @@ import { VersionLink } from '../posts/VersionLink.tsx';
 import { href } from '../useRoute.ts';
 
 interface Props {
-  /** Devuelve true si el error era una sesión vencida (y ya se manejó). */
+  /** Returns true if the error was an expired session (already handled). */
   onError: (error: unknown) => boolean;
 }
 
-/** "Programado · 1 dic 2026, 09:00" junto al chip de esa versión, si es un borrador programado. */
+/** "Programado · 1 dic 2026, 09:00" next to that version's chip, if it is a scheduled draft. */
 function ScheduledChip({ version }: { version: PostSummary }) {
   const i18n = useUiLanguage();
   const at = scheduledAt(version);
@@ -44,7 +44,7 @@ export function PostsPage({ onError }: Props) {
       });
   }, [onError]);
 
-  // Una fila por post, con un chip por idioma (L3): las versiones de un mismo post comparten grupo.
+  // One row per post, with one chip per language: the versions of one post share a group.
   const groups = posts ? groupPosts(posts) : [];
   const published = groups.filter((group) => group.versions.some((version) => version.status === 'published')).length;
   const problem = loadFailed ? t('posts.loadError') : translation.error;

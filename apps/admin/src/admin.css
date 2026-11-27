@@ -1,9 +1,9 @@
 /* ==========================================================================
-   Estilos del admin — mismo lenguaje que el sitio (docs/design/DESIGN-SYSTEM.md):
-   Gloock para títulos, Pagella para texto de lectura, Hanken Grotesk para toda la interfaz;
-   colores de los tokens semánticos, radio 0, sin sombras, reglas de 1px, labels en mayúsculas
-   con tracking y transiciones de 150ms. La vista previa reutiliza .paper/.prose del paquete tokens,
-   así que se ve como el artículo publicado.
+   Admin styles — the same language as the site (docs/design/DESIGN-SYSTEM.md):
+   Gloock for headings, Pagella for reading text, Hanken Grotesk for the whole UI;
+   colors from the semantic tokens, radius 0, no shadows, 1px rules, uppercase labels
+   with tracking and 150ms transitions. The preview reuses .paper/.prose from the tokens package,
+   so it looks like the published article.
    ========================================================================== */
 
 :root {
@@ -12,14 +12,14 @@
   --ok: var(--dataviz-green);
   --danger: var(--dataviz-orange);
   --ease: var(--duration-fast) ease;
-  /* Borde de input/select/textarea: la regla de 1px (--border-subtle, 1,38:1) no se veía; los controles necesitan
-     3:1 contra su fondo (WCAG 1.4.11). El gris terciario da 5,6:1 y queda por debajo del texto. Lo verifica un test. */
+  /* Border of input/select/textarea: the 1px rule (--border-subtle, 1.38:1) was not visible; controls need 3:1
+     against their background (WCAG 1.4.11). The tertiary gray gives 5.6:1 and stays below the text. A test checks it. */
   --field-border: var(--text-tertiary);
-  /* Alto del encabezado fijo de la página (lo mide PageHead); el scroll deja ese espacio al enfocar algo (2.4.11). */
+  /* Height of the sticky page header (PageHead measures it); scrolling leaves that room when focusing something (2.4.11). */
   --sticky-head: 0px;
 }
 
-/* Solo para lectores de pantalla ("se abre en una pestaña nueva"): fuera de la vista pero en el árbol accesible. */
+/* Screen readers only ("se abre en una pestaña nueva"): out of view but in the accessibility tree. */
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
   clip-path: inset(50%); white-space: nowrap; border: 0;
@@ -35,7 +35,7 @@ body {
 
 h1, h2, h3 { font-weight: 400; }
 
-/* ----- Labels, eyebrow y textos de ayuda ----- */
+/* ----- Labels, eyebrow and help texts ----- */
 .label, legend.label {
   display: block;
   font-family: var(--font-ui);
@@ -51,7 +51,7 @@ h1, h2, h3 { font-weight: 400; }
 .field-status { font-size: var(--text-xs); color: var(--text-secondary); min-height: 1.2em; }
 .center-note { padding: var(--space-5) var(--gutter); text-align: center; color: var(--text-tertiary); }
 
-/* ----- Botones: cuadrados, 1px, mayúsculas con tracking ----- */
+/* ----- Buttons: square, 1px, uppercase with tracking ----- */
 button, input, textarea, select { font: inherit; color: inherit; }
 
 button, .button-link {
@@ -77,7 +77,7 @@ button, .button-link {
 button:hover:not(:disabled), .button-link:hover { border-color: var(--text-tertiary); text-decoration: none; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* Principal: fondo claro y texto oscuro (nada de azul). */
+/* Primary: light background and dark text (no blue). */
 .primary { background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-page); }
 .primary:hover:not(:disabled), a.primary:hover { background: var(--white); border-color: var(--white); color: var(--bg-page); }
 
@@ -87,13 +87,13 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
 .danger:hover:not(:disabled) { border-color: var(--danger); }
 
-/* Foco visible en todo lo interactivo (teclado). */
+/* Visible focus on everything interactive (keyboard). */
 :where(button, input, textarea, select, a, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--link-accent);
   outline-offset: 2px;
 }
 
-/* ----- Campos: cuadrados, 1px ----- */
+/* ----- Fields: square, 1px ----- */
 .field { display: grid; gap: var(--space-0-5); align-content: start; }
 
 input:not([type='file']), textarea, select {
@@ -114,7 +114,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--text-primary); b
 input[aria-invalid='true'], textarea[aria-invalid='true'] { border-color: var(--danger); }
 textarea { resize: vertical; line-height: var(--leading-dek); }
 
-/* ----- Avisos ----- */
+/* ----- Notices ----- */
 .banner {
   margin-bottom: var(--space-1-5);
   padding: var(--space-0-9) var(--space-1);
@@ -127,7 +127,7 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
 .banner-error { border-color: var(--border-subtle); border-left-color: var(--danger); }
 .banner-warning { border-color: var(--border-subtle); border-left-color: var(--link-accent); }
 
-/* ----- Chips de estado: cuadrados, 1px ----- */
+/* ----- Status chips: square, 1px ----- */
 .chip {
   display: inline-block;
   padding: 0.15rem 0.5rem;
@@ -143,15 +143,15 @@ textarea { resize: vertical; line-height: var(--leading-dek); }
 .chip-published { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, transparent); }
 .chip-error { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 55%, transparent); }
 .chip-warning { color: var(--link-accent); border-color: color-mix(in srgb, var(--link-accent) 55%, transparent); }
-/* Chips de versión por idioma: abren esa versión o, si falta, la crean (L3). */
+/* Language version chips: they open that version or, if missing, create it. */
 .chip-link { text-decoration: none; transition: border-color var(--ease), color var(--ease); }
 .chip-link:hover { border-color: currentColor; text-decoration: none; }
-/* Botón con aspecto de chip, apagado: borde punteado = "todavía no existe". */
+/* Chip-looking button, dimmed: dashed border = "does not exist yet". */
 button.chip-missing { min-height: 0; border-style: dashed; color: var(--text-tertiary); }
 button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-color: var(--text-tertiary); }
 
 /* ==========================================================================
-   Estructura
+   Structure
    ========================================================================== */
 .skip-link {
   position: absolute; left: var(--gutter); top: -4rem; z-index: 20;
@@ -189,8 +189,8 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .shell-nav a:hover { color: var(--text-primary); text-decoration: none; }
 .shell-nav a[aria-current='page'] { color: var(--text-primary); border-bottom-color: var(--text-primary); }
 
-/* Control segmentado: idioma de la interfaz (S6, "ES | EN") y filtros del hero (U7). Un solo bloque de 1px; el
-   elegido, encendido (aria-pressed). */
+/* Segmented control: the UI language ("ES | EN") and the hero filters. One single 1px block; the chosen one is lit
+   (aria-pressed). */
 .lang-switch, .segmented { display: inline-flex; border: var(--rule); }
 .lang-switch button, .segmented button { min-height: 2rem; padding: 0 var(--space-0-7); border: 0; color: var(--text-tertiary); }
 .lang-switch button + button, .segmented button + button { border-left: var(--rule); }
@@ -200,14 +200,14 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 @media (max-width: 600px) {
   .shell-header { flex-wrap: wrap; gap: var(--space-0-9) var(--space-1-25); }
   .shell-nav { order: 3; width: 100%; padding: var(--space-0-7) 0 0; border-left: 0; border-top: var(--rule); }
-  /* El selector y "Salir" van juntos a la derecha de la marca. */
+  /* The selector and "Salir" go together to the right of the brand. */
   .shell-header .lang-switch { margin-left: auto; }
 }
 
 .shell-main { max-width: var(--admin-max); margin: 0 auto; padding: var(--space-2) var(--gutter) var(--space-5); }
 .shell-main:focus { outline: none; }
 
-/* Encabezado de página: label + título Gloock a la izquierda, acciones a la derecha, regla de 1px. */
+/* Page header: label + Gloock title on the left, actions on the right, 1px rule. */
 .page-head {
   display: flex;
   justify-content: space-between;
@@ -220,8 +220,8 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 }
 .page-head-sticky { padding-top: var(--space-1); background: var(--bg-page); }
 /*
- * Fijo solo con lugar de sobra: en un teléfono ocuparía un cuarto de la pantalla (240 px de 844 a 390). Mientras
- * está fijo, scroll-padding-top hace que el control que recibe el foco quede debajo de él y no tapado (WCAG 2.4.11).
+ * Sticky only with room to spare: on a phone it would take a quarter of the screen (240 px of 844 at 390). While
+ * sticky, scroll-padding-top keeps the control receiving focus below it and not covered (WCAG 2.4.11).
  */
 @media (min-width: 700px) and (min-height: 500px) {
   html { scroll-padding-top: calc(var(--sticky-head) + var(--space-0-5)); }
@@ -234,14 +234,14 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
   line-height: var(--leading-tight);
   overflow-wrap: anywhere;
 }
-/* El foco llega al título al cambiar de vista (para el lector de pantalla); no es un control: sin anillo. */
+/* Focus lands on the heading on view change (for the screen reader); it is not a control: no ring. */
 .page-title[tabindex='-1']:focus { outline: none; }
 .back-link { font-size: var(--text-xs); color: var(--text-tertiary); text-decoration: none; transition: color var(--ease); }
 .back-link:hover { color: var(--text-primary); text-decoration: none; }
 .actions { display: flex; align-items: center; gap: var(--space-0-5); flex-wrap: wrap; }
 .actions .meta { margin-right: var(--space-0-5); }
 
-/* Encabezado de sección (como en la home): label + nota, regla inferior de 1px. */
+/* Section header (as on the home page): label + note, 1px bottom rule. */
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -283,10 +283,10 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .login-back:hover { color: var(--text-primary); text-decoration: none; }
 
 /* ==========================================================================
-   Lista de posts: lista numerada con reglas de 1px
+   Post list: numbered list with 1px rules
    ========================================================================== */
 .post-list { list-style: none; padding: 0; }
-/* Una fila por post: el título abre la versión principal; cada chip de idioma, la suya (no se anidan enlaces). */
+/* One row per post: the title opens the main version; each language chip, its own (links are not nested). */
 .post-row {
   display: grid;
   grid-template-columns: 2.5rem minmax(0, 1fr) auto 8.5rem;
@@ -313,7 +313,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .post-main:hover .post-title, .post-main:focus-visible .post-title { text-decoration-color: var(--link-underline-hover); }
 
 @media (max-width: 700px) {
-  /* Los chips de dos idiomas no entran junto a la fecha: cada uno en su renglón, alineados con el título. */
+  /* Two language chips do not fit next to the date: each on its own line, aligned with the title. */
   .post-row { grid-template-columns: 2rem minmax(0, 1fr); grid-template-areas: 'index main' '. langs' '. date'; }
   .post-index { grid-area: index; align-self: start; padding-top: 0.35rem; }
   .post-main { grid-area: main; }
@@ -324,14 +324,14 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .empty-state { display: grid; gap: var(--space-0-5); padding: var(--space-3) 0; border-bottom: var(--rule); font-family: var(--font-text); font-size: var(--text-lead); }
 
 /* ==========================================================================
-   Editor del post
+   Post editor
    ========================================================================== */
 .fields { display: grid; gap: var(--space-1-25); margin-bottom: var(--space-1-75); }
 @media (min-width: 900px) {
   .fields { grid-template-columns: 2fr 1fr; }
   .fields > .field:nth-child(n + 3) { grid-column: 1 / -1; }
 }
-/* Idioma del post y sus otras versiones, arriba de los campos; los avisos de la traducción debajo. */
+/* The post's language and its other versions, above the fields; the translation warnings below. */
 .post-versions { display: grid; gap: var(--space-1); margin-bottom: var(--space-1-75); }
 .post-versions .banner { margin-bottom: 0; }
 .post-versions-fields { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); }
@@ -340,7 +340,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .version-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-0-5); min-height: 2.5rem; }
 .danger-zone { margin-top: var(--space-3); padding-top: var(--space-1-25); border-top: var(--rule); }
 
-/* ----- Bloque de imagen (portada) y miniaturas (también las de las fotos del hero) ----- */
+/* ----- Image block (cover) and thumbnails (also those of the hero photos) ----- */
 .image-field {
   margin: 0 0 var(--space-1-75);
   padding: var(--space-1-25);
@@ -357,7 +357,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
   display: grid;
   place-items: center;
   overflow: hidden;
-  /* Color dominante y placeholder borroso (si los hay) mientras baja la imagen. */
+  /* Dominant color and blurred placeholder (if any) while the image downloads. */
   background-size: cover;
   background-position: center;
 }
@@ -366,7 +366,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .image-field-controls { display: grid; gap: var(--space-0-9); align-content: start; min-width: 0; }
 .image-field > .help { margin-top: var(--space-1); padding-top: var(--space-0-9); border-top: var(--rule); }
 
-/* ----- Editor Markdown ----- */
+/* ----- Markdown editor ----- */
 .editor { border: var(--rule); }
 .editor-toolbar {
   display: flex;
@@ -377,7 +377,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
   background: var(--bg-surface);
   border-bottom: var(--rule);
 }
-/* 2 rem de ancho mínimo (más que los 24 px de WCAG 2.5.8) y poco relleno: la barra entera entra en una fila a 1440. */
+/* 2 rem minimum width (more than WCAG 2.5.8's 24 px) and little padding: the whole toolbar fits one row at 1440. */
 .toolbar-button {
   min-width: 2rem;
   min-height: 2.25rem;
@@ -394,7 +394,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .toolbar-spacer { margin-left: auto; }
 .toolbar-button[aria-pressed='true'] { background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-page); }
 
-/* Los dos paneles tienen la misma altura fija y scroll propio: es lo que permite sincronizarlos. */
+/* Both panels have the same fixed height and their own scroll: that is what allows syncing them. */
 .editor { --editor-height: max(24rem, 70vh); }
 .editor-panes { display: grid; grid-template-columns: minmax(0, 1fr); }
 .editor-input {
@@ -412,16 +412,16 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .editor-input:focus { background: var(--bg-page); }
 .editor-input:focus-visible { outline-offset: -2px; }
 
-/* Vista previa = la hoja blanca del artículo publicado (.paper .prose). */
+/* Preview = the white sheet of the published article (.paper .prose). */
 .editor-preview.paper { overflow: auto; height: var(--editor-height); padding: var(--space-2-5) clamp(1.25rem, 4vw, 3rem) var(--space-3); }
 .editor-preview .prose { margin-inline: auto; }
 .editor-statusbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 var(--space-1); border-top: var(--rule); font-size: var(--text-xs); color: var(--text-tertiary); }
 .editor-status, .editor-stats { min-height: 1.75rem; padding: var(--space-0-25) var(--space-0-9); }
 .editor-stats { font-variant-numeric: tabular-nums; }
-/* "Original en inglés · solo lectura": fijo arriba de la hoja mientras se scrollea, para no confundirla con la vista previa. */
+/* "Original en inglés · solo lectura": sticky above the sheet while scrolling, so it is not mistaken for the preview. */
 .editor-original-label { position: sticky; top: calc(-1 * var(--space-2-5)); z-index: 1; margin: calc(-1 * var(--space-1-5)) 0 var(--space-1-5); padding: var(--space-0-5) 0; background: inherit; font-family: var(--font-ui); font-size: var(--text-2xs); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--paper-muted); }
 
-/* Vistas: solo editor, solo vista previa o dividida (lado a lado; en pantallas angostas, una arriba de la otra). */
+/* Views: editor only, preview only or split (side by side; on narrow screens, one above the other). */
 .editor[data-view='editor'] .editor-preview { display: none; }
 .editor[data-view='preview'] .editor-input-wrap { display: none; }
 .editor-input-wrap { position: relative; min-width: 0; overflow: hidden; }
@@ -434,7 +434,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
   .editor[data-view='split'] .editor-input { border-bottom: 0; border-right: var(--rule); }
 }
 
-/* Modo foco: el editor ocupa toda la ventana y tapa el resto del admin; con el editor solo, una columna de lectura. */
+/* Focus mode: the editor fills the window and covers the rest of the admin; with the editor alone, a reading column. */
 .editor[data-focus] { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; border: 0; background: var(--bg-page); }
 .editor[data-focus] .editor-panes { flex: 1; min-height: 0; }
 .editor[data-focus] .editor-input, .editor[data-focus] .editor-preview.paper, .editor[data-focus] .editor-input-wrap { height: 100%; }
@@ -442,15 +442,15 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 @media (min-width: 1000px) { .editor[data-focus][data-view='split'] .editor-panes { grid-template-rows: minmax(0, 1fr); } }
 .editor[data-focus][data-view='editor'] .editor-input { padding-inline: max(var(--space-1-5), calc((100% - 72ch) / 2)); }
 
-/* Buscar y reemplazar */
+/* Find and replace */
 .find-panel { display: grid; gap: var(--space-0-5); padding: var(--space-0-5); background: var(--bg-surface); border-bottom: var(--rule); }
 .find-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-0-25) var(--space-0-5); }
 .find-row input { flex: 1 1 14rem; min-width: 0; padding-block: var(--space-0-5); }
-/* La coincidencia actual (el textarea no pinta su selección mientras el foco está en el buscador). */
+/* The current match (the textarea does not paint its selection while focus is in the search box). */
 .find-highlight { position: absolute; pointer-events: none; background: color-mix(in srgb, var(--link-accent) 35%, transparent); outline: 1px solid var(--link-accent); }
 .find-count { min-width: 6rem; font-size: var(--text-xs); color: var(--text-tertiary); }
 
-/* Diálogos del editor (paleta de comandos, atajos) */
+/* Editor dialogs (command palette, shortcuts) */
 .modal {
   width: min(36rem, calc(100vw - 2 * var(--gutter)));
   max-height: min(36rem, 85vh);
@@ -473,7 +473,7 @@ button.chip-missing:hover:not(:disabled) { color: var(--text-primary); border-co
 .shortcuts-note { margin-top: var(--space-1-25); }
 kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--text-secondary); white-space: nowrap; }
 
-/* Esquema, revisión y vista al compartir: paneles plegables debajo del editor (tres columnas en pantallas anchas). */
+/* Outline, review and share preview: collapsible panels below the editor (three columns on wide screens). */
 .post-tools { display: grid; gap: var(--space-1); margin-top: var(--space-1-5); grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items: start; }
 .tool-panel { border: var(--rule); min-width: 0; }
 .tool-panel-summary { display: flex; align-items: center; gap: var(--space-0-7); min-height: 2.75rem; padding: 0 var(--space-0-9); cursor: pointer; list-style: none; }
@@ -505,7 +505,7 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 .search-title { font-size: var(--text-lead); color: var(--link-accent); }
 
 /* ==========================================================================
-   Ajustes
+   Settings
    ========================================================================== */
 .settings-section { margin-bottom: var(--space-3); }
 .settings-section > .section-head { margin-bottom: var(--space-1-5); }
@@ -522,8 +522,8 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 .bio-preview .prose { max-width: none; }
 .bio-preview-empty { font-family: var(--font-ui); font-size: var(--text-xs); color: var(--paper-muted); }
 
-/* Fotos y videos del hero: la guía de tamaño, subir arriba, una fila por archivo en curso (miniatura + campos) con
-   reglas de 1px y los guardados en una grilla de miniaturas que abre un panel lateral (U7). */
+/* Hero photos and videos: the size guide and upload on top, one row per file in progress (thumbnail + fields) with
+   1px rules and the saved ones in a thumbnail grid that opens a side panel. */
 .hero-guidance {
   margin-bottom: var(--space-1);
   padding: var(--space-0-7) var(--space-1);
@@ -540,12 +540,12 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 .hero-card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-0-5); min-width: 0; }
 .hero-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hero-empty { margin-top: var(--space-0-9); }
-/* Recorte y fundido: chip en minúsculas porque lleva tiempos y unidades ("0:02–0:15 · Loop perfecto 1 s"). */
+/* Trim and fade: lowercase chip because it carries times and units ("0:02–0:15 · Loop perfecto 1 s"). */
 .hero-card-summary { justify-self: start; text-transform: none; letter-spacing: normal; white-space: normal; }
-/* Con el editor de video abierto la tarjeta pasa a una columna: la barra de recorte necesita el ancho. */
+/* With the video editor open the card becomes one column: the trim bar needs the width. */
 .hero-card:has(> .video-editor) { grid-template-columns: minmax(0, 1fr); }
 
-/* Contador y filtros arriba de la grilla. El filtro elegido suma una raya: no depende solo del fondo (1.4.11). */
+/* Counter and filters above the grid. The chosen filter adds an underline: it does not rely on the background alone (1.4.11). */
 .hero-toolbar {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-0-7) var(--space-1);
   margin-top: var(--space-1-75); padding-top: var(--space-1); border-top: var(--rule);
@@ -556,7 +556,7 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 .segmented-count { font-weight: 400; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
 .hero-toolbar + .help { margin-top: var(--space-0-5); }
 
-/* Miniaturas: auto-fill de ~160 px (2 columnas a 390 px, 7 a 1440 px). Botones enteros: objetivo grande, foco visible. */
+/* Thumbnails: auto-fill of ~160 px (2 columns at 390 px, 7 at 1440 px). Whole buttons: large target, visible focus. */
 .hero-grid {
   list-style: none; padding: 0; margin-top: var(--space-0-9);
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 1fr)); gap: var(--space-0-5);
@@ -567,7 +567,7 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 }
 .hero-tile .image-field-preview { aspect-ratio: var(--aspect-lead); border: 0; }
 .hero-tile .image-field-empty { padding: var(--space-0-5); }
-/* Número y marcas sobre la foto: fondo sólido propio, así el contraste no depende de la foto (lo mide un test). */
+/* Number and marks over the photo: their own solid background, so the contrast does not depend on the photo (a test measures it). */
 .hero-tile-number, .hero-tile-mark {
   font-size: 0.6875rem; font-weight: 600; line-height: 1.6; padding: 0.05rem 0.4rem;
 }
@@ -583,9 +583,9 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
   color: var(--link-accent);
 }
 
-/* Panel lateral: <dialog> a la derecha y a todo el alto; en celulares, pantalla completa. Encabezado y Anterior /
-   Siguiente quedan fijos y solo el cuerpo scrollea. Sin huecos del propio <dialog>: un clic adentro nunca cuenta como
-   "clic en el fondo" (eso cierra). */
+/* Side panel: <dialog> on the right at full height; on phones, full screen. The header and Anterior / Siguiente stay
+   fixed and only the body scrolls. No gaps of the <dialog> itself: a click inside never counts as a "backdrop click"
+   (that closes it). */
 .modal.hero-panel {
   width: min(34rem, 100vw); max-width: none; height: 100dvh; max-height: none;
   margin: 0 0 0 auto; padding: 0; border-width: 0 0 0 1px; overflow: hidden;
@@ -603,22 +603,22 @@ kbd { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--te
 button[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
 @media (max-width: 700px) { .modal.hero-panel { width: 100vw; border: 0; } }
 
-/* ----- Editor de recorte y fundido (antes de subir un video) ----- */
+/* ----- Trim and fade editor (before uploading a video) ----- */
 .video-editor { display: grid; gap: var(--space-1-25) var(--space-1-75); padding: var(--space-1); border: var(--rule); min-width: 0; }
 @media (min-width: 1000px) { .video-editor { grid-template-columns: minmax(0, 3fr) minmax(16rem, 2fr); } }
 .video-editor-main, .video-editor-side { display: grid; gap: var(--space-0-9); align-content: start; min-width: 0; }
 .video-editor-stage { position: relative; aspect-ratio: var(--aspect-lead); background: #000; border: var(--rule); overflow: hidden; }
 .video-editor-stage video, .video-editor-curtain { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* contain: se ve el cuadro entero que se va a recortar, no el encuadre de una pantalla en particular. */
+/* contain: the whole frame to be trimmed shows, not the framing of one particular screen. */
 .video-editor-stage video { object-fit: contain; }
 .video-editor-overlay, .video-editor-curtain { opacity: 0; pointer-events: none; }
 .video-editor-curtain { background: #000; }
 .video-editor-bar { display: flex; align-items: center; gap: var(--space-0-5) var(--space-1); flex-wrap: wrap; }
 .video-editor-bar .help { flex: 1 1 18rem; }
 
-/* Manijas de 24 px de ancho: el tamaño mínimo de objetivo táctil (WCAG 2.5.8). */
+/* 24 px wide handles: the minimum touch target size (WCAG 2.5.8). */
 .trim-timeline { --trim-handle: 1.5rem; display: grid; gap: var(--space-0-5); }
-/* Margen lateral = ancho de una manija: las manijas quedan afuera del tramo y nunca se tapan entre sí. */
+/* Side margin = one handle's width: the handles stay outside the segment and never cover each other. */
 .trim-track { position: relative; height: 2.75rem; margin-inline: var(--trim-handle); background: var(--bg-surface); border: var(--rule); touch-action: none; }
 .trim-selection {
   position: absolute; top: -1px; bottom: -1px;
@@ -655,10 +655,10 @@ button[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
 }
 
 /* ==========================================================================
-   Programar publicación e historial de versiones (S5)
+   Scheduled publishing and revision history
    ========================================================================== */
 .chip-scheduled { color: var(--link-accent); border-color: color-mix(in srgb, var(--link-accent) 55%, transparent); }
-/* En pantallas angostas la fecha baja debajo del título del panel en vez de desbordar (WCAG 1.4.10). */
+/* On narrow screens the date drops below the panel title instead of overflowing (WCAG 1.4.10). */
 .post-schedule .tool-panel-summary { flex-wrap: wrap; padding-block: var(--space-0-25); }
 .post-schedule .chip-scheduled { white-space: normal; }
 .post-schedule, .post-history { margin-block: var(--space-1-5); }
@@ -671,7 +671,7 @@ button[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
 @media (min-width: 900px) { .history { grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr); align-items: start; } }
 .history-list { max-height: 32rem; overflow: auto; border: var(--rule); }
 .history-item-text { display: grid; gap: 0.1rem; min-width: 0; overflow-wrap: anywhere; }
-/* La versión elegida: barra a la izquierda y fondo, no solo color de texto. */
+/* The chosen revision: a bar on the left and a background, not only text color. */
 .history-item[aria-current='true'] { background: var(--bg-surface-alt); box-shadow: inset 2px 0 0 var(--text-primary); }
 .history-compare { display: grid; gap: var(--space-0-7); min-width: 0; }
 .history-heading { font-family: var(--font-display); font-size: var(--text-title-md); }
@@ -684,7 +684,7 @@ button[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
 .diff-body { max-height: 36rem; overflow: auto; border: var(--rule); font-family: var(--font-mono); font-size: 13px; }
 .diff-line { display: block; padding: 0 var(--space-0-5); white-space: pre-wrap; overflow-wrap: anywhere; text-decoration: none; }
 .diff-sign { display: inline-block; width: 1.5ch; font-weight: 700; }
-/* Fondo tenue y borde: el texto queda con el color normal (contraste) y el signo dice qué es (WCAG 1.4.1). */
+/* Faint background and border: the text keeps its normal color (contrast) and the sign says what it is (WCAG 1.4.1). */
 .diff-removed { background: color-mix(in srgb, var(--danger) 14%, transparent); box-shadow: inset 2px 0 0 var(--danger); }
 .diff-added { background: color-mix(in srgb, var(--ok) 14%, transparent); box-shadow: inset 2px 0 0 var(--ok); }
 .diff-legend .diff-line { display: inline-block; }

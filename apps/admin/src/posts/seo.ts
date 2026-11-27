@@ -1,24 +1,24 @@
-import { excerpt, sanitizeUrl, slugify } from '@blog/markdown';
+import { excerpt, sanitizeUrl, slugify, unescapeHtml } from '@blog/markdown';
 import type { SiteSettings } from '../api/types.ts';
 import type { Lang } from '../languages.ts';
 
 /*
- * Cómo ven el post los buscadores y las redes (S3). Es la misma derivación que hace el sitio al publicar
- * (apps/web: BaseLayout.astro para <title> y og:*, lib/posts.ts para la descripción, lib/cover.ts para og:image);
- * el admin no puede importar código de otra app, así que se copia acá y los tests la fijan.
+ * How search engines and social networks see the post. It is the same derivation the site does when publishing
+ * (apps/web: BaseLayout.astro for <title> and og:*, lib/posts.ts for the description, lib/cover.ts for og:image);
+ * the admin cannot import code from another app, so it is copied here and the tests pin it.
  */
 
-/** Largo de la meta description: el sitio usa `excerpt(body, 160)` cuando el post no tiene resumen. */
+/** Length of the meta description: the site uses `excerpt(body, 160)` when the post has no summary. */
 export const META_DESCRIPTION_MAX = 160;
-/** Lo que Google suele mostrar de un título antes de cortarlo con "…". */
+/** How much of a title Google usually shows before cutting it with "…". */
 export const SEO_TITLE_MAX = 60;
 
 const POST_SEGMENT: Record<Lang, string> = { es: 'articulos', en: 'articles' };
 
-/** Ruta pública de un post (apps/web/src/lib/i18n.ts, `paths.post`). */
+/** Public path of a post (apps/web/src/lib/i18n.ts, `paths.post`). */
 export const postPath = (lang: Lang, slug: string): string => `/${lang}/${POST_SEGMENT[lang]}/${slug}/`;
 
-/** Corta en el último espacio antes de `max` y agrega "…" (lo que hacen los buscadores con lo que no entra). */
+/** Cuts at the last space before `max` and adds "…" (what search engines do with what does not fit). */
 export function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   const cut = text.slice(0, max + 1);
@@ -26,7 +26,7 @@ export function truncate(text: string, max: number): string {
   return `${(space > 0 ? cut.slice(0, space) : text.slice(0, max)).trimEnd()}…`;
 }
 
-/** El nombre del sitio es uno solo en los dos idiomas (L12; apps/web/src/lib/settings.ts). */
+/** The site name is a single field for both languages (apps/web/src/lib/settings.ts). */
 export function siteNameFor(settings: Pick<SiteSettings, 'name'>): string {
   return settings.name.trim();
 }
@@ -35,23 +35,23 @@ export interface ShareInput {
   title: string;
   summary: string;
   body: string;
-  /** El cuerpo ya renderizado (renderPreview): de ahí sale la primera imagen, como en el sitio. */
+  /** The already rendered body (renderPreview): the first image comes from it, as on the site. */
   html: string;
-  /** Vacío = la API lo genera desde el título. */
+  /** Empty = the API generates it from the title. */
   slug: string;
   lang: Lang;
   coverUrl: string;
   coverAlt: string;
-  /** `null` mientras no se cargaron los ajustes: el resultado de Google va sin el nombre. */
+  /** `null` while the settings have not loaded: the Google result goes without the name. */
   siteName: string | null;
-  /** Origen del sitio público ("https://blog.example"). */
+  /** Origin of the public site ("https://blog.example"). */
   origin: string;
 }
 
 export interface SharePreview {
   title: string;
   description: string;
-  /** og:image ya absoluta; `null` = sin imagen (X muestra la tarjeta chica). */
+  /** og:image already absolute; `null` = no image (X shows the small card). */
   image: { src: string; alt: string } | null;
   largeCard: boolean;
   url: string;
@@ -60,11 +60,11 @@ export interface SharePreview {
   searchDescription: string;
 }
 
-const ENTITIES: Record<string, string> = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'" };
+/** An attribute of a renderer-built tag, decoded back from `escapeHtml`. */
 const attribute = (tag: string, name: string): string =>
-  (new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1] ?? '').replace(/&(?:amp|lt|gt|quot|#39);/g, (entity) => ENTITIES[entity] ?? entity);
+  unescapeHtml(new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1] ?? '');
 
-/** URL de imagen válida para og:image: la allowlist del renderer y además solo http(s) o rutas relativas. */
+/** Image URL valid for og:image: the renderer's allowlist and, on top, only http(s) or relative paths. */
 function imageUrl(raw: string): string | null {
   const url = sanitizeUrl(raw);
   if (url === null || url.startsWith('#')) return null;
@@ -72,7 +72,7 @@ function imageUrl(raw: string): string | null {
   return scheme && !/^https?$/i.test(scheme) ? null : url;
 }
 
-/** La portada; si no hay, la primera imagen del texto (la portada generativa nunca va a og:image). */
+/** The cover; if none, the first image of the text (the generated cover never goes to og:image). */
 function shareImage({ coverUrl, coverAlt, html }: ShareInput): { src: string; alt: string } | null {
   const cover = imageUrl(coverUrl);
   if (cover) return { src: cover, alt: coverAlt.trim() };
@@ -91,7 +91,7 @@ export function sharePreview(input: ShareInput): SharePreview {
   return {
     title,
     description,
-    // Relativa a la página del post, como resuelve el sitio las imágenes del Markdown.
+    // Relative to the post page, as the site resolves the Markdown images.
     image: image && { ...image, src: new URL(image.src, url).href },
     largeCard: image !== null,
     url,

@@ -27,11 +27,11 @@ import { useAutosave } from '../posts/useAutosave.ts';
 import { useOtherVersion } from '../posts/useOtherVersion.ts';
 import { statusLabel } from '../posts/versions.ts';
 import { validateCover } from '../settings/validate.ts';
-import { href, navigate } from '../useRoute.ts'; // navigate: solo al eliminar
+import { href, navigate } from '../useRoute.ts'; // navigate: only on delete
 import { useSaveShortcut } from '../useSaveShortcut.ts';
 
 interface Props {
-  /** `null` = post nuevo. */
+  /** `null` = new post. */
   postId: string | null;
   onError: (error: unknown) => boolean;
 }
@@ -41,24 +41,24 @@ export function PostEditorPage({ postId, onError }: Props) {
   const { t } = i18n;
   const [post, setPost] = useState<Post | null>(null);
   const [form, setForm] = useState<PostForm>(EMPTY_POST_FORM);
-  const [saved, setSaved] = useState<string>(JSON.stringify(EMPTY_POST_FORM)); // para detectar cambios sin guardar
+  const [saved, setSaved] = useState<string>(JSON.stringify(EMPTY_POST_FORM)); // to detect unsaved changes
   const [slugTouched, setSlugTouched] = useState(false);
-  // Solo se elige al crear; después el idioma es el del post (L4).
+  // Only chosen on create; afterwards the language is the post's.
   const [newLang, setNewLang] = useState<Lang>(DEFAULT_LANG);
   const [loading, setLoading] = useState(postId !== null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<Notice | null>(null);
-  // Título vacío al guardar: el campo queda marcado (aria-invalid + el error asociado) y recibe el foco (P2-7).
+  // Empty title on save: the field is flagged (aria-invalid + the associated error) and receives focus.
   const [titleError, setTitleError] = useState<string | null>(null);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const editorRef = useRef<EditorHandle>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const summaryRef = useRef<HTMLTextAreaElement>(null);
-  // Lo último que se escribió, para saber al volver un guardado si hubo cambios mientras viajaba el pedido.
+  // The latest typing, to know when a save returns whether there were changes while the request was in flight.
   const formRef = useRef(form);
   formRef.current = form;
-  // Un solo guardado a la vez (automático, botón o Ctrl+S): `busy` llega tarde para un Ctrl+S repetido.
+  // One save at a time (automatic, button or Ctrl+S): `busy` arrives too late for a repeated Ctrl+S.
   const savingRef = useRef(false);
 
   const snapshot = JSON.stringify(form);
@@ -79,16 +79,16 @@ export function PostEditorPage({ postId, onError }: Props) {
     () => ({ title, summary, slug, coverUrl, coverAlt, lang, body: preview.markdown, html: preview.html }),
     [title, summary, slug, coverUrl, coverAlt, lang, preview],
   );
-  // El historial compara contra lo que se guardaría ahora (la normalización de la portada la hace la comparación).
+  // The history compares against what would be saved now (the comparison normalizes the cover).
   const current = useMemo(() => toPostInput(form), [form]);
 
-  /** El post como lo devuelve la API, en el editor: al cargarlo y al restaurar una versión. */
+  /** The post as the API returns it, into the editor: on load and on restoring a revision. */
   const showPost = (loaded: Post): void => {
     const loadedForm = toPostForm(loaded);
     setPost(loaded);
     setForm(loadedForm);
     setSaved(JSON.stringify(loadedForm));
-    setSlugTouched(true); // un post existente conserva su slug aunque cambie el título
+    setSlugTouched(true); // an existing post keeps its slug even if the title changes
   };
 
   useEffect(() => {
@@ -100,11 +100,11 @@ export function PostEditorPage({ postId, onError }: Props) {
         if (!onError(caught)) setMessage({ kind: 'error', text: t('post.loadError') });
       })
       .finally(() => setLoading(false));
-    // Sin `t`: cambiar el idioma de la interfaz no vuelve a cargar el post (pisaría lo que se está editando).
+    // Without `t`: switching the UI language does not reload the post (it would overwrite what is being edited).
   }, [postId, onError]);
 
-  // Avisa antes de perder cambios: otra vista, Salir, crear otra versión o cerrar la pestaña. El guardado automático
-  // actualiza `saved`, así que un borrador que ya se guardó solo no pregunta.
+  // Warns before losing changes: another view, Salir, creating another version or closing the tab. Autosave updates
+  // `saved`, so a draft that already saved itself does not ask.
   useUnsavedGuard(dirty);
 
   const update = <K extends keyof PostForm>(key: K, value: PostForm[K]): void => setForm((current) => ({ ...current, [key]: value }));
@@ -115,9 +115,9 @@ export function PostEditorPage({ postId, onError }: Props) {
   };
 
   /**
-   * Guarda (crea o actualiza) y devuelve el post resultante, o null si falló o ya había otro guardado en curso.
-   * `auto` (el guardado automático): sin aviso de "Guardado." y sin reemplazar el formulario por lo que normaliza la
-   * API (recortar un espacio final del título mientras se escribe se comería ese espacio).
+   * Saves (creates or updates) and returns the resulting post, or null if it failed or another save was in progress.
+   * `auto` (autosave): no "Guardado." notice and the form is not replaced by what the API normalizes (trimming a
+   * trailing space of the title while typing would eat that space).
    */
   const save = useCallback(async ({ auto = false }: { auto?: boolean } = {}): Promise<Post | null> => {
     if (savingRef.current) return null;
@@ -145,14 +145,14 @@ export function PostEditorPage({ postId, onError }: Props) {
       const input = toPostInput(form, { coverUrl: cover.coverUrl, coverAlt: cover.coverAlt });
       const result = post ? await api.updatePost(post.id, input) : await api.createPost(input, newLang);
       const resultForm = toPostForm(result);
-      // Lo escrito mientras viajaba el pedido no se pisa: queda como cambio sin guardar.
+      // What was typed while the request was in flight is not overwritten: it stays as an unsaved change.
       const keepForm = auto || formRef.current !== form;
       setPost(result);
       if (!keepForm) setForm(resultForm);
       setSaved(JSON.stringify(keepForm ? form : resultForm));
       setSaveState({ kind: 'saved', at: new Date() });
-      // El post nuevo pasa a tener su propia URL. replaceState (y no navigate) para no disparar
-      // hashchange: remontaría la página en medio de un "Publicar" y perdería el mensaje de resultado.
+      // The new post gets its own URL. replaceState (and not navigate) so hashchange does not fire: it would remount
+      // the page in the middle of a "Publicar" and lose the result message.
       if (!post) window.history.replaceState(null, '', href.post(result.id));
       if (!auto) setMessage({ kind: 'ok', text: t('post.saved') });
       return result;
@@ -171,7 +171,7 @@ export function PostEditorPage({ postId, onError }: Props) {
     () => void save({ auto: true }),
   );
 
-  /** "Ir a" de un aviso del revisor: la línea en el editor o el campo. */
+  /** "Ir a" of a reviewer warning: the line in the editor or the field. */
   const goTo = (target: LintTarget): void => {
     if ('line' in target) editorRef.current?.goToLine(target.line);
     else (target.field === 'title' ? titleRef : summaryRef).current?.focus();
@@ -180,9 +180,9 @@ export function PostEditorPage({ postId, onError }: Props) {
   useSaveShortcut(save);
 
   /**
-   * Restaurar, programar y cancelar cambian el post fuera del formulario: de a una y sin un guardado (tampoco el
-   * automático) en medio, que podría pisar lo restaurado o devolver una programación vieja. Los errores se lanzan:
-   * los muestra el panel que la pidió, junto al botón.
+   * Restoring, scheduling and cancelling change the post outside the form: one at a time and with no save (not even
+   * autosave) in between, which could overwrite the restored content or bring back an old schedule. Errors are thrown:
+   * the panel that asked shows them, next to the button.
    */
   const runExclusive = async (action: () => Promise<Post>): Promise<Post | null> => {
     if (savingRef.current) return null;
@@ -208,7 +208,7 @@ export function PostEditorPage({ postId, onError }: Props) {
     return restored;
   };
 
-  /** Como "Publicar": lo pendiente se guarda antes, así se publica lo que se ve. */
+  /** Like "Publicar": pending changes are saved first, so what is shown gets published. */
   const handleSchedule = async (publishAt: string): Promise<Post | null> => {
     const latest = dirty ? await save() : post;
     if (!latest) return null;
@@ -256,7 +256,7 @@ export function PostEditorPage({ postId, onError }: Props) {
     setBusy(true);
     try {
       await api.deletePost(post.id);
-      navigate(href.posts, { confirmed: true }); // ya no hay nada que guardar: sin aviso de cambios
+      navigate(href.posts, { confirmed: true }); // nothing left to save: no unsaved-changes prompt
     } catch (caught) {
       if (!onError(caught)) setMessage({ kind: 'error', text: t('post.deleteError') });
       setBusy(false);

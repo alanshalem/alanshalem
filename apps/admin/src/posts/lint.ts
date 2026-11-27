@@ -13,8 +13,8 @@ import type { I18n, Params } from '../i18n/i18n.ts';
 import { META_DESCRIPTION_MAX, SEO_TITLE_MAX } from './seo.ts';
 
 /*
- * Revisor del post (S3): reglas puras sobre el título, el resumen y el Markdown. Cada aviso dice dónde está (una
- * línea del cuerpo o un campo) para poder ir ahí; el texto sale del diccionario (`lint.<regla>`).
+ * The post reviewer: pure rules over the title, the summary and the Markdown. Each warning says where it is (a body
+ * line or a field) so one can go there; the text comes from the dictionary (`lint.<rule>`).
  */
 
 export type LintRule =
@@ -32,7 +32,7 @@ export type LintRule =
   | 'calloutUnknown';
 
 export type LintField = 'title' | 'summary';
-/** `line` empieza en 0 (la del textarea); en pantalla se muestra desde 1. */
+/** `line` starts at 0 (the textarea's); on screen it shows from 1. */
 export type LintTarget = { readonly line: number } | { readonly field: LintField };
 
 export interface LintIssue {
@@ -41,14 +41,14 @@ export interface LintIssue {
   readonly params: Params;
 }
 
-// "#II." o "##Otra": almohadillas pegadas a texto al principio de la línea (también dentro de una cita).
+// "#II." or "##Otra": hashes glued to text at the start of the line (also inside a quote).
 const HEADING_WITHOUT_SPACE = /^[ \t]*(?:>[ \t]?)*[ \t]*(#{1,6}[^#\s]\S*)/;
 const LINK_OR_IMAGE = /(!?)\[([^\]\n]*)\]\(([^)\n]*)\)/g;
-// Solo el marcador de la primera línea de una cita convierte la cita en caja.
+// Only the marker on the first line of a quote turns the quote into a callout.
 const CALLOUT_LINE = /^ {0,3}>[ \t]?(\[![^\]\s]*\])[ \t]*$/;
 const KNOWN_CALLOUTS = new Set(CALLOUT_KINDS.map(calloutMarker));
 
-/** El destino de un link: `<con espacios>` o hasta el primer espacio (lo que sigue es el título). */
+/** A link's destination: `<with spaces>` or up to the first space (what follows is the title). */
 const destination = (raw: string): string => {
   const text = raw.trim();
   return text.startsWith('<') ? text.slice(1, text.indexOf('>') === -1 ? undefined : text.indexOf('>')) : (text.split(/\s/)[0] ?? '');
@@ -73,7 +73,7 @@ function lineIssues({ index, text }: ProseLine): LintIssue[] {
   const issues: LintIssue[] = [];
   const glued = HEADING_WITHOUT_SPACE.exec(text)?.[1];
   if (glued) issues.push({ rule: 'headingSpace', target: at, params: { text: glued } });
-  // L5: `#` es el título del post (h1); en el cuerpo se publica como `##`, pero conviene escribirlo así.
+  // `#` is the post title (h1); in the body it is published as `##`, but it is better to write it that way.
   if (headingLevel(text) === 1) issues.push({ rule: 'headingOne', target: at, params: {} });
 
   const callout = CALLOUT_LINE.exec(text)?.[1];
@@ -95,8 +95,8 @@ function lineIssues({ index, text }: ProseLine): LintIssue[] {
 }
 
 /**
- * Títulos que saltan niveles respecto del anterior (`##` → `####`). Se parte del título del post (nivel 1, L5): las
- * secciones empiezan en `##`, así que un primer `###` también salta. Un `#` cuenta como `##` (así se publica).
+ * Headings that skip levels from the previous one (`##` → `####`). It starts from the post title (level 1): sections
+ * start at `##`, so a first `###` skips too. A `#` counts as `##` (that is how it is published).
  */
 function headingSkips(lines: readonly ProseLine[]): LintIssue[] {
   const issues: LintIssue[] = [];
@@ -113,14 +113,14 @@ function headingSkips(lines: readonly ProseLine[]): LintIssue[] {
   return issues;
 }
 
-/** Referencias sin definición (en su primera aparición) y definiciones que nadie cita. */
+/** References without a definition (at their first occurrence) and definitions nobody cites. */
 function footnoteIssues(lines: readonly ProseLine[]): LintIssue[] {
   const definitions = new Map<string, number>();
   const references = new Map<string, number>();
   for (const { index, text } of lines) {
     const definition = FOOTNOTE_DEFINITION.exec(text);
     if (definition?.[1] && !definitions.has(definition[1])) definitions.set(definition[1], index);
-    // Una nota puede citar a otra: lo que sigue al marcador también cuenta como texto.
+    // A footnote may cite another: what follows the marker also counts as text.
     for (const [, id = ''] of text.slice(definition?.[0].length ?? 0).matchAll(FOOTNOTE_REFERENCE)) {
       if (!references.has(id)) references.set(id, index);
     }
@@ -135,15 +135,15 @@ function footnoteIssues(lines: readonly ProseLine[]): LintIssue[] {
 
 const lineOf = (issue: LintIssue): number => ('line' in issue.target ? issue.target.line : -1);
 
-/** Todos los avisos: primero los de los campos, después los del cuerpo en orden de línea. */
+/** All warnings: first the fields', then the body's in line order. */
 export function lintPost({ title, summary, body }: { title: string; summary: string; body: string }): LintIssue[] {
   const lines = proseLines(body);
   const bodyIssues = [...lines.flatMap(lineIssues), ...headingSkips(lines), ...footnoteIssues(lines)];
-  // sort es estable: en una misma línea queda el orden de las reglas.
+  // sort is stable: on the same line the rule order stays.
   return [...fieldIssues(title, summary), ...bodyIssues.sort((a, b) => lineOf(a) - lineOf(b))];
 }
 
-/** "Línea 3" o el nombre del campo, y el mensaje, en el idioma de la interfaz. */
+/** "Línea 3" or the field name, and the message, in the UI language. */
 export function describeIssue(issue: LintIssue, { t }: I18n): { where: string; message: string } {
   const { target } = issue;
   return {

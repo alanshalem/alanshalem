@@ -1,6 +1,6 @@
 import type { Translate } from '../i18n/i18n.ts';
 
-/** Las vistas del admin, con lo que su título necesita (el del post que se edita). */
+/** The admin views, with what their title needs (the title of the post being edited). */
 export type PageView =
   | { name: 'posts' }
   | { name: 'new' }
@@ -24,7 +24,7 @@ function pageName(view: PageView, t: Translate): string {
 }
 
 /**
- * El `document.title` de cada vista (WCAG 2.4.2): la pestaña, el historial y el lector de pantalla dicen dónde se
- * está ("Editar: Hola · Admin"), no "Admin" en todas.
+ * Each view's `document.title` (WCAG 2.4.2): the tab, the history and the screen reader say where you are
+ * ("Editar: Hola · Admin"), not "Admin" everywhere.
  */
 export const pageTitle = (view: PageView, t: Translate): string => t('title.page', { page: pageName(view, t) });

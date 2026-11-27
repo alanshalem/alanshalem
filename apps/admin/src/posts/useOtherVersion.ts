@@ -3,8 +3,8 @@ import { api } from '../api/client.ts';
 import type { Post } from '../api/types.ts';
 
 /**
- * La otra versión completa (con título y cuerpo) para comparar la traducción con ella. `null` mientras carga o
- * si no hay otra versión. Con dos idiomas fijos (L3) hay a lo sumo una.
+ * The full other version (with title and body) to compare the translation with. `null` while loading or if there is
+ * no other version. With two fixed languages there is at most one.
  */
 export function useOtherVersion(otherId: string | null, onError: (error: unknown) => boolean): Post | null {
   const [other, setOther] = useState<Post | null>(null);
@@ -14,7 +14,7 @@ export function useOtherVersion(otherId: string | null, onError: (error: unknown
     let active = true;
     api.getPost(otherId).then(
       (loaded) => active && setOther(loaded),
-      // Los avisos son una ayuda: si no se puede cargar la otra versión, el editor sigue sin ellos.
+      // The warnings are a help: if the other version cannot load, the editor carries on without them.
       (caught: unknown) => onError(caught),
     );
     return () => {
@@ -22,6 +22,6 @@ export function useOtherVersion(otherId: string | null, onError: (error: unknown
     };
   }, [otherId, onError]);
 
-  // Si cambió `otherId`, lo cargado antes ya no es la otra versión.
+  // If `otherId` changed, what was loaded before is no longer the other version.
   return other?.id === otherId ? other : null;
 }

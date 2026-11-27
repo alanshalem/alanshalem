@@ -2,24 +2,23 @@ import type { PostSummary } from '../api/types.ts';
 import type { I18n } from '../i18n/i18n.ts';
 
 /*
- * Publicación programada (S5, L4): la fecha y la hora se eligen en la zona del navegador y viajan como ISO 8601 con
- * el desplazamiento de ese instante ("2026-12-01T09:00:00-03:00"): la API exige la zona porque sin ella la hora es
- * ambigua (¿la del admin o la del servidor?). La zona es un parámetro (Strategy) para que los tests no dependan de la
- * zona de la máquina.
+ * Scheduled publishing: the date and time are chosen in the browser's zone and travel as ISO 8601 with that instant's
+ * offset ("2026-12-01T09:00:00-03:00"): the API requires the zone because without it the time is ambiguous (the
+ * admin's or the server's?). The zone is a parameter (Strategy) so the tests do not depend on the machine's zone.
  */
 
-/** Lo que dan `<input type="date">` y `<input type="time">`: "YYYY-MM-DD" y "HH:mm" ("" si están incompletos). */
+/** What `<input type="date">` and `<input type="time">` give: "YYYY-MM-DD" and "HH:mm" ("" if incomplete). */
 export interface LocalDateTime {
   readonly date: string;
   readonly time: string;
 }
 
 export interface TimeZone {
-  /** Nombre IANA ("America/Argentina/Buenos_Aires"): se muestra junto a los campos. */
+  /** IANA name ("America/Argentina/Buenos_Aires"): shown next to the fields. */
   readonly name: string;
-  /** El instante de una fecha y hora de reloj en esta zona. */
+  /** The instant of a wall-clock date and time in this zone. */
   toInstant(local: LocalDateTime): Date;
-  /** Minutos al este de UTC en ese instante (cambia con el horario de verano). */
+  /** Minutes east of UTC at that instant (it changes with daylight saving time). */
   offsetMinutes(instant: Date): number;
 }
 
@@ -28,8 +27,8 @@ const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const TIME_PATTERN = /^(\d{2}):(\d{2})$/;
 
 /**
- * La zona del navegador. `new Date(año, mes, …)` interpreta la hora en esa zona y, si no existe (el salto del horario
- * de verano), la corre hacia adelante: el ISO resultante lleva la hora corrida, que sí existe.
+ * The browser's zone. `new Date(year, month, …)` reads the time in that zone and, if it does not exist (the daylight
+ * saving jump), moves it forward: the resulting ISO carries the shifted time, which does exist.
  */
 export const browserTimeZone: TimeZone = {
   name: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -43,35 +42,35 @@ export const browserTimeZone: TimeZone = {
 
 const pad = (value: number): string => String(value).padStart(2, '0');
 
-/** "+05:45" / "-03:00": el formato del desplazamiento en ISO 8601. */
+/** "+05:45" / "-03:00": the ISO 8601 offset format. */
 const isoOffset = (minutes: number): string =>
   `${minutes < 0 ? '-' : '+'}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
 
-/** "UTC−03:00": con el signo menos tipográfico, que los lectores de pantalla leen como "menos" y no como guion. */
+/** "UTC−03:00": with the typographic minus sign, which screen readers read as "minus" and not as a hyphen. */
 export const formatUtcOffset = (minutes: number): string => `UTC${isoOffset(minutes).replace('-', '−')}`;
 
-/** El reloj de la zona en ese instante, como fecha UTC (sus getters UTC dan la hora de pared). */
+/** The zone's clock at that instant, as a UTC date (its UTC getters give the wall time). */
 const wallClock = (instant: Date, zone: TimeZone): Date => new Date(instant.getTime() + zone.offsetMinutes(instant) * MINUTE_MS);
 
-/** El instante como hora local de la zona + su desplazamiento: "2026-12-01T09:00:00-03:00". */
+/** The instant as the zone's local time + its offset: "2026-12-01T09:00:00-03:00". */
 export function toIsoWithOffset(instant: Date, zone: TimeZone): string {
   const wall = wallClock(instant, zone);
   const date = `${wall.getUTCFullYear()}-${pad(wall.getUTCMonth() + 1)}-${pad(wall.getUTCDate())}`;
   return `${date}T${pad(wall.getUTCHours())}:${pad(wall.getUTCMinutes())}:00${isoOffset(zone.offsetMinutes(instant))}`;
 }
 
-/** Una fecha de la API (UTC) en los campos fecha y hora de la zona. */
+/** An API date (UTC) in the zone's date and time fields. */
 export function toLocalDateTime(iso: string, zone: TimeZone): LocalDateTime {
   const [date = '', time = ''] = toIsoWithOffset(new Date(iso), zone).split('T');
   return { date, time: time.slice(0, 5) };
 }
 
-/** Los mismos motivos que la API (`post.publishAtRequired`, `post.scheduleInPast`), con el texto del admin. */
+/** The same reasons as the API (`post.publishAtRequired`, `post.scheduleInPast`), with the admin's text. */
 export type ScheduleError = 'required' | 'past';
 
 export type ScheduleCheck = { readonly ok: true; readonly publishAt: string } | { readonly ok: false; readonly error: ScheduleError };
 
-/** Valida como la API (fecha y hora completas, en el futuro) y arma el `publishAt` de `PUT /schedule`. */
+/** Validates like the API (full date and time, in the future) and builds the `publishAt` of `PUT /schedule`. */
 export function checkSchedule(local: LocalDateTime, now: Date, zone: TimeZone): ScheduleCheck {
   if (!DATE_PATTERN.test(local.date) || !TIME_PATTERN.test(local.time)) return { ok: false, error: 'required' };
   const instant = zone.toInstant(local);
@@ -79,10 +78,10 @@ export function checkSchedule(local: LocalDateTime, now: Date, zone: TimeZone): 
   return { ok: true, publishAt: toIsoWithOffset(instant, zone) };
 }
 
-/** La fecha en que se publica solo, o null. Un post publicado ya no está programado (publicar borra la fecha). */
+/** The date it publishes on its own, or null. A published post is no longer scheduled (publishing clears the date). */
 export const scheduledAt = (post: Pick<PostSummary, 'status' | 'scheduledAt'>): string | null =>
   post.status === 'draft' ? post.scheduledAt : null;
 
-/** El chip de la lista y del panel: "Programado · 1 dic 2026, 09:00". */
+/** The chip of the list and the panel: "Programado · 1 dic 2026, 09:00". */
 export const scheduledLabel = (iso: string, { t, formatDateTime }: I18n): string =>
   t('schedule.chip', { date: formatDateTime(iso) });

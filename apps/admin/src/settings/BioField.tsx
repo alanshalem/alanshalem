@@ -5,10 +5,10 @@ import type { Lang } from '../languages.ts';
 import { LIMITS } from '../limits.ts';
 
 interface Props {
-  /** Clave del ajuste; también arma el id del campo (`settings-bio`), al que va el foco si tiene error. */
+  /** The setting's key; it also builds the field id (`settings-bio`), which gets focus on error. */
   name: 'bio' | 'bioEn';
   label: string;
-  /** Idioma del texto: el corrector ortográfico del navegador usa el correcto. */
+  /** The text's language: the browser's spell checker uses the right one. */
   lang: Lang;
   value: string;
   error: string | undefined;
@@ -17,11 +17,11 @@ interface Props {
   onChange: (value: string) => void;
 }
 
-/** Bio en Markdown con su vista previa al lado, tal como la muestra el sitio. Una por idioma. */
+/** Markdown bio with its preview alongside, as the site shows it. One per language. */
 export function BioField({ name, label, lang, value, error, hint, placeholder, onChange }: Props) {
   const { t } = useUiLanguage();
   const id = `settings-${name}`;
-  // Diferido: renderizar el Markdown no frena el tipeo.
+  // Deferred: rendering the Markdown does not slow typing.
   const deferred = useDeferredValue(value);
   const html = useMemo(() => renderMarkdown(deferred, { headingOffset: 2 }).html, [deferred]);
   const describedBy = [error ? `${id}-error` : null, `${id}-count`, hint ? `${id}-hint` : null].filter(Boolean).join(' ');
@@ -63,7 +63,7 @@ export function BioField({ name, label, lang, value, error, hint, placeholder, o
         <span className="label" id={`${id}-preview`}>
           {t('common.preview')}
         </span>
-        {/* Región con nombre propio ("Vista previa Bio en inglés"): hay una por idioma y no se confunden. */}
+        {/* Region with its own name ("Vista previa Bio en inglés"): there is one per language and they do not mix up. */}
         <div className="paper bio-preview" role="region" aria-labelledby={`${id}-preview ${id}-label`}>
           {value.trim() === '' ? (
             <p className="bio-preview-empty">{t('settings.bioEmpty')}</p>

@@ -8,7 +8,7 @@ import { App } from './App.tsx';
 import { UiLanguageProvider } from './i18n/UiLanguage.tsx';
 
 const container = document.getElementById('root');
-if (!container) throw new Error('No se encontró #root');
+if (!container) throw new Error('#root not found');
 
 createRoot(container).render(
   <StrictMode>

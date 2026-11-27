@@ -1,12 +1,12 @@
 import type { Route } from '../useRoute.ts';
 
 /*
- * Cambios sin guardar (P1-5): cada formulario abierto (editor de posts, ajustes) registra un guardia con
- * useUnsavedGuard; antes de cambiar de vista (un enlace, "← Posts", atrás del navegador, Salir, "Crear versión") se
- * consulta esta regla. El guardado automático deja el formulario limpio, así que un borrador ya guardado no pregunta.
+ * Unsaved changes: every open form (post editor, settings) registers a guard with useUnsavedGuard; before changing
+ * the view (a link, "← Posts", the browser's back, Salir, "Crear versión") this rule is consulted. Autosave leaves the
+ * form clean, so an already saved draft does not ask.
  */
 
-/** Un formulario abierto: si tiene cambios y qué preguntar (en el idioma de la interfaz). */
+/** An open form: whether it has changes and what to ask (in the UI language). */
 export interface LeaveGuard {
   readonly dirty: boolean;
   readonly message: string;
@@ -15,8 +15,8 @@ export interface LeaveGuard {
 const sameRoute = (a: Route, b: Route): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 /**
- * Lo que hay que confirmar para ir de `from` a `to`, o null para ir sin preguntar. `to` null = salir hacia algo que
- * todavía no tiene ruta (cerrar sesión, la versión que se va a crear).
+ * What must be confirmed to go from `from` to `to`, or null to go without asking. `to` null = leaving towards
+ * something that has no route yet (logging out, the version about to be created).
  */
 export function leaveConfirmation(guards: Iterable<LeaveGuard>, from: Route, to: Route | null): string | null {
   if (to !== null && sameRoute(from, to)) return null;
@@ -24,16 +24,16 @@ export function leaveConfirmation(guards: Iterable<LeaveGuard>, from: Route, to:
   return null;
 }
 
-// Un ref por formulario montado: se lee al decidir, así vale lo último que se escribió sin re-registrar en cada tecla.
+// One ref per mounted form: read when deciding, so the latest typing counts without re-registering on every key.
 const guards = new Set<{ readonly current: LeaveGuard }>();
 
-/** Registra el guardia de un formulario mientras está montado; devuelve la baja. */
+/** Registers a form's guard while it is mounted; returns the unregister function. */
 export function registerLeaveGuard(guard: { readonly current: LeaveGuard }): () => void {
   guards.add(guard);
   return () => void guards.delete(guard);
 }
 
-/** Pregunta (window.confirm) solo si se pierde algo; true = seguir. */
+/** Asks (window.confirm) only if something would be lost; true = go on. */
 export function confirmLeave(from: Route, to: Route | null): boolean {
   const message = leaveConfirmation([...guards].map((guard) => guard.current), from, to);
   return message === null || window.confirm(message);

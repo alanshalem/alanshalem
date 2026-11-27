@@ -3,8 +3,8 @@ import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { registerLeaveGuard, type LeaveGuard } from './leaveGuard.ts';
 
 /**
- * Avisa antes de perder cambios (P1-5): dentro del admin (useRoute y `confirmNavigation` consultan el guardia) y al
- * cerrar o recargar la pestaña (beforeunload). `dirty` es el del formulario: el guardado automático lo deja en false.
+ * Warns before losing changes: inside the admin (useRoute and `confirmNavigation` consult the guard) and when closing
+ * or reloading the tab (beforeunload). `dirty` is the form's: autosave sets it back to false.
  */
 export function useUnsavedGuard(dirty: boolean): void {
   const { t } = useUiLanguage();

@@ -1,18 +1,18 @@
 /**
- * Mensaje legible a partir de un ProblemDetails de ASP.NET.
- *
- * - `detail`: el mensaje de las excepciones de dominio ("El nombre es obligatorio."). Es lo más útil.
- * - `errors`: validación del binding ({ campo: [mensajes] }), por si el JSON llega mal formado.
- * - `title`: lo genérico ("Datos inválidos", "Conflicto").
- * Si la respuesta no es un ProblemDetails, se usa `fallback` (normalmente el statusText).
- */
-/**
  * The text to show for something a call threw: an `Error`'s own message (an `ApiError` carries the API text, already
  * in the UI language) or, for anything else, `fallback` (the context of the action that failed).
  */
 export const errorMessage = (caught: unknown, fallback: string): string =>
   caught instanceof Error ? caught.message : fallback;
 
+/**
+ * Readable message from an ASP.NET ProblemDetails.
+ *
+ * - `detail`: the message of domain exceptions ("El nombre es obligatorio."). The most useful one.
+ * - `errors`: binding validation ({ field: [messages] }), in case the JSON arrives malformed.
+ * - `title`: the generic one ("Datos inválidos", "Conflicto").
+ * If the response is not a ProblemDetails, `fallback` is used (usually the statusText).
+ */
 export function messageFromProblem(problem: unknown, fallback: string): string {
   if (typeof problem !== 'object' || problem === null) return fallback;
   const { detail, title, errors } = problem as { detail?: unknown; title?: unknown; errors?: unknown };

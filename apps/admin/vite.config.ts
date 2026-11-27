@@ -7,9 +7,9 @@ import { defineConfig, type Plugin } from 'vite';
 import { reliableDevWatch } from '../../tooling/dev-watch.ts';
 
 /**
- * tokens.css pide las fuentes en /fonts/*.woff2 (fuera de /admin/). En producción las sirve Caddy desde el
- * sitio público; en desarrollo las servimos desde apps/web/public/fonts para que el admin se vea con
- * Gloock, Pagella y Hanken Grotesk también acá. Solo nombres simples *.woff2: nada de rutas arbitrarias.
+ * tokens.css requests the fonts at /fonts/*.woff2 (outside /admin/). In production Caddy serves them from the public
+ * site; in development we serve them from apps/web/public/fonts so the admin also shows Gloock, Pagella and Hanken
+ * Grotesk here. Only plain *.woff2 names: no arbitrary paths.
  */
 function devFonts(): Plugin {
   const fontsDir = fileURLToPath(new URL('../web/public/fonts/', import.meta.url));
@@ -31,26 +31,26 @@ function devFonts(): Plugin {
 }
 
 /**
- * Solo para `vite dev`, con los mismos nombres que usa el sitio (astro.config.mjs): API_URL, a dónde reenviar /api y
- * /media; SITE_URL, el servidor de `astro dev` para los enlaces "Ver sitio" (en producción el sitio comparte dominio
- * con el admin). Sin variables, los servidores locales de siempre; Docker (compose.dev.yml) los apunta a sus servicios.
+ * Only for `vite dev`, with the same names the site uses (astro.config.mjs): API_URL, where /api and /media are
+ * forwarded; SITE_URL, the `astro dev` server for the "Ver sitio" links (in production the site shares the admin's
+ * domain). Without variables, the usual local servers; Docker (compose.dev.yml) points them at its services.
  */
 const API_URL = process.env.API_URL ?? 'http://localhost:5090';
 const DEV_SITE_URL = (process.env.SITE_URL ?? 'http://localhost:4321').replace(/\/?$/, '/');
 
-// El admin se sirve bajo /admin/ (Caddy) y habla con la API en /api (mismo origen: sin CORS).
+// The admin is served under /admin/ (Caddy) and talks to the API at /api (same origin: no CORS).
 export default defineConfig(({ command }) => ({
   base: '/admin/',
-  // Solo en `vite dev`: los enlaces al sitio apuntan al servidor de Astro (src/siteUrl.ts). En el build queda "/".
+  // Only in `vite dev`: links to the site point at the Astro server (src/siteUrl.ts). The build keeps "/".
   define: command === 'serve' ? { 'import.meta.env.VITE_SITE_URL': JSON.stringify(DEV_SITE_URL) } : {},
   plugins: [react(), devFonts()],
   server: {
     port: 5173,
-    // Si el puerto está ocupado (por ejemplo un servidor anterior que no terminó de cerrarse), fallar con un error
-    // claro en vez de mudarse en silencio a otro puerto: el navegador y el proxy esperan el 5173.
+    // If the port is busy (for example a previous server that has not finished closing), fail with a clear error
+    // instead of silently moving to another port: the browser and the proxy expect 5173.
     strictPort: true,
     watch: reliableDevWatch,
-    // En desarrollo, Vite reenvía /api y /media a la API .NET.
+    // In development, Vite forwards /api and /media to the .NET API.
     proxy: { '/api': API_URL, '/media': API_URL },
   },
   build: {

@@ -1,37 +1,36 @@
 /*
- * Diff por líneas sin dependencias (historial de versiones, S5): la subsecuencia común más larga (LCS) entre dos
- * textos. Puro, para probarlo en node. Alcanza con líneas: el cuerpo es Markdown, donde cada párrafo es una línea.
+ * Dependency-free line diff (revision history): the longest common subsequence (LCS) between two texts. Pure, so it
+ * can be tested in node. Lines are enough: the body is Markdown, where each paragraph is a line.
  */
 
 export type DiffKind = 'same' | 'removed' | 'added';
 
-/** `removed`: solo en el texto de antes; `added`: solo en el de después. */
+/** `removed`: only in the text before; `added`: only in the text after. */
 export interface DiffLine {
   readonly kind: DiffKind;
   readonly text: string;
 }
 
 /**
- * Tope de la tabla LCS (filas × columnas, 4 bytes cada celda ≈ 16 MB). Se aplica después de recortar lo común del
- * principio y del final, así que solo lo alcanzan reescrituras enteras de textos muy largos: esas se muestran como
- * reemplazo completo, que es lo que son.
+ * Cap of the LCS table (rows × columns, 4 bytes per cell ≈ 16 MB). It applies after trimming the common start and end,
+ * so only full rewrites of very long texts reach it: those show as a full replacement, which is what they are.
  */
 export const MAX_DIFF_CELLS = 4_000_000;
 
-/** Líneas iguales que quedan a la vista alrededor de cada cambio. */
+/** Equal lines kept visible around each change. */
 const DIFF_CONTEXT_LINES = 2;
 
-// Un texto vacío no tiene líneas (split daría una vacía, que se vería como un cambio).
+// An empty text has no lines (split would give an empty one, which would show as a change).
 const toLines = (text: string): string[] => (text === '' ? [] : text.replace(/\r\n?/g, '\n').split('\n'));
 
 const run = (kind: DiffKind, lines: readonly string[]): DiffLine[] => lines.map((text) => ({ kind, text }));
 
-/** De `before` a `after`, línea por línea; en cada cambio, lo quitado va antes que lo agregado. */
+/** From `before` to `after`, line by line; in each change, the removed lines go before the added ones. */
 export function diffLines(before: string, after: string): DiffLine[] {
   const a = toLines(before);
   const b = toLines(after);
 
-  // Lo común de los bordes no necesita la tabla: así el costo depende del tamaño del cambio y no del texto.
+  // The common edges do not need the table: so the cost depends on the size of the change, not of the text.
   let start = 0;
   while (start < a.length && start < b.length && a[start] === b[start]) start++;
   let end = 0;
@@ -48,7 +47,7 @@ function diffMiddle(a: readonly string[], b: readonly string[]): DiffLine[] {
     return [...run('removed', a), ...run('added', b)];
   }
 
-  // lcs[i][j] = largo de la LCS de a[i..] y b[j..], en una sola tabla plana.
+  // lcs[i][j] = length of the LCS of a[i..] and b[j..], in one flat table.
   const lcs = new Uint32Array((a.length + 1) * columns);
   for (let i = a.length - 1; i >= 0; i--) {
     for (let j = b.length - 1; j >= 0; j--) {
@@ -73,12 +72,12 @@ function diffMiddle(a: readonly string[], b: readonly string[]): DiffLine[] {
   return [...lines, ...run('removed', a.slice(i)), ...run('added', b.slice(j))];
 }
 
-/** Lo que se muestra: tramos con cambios (y su contexto) o la cuenta de líneas iguales que se omiten. */
+/** What is shown: runs with changes (and their context) or the count of equal lines that are skipped. */
 export type DiffChunk =
   | { readonly kind: 'lines'; readonly lines: readonly DiffLine[] }
   | { readonly kind: 'skipped'; readonly count: number };
 
-/** Esconde las líneas iguales lejos de todo cambio: en un post largo, el cambio de un párrafo no se pierde. */
+/** Hides equal lines far from any change: in a long post, the change of one paragraph is not lost. */
 export function collapseUnchanged(lines: readonly DiffLine[], context: number = DIFF_CONTEXT_LINES): DiffChunk[] {
   const visible = lines.map(() => false);
   lines.forEach((line, index) => {

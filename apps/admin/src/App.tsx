@@ -23,12 +23,12 @@ export function App() {
   }, []);
 
   const handleLogout = useCallback(async () => {
-    if (!confirmNavigation(null)) return; // cambios sin guardar: se pregunta antes de cerrar la sesión
+    if (!confirmNavigation(null)) return; // unsaved changes: ask before logging out
     await api.logout().catch(() => undefined);
     setSession('anonymous');
   }, []);
 
-  // Si la sesión vence en medio del trabajo, cualquier página puede avisar con esto.
+  // If the session expires mid-work, any page can report it with this.
   const handleSessionExpired = useCallback((error: unknown): boolean => {
     if (error instanceof ApiError && error.status === 401) {
       setSession('anonymous');
@@ -40,7 +40,7 @@ export function App() {
   if (session === 'loading') return <p className="center-note">{t('common.loading')}</p>;
   if (session === 'anonymous') {
     const onLoggedIn = (): void => {
-      markViewChange(); // el formulario desaparece: el foco va al título de la vista que se abre
+      markViewChange(); // the form goes away: focus moves to the heading of the view that opens
       setSession('authenticated');
     };
     return <LoginPage onLoggedIn={onLoggedIn} />;
@@ -64,7 +64,7 @@ export function App() {
           <a href={href.settings} aria-current={section === 'settings' ? 'page' : undefined}>
             {t('nav.settings')}
           </a>
-          {/* Se abre en otra pestaña: la flecha lo muestra y el texto oculto lo dice (el nombre empieza igual). */}
+          {/* Opens in a new tab: the arrow shows it and the hidden text says it (the name starts the same). */}
           <a href={SITE_URL} target="_blank" rel="noopener">
             {t('nav.viewSite')} <span aria-hidden="true">↗</span>
             <span className="visually-hidden"> {t('nav.newTab')}</span>

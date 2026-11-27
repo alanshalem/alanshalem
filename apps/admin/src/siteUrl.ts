@@ -1,6 +1,6 @@
 /**
- * Raíz del sitio público, para los enlaces "Ver sitio" y "Volver al sitio".
- * En producción Caddy sirve el sitio y el admin en el mismo dominio, así que es "/". En desarrollo el sitio corre
- * en otro servidor (Astro): vite.config.ts inyecta su URL solo en `vite dev`. Sin Vite (tests) también vale "/".
+ * Root of the public site, for the "Ver sitio" and "Volver al sitio" links.
+ * In production Caddy serves the site and the admin on the same domain, so it is "/". In development the site runs on
+ * another server (Astro): vite.config.ts injects its URL only in `vite dev`. Without Vite (tests) it is "/" too.
  */
 export const SITE_URL: string = import.meta.env?.VITE_SITE_URL ?? '/';

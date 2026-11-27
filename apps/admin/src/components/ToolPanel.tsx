@@ -2,18 +2,18 @@ import { useState, type ReactNode } from 'react';
 
 interface Props {
   title: string;
-  /** Lo que se ve al lado del título aunque el panel esté cerrado (la cuenta de avisos). */
+  /** What shows next to the title even when the panel is closed (the warning count). */
   badge?: ReactNode;
-  /** Abierto al montar (por defecto, sí). Después lo decide el usuario. */
+  /** Open on mount (yes by default). After that the user decides. */
   defaultOpen?: boolean;
-  /** Al abrir o cerrar: el historial carga recién cuando se abre. */
+  /** On open or close: the history only loads when opened. */
   onToggle?: (open: boolean) => void;
   children: ReactNode;
 }
 
-/** Un panel plegable debajo del editor. <details> nativo: teclado, foco y estado abierto/cerrado sin código propio. */
+/** A collapsible panel below the editor. Native <details>: keyboard, focus and open/closed state without own code. */
 export function ToolPanel({ title, badge, defaultOpen = true, onToggle, children }: Props) {
-  // Solo el valor inicial: si `open` siguiera a una prop que cambia, React cerraría el panel bajo el foco del usuario.
+  // Only the initial value: if `open` followed a changing prop, React would close the panel under the user's focus.
   const [initiallyOpen] = useState(defaultOpen);
   return (
     <details

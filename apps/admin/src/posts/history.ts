@@ -3,15 +3,15 @@ import type { Translate } from '../i18n/i18n.ts';
 import { collapseUnchanged, diffLines, type DiffChunk } from './lineDiff.ts';
 
 /*
- * Historial de versiones (S5, L4): cada guardado que cambia el contenido es una versión; restaurar guarda esa versión
- * como la actual (y queda como una versión más: la historia no se borra). La API no compara: compara el admin, contra
- * lo que se ve en el editor, que es lo que la restauración reemplaza.
+ * Revision history: every save that changes the content is a revision; restoring saves that revision as the current
+ * one (and it becomes one more revision: history is never erased). The API does not compare: the admin does, against
+ * what the editor shows, which is what the restore replaces.
  */
 
-/** Las versiones que conserva la API por post (`PostRevision.MaxPerPost`): las más viejas se podan. */
+/** The revisions the API keeps per post (`PostRevision.MaxPerPost`): the oldest are pruned. */
 export const MAX_REVISIONS = 50;
 
-/** Los campos que se comparan uno a uno; el cuerpo va aparte, como diff de líneas. */
+/** The fields compared one by one; the body goes separately, as a line diff. */
 export type ContentField = 'title' | 'slug' | 'summary' | 'tags' | 'coverUrl' | 'coverAlt';
 
 const FIELDS: readonly ContentField[] = ['title', 'slug', 'summary', 'tags', 'coverUrl', 'coverAlt'];
@@ -25,22 +25,22 @@ export interface FieldChange {
 export interface RevisionComparison {
   readonly fields: readonly FieldChange[];
   readonly bodyChanged: boolean;
-  /** El diff del cuerpo, con las líneas iguales lejos de los cambios resumidas. */
+  /** The body diff, with equal lines far from the changes collapsed. */
   readonly body: readonly DiffChunk[];
-  /** Restaurar no cambiaría nada de lo que se ve. */
+  /** Restoring would change nothing visible. */
   readonly identical: boolean;
 }
 
 /**
- * Un campo como lo deja el guardado (sin espacios en los bordes, sin portada = vacío): así un espacio que la API iba
- * a recortar, o `''` contra `null`, no aparecen como diferencias.
+ * A field as the save leaves it (no edge spaces, no cover = empty): so a space the API would trim, or `''` versus
+ * `null`, do not show up as differences.
  */
 const fieldText = (content: PostInput, field: ContentField): string => {
   const value = content[field];
   return (Array.isArray(value) ? value.join(', ') : (value ?? '')).trim();
 };
 
-/** De la versión (`revision`) a lo que se está editando (`current`). */
+/** From the revision (`revision`) to what is being edited (`current`). */
 export function compareRevision(revision: PostInput, current: PostInput): RevisionComparison {
   const fields = FIELDS.map((field) => ({ field, before: fieldText(revision, field), after: fieldText(current, field) })).filter(
     (change) => change.before !== change.after,
@@ -55,8 +55,8 @@ export function compareRevision(revision: PostInput, current: PostInput): Revisi
 }
 
 /**
- * La pregunta antes de restaurar. Con cambios sin guardar avisa que se pierden (lo mismo que el guardia de salida,
- * `useUnsavedGuard`); sin cambios, lo guardado no se pierde: queda en el historial.
+ * The question before restoring. With unsaved changes it warns they are lost (same as the leave guard,
+ * `useUnsavedGuard`); without changes, nothing saved is lost: it stays in the history.
  */
 export const restoreConfirmation = (number: number, dirty: boolean, t: Translate): string =>
   t(dirty ? 'history.confirmRestoreUnsaved' : 'history.confirmRestore', { number });

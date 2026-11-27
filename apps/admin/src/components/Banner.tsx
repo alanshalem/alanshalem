@@ -1,12 +1,12 @@
-/** Un aviso de resultado: "Guardado." o el error de la API. */
+/** A result notice: "Guardado." or the API error. */
 export interface Notice {
   readonly kind: 'ok' | 'error';
   readonly text: string;
 }
 
 /**
- * El aviso de las páginas (posts, editor, ajustes, fotos del hero): un error es `alert` (se anuncia ya) y un éxito,
- * `status` (se anuncia sin interrumpir). Sin aviso no ocupa lugar.
+ * The pages' notice (posts, editor, settings, hero photos): an error is an `alert` (announced right away) and a
+ * success a `status` (announced without interrupting). Without a notice it takes no space.
  */
 export function Banner({ notice }: { notice: Notice | null }) {
   if (!notice) return null;

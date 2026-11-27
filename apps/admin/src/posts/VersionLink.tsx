@@ -8,7 +8,7 @@ interface Props {
   version: { id: string; lang: Lang; status: PostStatus };
 }
 
-/** Chip "ES · Publicado" que abre esa versión en el editor (la lista y el bloque "Versiones" lo comparten). */
+/** "ES · Publicado" chip that opens that version in the editor (shared by the list and the "Versiones" block). */
 export function VersionLink({ version }: Props) {
   const i18n = useUiLanguage();
   return (

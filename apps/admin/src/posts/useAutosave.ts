@@ -2,12 +2,12 @@ import { useEffect, useRef } from 'react';
 import { AUTOSAVE_DELAY_MS } from './autosave.ts';
 
 /**
- * Llama a `save` cuando pasan AUTOSAVE_DELAY_MS sin cambios en `snapshot` (el formulario serializado) mientras
- * `enabled` (canAutosave). Cada cambio reinicia la espera; `enabled` es falso durante un guardado, así que al terminar
- * uno con cambios nuevos se vuelve a esperar en vez de superponer pedidos.
+ * Calls `save` after AUTOSAVE_DELAY_MS without changes in `snapshot` (the serialized form) while `enabled`
+ * (canAutosave). Every change restarts the wait; `enabled` is false during a save, so when one finishes with new
+ * changes it waits again instead of overlapping requests.
  */
 export function useAutosave(enabled: boolean, snapshot: string, save: () => void): void {
-  // El ref evita reiniciar la espera cuando solo cambió la identidad de `save` (cambia en cada render).
+  // The ref avoids restarting the wait when only the identity of `save` changed (it changes on every render).
   const saveRef = useRef(save);
   saveRef.current = save;
 

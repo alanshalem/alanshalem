@@ -11,19 +11,18 @@ interface Props {
   alt: string;
   onUrlChange: (url: string) => void;
   onAltChange: (alt: string) => void;
-  /** Tope del texto alternativo: el del contenido que lleva la imagen (LIMITS, igual que la API). */
+  /** Cap of the alt text: the one of the content that holds the image (LIMITS, same as the API). */
   altMaxLength: number;
-  /** Sube el archivo (POST /api/admin/media) y devuelve la URL /media/... */
+  /** Uploads the file (POST /api/admin/media) and returns the /media/... URL */
   onUpload: (file: File) => Promise<string>;
-  /** Error de validación de la URL (cliente o API). */
+  /** URL validation error (client or API). */
   error?: string | undefined;
-  /** Explicación debajo del bloque. */
+  /** Explanation below the block. */
   help?: ReactNode;
 }
 
 /**
- * Bloque de imagen reutilizable (portada del post): subir un archivo o pegar una URL,
- * texto alternativo, miniatura y botón para quitarla.
+ * Reusable image block (post cover): upload a file or paste a URL, alt text, thumbnail and a button to remove it.
  */
 export function ImageField({ legend, url, alt, onUrlChange, onAltChange, altMaxLength, onUpload, error, help }: Props) {
   const { t } = useUiLanguage();
@@ -88,7 +87,7 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, altMaxL
               hidden
               onChange={(event) => {
                 void handleFile(event.target.files?.[0]);
-                event.target.value = ''; // permite volver a elegir el mismo archivo
+                event.target.value = ''; // allows choosing the same file again
               }}
             />
           </div>
