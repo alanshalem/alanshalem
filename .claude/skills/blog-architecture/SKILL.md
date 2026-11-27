@@ -63,7 +63,8 @@ Caddy ─► /srv/site/current (HTML) · /srv/media (uploads) · /srv/admin (SPA
 | Validation limits | C# domain constants | `apps/admin/src/limits.ts` + `apps/admin/test/limits.test.ts` (reads the C#) |
 | Public URLs | `paths` in `apps/web/src/lib/i18n.ts` | pages never build URLs by hand |
 | Site URL | Astro `site` (`apps/web/src/lib/site.ts`) | — |
-| Markdown block boundaries | `renderMarkdown(...).blockStarts` (or `blockStartLines()`) from `@blog/markdown` | the admin scroll sync and outline read it from the single preview render (a copied regex drifted in 3 cases) |
+| Markdown block boundaries | `renderMarkdown(...).blockStarts` (or `blockStartLines()`) from `@blog/markdown` | the admin outline (and the scroll sync's fallback) read it from the single preview render (a copied regex drifted in 3 cases) |
+| Split-view scroll anchors (blocks + every list item) | `renderMarkdown(...).anchorLines` from `@blog/markdown` | the admin scroll sync pairs it with the preview's top-level elements and `li`s (`apps/admin/test/editor-scroll.test.ts`) |
 | Body render options | `POST_BODY_RENDER_OPTIONS` (`packages/markdown/src/presets.ts`) | site and admin preview both spread it |
 | Editor actions | `apps/admin/src/editor/actions.ts` | toolbar, palette, shortcuts and help read the same list |
 | Design tokens | `packages/tokens/src/tokens.css` | `apps/web/test/contrast.test.ts`; the profile SVGs read the same file (`tooling/profile/src/theme.ts`) |

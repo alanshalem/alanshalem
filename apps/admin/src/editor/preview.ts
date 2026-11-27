@@ -19,7 +19,7 @@ export const previewOptions = (lang: Lang): RenderOptions => postBodyOptions(lan
 
 /**
  * The single render per update: besides the HTML it brings `text` (counter), `headings` + `blockStarts` (outline) and
- * `blockStarts` (synced scroll), all from the same pass.
+ * `anchorLines` with `blockStarts` as its fallback (synced scroll), all from the same pass.
  */
 export const renderPreview = (markdown: string, lang: Lang): RenderResult => renderMarkdown(markdown, previewOptions(lang));
 

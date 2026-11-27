@@ -15,10 +15,13 @@ description: "Rules of the dependency-free Markdown renderer in packages/markdow
 - `unescapeHtml` is the exact inverse of `escapeHtml` (one table in `src/escape.ts`, decoded in one pass): plain text
   uses it, and any site or admin code that needs the text back imports it instead of keeping its own copy.
 - `createSlugger` stays internal (`src/slug.ts`): only the renderer needs per-document unique ids.
-- `renderMarkdown(source, options)` returns `{ html, headings, blockStarts, text }` from **one pass**: `headings` feed
-  the article TOC (ids are the anchors); `blockStarts` is the line (from 0) where each top-level block starts (one per
-  top-level HTML element; the footnotes section is not a block); `text` is the plain text of that `html` (what is
-  read, whitespace normalized). New result fields are additive: existing ones never change shape.
+- `renderMarkdown(source, options)` returns `{ html, headings, blockStarts, anchorLines, text }` from **one pass**:
+  `headings` feed the article TOC (ids are the anchors); `blockStarts` is the line (from 0) where each top-level block
+  starts (one per top-level HTML element; the footnotes section is not a block); `anchorLines` is the split view's
+  finer scroll anchors, in document order: each top-level block's line and each list item's at any depth (also inside
+  quotes and callouts), so one per top-level element plus one per `<li>` outside the footnotes section (nondecreasing:
+  a list and its first item share a line; containers pass `lineBase` so nested lines are document lines); `text` is
+  the plain text of that `html` (what is read, whitespace normalized). New result fields are additive: existing ones never change shape.
 - The same function renders the published page (Astro build) and the admin preview: **the preview is the page**.
 
 ## Security (non-negotiable)
@@ -80,7 +83,8 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
 ## Structure helpers
 
 - A consumer that already rendered reads the result instead of re-parsing: the admin's single preview render feeds
-  the preview, the counter (`text`), the outline (`headings` + `blockStarts`) and the scroll sync (`blockStarts`).
+  the preview, the counter (`text`), the outline (`headings` + `blockStarts`) and the scroll sync (`anchorLines`,
+  falling back to `blockStarts` and then proportional when the measured element counts differ).
 - `blockStartLines(source)` = `renderMarkdown(source).blockStarts` (only `math` moves block boundaries: it adds
   display math blocks; the admin reads its preview render's `blockStarts`, which has them) and
   `toPlainText(source)` = `renderMarkdown(source).text`; use them only when there is no render result at hand.

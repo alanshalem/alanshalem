@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
   blockStartLines,
+  escapeHtml,
   POST_BODY_RENDER_OPTIONS,
   readingTimeMinutes,
   readingTimeOfText,
   renderMarkdown,
   toPlainText,
   wordCount,
+  type RenderOptions,
 } from '../src/index.ts';
 
 /*
@@ -96,9 +98,86 @@ describe('renderMarkdown: blockStarts and text from the same pass', () => {
   it('html and headings do not change (new fields are only added)', () => {
     const md = '## Título\n\nUn párrafo con **negrita**.';
     const result = renderMarkdown(md, POST_BODY_RENDER_OPTIONS);
-    assert.deepEqual(Object.keys(result), ['html', 'headings', 'blockStarts', 'text']);
+    assert.deepEqual(Object.keys(result), ['html', 'headings', 'blockStarts', 'anchorLines', 'text']);
     assert.equal(result.html, '<h2 id="titulo">Título</h2>\n<p>Un párrafo con <strong>negrita</strong>.</p>');
     assert.deepEqual(result.headings, [{ level: 2, id: 'titulo', text: 'Título' }]);
+  });
+});
+
+/*
+ * anchorLines: the synced scroll's finer anchors. A long list is one top-level block, so with blockStarts alone the
+ * preview interpolates linearly inside it and drifts; every list item, at any depth, is an anchor too.
+ */
+
+/** A stand-in for the real math renderer (the line bookkeeping does not depend on its output). */
+const MATH: RenderOptions = {
+  math: (tex, display) => (display ? `<math display="block">${escapeHtml(tex)}</math>` : `<math>${escapeHtml(tex)}</math>`),
+};
+
+/** The elements the admin measures: the top-level ones and every <li>, both without the footnotes section. */
+function anchorElements(html: string): number {
+  const body = html.replace(/\n<section class="footnotes"[\s\S]*$/, '');
+  return topLevelElements(body) + (body.match(/<li[ >]/g) ?? []).length;
+}
+
+describe('renderMarkdown: anchorLines, every top-level block and every list item', () => {
+  it('nested lists: each item, at any depth, anchors at its marker line (the list and its first item share one)', () => {
+    const md = ['### Bloque IV', '', '1. uno', '   - a', '   - b', '2. dos', '   - c', '     - d', '', '### Bloque V'].join('\n');
+    const result = renderMarkdown(md, POST_BODY_RENDER_OPTIONS);
+    assert.deepEqual(result.blockStarts, [0, 2, 9], 'blockStarts keeps its meaning');
+    assert.deepEqual(result.anchorLines, [0, 2, 2, 3, 4, 5, 6, 7, 9]);
+  });
+
+  it('loose items, lazy continuations and a start number other than 1', () => {
+    assert.deepEqual(renderMarkdown('- a\n\n  b\n\n- c\nsigue\n- d').anchorLines, [0, 0, 4, 6]);
+    assert.deepEqual(renderMarkdown('texto\n\n3. tres\n4. cuatro').anchorLines, [0, 2, 2, 3]);
+  });
+
+  it('lists inside quotes and callouts: their items are anchors, with the lines of the source', () => {
+    const md = '> cita\n> - a\n> - b\n\n> [!NOTE]\n> - x\n>   - y';
+    assert.deepEqual(renderMarkdown(md, POST_BODY_RENDER_OPTIONS).anchorLines, [0, 1, 2, 4, 5, 6]);
+    assert.deepEqual(renderMarkdown('- > - a\n  > - b').anchorLines, [0, 0, 0, 1]);
+  });
+
+  it('math: display blocks are top-level anchors; math inside an item does not add one', () => {
+    assert.deepEqual(renderMarkdown('a\n$$\nx\n$$\n- b', MATH).anchorLines, [0, 1, 4, 4]);
+    assert.deepEqual(renderMarkdown('- a\n  $$\n  x\n  $$\n- b $y$', MATH).anchorLines, [0, 0, 4]);
+    assert.deepEqual(renderMarkdown('```math\nx\n```\n\n1. $z$', MATH).anchorLines, [0, 4, 4]);
+  });
+
+  it('footnotes: definitions and the notes section are not anchors; lines after them keep their number', () => {
+    const md = 'a[^1]\n\n- b\n\n[^1]: nota\n    sigue\n\n- c';
+    const result = renderMarkdown(md, POST_BODY_RENDER_OPTIONS);
+    assert.deepEqual(result.blockStarts, [0, 2], 'the definition lines are blanked: the loose list goes on');
+    assert.deepEqual(result.anchorLines, [0, 2, 2, 7]);
+  });
+
+  it('one anchor per measured element (top-level ones + every <li>), in document order, never going back', () => {
+    const samples = [
+      '### T\n\n1. uno\n   - a\n     1. b\n2. dos\n\n> - q\n\n> [!TIP]\n> 1. t\n\ntexto[^n]\n\n[^n]: nota',
+      '- a\n\n  - b\n\n  c\n- d\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n---\n\n```\n- no\n```',
+      '1. $x$\n   $$\n   y\n   $$\n2. b\n\n$$ z $$',
+      'a\r\n\r\n- b\r\n  - c',
+      '',
+    ];
+    for (const md of samples) {
+      const { html, anchorLines } = renderMarkdown(md, { ...POST_BODY_RENDER_OPTIONS, ...MATH });
+      assert.equal(anchorLines.length, anchorElements(html), md);
+      assert.deepEqual(anchorLines, [...anchorLines].sort((a, b) => a - b), md);
+    }
+  });
+
+  it('without lists, anchorLines equals blockStarts (nothing changes for those documents)', () => {
+    const samples = [
+      '# T\n\npárrafo\nsigue\n\n```\nx\n\ny\n```\n> cita\nperezosa\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n---',
+      'a[^1]\n\n[^1]: nota\n\nb',
+      '> [!NOTE]\n> caja',
+      '',
+    ];
+    for (const md of samples) {
+      const result = renderMarkdown(md, POST_BODY_RENDER_OPTIONS);
+      assert.deepEqual(result.anchorLines, result.blockStarts, md);
+    }
   });
 });
 

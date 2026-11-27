@@ -56,6 +56,13 @@ export interface RenderResult {
    */
   blockStarts: number[];
   /**
+   * Finer scroll anchors, in document order: the line (from 0) of each top-level block (as `blockStarts`) and of each
+   * list item at any depth (also inside quotes and callouts), so one per top-level element and one per `<li>` of the
+   * HTML outside the footnotes section. Nondecreasing: a list and its first item share a line. Same pass as the
+   * render: the admin pairs it with those elements so the preview follows the editor inside long lists.
+   */
+  anchorLines: number[];
+  /**
    * The plain text of `html` (what is read, without marks): word counter and reading minutes. A formula contributes
    * its TeX source.
    */

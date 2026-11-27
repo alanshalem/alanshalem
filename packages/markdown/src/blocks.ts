@@ -30,6 +30,13 @@ export interface BlockContext {
   figures: boolean;
   /** Collects the line where each top-level block starts (`RenderResult.blockStarts`). */
   blockStarts: number[];
+  /** Collects, in document order, each top-level block's line and each list item's (`RenderResult.anchorLines`). */
+  anchorLines: number[];
+  /**
+   * The source line of `lines[0]`: containers pass their inner lines one per source line (prefix stripped), so a
+   * local index plus this base is the line in the document.
+   */
+  lineBase: number;
 }
 
 const MAX_DEPTH = 16;
@@ -112,7 +119,10 @@ export function renderBlocks(lines: string[], ctx: BlockContext): string {
       continue;
     }
     // Each pass below adds exactly one element to the HTML: at the top level, one per block.
-    if (ctx.depth === 0) ctx.blockStarts.push(i);
+    if (ctx.depth === 0) {
+      ctx.blockStarts.push(i);
+      ctx.anchorLines.push(i);
+    }
 
     const fence = FENCE_OPEN.exec(line);
     if (fence) {
@@ -263,10 +273,14 @@ function parseBlockquote(lines: string[], start: number, ctx: BlockContext): { h
     i += 1;
   }
 
-  const innerCtx: BlockContext = { ...ctx, depth: ctx.depth + 1, tight: false };
+  // inner[k] is lines[start + k] without its `>`: one inner line per source line.
+  const innerCtx: BlockContext = { ...ctx, depth: ctx.depth + 1, tight: false, lineBase: ctx.lineBase + start };
   const marker = CALLOUT_MARKER.exec(inner[0] ?? '')?.[1]?.toLowerCase();
   const kind = CALLOUT_KINDS.find((candidate) => candidate === marker);
-  if (kind) return { html: renderCallout(kind, renderBlocks(inner.slice(1), innerCtx), ctx.labels), next: i };
+  if (kind) {
+    const body = renderBlocks(inner.slice(1), { ...innerCtx, lineBase: innerCtx.lineBase + 1 });
+    return { html: renderCallout(kind, body, ctx.labels), next: i };
+  }
 
   const body = renderBlocks(inner, innerCtx);
   return { html: `<blockquote>\n${body}\n</blockquote>`, next: i };
@@ -294,7 +308,8 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
     return /\d/.test(marker) === ordered && (ordered ? marker.slice(-1) : marker) === markerKind;
   };
 
-  const items: string[][] = [];
+  // Each item's lines, one per source line from its marker line (`start`, local to `lines`).
+  const items: { start: number; lines: string[] }[] = [];
   let loose = false;
   let i = start;
 
@@ -310,6 +325,7 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
     const contentIndent = markerWidth + (spaces === 0 || spaces >= 5 ? 1 : spaces);
     const firstContent = spaces >= 5 ? ' '.repeat(spaces - 1) + rest : rest;
 
+    const itemStart = i;
     const itemLines: string[] = [firstContent];
     i += 1;
 
@@ -344,7 +360,7 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
       break;
     }
 
-    items.push(itemLines);
+    items.push({ start: itemStart, lines: itemLines });
 
     // Is a sibling item next? If blank lines came in between, the list is "loose".
     let k = i;
@@ -358,8 +374,13 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
   }
 
   const itemCtx: BlockContext = { ...ctx, depth: ctx.depth + 1, tight: !loose };
+  // Each <li> is a scroll anchor, recorded before its content so the lines stay in document order.
   const body = items
-    .map((itemLines) => `<li>${renderBlocks(itemLines, itemCtx)}</li>`)
+    .map((item) => {
+      const line = ctx.lineBase + item.start;
+      ctx.anchorLines.push(line);
+      return `<li>${renderBlocks(item.lines, { ...itemCtx, lineBase: line })}</li>`;
+    })
     .join('\n');
 
   const html = ordered

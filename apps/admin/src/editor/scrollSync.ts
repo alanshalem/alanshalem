@@ -1,14 +1,30 @@
 /*
- * Synced scroll of the split view. The HTML does not mark which line each element comes from, so it maps by block
- * index: `blockStarts` of the @blog/markdown render (the same pass as the preview, with no copies of its regexes, which
- * drifted before) gives where each child of .prose starts and the preview interpolates between the pairs. If the counts
- * do not match (the preview has not updated yet) it falls back to proportional: it never jumps anywhere.
+ * Synced scroll of the split view. The HTML does not mark which line each element comes from, so it maps by element
+ * index with lines of the @blog/markdown render (the same pass as the preview, with no copies of its regexes, which
+ * drifted before): `anchorLines` gives where each top-level element and each list item (<li>) starts, `blockStarts`
+ * only the children of .prose. The preview interpolates between the pairs. A long list is one block, so with blocks
+ * alone the preview drifted inside it; the items keep it on track. If the counts do not match (the preview has not
+ * updated yet) it falls back to the blocks, then to proportional: it never jumps anywhere.
  */
 
 /** A point of the editor (scroll px) that corresponds to a point of the preview. */
 export interface Anchor {
   readonly source: number;
   readonly target: number;
+}
+
+/** Editor lines and the preview elements (or their measured tops) that start at them, to pair one to one. */
+export interface AnchorSet<T> {
+  readonly lines: readonly number[];
+  readonly elements: readonly T[];
+}
+
+/**
+ * The first set, from finest to coarsest, whose counts match (each line has its element); null when none does, and
+ * then the scroll is proportional.
+ */
+export function matchingAnchorSet<T>(sets: readonly AnchorSet<T>[]): AnchorSet<T> | null {
+  return sets.find((set) => set.lines.length === set.elements.length) ?? null;
 }
 
 /**

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { blockStartLines } from '@blog/markdown';
-import { pairAnchors, syncedScrollTop } from '../src/editor/scrollSync.ts';
+import { matchingAnchorSet, pairAnchors, syncedScrollTop } from '../src/editor/scrollSync.ts';
 import { renderPreview } from '../src/editor/preview.ts';
 
 /** How many elements are at the top level of the HTML (the children of .prose), without the footnotes section. */
@@ -98,5 +98,65 @@ describe('pairAnchors + syncedScrollTop', () => {
     assert.equal(syncedScrollTop(anchors, 100), 500);
     assert.equal(syncedScrollTop(anchors, 200), 550, 'the block that goes backwards does not count: it interpolates to the end');
     assert.equal(syncedScrollTop(pairAnchors([], [], { source: 0, target: 0 }), 10), 0);
+  });
+});
+
+/*
+ * Inside a long list the blocks are too coarse: a list is one block, so the preview interpolated linearly between its
+ * start and the next heading and drifted (the editor showed "### Bloque V" mid-screen while the preview was still in
+ * the previous list). The renderer's `anchorLines` adds every list item; the editor measures the top-level elements
+ * and every <li> of the preview, and falls back to the blocks, then to proportional, when the counts differ.
+ */
+describe('list items are anchors too (anchorLines)', () => {
+  /** The elements useScrollSync measures for `anchorLines`: top-level ones and every <li>, without the footnotes. */
+  const anchorElements = (html: string): number => {
+    const body = html.replace(/\n<section class="footnotes"[\s\S]*$/, '');
+    return topLevelElements(body) + (body.match(/<li[ >]/g) ?? []).length;
+  };
+
+  // "### Bloque IV", a numbered list whose third item is long, "### Bloque V". Lines → editor px / preview px.
+  const SAMPLE = [
+    '### Bloque IV', '', '1. uno', '   - a', '2. dos', '3. un ítem largo con $x^2$ que ocupa muchas líneas', '', '### Bloque V',
+  ].join('\n');
+  const EDITOR_TOP: Record<number, number> = { 0: 0, 2: 40, 3: 80, 4: 120, 5: 160, 7: 1000 };
+  const PREVIEW_TOP: Record<number, number> = { 0: 0, 2: 60, 3: 100, 4: 140, 5: 180, 7: 500 };
+  const END = { source: 1400, target: 900 };
+
+  it('the render gives one anchor line per element the preview measures (real math too)', () => {
+    const preview = renderPreview(SAMPLE, 'es');
+    assert.deepEqual(preview.anchorLines, [0, 2, 2, 3, 4, 5, 7]);
+    assert.equal(preview.anchorLines.length, anchorElements(preview.html));
+  });
+
+  it("a list item's top in the editor maps to that item's top in the preview", () => {
+    const { anchorLines, blockStarts } = renderPreview(SAMPLE, 'es');
+    const set = matchingAnchorSet([
+      { lines: anchorLines, elements: anchorLines.map((line) => PREVIEW_TOP[line] ?? 0) },
+      { lines: blockStarts, elements: blockStarts.map((line) => PREVIEW_TOP[line] ?? 0) },
+    ]);
+    assert.ok(set);
+    const anchors = pairAnchors(set.lines.map((line) => EDITOR_TOP[line] ?? 0), set.elements, END);
+    assert.equal(syncedScrollTop(anchors, 160), 180, 'the long item at the top of the editor is at the top of the preview');
+    assert.equal(syncedScrollTop(anchors, 1000), 500, 'and so is the next heading');
+    const blocksOnly = pairAnchors(blockStarts.map((line) => EDITOR_TOP[line] ?? 0), blockStarts.map((line) => PREVIEW_TOP[line] ?? 0), END);
+    assert.notEqual(syncedScrollTop(blocksOnly, 160), 180, 'with blocks alone it interpolated across the whole list');
+  });
+
+  it('counts that do not match fall back to the blocks, then to proportional', () => {
+    const fine = { lines: [0, 2, 2, 3], elements: [0, 60, 60] };
+    const blocks = { lines: [0, 2], elements: [0, 60] };
+    assert.equal(matchingAnchorSet([fine, blocks]), blocks);
+    assert.equal(matchingAnchorSet([fine, { lines: [0, 2], elements: [0] }]), null);
+    assert.deepEqual(pairAnchors([], [], END), [{ source: 0, target: 0 }, END], 'no set: start and end only');
+  });
+
+  it('without lists the anchors are exactly the blocks, as before', () => {
+    const markdown = '# T\n\npárrafo\n\n> cita\n\n```\nx\n```\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n$$\nx\n$$\n\ntexto[^1]\n\n[^1]: nota';
+    const { anchorLines, blockStarts, html } = renderPreview(markdown, 'es');
+    assert.deepEqual(anchorLines, blockStarts);
+    const tops = blockStarts.map((_, i) => i * 100);
+    const set = matchingAnchorSet([{ lines: anchorLines, elements: tops }, { lines: blockStarts, elements: tops }]);
+    assert.deepEqual(set?.lines, blockStarts);
+    assert.equal(anchorElements(html), topLevelElements(html));
   });
 });
