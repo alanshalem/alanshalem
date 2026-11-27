@@ -16,15 +16,17 @@ const fakeMath = (tex: string, display: boolean): string =>
 const MATH: RenderOptions = { math: fakeMath };
 const html = (md: string, options: RenderOptions = MATH): string => renderMarkdown(md, options).html;
 const inline = (tex: string): string => `<math>${escapeHtml(tex)}</math>`;
+/** Text written against a formula, wrapped with it so a line never breaks between them. */
+const glued = (html: string): string => `<span class="math-nowrap">${html}</span>`;
 const display = (tex: string): string =>
   `<div class="math-display" tabindex="0"><math display="block">${escapeHtml(tex)}</math></div>`;
 
 describe('inline math: $...$', () => {
   it("renders the author's examples, verbatim", () => {
-    assert.equal(html('($\\text{tiempo}^{-1}$)'), `<p>(${inline('\\text{tiempo}^{-1}')})</p>`);
-    assert.equal(html('($\\text{tiempo}^{-1/2}$)'), `<p>(${inline('\\text{tiempo}^{-1/2}')})</p>`);
-    assert.equal(html('($D = \\sigma^2/2$)'), `<p>(${inline('D = \\sigma^2/2')})</p>`);
-    assert.equal(html('($N_{\\text{ef}}$)'), `<p>(${inline('N_{\\text{ef}}')})</p>`);
+    assert.equal(html('($\\text{tiempo}^{-1}$)'), `<p>${glued(`(${inline('\\text{tiempo}^{-1}')})`)}</p>`);
+    assert.equal(html('($\\text{tiempo}^{-1/2}$)'), `<p>${glued(`(${inline('\\text{tiempo}^{-1/2}')})`)}</p>`);
+    assert.equal(html('($D = \\sigma^2/2$)'), `<p>${glued(`(${inline('D = \\sigma^2/2')})`)}</p>`);
+    assert.equal(html('($N_{\\text{ef}}$)'), `<p>${glued(`(${inline('N_{\\text{ef}}')})`)}</p>`);
     assert.equal(html('$\\mu - \\sigma^2/2$'), `<p>${inline('\\mu - \\sigma^2/2')}</p>`);
   });
 
@@ -60,6 +62,13 @@ describe('inline math: $...$', () => {
     assert.equal(html('<https://e.com/$x$>'), '<p><a href="https://e.com/$x$" rel="noopener noreferrer">https://e.com/$x$</a></p>');
     assert.equal(html('ver https://e.com/$x$ ok'), '<p>ver https://e.com/$x$ ok</p>');
     assert.equal(html('$a `b$` c'), '<p>$a <code>b$</code> c</p>');
+  });
+
+  it('text written against a formula never wraps away from it (a line may break around an inline <math>)', () => {
+    assert.equal(html('en ($x$), y $y$. Fin'), `<p>en ${glued(`(${inline('x')}),`)} y ${glued(`${inline('y')}.`)} Fin</p>`);
+    assert.equal(html('"$x$" y'), `<p>${glued(`&quot;${inline('x')}&quot;`)} y</p>`);
+    assert.equal(html('*$x$*:'), `<p><em>${inline('x')}</em>:</p>`);
+    assert.equal(html('$x$ y'), `<p>${inline('x')} y</p>`);
   });
 
   it('a $$ run inside a paragraph is text; inline math is a single $', () => {

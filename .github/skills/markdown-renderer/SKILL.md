@@ -63,7 +63,9 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
   interrupts a paragraph), a one-line `$$ tex $$`, or a ```` ```math ```` fence; it is a top-level block (counts in
   `blockStarts`) wrapped in `<div class="math-display" tabindex="0">`. Formulas leave `<$n>` slots while rendering
   (`src/math.ts`; user text cannot forge one, every `<` is escaped) filled at the end: the injected HTML for `html`,
-  the TeX source for `text`. Smart typography and emphasis never look inside a formula.
+  the TeX source for `text`. Smart typography and emphasis never look inside a formula. A line may break around an
+  inline `<math>` (an atomic inline), even right after `(`: the text written against a formula (up to a space or a
+  tag) goes with it in `<span class="math-nowrap">`, so `($x$),` never wraps apart.
 - Smart typography by language: quotes, dashes, ellipsis — never inside code, URLs or attributes. What counts as a
   word character is one predicate, `isWordChar` (`src/typography.ts`), shared by smart quotes and the `_` emphasis
   rule in `src/inline.ts`.

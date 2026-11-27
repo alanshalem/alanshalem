@@ -25,6 +25,8 @@ export interface Formulas {
 }
 
 const SLOT = /<\$(\d+)>/g;
+// A slot with the text written against it on each side (up to a space or a tag): `(`, `),`, `.`, quotes.
+const SLOT_IN_WORD = /([^\s<>]*)(<\$\d+>)([^\s<>]*)/g;
 
 export function createFormulas(render: MathRenderer): Formulas {
   const formulas: Array<{ tex: string; display: boolean }> = [];
@@ -41,10 +43,15 @@ export function createFormulas(render: MathRenderer): Formulas {
       return `<$${formulas.length - 1}>`;
     },
     // A long display formula scrolls inside its box, not the page: tabindex makes it keyboard scrollable (WCAG 2.1.1),
-    // like <pre>.
+    // like <pre>. A line may break before or after an inline <math> (an atomic inline), even right after `(`: the text
+    // written against a formula goes in a no-wrap span with it.
     html: (withSlots) =>
-      fill(withSlots, (tex, display) =>
-        display ? `<div class="math-display" tabindex="0">${render(tex, true)}</div>` : render(tex, false),
+      fill(
+        withSlots.replace(SLOT_IN_WORD, (match, before: string, slot: string, after: string) =>
+          before || after ? `<span class="math-nowrap">${before}${slot}${after}</span>` : match,
+        ),
+        (tex, display) =>
+          display ? `<div class="math-display" tabindex="0">${render(tex, true)}</div>` : render(tex, false),
       ),
     textHtml: (withSlots) => fill(withSlots, (tex, display) => (display ? ` ${escapeHtml(tex)} ` : escapeHtml(tex))),
   };
