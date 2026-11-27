@@ -10,8 +10,9 @@ description: "Conventions of the public Astro 7 site in apps/web, which is fully
 - `output: 'static'`, `trailingSlash: 'always'`, `build.format: 'directory'`, `inlineStylesheets: 'always'`
   (`astro.config.mjs`). No server code in production; Caddy serves files.
 - Routes are generated per language: `src/pages/[lang]/index.astro`, `[lang]/[posts]/[slug].astro`,
-  `[lang]/[topics]/[tag].astro`, `[lang]/rss.xml.ts`, `[lang]/404.html.ts`, plus `sitemap.xml.ts`, the bilingual
-  `404.astro` and a root `index.astro` that redirects to `/es/` when no Caddy rule exists.
+  `[lang]/[topics]/[tag].astro`, `[lang]/rss.xml.ts`, `[lang]/404.html.ts` (rewrites to `404.astro`, so the 404 is
+  one page in one language: `notFoundLang`), plus `sitemap.xml.ts`, `404.astro` (Astro also writes it as a Spanish
+  `/404.html` that Caddy never serves) and a root `index.astro` that redirects to `/es/` when no Caddy rule exists.
   `getStaticPaths` uses `LANGS` and `segments(lang)` from `src/lib/i18n.ts`.
 
 ## Logic in `src/lib`, markup in `.astro`

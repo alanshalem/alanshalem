@@ -267,7 +267,7 @@ a { transition: text-decoration-color var(--duration-fast), text-decoration-thic
 
 /* ---------- Listing and 404 heads ---------- */
 .page-head { padding: var(--space-3-5) var(--gutter) 0; max-width: calc(var(--hero-body-max) + 2 * var(--gutter)); }
-.page-head h1, .page-head-title { font-family: var(--font-text); font-weight: 400; font-size: var(--text-hero-h1); line-height: var(--leading-hero); }
+.page-head h1 { font-family: var(--font-text); font-weight: 400; font-size: var(--text-hero-h1); line-height: var(--leading-hero); }
 .page-head .eyebrow { margin-bottom: var(--space-1); }
 .page-dek { margin-top: var(--space-1); max-width: var(--hero-dek-max); font-size: var(--text-hero-dek); line-height: var(--leading-dek); color: var(--text-secondary); }
 .page-head--404 { padding-top: var(--space-7); padding-bottom: var(--space-3); }

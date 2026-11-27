@@ -42,13 +42,16 @@ create_caddy() {
 	docker cp infra/caddy/Caddyfile "$run-caddy:/etc/caddy/Caddyfile"
 }
 
-# Starts it with a published site (a robots.txt and the 404 page) and waits until it answers.
+# Starts it with a published site (a robots.txt and the 404 pages the build writes: one per language, plus the root
+# /404.html Astro always writes, which Caddy must never serve) and waits until it answers.
 start_caddy() {
 	create_caddy "$@"
 	docker start "$run-caddy" >/dev/null
-	docker exec "$run-caddy" sh -c 'mkdir -p /srv/site/current &&
+	docker exec "$run-caddy" sh -c 'mkdir -p /srv/site/current/es /srv/site/current/en &&
 		printf "User-agent: *\nAllow: /\n" >/srv/site/current/robots.txt &&
-		printf "not found page\n" >/srv/site/current/404.html'
+		printf "root 404 page\n" >/srv/site/current/404.html &&
+		printf "es 404 page\n" >/srv/site/current/es/404.html &&
+		printf "en 404 page\n" >/srv/site/current/en/404.html'
 	address=$(docker port "$run-caddy" 80/tcp | head -n 1)
 	for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
 		# The shell discards the body: curl's own -o /dev/null fails on Git Bash without path conversion.
@@ -73,6 +76,9 @@ status_is() { [ "$(printf '%s\n' "$response" | head -n 1 | cut -d ' ' -f 2)" = "
 header_is() { headers | grep -Fqix "$1: $2"; }
 no_header() { ! headers | grep -qi "^$1:"; }
 body_is() { [ "$(body)" = "$1" ]; }
+# Vary may come as several lines (file_server adds its own Accept-Encoding).
+varies_by() { headers | grep -i '^vary:' | grep -Fqi "$1"; }
+no_vary_by() { ! varies_by "$1"; }
 body_matches() { body | grep -Eq "$1"; }
 contains() { printf '%s\n' "$response" | grep -Fq "$1"; }
 lacks() { ! contains "$1"; }
@@ -101,6 +107,39 @@ check 'robots.txt has no X-Robots-Tag' no_header X-Robots-Tag
 get /missing.txt
 check 'a missing page is a 404' status_is 404
 check 'the 404 has no X-Robots-Tag' no_header X-Robots-Tag
+check 'the 404 is never cached' header_is Cache-Control no-store
+check 'the 404 carries the security headers' header_is X-Content-Type-Options nosniff
+# Without a language prefix: one 404 only, in the language of the first Accept-Language preference (the root rule).
+check 'without Accept-Language the unprefixed 404 is the Spanish one only' body_is 'es 404 page'
+check 'the unprefixed 404 varies by Accept-Language' varies_by Accept-Language
+for language in en 'en-US,en;q=0.9' 'en-GB;q=0.8,es'; do
+	for path in /missing.txt /admin-typo; do
+		get "$path" -H "Accept-Language: $language"
+		check "Accept-Language $language: $path is a 404" status_is 404
+		check "Accept-Language $language: $path is the English 404 only" body_is 'en 404 page'
+		check "Accept-Language $language: $path varies by Accept-Language" varies_by Accept-Language
+	done
+done
+for language in es 'es-AR,en;q=0.9' fr 'fr,en'; do
+	get /admin-typo -H "Accept-Language: $language"
+	check "Accept-Language $language: /admin-typo is a 404" status_is 404
+	check "Accept-Language $language: /admin-typo is the Spanish 404 only" body_is 'es 404 page'
+	check "Accept-Language $language: /admin-typo varies by Accept-Language" varies_by Accept-Language
+done
+# Under a prefix the URL decides, whatever the browser prefers, and the response does not vary by it.
+get /en/nope/ -H 'Accept-Language: es'
+check '/en/nope/ is a 404' status_is 404
+check '/en/nope/ is the English 404 even for a Spanish browser' body_is 'en 404 page'
+check '/en/nope/ does not vary by Accept-Language' no_vary_by Accept-Language
+get /es/nada/ -H 'Accept-Language: en'
+check '/es/nada/ is a 404' status_is 404
+check '/es/nada/ is the Spanish 404 even for an English browser' body_is 'es 404 page'
+check '/es/nada/ does not vary by Accept-Language' no_vary_by Accept-Language
+get / -H 'Accept-Language: en-US,en;q=0.9'
+check 'an English browser at / goes to /en/' header_is Location /en/
+get / -H 'Accept-Language: es-AR,en;q=0.9'
+check 'a Spanish browser at / goes to /es/' header_is Location /es/
+check '/ varies by Accept-Language' varies_by Accept-Language
 get /api/echo -H "X-Forwarded-For: $forged"
 check '/api reaches the API without X-Robots-Tag' no_header X-Robots-Tag
 check 'a forged X-Forwarded-For is ignored: the API gets the connecting address' lacks "$forged"

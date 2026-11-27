@@ -49,6 +49,8 @@ Fallback is resolved where the text is used: `toSiteSettings` in `apps/web/src/l
 - Root `/`: Caddy redirects 302 with `Vary: Accept-Language` — `/en/` if the first preference matches
   `(?i)^\s*en\b`, otherwise `/es/`. The build also writes a root `index.html` redirecting to `/es/` for servers
   without that rule.
+- 404 without a language prefix (`/noexiste`, `/admin-typo`): Caddy serves `/en/404.html` or `/es/404.html` with the
+  same rule (the one `@english` matcher of the site block) and `Vary: Accept-Language`. One language, never both.
 - API errors: `RequestLanguage.Of` applies the same regex; responses carry `Vary: Accept-Language`.
 - The admin sends its UI language as `Accept-Language` (`setApiLanguage` in `src/api/client.ts`). The admin UI
   language (localStorage, default from the browser) is independent from each post's language.
@@ -60,7 +62,7 @@ Fallback is resolved where the text is used: `toSiteSettings` in `apps/web/src/l
 - `<html lang>`, `og:locale` (`ogLocale`), dates with `Intl` (`es-AR`, `en-US`) in `SITE_TIME_ZONE`.
 - ES | EN switcher: the equivalent published page if it exists, else the other language's home (or topics index).
 - `hreflang` only when the page exists in every language; `x-default` → Spanish.
-- 404 per URL prefix: `/es/404.html`, `/en/404.html`, bilingual `/404.html`.
+- 404 per URL prefix: `/es/404.html`, `/en/404.html`; without a prefix, the browser's language (above).
 - Body render gets the post's `lang` (smart quotes, callout labels).
 
 ## Copy style
@@ -85,3 +87,5 @@ Fallback is resolved where the text is used: `toSiteSettings` in `apps/web/src/l
 - Adding an English variant of a proper name (`nameEn` and the hero `creditEn`, both reverted by the owner).
 - `redir /es/ 302` in Caddy (the path is read as a matcher); it must be `redir * /es/ 302` (`2326627`).
 - Hard-coded Spanish strings in the admin after it became bilingual.
+- A bilingual root `/404.html` (the Spanish notice, then the English one) for URLs without a prefix: the owner wants
+  one language, the browser's, like the root redirect.

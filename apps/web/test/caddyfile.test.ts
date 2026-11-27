@@ -107,10 +107,14 @@ test('the root redirects by the browser language: English → /en/, otherwise �
   const root = directiveText(block('handle @root {'));
   assert.match(caddy, /^\s*@root path \/\s*$/m, 'the @root matcher must be exactly the root');
   assert.match(root, /^header Vary Accept-Language$/m, 'caches must split the response by language');
-  assert.match(root, /header_regexp Accept-Language/);
+  // @english is defined once, in the site block: the root redirect and the unprefixed 404 (handle_errors) share it, so
+  // both pick the language with the same rule. A second definition in a nested block makes Caddy reject the file.
+  const definitions = directives(caddy).filter((line) => line.startsWith('@english '));
+  assert.equal(definitions.length, 1, 'a single @english definition');
+  assert.match(caddy, /^\t@english header_regexp Accept-Language /m, '@english at the site block level');
   // The exact expression: only the FIRST preference, and "en" as a whole word (en, en-US). Without \b, "eng" or an
   // "english-fake" would also go to /en/.
-  const english = /^@english header_regexp Accept-Language (\S+)\s*$/m.exec(root)?.[1];
+  const english = /^@english header_regexp Accept-Language (\S+)$/.exec(definitions[0] ?? '')?.[1];
   assert.equal(english, String.raw`(?i)^\s*en\b`);
   // The same expression in JS (Go's `(?i)` = the i flag) to pin what goes in and what does not.
   const prefersEnglish = new RegExp((english ?? '').replace(/^\(\?i\)/, ''), 'i');
@@ -136,14 +140,22 @@ test('the 404 of /api/internal is not cached either (respond does not go through
   assert.ok(directives(block('handle /api/* {')).includes('header @internal Cache-Control "no-store"'));
 });
 
-test('404 by the URL language: /en/… → /en/404.html, /es/… → /es/404.html, the rest → /404.html', async () => {
-  const { LANGS, NOT_FOUND_PATH, paths } = await import('../src/lib/i18n.ts');
+test('404 by the URL language; without a prefix, by the browser language with the root rule', async () => {
+  const { DEFAULT_LANG, LANGS, paths } = await import('../src/lib/i18n.ts');
   const notFound = directives(block('handle @notfound {'));
   // The targets come from the same routes the build writes the files with (lib/i18n.ts): they cannot diverge.
   for (const lang of LANGS) assert.ok(notFound.includes(`rewrite /${lang}/* ${paths.notFound(lang)}`), lang);
-  // The rewrites of one block are mutually exclusive and Caddy tries the path ones before `*`: this one is the rest.
-  assert.ok(notFound.includes(`rewrite * ${NOT_FOUND_PATH}`));
-  assert.equal(notFound.filter((line) => line.startsWith('rewrite ')).length, LANGS.length + 1);
+  // Without a prefix, one language only: English when the first Accept-Language preference is English (the same
+  // @english as the root redirect), otherwise the main one. The rewrites of one block are mutually exclusive and Caddy
+  // tries the path ones first, then the one with a matcher, then `*`: that one is the rest.
+  assert.ok(notFound.includes(`rewrite @english ${paths.notFound('en')}`), 'unprefixed + English → the English 404');
+  assert.ok(notFound.includes(`rewrite * ${paths.notFound(DEFAULT_LANG)}`), 'unprefixed otherwise → the main language 404');
+  const rewrites = notFound.filter((line) => line.startsWith('rewrite '));
+  assert.equal(rewrites.length, LANGS.length + 2);
+  assert.ok(!rewrites.some((line) => line.endsWith(' /404.html')), 'the bilingual /404.html is never served');
+  // The unprefixed 404 depends on who asks: caches must split it by language (the prefixed ones do not vary).
+  assert.ok(notFound.includes(`@unprefixed not path ${LANGS.map((lang) => `/${lang}/*`).join(' ')}`));
+  assert.ok(notFound.includes('header @unprefixed Vary Accept-Language'));
   // Still a 404 served from the published site, precompressed.
   assert.ok(notFound.includes('root * /srv/site/current'));
   assert.match(directiveText(block('handle @notfound {')), /file_server \{\s*precompressed br gzip\s*\}/);

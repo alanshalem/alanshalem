@@ -165,10 +165,13 @@
 	# ---------- Root: the browser's preferred language ----------
 	# The site lives under /es/ and /en/. If the first Accept-Language preference is English it goes to /en/; otherwise
 	# to /es/ (Spanish by default). 302 because it depends on who asks; Vary so no cache mixes the responses.
+	# @english is the browser-language rule of the whole site (the API's RequestLanguage applies the same expression):
+	# defined once here, in the site block, so the unprefixed 404 (handle_errors) uses it too. Nested blocks see it; a
+	# second definition in one of them makes Caddy reject the file.
+	@english header_regexp Accept-Language (?i)^\s*en\b
 	@root path /
 	handle @root {
 		header Vary Accept-Language
-		@english header_regexp Accept-Language (?i)^\s*en\b
 		redir @english /en/ 302
 		redir * /es/ 302
 	}
@@ -213,15 +216,21 @@
 	handle_errors {
 		import security
 		header Cache-Control "no-store"
-		# The site's 404 page in the URL's language: Astro generates /es/404.html and /en/404.html (all in that
-		# language) and /404.html, bilingual, for what has no prefix. The rewrites of a block are mutually exclusive and
-		# Caddy tries the path ones before the `*` one: that one is the rest. The status code stays 404.
+		# The site's 404 page, in one language: Astro generates /es/404.html and /en/404.html (all in that language).
+		# Under a prefix the URL decides; without one (/noexiste, /admin-typo), the browser does, with the root's rule:
+		# English if the first Accept-Language preference is (@english), otherwise Spanish. Those vary by
+		# Accept-Language, like the root redirect. The rewrites of a block are mutually exclusive and Caddy tries the
+		# path ones first, then the one with a matcher, then `*`: that one is the rest. The status code stays 404. The
+		# /404.html Astro also writes is never served.
 		@notfound expression {err.status_code} == 404
 		handle @notfound {
 			root * /srv/site/current
+			@unprefixed not path /es/* /en/*
+			header @unprefixed Vary Accept-Language
 			rewrite /es/* /es/404.html
 			rewrite /en/* /en/404.html
-			rewrite * /404.html
+			rewrite @english /en/404.html
+			rewrite * /es/404.html
 			file_server {
 				precompressed br gzip
 			}

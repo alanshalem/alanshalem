@@ -222,19 +222,23 @@ sizes); a helper used by one script lives in that script.
   matcher-less `header` last and it overrode immutable); SPA fallback with `rewrite @spa /index.html` where
   `@spa = not path /assets/* + not file` (`try_files` does not accept a matcher); `precompressed br gzip`.
 - `/media/*`: immutable, sandbox CSP, no `encode` (Range must see exact bytes).
+- `@english header_regexp Accept-Language (?i)^\s*en\b` is defined **once, in the site block**: nested blocks and
+  `handle_errors` see it, and a second definition makes Caddy reject the file.
 - `/`: `header Vary Accept-Language`, `redir @english /en/ 302`, then `redir * /es/ 302` (not `redir /es/`).
 - Site: `/_astro/*` immutable, fonts 30 days, pages `no-cache`, `precompressed br gzip` from `/srv/site/current`.
-- `handle_errors`: `import security`, `no-store`, 404 rewritten per prefix to `/es/404.html`, `/en/404.html`, else
-  `/404.html`. The `(security)` snippet is imported in the site block and in errors (HSTS without
-  includeSubDomains on purpose: the VPS hosts other apps).
+- `handle_errors`: `import security`, `no-store`, 404 rewritten per prefix to `/es/404.html`, `/en/404.html`; without
+  a prefix `rewrite @english /en/404.html`, else `/es/404.html`, with `header @unprefixed Vary Accept-Language`
+  (`@unprefixed not path /es/* /en/*`). The rewrites are one exclusive group sorted paths → matcher → `*` (checked with
+  `caddy adapt`). The `/404.html` Astro writes is never served. The `(security)` snippet is imported in the site
+  block and in errors (HSTS without includeSubDomains on purpose: the VPS hosts other apps).
 
 Every Caddy change: update `apps/web/test/caddyfile.test.ts` (routing and caching) or `infra/test/caddy.test.ts`
 (production pass: ACME, COOP/CORP, noindex, proxy gate, SITE_ENV), then validate with real Caddy (`caddy validate` in
 the image — CI does it for the VPS, local and Dokploy forms — and `sh infra/test/caddy-runtime.sh`, which CI's infra
 job also runs: the pinned image against a stub API, production at the edge, staging and production behind a proxy,
-checked with curl for noindex, robots.txt, 404, /api, the 403 gate, forged X-Forwarded-For, a stray X-Proxy-Secret at
-the edge (not refused, not forwarded), the secret absent from `docker logs` of Caddy, and a SITE_ENV typo) —
-text tests alone have passed broken configs.
+checked with curl for noindex, robots.txt, the 404 by prefix and by Accept-Language (with `Vary`), /api, the 403
+gate, forged X-Forwarded-For, a stray X-Proxy-Secret at the edge (not refused, not forwarded), the secret absent from
+`docker logs` of Caddy, and a SITE_ENV typo) — text tests alone have passed broken configs.
 
 ## Builder (`apps/builder`)
 

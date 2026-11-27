@@ -1,30 +1,24 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { notFoundPage, paths, ui } from '../lib/i18n.ts';
+import { notFoundLang, paths, ui } from '../lib/i18n.ts';
 
-// One page for the three 404s. Astro generates it as /404.html and, from pages/[lang]/404.html.ts, as /es/404.html
-// and /en/404.html: `originPathname` is the URL it was requested from. Under a language, everything is in that
-// language; in /404.html (URLs without a prefix, where there is no telling which language the visitor reads) the
-// notice is in both and the header and footer in the main one. A single h1, in the page's language; the notice in
-// the other language is an h2 with the same style.
-const { lang, notices } = notFoundPage(Astro.originPathname);
+// One page for the 404s, in one language. Astro generates it as /es/404.html and /en/404.html from
+// pages/[lang]/404.html.ts (`originPathname` is the URL it was requested from), and also as /404.html, in the main
+// language: Caddy never serves that one (URLs without a prefix get the one of the browser's language), but this page
+// must exist as the rewrite target and it is what `astro dev` shows for a missing route.
+const lang = notFoundLang(Astro.originPathname);
 const t = ui(lang);
-const path = notices.length === 1 ? paths.notFound(lang) : '/404/';
 ---
 
-<BaseLayout lang={lang} title={t.notFoundTitle} path={path} noindex>
-  {
-    notices.map((notice) => (
-      <header class="page-head page-head--404" lang={notice}>
-        <p class="eyebrow">{ui(notice).notFoundEyebrow}</p>
-        {notice === lang ? <h1>{ui(notice).notFoundHeading}</h1> : <h2 class="page-head-title">{ui(notice).notFoundHeading}</h2>}
-        <p class="page-dek">{ui(notice).notFoundDek}</p>
-        <p class="entry-links">
-          <a href={paths.home(notice)}>{ui(notice).backHome}</a>
-          <a href={paths.posts(notice)}>{ui(notice).posts}</a>
-          <a href={paths.tags(notice)}>{ui(notice).topics}</a>
-        </p>
-      </header>
-    ))
-  }
+<BaseLayout lang={lang} title={t.notFoundTitle} path={paths.notFound(lang)} noindex>
+  <header class="page-head page-head--404">
+    <p class="eyebrow">{t.notFoundEyebrow}</p>
+    <h1>{t.notFoundHeading}</h1>
+    <p class="page-dek">{t.notFoundDek}</p>
+    <p class="entry-links">
+      <a href={paths.home(lang)}>{t.backHome}</a>
+      <a href={paths.posts(lang)}>{t.posts}</a>
+      <a href={paths.tags(lang)}>{t.topics}</a>
+    </p>
+  </header>
 </BaseLayout>

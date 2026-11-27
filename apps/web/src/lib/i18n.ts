@@ -47,9 +47,6 @@ export const paths = {
   notFound: (lang: Lang): string => `/${lang}/404.html`,
 };
 
-/** The bilingual 404 for URLs without a language prefix. Astro writes it like this: it is the root's status page. */
-export const NOT_FOUND_PATH = '/404.html';
-
 /** A route's language from its first segment ("/en/…" → en); none without a language prefix. */
 export const langOfPath = (pathname: string): Lang | undefined => {
   const first = pathname.split('/')[1];
@@ -57,14 +54,11 @@ export const langOfPath = (pathname: string): Lang | undefined => {
 };
 
 /**
- * What the 404 page shows depending on the URL it was generated from: under /<lang>/, everything in that language;
- * otherwise (/404.html, which Caddy uses for any URL without a prefix), header and footer in the main language and the
- * notice in both, because there is no telling which language the visitor reads.
+ * The language of the 404 page generated from a URL: under /<lang>/, that language; otherwise the main one (the root
+ * /404.html Astro always writes, and `astro dev`). Caddy never serves that root one: for URLs without a prefix it picks
+ * /es/404.html or /en/404.html from the browser's Accept-Language.
  */
-export function notFoundPage(originPathname: string): { lang: Lang; notices: Lang[] } {
-  const lang = langOfPath(originPathname);
-  return lang ? { lang, notices: [lang] } : { lang: DEFAULT_LANG, notices: [...LANGS] };
-}
+export const notFoundLang = (originPathname: string): Lang => langOfPath(originPathname) ?? DEFAULT_LANG;
 
 /** The equivalent page in each language that has it (the page itself included). Feeds hreflang and the switcher. */
 export type Alternates = Partial<Record<Lang, string>>;

@@ -144,8 +144,8 @@ docker compose -f infra/docker-compose.yml -f infra/compose.local.yml --env-file
 docker compose -f infra/compose.dev.yml --env-file infra/local.env config -q
 docker run --rm -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" -e SITE_ADDRESS=:80 \
   "$(sed -n 's/^FROM \(caddy:[^ ]*\).*/\1/p' infra/caddy/Dockerfile)" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-# The Caddyfile running (production, staging behind a proxy, a stub API): noindex, robots.txt, the proxy gate, the
-# proxy secret kept from the API and the access log
+# The Caddyfile running (production, staging behind a proxy, a stub API): noindex, robots.txt, the 404 in the URL's or
+# the browser's language, the proxy gate, the proxy secret kept from the API and the access log
 sh infra/test/caddy-runtime.sh
 
 # Security: dependencies with known vulnerabilities
