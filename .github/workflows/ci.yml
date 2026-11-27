@@ -102,9 +102,21 @@ jobs:
           BUILDER_TOKEN: ci-placeholder-not-a-token-ci-placeholder
           PROXY_SECRET: ci-placeholder-not-a-proxy-secret
 
+      # The override runs the published images: with a placeholder IMAGE_TAG (set by the deploy workflow on the VPS)
+      # api, builder and caddy have an image and pull_policy and no build; without one compose must refuse to start.
       - name: docker compose config (Dokploy)
         working-directory: infra
-        run: docker compose -f docker-compose.yml -f compose.dokploy.yml config -q
+        run: |
+          config=$(IMAGE_TAG=sha-ci-placeholder docker compose -f docker-compose.yml -f compose.dokploy.yml config --format json)
+          jq -e '.services | [.api, .builder, .caddy] | all((has("build") | not) and (.image | endswith(":sha-ci-placeholder")) and .pull_policy == "missing")' <<<"$config"
+          if errors=$(docker compose -f docker-compose.yml -f compose.dokploy.yml config -q 2>&1); then
+            echo "::error::compose.dokploy.yml started without IMAGE_TAG"
+            exit 1
+          fi
+          if ! grep -q 'required variable IMAGE_TAG is missing a value' <<<"$errors"; then
+            echo "::error::compose.dokploy.yml failed without IMAGE_TAG, but not because of it: $errors"
+            exit 1
+          fi
         env: *compose-placeholders
 
       - name: docker compose config (local production copy)
@@ -176,7 +188,9 @@ jobs:
 
       # Build once, deploy many: every commit on master publishes the image it just scanned as
       # ghcr.io/<owner>/blog-<service>:sha-<commit>. Staging and production deploy these exact images (deploy.yml);
-      # nothing rebuilds them on the VPS. A tag is never overwritten. The label links the package to this repository.
+      # nothing rebuilds them on the VPS. A tag is never overwritten: a re-run of this job (a new build of the same
+      # commit) keeps the image that was published first, the one staging may already run. The label links the package
+      # to this repository.
       - name: Publish to GHCR (master only)
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         env:
@@ -185,11 +199,19 @@ jobs:
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/blog-$SERVICE:sha-$GITHUB_SHA"
           echo "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          echo "FROM blog-$SERVICE" | docker build --quiet --tag "$image" \
+          trap 'docker logout ghcr.io' EXIT
+          # Only "not found" means unpublished: any other answer (GHCR down, a rate limit) might hide an existing tag.
+          if output=$(docker manifest inspect "$image" 2>&1 >/dev/null); then
+            echo "$image already published, not overwritten" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          elif ! grep -qi 'manifest unknown\|no such manifest\|not found' <<<"$output"; then
+            echo "::error::Could not check whether $image exists, so it is not pushed (re-run the job): $output"
+            exit 1
+          fi
+          echo "FROM blog-$SERVICE" | docker build --tag "$image" \
             --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" -
-          docker push --quiet "$image"
-          docker logout ghcr.io
+          docker push "$image"
           echo "Published $image" >>"$GITHUB_STEP_SUMMARY"
 
   security:

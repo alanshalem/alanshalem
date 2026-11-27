@@ -61,15 +61,17 @@ docker compose -f docker-compose.yml -f compose.local.yml --env-file local.env u
 `--env-file` goes on every command of those projects (`up`, `logs`, `down`). Details: skill `docker-and-deploy`.
 
 Deploy: Dokploy on srv2192513 runs `docker-compose.yml` + `compose.dokploy.yml` (Caddy on :80 inside
-`dokploy-network`, Traefik does TLS), one Compose service per environment: push to `master` → staging
-(`staging.alanshalem.com`, basic auth in Traefik, `SITE_ENV=staging` = noindex), git tag → production
-(`alanshalem.com`). Runbook: `docs/README.md` "Operations". Never deploy, tag or push without the user.
-VPS operations step by step (every system on the VPS, a check per phase): `docs/vps-guide.md`. Releases (staging → tag → production, hotfix, rollback): `docs/release-guide.md`.
+`dokploy-network`, Traefik does TLS; api/builder/caddy run the images CI published to GHCR, `IMAGE_TAG`, never a build
+on the VPS), one Compose service per environment. Build once, promote by tag (`.github/workflows/deploy.yml`): a green
+CI run on `master` → staging (`staging.alanshalem.com`, basic auth in Traefik, `SITE_ENV=staging` = noindex), a `v*`
+tag → production (`alanshalem.com`) with the same images, rollback = the workflow with an older tag. Runbook:
+`docs/README.md` "Operations". Never deploy, tag or push without the user.
+VPS operations step by step (every system on the VPS, a check per phase): `docs/vps-guide.md`. Releases (PR → staging → tag → production, hotfix, rollback, one-time setup): `docs/release-guide.md`.
 
 **How to verify = CI.** `.github/workflows/ci.yml` runs on every push and PR to `master` (read-only, actions pinned by
 SHA): jobs `node` (install, typecheck, `pnpm test`, admin build, `agents:check`), `dotnet` (`-warnaserror` build + all
 tests inside the `dev` target of `apps/api/Dockerfile`, real ffmpeg), `infra` (`docker compose config -q` for the three
-stacks, `caddy validate`), `images` (build the three production images, Trivy) and `security` (gitleaks over the full
+stacks, `caddy validate`), `images` (build the three production images, Trivy, publish to GHCR on `master`) and `security` (gitleaks over the full
 history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to run locally are in `docs/README.md`
 "How to verify"; the VPS runbook (deploy, update, rollback, backups, monitoring) is its "Operations" section.
 

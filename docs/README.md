@@ -42,7 +42,7 @@ barely works at rest and the site stays up even if the API goes down.
 | `tooling/profile` | Generator of the profile README images (`assets/profile/`); run by the `profile.yml` Action. |
 | `tooling/agents` | Copies the skills to each agent and checks them (`pnpm agents:sync`, `pnpm agents:check`). |
 | `.agents/skills` | Agent skills (single source; `.claude/skills` and `.github/skills` are generated copies). General context: `AGENTS.md`. |
-| `.github/workflows` | `ci.yml` (everything in "How to verify", on every push and PR) and `profile.yml` (profile images, daily). |
+| `.github/workflows` | `ci.yml` (everything in "How to verify", on every push and PR; on `master` it also publishes the images to GHCR), `deploy.yml` (deploys those images: staging after a green CI on `master`, production on a tag; [release guide](release-guide.md)), `dependabot-auto-merge.yml` and `profile.yml` (profile images, daily). |
 
 ## Local development
 
@@ -150,11 +150,16 @@ sh infra/test/caddy-runtime.sh
 
 # Security: dependencies with known vulnerabilities
 pnpm audit --prod --audit-level high
+
+# Workflows: syntax, expressions and the shell of every run step
+docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:latest -no-color
 ```
 
-CI also builds the three production images (`docker compose build`, no push) and scans them with Trivy (CRITICAL and
-HIGH with a published fix), looks for secrets in the whole history with gitleaks and runs `dotnet list package
---vulnerable --include-transitive` with the pinned SDK. Dependabot (`.github/dependabot.yml`) proposes new versions of
+CI also builds the three production images (`docker compose build`) and scans them with Trivy (CRITICAL and HIGH with
+a published fix); on a push to `master` it publishes each scanned image to GHCR as
+`ghcr.io/alanshalem/blog-<service>:sha-<commit>` (never overwritten), the images staging and production run. It
+looks for secrets in the whole history with gitleaks and runs `dotnet list package --vulnerable --include-transitive`
+with the pinned SDK. Dependabot (`.github/dependabot.yml`) proposes new versions of
 pnpm, NuGet, base images and actions every week. Every action is pinned by SHA and every image by digest.
 
 On Windows the backup script tests are skipped (they are for Linux) and, without Developer Mode, so are the builder
@@ -176,9 +181,12 @@ scripts below find that environment's stack as they are.
 How Dokploy runs a Compose service: on every deploy it clones the branch into `/etc/dokploy/compose/<appName>/code`,
 rewrites the Compose Path file (`infra/docker-compose.yml`) adding the Traefik labels of its domains and
 `dokploy-network`, writes `infra/.env` from the Environment tab and runs the Command (Advanced) from `code/` with
-`docker` in front. The compose file on the VPS is therefore not the one in git (never edit it there: the next deploy
-replaces it), and the containers are `<appName>-<service>-1` (for example `<appName>-caddy-1`), the names the checks
-below use.
+`docker` in front. Nothing is built there: `compose.dokploy.yml` replaces the build of `api`, `builder` and `caddy`
+with the images CI published for one commit (`ghcr.io/alanshalem/blog-<service>:${IMAGE_TAG}`), and the deploy
+workflow (`.github/workflows/deploy.yml`) picks that commit, sets `IMAGE_TAG` and starts the deploy through
+Dokploy's API ("Dokploy: release flow"). The compose file on the VPS is therefore not the one in git (never edit it
+there: the next deploy replaces it), and the containers are `<appName>-<service>-1` (for example
+`<appName>-caddy-1`), the names the checks below use.
 
 Step by step, with a check after every phase: [docs/vps-guide.md](vps-guide.md) (the procedure for every system on the
 VPS). This section is the blog's reference and the reasons behind each piece.
@@ -279,16 +287,18 @@ steps, one action at a time: [guide Phases 7–9](vps-guide.md#8-phase-7--projec
 2. Dokploy → Settings → Git → GitHub: create the GitHub App and install it with Repository access **Only select
    repositories**, including this one ([guide 4.2](vps-guide.md#42-github-app)).
 3. Projects → Create Project `alanshalem`, with two environments, `production` and `staging`. In each one: Create
-   Service → Compose, type **Docker Compose** (not Stack: Stack cannot `build`), provider GitHub, this repository,
-   branch `master`, Compose Path `./infra/docker-compose.yml`. Leave Isolated Deployments off. Save, then reload the
-   page and confirm it still says `./infra/docker-compose.yml`: an unsaved path stays the default `./docker-compose.yml`
+   Service → Compose, type **Docker Compose** (not Stack: the command, `--wait` and the `depends_on` conditions are
+   plain Docker Compose), provider GitHub, this repository, branch `master`, Compose Path
+   `./infra/docker-compose.yml`. Leave Isolated Deployments off. Save, then reload the page and confirm it still says `./infra/docker-compose.yml`: an unsaved path stays the default `./docker-compose.yml`
    and the deploy ends with `❌ Error: Compose file not found`.
 4. Advanced → Command, with the App Name shown in the General tab. Dokploy runs this exact command from `code/` with
-   `docker` in front; it adds `compose.dokploy.yml`, which takes Caddy off 80/443 and puts it behind Traefik, and
-   `--wait` makes the deploy wait until every container is running and healthy (step 7):
+   `docker` in front; it adds `compose.dokploy.yml`, which takes Caddy off 80/443, puts it behind Traefik and runs
+   the published images (no `--build`), and `--wait` makes the deploy wait until every container is running and
+   healthy (step 7). The deploy workflow writes the same command on every deploy, so a wrong edit here lasts one
+   deploy:
 
    ```text
-   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --build --remove-orphans --wait
+   compose -p <appName> --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --remove-orphans --wait
    ```
 
 5. Environment (Dokploy writes it to `infra/.env` on every deploy; edit it here, never on the server). Staging:
@@ -301,8 +311,12 @@ steps, one action at a time: [guide Phases 7–9](vps-guide.md#8-phase-7--projec
    ADMIN_PASSWORD_HASH='pbkdf2-sha256$...'
    PROXY_SECRET=...
    COMPOSE_FILE=docker-compose.yml:compose.dokploy.yml
+   IMAGE_TAG=${{environment.IMAGE_TAG}}
    ```
 
+   - `IMAGE_TAG=${{environment.IMAGE_TAG}}` is typed as is, in both environments: Dokploy replaces it with the
+     environment's own `IMAGE_TAG` variable (`sha-<commit>`), which the deploy workflow sets before every deploy
+     (the environment's variables hold only that line). Without it the deploy fails naming `IMAGE_TAG`.
    - Production: `SITE_URL=https://alanshalem.com` and no `SITE_ENV` line (the default is `production`). `SITE_ENV`
      only accepts `production` or `staging`: any other value stops Caddy (it refuses its configuration), so a typo
      never serves staging as an indexable production, and the deploy fails (step 7).
@@ -321,9 +335,10 @@ steps, one action at a time: [guide Phases 7–9](vps-guide.md#8-phase-7--projec
    `alanshalem-staging-auth@file`. Middlewares is a tag input: type each name and press **Enter** so it becomes a
    chip; text left typed is not saved, and a domain with an empty list makes Caddy answer 403 to everything. Save (a
    Compose service applies domain changes on the next deploy).
-7. Deploy and follow the deployment log: `init-permissions` runs once and exits with 0 (a one-shot, which `--wait`
-   accepts), then `api`, `caddy` and `builder` report `Healthy` and the deploy is done; the builder then builds the
-   site (Logs tab of `builder`). **A failed deploy** is marked as an error in the Deployments tab and its log ends with
+7. Deploy (the first time: run the Deploy workflow, [release guide 10](release-guide.md#10-one-time-setup), so that
+   `IMAGE_TAG` exists) and follow the deployment log: compose pulls the three images, `init-permissions` runs once
+   and exits with 0 (a one-shot, which `--wait` accepts), then `api`, `caddy` and `builder` report `Healthy` and the
+   deploy is done; the builder then builds the site (Logs tab of `builder`). **A failed deploy** is marked as an error in the Deployments tab and its log ends with
    `container <appName>-<service>-1 is unhealthy` (or `exited`): that service's Logs tab says why (a `SITE_ENV` typo:
    `File to import not found: site-env-prod`). Nothing is rolled back: what the deploy recreated stays (a Caddy that
    refuses its configuration leaves the domain answering 404 from Traefik) until a deploy with the fix.
@@ -346,8 +361,10 @@ steps, one action at a time: [guide Phases 7–9](vps-guide.md#8-phase-7--projec
 
    The full list of checks, with the expected output of each:
    [guide 10.2 and 10.3](vps-guide.md#102-check-from-your-pc).
-9. Automatic deploys, in General: staging with Auto Deploy on and the trigger on push (branch `master`); production
-   with Auto Deploy on and the trigger on tag (see "Dokploy: release flow").
+9. Automatic deploys come from GitHub, not from Dokploy's webhook: turn Auto Deploy off in General (before the deploy
+   workflow reaches `master`, or the webhook races it); the workflow keeps it off and sets the branch on every deploy
+   (see "Dokploy: release flow"). Its GitHub environments, the API key and the public
+   packages are a one-time setup: [release guide 10](release-guide.md#10-one-time-setup).
 
 **Confirmed on the first real production deploy.** Compose domains have the Middlewares field and it reaches Caddy's
 router (`docker inspect --format '{{json .Config.Labels}}' <appName>-caddy-1` lists the middlewares of step 6);
@@ -358,20 +375,32 @@ with the `Healthy` lines of step 7). Staging's first deploy runs the same checks
 
 - [ ] The `$` of the single-quoted `ADMIN_PASSWORD_HASH` survives the Environment tab: signing in to `/admin/` with
       the password works (a mangled hash rejects every password).
-- [ ] The tag trigger, on the first tag: `git push origin <tag>` starts a production deploy and no staging one; a push
-      to `master` only staging.
+- [ ] The deploy workflow, on the first runs: a merge into `master` deploys staging after CI, a tag deploys
+      production, and `gh workflow run deploy.yml -f environment=production -f ref=<older tag>` goes back. Its API
+      calls follow Dokploy's documented REST form (`GET /api/compose.one?composeId=…`, `POST /api/compose.deploy`
+      with a JSON body); if Dokploy answers otherwise, the one `dokploy()` function in the workflow is the place to
+      fix.
 
 ### Dokploy: release flow
 
-- Push to `master` → staging deploys on its own. It does not wait for CI: check the run is green before trusting
-  staging. Commits whose message carries `[skip ci]` (the daily profile images) deploy nothing.
-- When staging is right: `git tag vYYYY.MM.DD && git push origin vYYYY.MM.DD` → production deploys. **Dokploy deploys
-  the head of the configured branch, not the tagged commit** (it clones `--branch master --depth 1`): tag the head of
-  `master` that staging validated and do not push anything else before the production deploy starts.
+Build once, promote by tag. Step by step: [release-guide.md](release-guide.md).
+
+- CI builds and scans the three images once per commit on `master` and publishes them as
+  `ghcr.io/alanshalem/blog-<service>:sha-<commit>`. When that CI run is green, the deploy workflow deploys staging
+  with them, unless a newer commit of `master` already has a CI run ("superseded": staging never moves backwards).
+  `[skip ci]` commits (the daily profile images) run no CI, so they publish and deploy nothing.
+- A `v*` tag deploys production with the images of the tag's commit: exactly what staging ran, never a rebuild and
+  never "the head of `master`". A tag on a commit without a green CI run (a `[skip ci]` one) fails before touching
+  Dokploy.
+- Rollback of the code = run the Deploy workflow with an older tag (`gh workflow run deploy.yml -f
+  environment=production -f ref=v…`): its images are still in GHCR. Data goes back only with `restore.sh` ("Rollback").
+- Each deploy sets the Dokploy environment's `IMAGE_TAG`, writes the command above with the service's App Name, turns
+  Auto Deploy off and sets the branch (the tag for a release, `master` for staging), then calls `compose.deploy` and
+  waits for Dokploy's result. Pressing **Deploy** in the panel redeploys the version last set.
 - Before tagging, a backup of production (`backup.sh` in its `infra/`, with production's `BACKUP_DIR` and remote as in
-  "Backups"): it is the only way back (see Rollback). Step by step: [release-guide.md](release-guide.md).
-- Each deploy rebuilds the images and recreates only the containers whose image or configuration changed; the volumes
-  stay. Migrations run when the API starts and a failed build never touches the published site.
+  "Backups"): it is the only way back for data (see Rollback).
+- Each deploy pulls the images it does not have and recreates only the containers whose image or configuration
+  changed; the volumes stay. Migrations run when the API starts and a failed build never touches the published site.
 - A deploy that does not change Caddy keeps the site up. One that does (the Caddyfile, the admin, its image or
   environment, such as `SITE_ENV` or `PROXY_SECRET`) leaves the domain without Caddy for about 5 s: Traefik answers 404
   from when the old one stops until the new one is healthy (it only routes to healthy containers; measured behind
@@ -404,7 +433,8 @@ publishes no ports: only Caddy and the builder reach it.
 
 ### Update
 
-Under Dokploy an update is a push (staging) or a tag (production): see "Dokploy: release flow". Without Dokploy:
+Under Dokploy an update is a merge into `master` (staging) or a tag (production): see "Dokploy: release flow".
+Without Dokploy:
 
 ```bash
 sh backup.sh                                   # always first: it is the only way back (see Rollback)
@@ -422,8 +452,9 @@ version carry no epoch, so the new API rejects them: sign in again after the upd
 ### Rollback
 
 There are no `Down` migrations: going back to a previous version means **restoring the backup** taken before
-updating. First the previous code (`git checkout <commit>` and `docker compose --env-file .env build`; under Dokploy, a
-revert on `master` and a new tag, deployed), then the backup from that moment:
+updating. First the previous code (`git checkout <commit>` and `docker compose --env-file .env build`; under Dokploy,
+the Deploy workflow with the previous tag, [release guide 6](release-guide.md#6-rollback)), then the backup from that
+moment:
 
 ```bash
 sh restore.sh /var/backups/blog/daily/<UTC>            # checks the snapshot and shows what it would do; changes nothing
@@ -523,6 +554,9 @@ Careful: Docker opens the ports it publishes in iptables without going through u
 
 - `docker system df` shows images, build cache and volumes. After several updates: `docker system prune` (stopped
   containers, unnamed images, build cache). **Never** `--volumes` nor `down -v`: they delete the database and the media.
+- Under Dokploy every release pulls three tagged images that stay after the next one. `docker image ls
+  'ghcr.io/alanshalem/*'` lists them; `docker image rm` the old `sha-…` tags you no longer want to roll back to
+  without pulling (a rollback pulls them again from GHCR).
 - The media (`media`) grows with every uploaded image and video (several AVIF and WebP widths are kept for each image)
   and is never deleted on its own; the backup accumulates it too. The builder keeps the last 3 versions of the site
   (`KEEP_RELEASES`).

@@ -10,6 +10,8 @@ const exists = (path: string): boolean => existsSync(new URL(`../../${path}`, im
 const prod = read('infra/docker-compose.yml');
 const dev = read('infra/compose.dev.yml');
 const dokploy = exists('infra/compose.dokploy.yml') ? read('infra/compose.dokploy.yml') : '';
+/** The services CI builds, scans and publishes to GHCR (ci.yml, images job). */
+const published = ['api', 'builder', 'caddy'];
 
 /** Meaningful lines (no comments or blank lines), with their indentation. */
 const lines = (text: string): string[] => text.split('\n').filter((line) => line.trim() !== '' && !line.trim().startsWith('#'));
@@ -161,11 +163,46 @@ describe('docker-compose.yml (VPS)', () => {
     assert.doesNotMatch(prod, /CADDY_TRUSTED_PROXIES/);
     assert.doesNotMatch(prod, /dokploy-network/);
   });
+
+  it('still builds api, builder and caddy from source (local dev, the local copy and a plain VPS build them)', () => {
+    for (const name of published) {
+      assert.match(service(prod, name), /^ {4}build:$/m, name);
+      assert.doesNotMatch(service(prod, name), /^\s+(image|pull_policy):/m, name);
+    }
+    // The local copy builds them too: it never names a published image.
+    assert.doesNotMatch(read('infra/compose.local.yml'), /ghcr\.io|IMAGE_TAG|pull_policy|build: !reset/);
+  });
 });
 
 describe('compose.dokploy.yml (behind Dokploy and its Traefik)', () => {
-  it('only overrides Caddy', () => {
-    assert.deepEqual(services(dokploy), ['caddy']);
+  it('overrides only the three services CI publishes as images', () => {
+    assert.deepEqual([...services(dokploy)].sort(), [...published].sort());
+  });
+
+  it('api, builder and caddy run the images CI published for IMAGE_TAG, never a build on the VPS', () => {
+    for (const name of published) {
+      const text = service(dokploy, name);
+      assert.match(text, /^ {4}build: !reset null$/m, name);
+      assert.match(text, new RegExp(`^ {4}image: ghcr\\.io/alanshalem/blog-${name}:\\$\\{IMAGE_TAG:\\?[^}]+\\}$`, 'm'), name);
+      // Dokploy never pulls by itself: compose pulls a tag it does not have yet; a tag is never repointed.
+      assert.match(text, /^ {4}pull_policy: missing$/m, name);
+    }
+  });
+
+  it('a missing IMAGE_TAG stops the deploy with a message that names the release guide', () => {
+    const messages = new Set([...dokploy.matchAll(/\$\{IMAGE_TAG:\?([^}]+)\}/g)].map((m) => m[1]));
+    assert.equal(messages.size, 1, 'one message for the three images');
+    const [message] = [...messages];
+    assert.match(message!, /docs\/release-guide\.md/);
+    assert.ok(exists('docs/release-guide.md'));
+  });
+
+  it('CI runs the real compose on the override: images with a placeholder IMAGE_TAG, and a refusal without one', () => {
+    const ci = read('.github/workflows/ci.yml');
+    assert.match(ci, /IMAGE_TAG=sha-ci-placeholder docker compose -f docker-compose\.yml -f compose\.dokploy\.yml config/);
+    // The refusal must be the one for IMAGE_TAG, not any other compose error.
+    assert.match(ci, /if errors=\$\(docker compose -f docker-compose\.yml -f compose\.dokploy\.yml config -q 2>&1\); then/);
+    assert.match(ci, /grep -q 'required variable IMAGE_TAG is missing a value' <<<"\$errors"/);
   });
 
   it('Caddy publishes no port: Traefik owns 80/443 on the VPS', () => {
@@ -203,9 +240,21 @@ describe('compose.dokploy.yml (behind Dokploy and its Traefik)', () => {
     assert.ok(command, 'missing the Dokploy command in the header');
     // --wait: the deploy fails when a container does not start or a healthcheck does not pass (a SITE_ENV typo stops
     // Caddy), instead of reporting success as soon as the containers are created.
-    assert.match(command, / --env-file infra\/\.env -f infra\/docker-compose\.yml -f infra\/compose\.dokploy\.yml up -d --build --remove-orphans --wait$/);
+    // No --build: the images come from GHCR, built and scanned once by CI.
+    assert.match(command, / --env-file infra\/\.env -f infra\/docker-compose\.yml -f infra\/compose\.dokploy\.yml up -d --remove-orphans --wait$/);
+    assert.doesNotMatch(command, /--build/);
     assert.ok(read('docs/README.md').includes(command), 'docs/README.md must give the same command');
+    assert.ok(read('docs/vps-guide.md').includes(command), 'docs/vps-guide.md must give the same command');
     assert.ok(read('.agents/skills/docker-and-deploy/SKILL.md').includes(command), 'the docker-and-deploy skill must give the same command');
+    // The deploy workflow writes the same command into the service on every deploy, with the App Name it reads.
+    assert.ok(
+      read('.github/workflows/deploy.yml').includes(command.replace('<appName>', '$app_name')),
+      '.github/workflows/deploy.yml must set the same command',
+    );
+    // Nowhere does the documented Dokploy command still build.
+    for (const path of ['docs/README.md', 'docs/vps-guide.md', '.agents/skills/docker-and-deploy/SKILL.md']) {
+      assert.doesNotMatch(read(path), /compose -p <appName> .* --build/, path);
+    }
   });
 
   it('the runbook section its header names exists in the README', () => {

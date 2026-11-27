@@ -1,0 +1,362 @@
+# Deploys to Dokploy the images CI built, scanned and published for one commit
+# (ghcr.io/<owner>/blog-<service>:sha-<commit>); nothing is rebuilt on the VPS. A green CI run of a push to master
+# deploys staging; a pushed v* tag deploys production with the images of the tag's commit, the ones staging ran; running
+# it by hand with an older tag is the rollback. Step by step: docs/release-guide.md.
+name: Deploy
+# The title names the version and the environment, so a run can be found by it (docs/release-guide.md).
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch' && format('Deploy {0} to {1}', inputs.ref, inputs.environment) ||
+  github.event_name == 'push' && format('Deploy {0} to production', github.ref_name) ||
+  format('Deploy sha-{0} to staging', github.event.workflow_run.head_sha) }}
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Where to deploy
+        type: choice
+        options: [staging, production]
+        required: true
+      ref:
+        description: A release tag (v2026.11.27) or, for staging only, a full 40-character commit SHA
+        type: string
+        required: true
+
+# Nothing by default; each job asks for what it needs below.
+permissions: {}
+
+jobs:
+  plan:
+    name: Plan (environment, version, published images)
+    # A CI run counts only when it is green and comes from a push to master of this repository (never a pull request).
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # Only to read through the API: a tag's commit, and the CI runs of that commit.
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      environment: ${{ steps.plan.outputs.environment }}
+      version: ${{ steps.plan.outputs.version }}
+      sha: ${{ steps.plan.outputs.sha }}
+      branch: ${{ steps.plan.outputs.branch }}
+      deploy: ${{ steps.plan.outputs.deploy }}
+    steps:
+      # environment: staging or production. version: the tag, or sha-<commit> for a staging deploy of a commit.
+      # branch: what Dokploy clones for the compose files; a tag for a release (the files of the deployed commit), master
+      # for a commit on staging.
+      - name: Environment and version
+        id: plan
+        env:
+          EVENT: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_ENVIRONMENT: ${{ inputs.environment }}
+          INPUT_REF: ${{ inputs.ref }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1" >&2; exit 1; }
+          # sha = the commit a tag points at (an annotated tag is an object of its own: follow it to the commit).
+          resolve_tag() {
+            [[ $1 =~ ^v[0-9A-Za-z._-]+$ ]] || fail "\"$1\" is not a release tag (v2026.11.27, v2026.11.27.2)"
+            local object type
+            object=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$1" --jq '.object.sha + " " + .object.type') ||
+              fail "the tag $1 does not exist on GitHub"
+            type=${object#* }
+            sha=${object% *}
+            if [ "$type" = tag ]; then
+              sha=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$sha" --jq '.object.sha')
+            fi
+          }
+          case $EVENT in
+            workflow_run)
+              environment=staging sha=$RUN_SHA version="sha-$RUN_SHA" branch=master
+              # A re-run of an older CI must not move staging backwards, and Dokploy clones master for the compose
+              # files: deploy only the newest commit of master that CI ran on. Commits without CI on top of it ([skip ci],
+              # the profile images, which touch no compose file) do not supersede it.
+              head=$(gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq '.sha')
+              newest=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=master&event=push&per_page=1" \
+                --jq '.workflow_runs[0].head_sha // ""')
+              if [ "$head" != "$sha" ] && [ "$newest" != "$sha" ]; then
+                echo "::notice::$version superseded by a newer master commit ($newest): staging gets that one once its CI is green"
+                echo "deploy=false" >>"$GITHUB_OUTPUT"
+                exit 0
+              fi
+              [ "$head" = "$sha" ] || echo "master moved on ($head) only through commits without CI: deploying $version"
+              ;;
+            push)
+              environment=production version=$GITHUB_REF_NAME branch=$GITHUB_REF_NAME
+              resolve_tag "$GITHUB_REF_NAME"
+              ;;
+            workflow_dispatch)
+              if [[ $INPUT_REF =~ ^[0-9a-f]{40}$ ]]; then
+                [ "$INPUT_ENVIRONMENT" = staging ] ||
+                  fail "production deploys a release tag, not a commit: run it again with the tag (gh release list, git tag --list 'v*')"
+                environment=staging sha=$INPUT_REF version="sha-$INPUT_REF" branch=master
+              else
+                case $INPUT_ENVIRONMENT in
+                  staging) environment=staging ;;
+                  production) environment=production ;;
+                  *) fail "unknown environment \"$INPUT_ENVIRONMENT\"" ;;
+                esac
+                resolve_tag "$INPUT_REF"
+                version=$INPUT_REF branch=$INPUT_REF
+              fi
+              ;;
+            *) fail "unexpected event $EVENT" ;;
+          esac
+          [[ $sha =~ ^[0-9a-f]{40}$ ]] || fail "could not resolve the commit of $version"
+          # The images job publishes even when another CI job fails: only a commit whose whole CI run on master passed is
+          # deployed (a [skip ci] commit has no run at all).
+          green=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&branch=master&event=push&status=success&per_page=1" \
+            --jq '.total_count')
+          if [ "$green" = 0 ]; then
+            # GitHub deletes runs after the retention period: an old release tag has no run left, though its images are
+            # still in GHCR. A production rollback by hand may then deploy it; the next step still requires the three
+            # images to pull anonymously. A failed run still blocks, and a tag push always needs the green run.
+            any=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$sha&branch=master&event=push&per_page=1" \
+              --jq '.total_count')
+            if [ "$EVENT" = workflow_dispatch ] && [ "$environment" = production ] && [ "$any" = 0 ]; then
+              echo "::notice::No CI run of $sha is left (GitHub deleted it after the retention period): the green-run check is waived for this rollback of $version, and the next step requires its three images to pull anonymously"
+            else
+              echo "::error::$version points at commit $sha, which has no green CI run on master: CI did not publish it (for" >&2
+              echo "::error::example a [skip ci] commit, the daily profile images) or its run failed. Tag the latest commit with a" >&2
+              echo "::error::green CI run instead (docs/release-guide.md, 'Release to production'):" >&2
+              echo "::error::sha=\$(gh run list --workflow CI --branch master --status success --limit 1 --json headSha -q '.[0].headSha')" >&2
+              echo "::error::git tag vYYYY.MM.DD \"\$sha\" && git push origin vYYYY.MM.DD" >&2
+              exit 1
+            fi
+          fi
+          {
+            echo "deploy=true"
+            echo "environment=$environment"
+            echo "version=$version"
+            echo "sha=$sha"
+            echo "branch=$branch"
+          } >>"$GITHUB_OUTPUT"
+          echo "Deploy $version ($sha) to $environment"
+
+      # Anonymously, the way Dokploy pulls them: a missing image or a private package fails here, before Dokploy is
+      # touched, instead of halfway through a deploy.
+      - name: The three images exist in GHCR
+        if: steps.plan.outputs.deploy == 'true'
+        env:
+          SHA: ${{ steps.plan.outputs.sha }}
+          VERSION: ${{ steps.plan.outputs.version }}
+        run: |
+          set -uo pipefail
+          missing=0 private=0
+          for service in api builder caddy; do
+            image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/blog-$service:sha-$SHA"
+            if output=$(docker manifest inspect "$image" 2>&1 >/dev/null); then
+              echo "Found $image"
+            elif grep -qi 'manifest unknown\|no such manifest\|not found' <<<"$output"; then
+              missing=1
+              echo "::error::$image does not exist"
+            else
+              private=1
+              echo "::error::$image cannot be read anonymously: $output"
+            fi
+          done
+          if [ $missing = 1 ]; then
+            echo "::error::$VERSION points at commit $SHA, for which CI published no images (a commit from before images were"
+            echo "::error::published, or its publish step failed: re-run its CI). Tag the latest commit with a green CI run instead:"
+            echo "::error::sha=\$(gh run list --workflow CI --branch master --status success --limit 1 --json headSha -q '.[0].headSha')"
+            exit 1
+          fi
+          if [ $private = 1 ]; then
+            echo "::error::Dokploy pulls without credentials: make the blog-api, blog-builder and blog-caddy packages public"
+            echo "::error::(docs/release-guide.md, 'One-time setup')."
+            exit 1
+          fi
+
+  deploy:
+    name: Deploy ${{ needs.plan.outputs.version }} to ${{ needs.plan.outputs.environment }}
+    needs: plan
+    if: needs.plan.outputs.deploy == 'true'
+    runs-on: ubuntu-24.04
+    # More than its own waits (up to 15 min for another deploy, 15 for this one, about 1 for the smoke test), so a
+    # stuck deploy ends with the workflow's message, not GitHub's timeout.
+    timeout-minutes: 40
+    # The environment holds the Dokploy service ids, the site URL and the API key (docs/release-guide.md,
+    # "One-time setup"). The job needs no GitHub permission: it reads no code.
+    environment: ${{ needs.plan.outputs.environment }}
+    permissions: {}
+    # One deploy per environment at a time, never cancelled halfway (a newer one waits for it).
+    concurrency:
+      group: deploy-${{ needs.plan.outputs.environment }}
+      cancel-in-progress: false
+    env:
+      DOKPLOY_URL: ${{ vars.DOKPLOY_URL }}
+      DOKPLOY_COMPOSE_ID: ${{ vars.DOKPLOY_COMPOSE_ID }}
+      DOKPLOY_ENVIRONMENT_ID: ${{ vars.DOKPLOY_ENVIRONMENT_ID }}
+      SITE_URL: ${{ vars.SITE_URL }}
+      ENVIRONMENT: ${{ needs.plan.outputs.environment }}
+      VERSION: ${{ needs.plan.outputs.version }}
+      SHA: ${{ needs.plan.outputs.sha }}
+      BRANCH: ${{ needs.plan.outputs.branch }}
+    steps:
+      # IMAGE_TAG of the Dokploy environment (the service's Environment tab references it), then the service's command,
+      # branch and autodeploy (off: only this workflow deploys), then the deploy, waiting until Dokploy says done or error.
+      - name: Deploy on Dokploy
+        env:
+          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+        run: |
+          set -euo pipefail
+          # On stderr: inside $(...) a message on stdout would be swallowed by the caller.
+          fail() { echo "::error::$1" >&2; exit 1; }
+          for name in DOKPLOY_URL DOKPLOY_COMPOSE_ID DOKPLOY_ENVIRONMENT_ID SITE_URL DOKPLOY_API_KEY; do
+            [ -n "${!name:-}" ] || fail "$name is not set in the $ENVIRONMENT environment (docs/release-guide.md, 'One-time setup')"
+          done
+
+          # Every call to Dokploy's API goes through here (its REST form: GET with query parameters, POST with a JSON body,
+          # the key in the x-api-key header). The key reaches curl as config on stdin, never on a command line. Only the
+          # status and Dokploy's error message are printed on failure: bodies carry the service's environment.
+          # A read that gets no answer, 429 or 5xx is retried 3 times (5, 10, 15 s); a write is sent once, since
+          # Dokploy may have applied it before failing (a second compose.deploy would queue a second deploy).
+          dokploy() { # dokploy GET|POST <procedure> [query string | JSON body]
+            local method=$1 procedure=$2 data=${3:-} url response status body attempt=1 attempts=1
+            url="${DOKPLOY_URL%/}/api/$procedure"
+            local args=(--silent --show-error --max-time 30 --write-out '\n%{http_code}' --header 'Accept: application/json')
+            if [ "$method" = GET ]; then
+              url="$url?$data"
+            else
+              args+=(--request POST --header 'Content-Type: application/json' --data "$data")
+            fi
+            [ "$method" = GET ] && attempts=4
+            while :; do
+              if response=$(printf 'header = "x-api-key: %s"\n' "$DOKPLOY_API_KEY" | curl --config - "${args[@]}" "$url"); then
+                status=${response##*$'\n'}
+                body=${response%$'\n'*}
+              else
+                status=000 body=
+              fi
+              case $status in
+                000 | 429 | 5??)
+                  if [ $attempt -lt $attempts ]; then
+                    echo "::warning::Dokploy $procedure: $([ "$status" = 000 ] && echo 'no answer' || echo "answered $status"), retrying in $((attempt * 5)) s" >&2
+                    sleep $((attempt * 5))
+                    attempt=$((attempt + 1))
+                    continue
+                  fi
+                  ;;
+              esac
+              break
+            done
+            if [ "$status" = 000 ]; then
+              fail "Dokploy $procedure: no answer from $DOKPLOY_URL"
+            elif [ "$status" = 401 ] || [ "$status" = 403 ]; then
+              fail "Dokploy $procedure answered $status: DOKPLOY_API_KEY of the $ENVIRONMENT environment is wrong or revoked"
+            elif [ "$status" != 200 ]; then
+              fail "Dokploy $procedure answered $status: $(jq -r '.message? // empty' <<<"$body" 2>/dev/null | head -c 300)"
+            fi
+            printf '%s' "$body"
+          }
+          query="composeId=$(jq -rn --arg id "$DOKPLOY_COMPOSE_ID" '$id | @uri')"
+          compose_status() { dokploy GET compose.one "$query" | jq -r '.composeStatus'; }
+          # The newest deployment of the service (Dokploy creates it when the queued deploy starts).
+          newest_deployment() {
+            dokploy GET deployment.allByCompose "$query" |
+              jq -c 'map({deploymentId, status, createdAt}) | sort_by(.createdAt) | last // {}'
+          }
+
+          app_name=$(dokploy GET compose.one "$query" | jq -r '.appName')
+          [[ $app_name =~ ^[a-zA-Z0-9._-]+$ ]] || fail "compose.one returned no usable appName"
+
+          # A deploy already running (pressed in the panel) finishes first: its result is not this one.
+          deadline=$((SECONDS + 15 * 60))
+          while :; do
+            current=$(compose_status)
+            [ "$current" = running ] || break
+            [ $SECONDS -lt $deadline ] || fail "another deploy of this service is still running after 15 minutes"
+            echo "Another deploy of this service is running; waiting for it."
+            sleep 10
+          done
+          before=$(newest_deployment | jq -r '.deploymentId // ""')
+
+          dokploy POST environment.update "$(jq -n --arg id "$DOKPLOY_ENVIRONMENT_ID" --arg env "IMAGE_TAG=sha-$SHA" \
+            '{environmentId: $id, env: $env}')" >/dev/null
+          command="compose -p $app_name --env-file infra/.env -f infra/docker-compose.yml -f infra/compose.dokploy.yml up -d --remove-orphans --wait"
+          dokploy POST compose.update "$(jq -n --arg id "$DOKPLOY_COMPOSE_ID" --arg command "$command" --arg branch "$BRANCH" \
+            '{composeId: $id, command: $command, branch: $branch, autoDeploy: false}')" >/dev/null
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          dokploy POST compose.deploy "$(jq -n --arg id "$DOKPLOY_COMPOSE_ID" --arg title "$VERSION" \
+            --arg description "Images sha-$SHA, from GitHub Actions $run_url" \
+            '{composeId: $id, title: $title, description: $description}')" >/dev/null
+          echo "Dokploy deploys $VERSION (images sha-$SHA, branch $BRANCH) as $app_name"
+
+          # Every 10 s, up to 15 minutes: first the new deployment appears (running), then it ends done or error.
+          deadline=$((SECONDS + 15 * 60))
+          while :; do
+            deployment=$(newest_deployment)
+            id=$(jq -r '.deploymentId // ""' <<<"$deployment")
+            status=$(jq -r '.status // ""' <<<"$deployment")
+            if [ -n "$id" ] && [ "$id" != "$before" ]; then
+              case $status in
+                done) echo "Dokploy: done"; break ;;
+                error | cancelled)
+                  fail "Dokploy: $status. Its log: $DOKPLOY_URL → the $ENVIRONMENT environment → the service → Deployments → \"$VERSION\" (docs/release-guide.md, 'If it fails')"
+                  ;;
+              esac
+            else
+              status=queued
+            fi
+            [ $SECONDS -lt $deadline ] ||
+              fail "Dokploy did not finish within 15 minutes (last status: $status); see its Deployments tab"
+            echo "Dokploy: $status (service $(compose_status))"
+            sleep 10
+          done
+
+      # The site answers through Traefik. Production: the API is ready (200). Staging: Traefik's basic auth answers 401
+      # before anything reaches the stack, and this workflow has no staging password (it lives only on the VPS and in
+      # Bitwarden). The 401 still proves the deploy: Traefik only routes a domain to a healthy Caddy (404 otherwise).
+      # A 200 on staging means the basic auth is gone, and fails.
+      - name: Smoke test
+        run: |
+          set -uo pipefail
+          url="${SITE_URL%/}/api/health/ready"
+          expected=200
+          [ "$ENVIRONMENT" = staging ] && expected=401
+          for attempt in $(seq 1 12); do
+            code=$(curl --silent --output /dev/null --max-time 10 --write-out '%{http_code}' "$url")
+            if [ "$code" = "$expected" ]; then
+              echo "$url answered $code"
+              exit 0
+            fi
+            if [ "$ENVIRONMENT" = staging ] && [ "$code" = 200 ]; then
+              echo "::error::$url answered 200 without credentials: the staging basic auth is missing"
+              exit 1
+            fi
+            echo "Attempt $attempt: $url answered $code, expected $expected"
+            sleep 5
+          done
+          echo "::error::$url did not answer $expected; check the domain in Dokploy and the containers' logs"
+          exit 1
+
+      - name: Summary
+        if: ${{ !cancelled() }}
+        env:
+          RESULT: ${{ job.status }}
+        run: |
+          {
+            echo "### Deploy to $ENVIRONMENT: $RESULT"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Environment | $ENVIRONMENT ($SITE_URL) |"
+            echo "| Version | \`$VERSION\` |"
+            echo "| Commit | \`$SHA\` |"
+            for service in api builder caddy; do
+              echo "| Image $service | \`ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/blog-$service:sha-$SHA\` |"
+            done
+          } >>"$GITHUB_STEP_SUMMARY"
