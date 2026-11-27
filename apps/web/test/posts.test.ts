@@ -110,3 +110,74 @@ describe('posts y temas por idioma', () => {
     assert.deepEqual(tagsOf([en1]).map(({ tag }) => tag.name), ['Performance']);
   });
 });
+
+describe('toBlogPost: reading time from the text the page shows (same as the admin preview)', () => {
+  const words = (n: number): string => Array.from({ length: n }, (_, i) => `palabra${i}`).join(' ');
+
+  it('a figure caption is read on the page, so it counts toward the minutes', () => {
+    // 200 words of prose + a 6-word caption: the page shows 206 words (2 min); the bare-options text had 200 (1 min).
+    const body = `${words(200)}\n\n![Faro](/media/faro.jpg "Faro de noche en la costa")`;
+    assert.equal(toBlogPost(apiPost({ body })).readingMinutes, 2);
+  });
+
+  it('plain prose keeps its count: 200 words is 1 min, 201 words is 2 min', () => {
+    assert.equal(toBlogPost(apiPost({ body: words(200) })).readingMinutes, 1);
+    assert.equal(toBlogPost(apiPost({ body: words(201) })).readingMinutes, 2);
+  });
+
+  it('the description still comes from the plain excerpt when there is no summary', () => {
+    const post = toBlogPost(apiPost({ summary: '', lang: 'en', body: 'He said "wait" -- then.' }));
+    assert.equal(post.description, 'He said "wait" -- then.');
+  });
+});
+
+describe('postsByYear: archive grouped by year in the site time zone', () => {
+  const at = (slug: string, publishedAt: string) => toBlogPost(apiPost({ id: slug, slug, publishedAt }));
+
+  it('keeps the incoming order inside each year and the years in first-seen order', () => {
+    const posts = [at('c', '2027-03-01T12:00:00Z'), at('b', '2026-06-01T12:00:00Z'), at('a', '2026-02-01T12:00:00Z')];
+    assert.deepEqual(
+      postsModule.postsByYear(posts).map(({ year, posts: inYear }) => [year, inYear.map((p) => p.slug)]),
+      [[2027, ['c']], [2026, ['b', 'a']]],
+    );
+  });
+
+  it('a post published on New Year’s Eve night in Buenos Aires belongs to the old year', () => {
+    // 2027-01-01 02:30 UTC = 2026-12-31 23:30 in America/Argentina/Buenos_Aires.
+    assert.deepEqual(postsModule.postsByYear([at('x', '2027-01-01T02:30:00Z')]).map(({ year }) => year), [2026]);
+  });
+
+  it('no posts, no years', () => {
+    assert.deepEqual(postsModule.postsByYear([]), []);
+  });
+});
+
+describe('readNextFor: the newest other posts in the same language', () => {
+  const post = (slug: string, lang: string) => toBlogPost(apiPost({ id: `${lang}-${slug}`, slug, lang }));
+  const all = [post('a', 'es'), post('x', 'en'), post('b', 'es'), post('c', 'es'), post('d', 'es'), post('e', 'es')];
+
+  it('skips the post itself and other languages, and keeps at most 3 in order', () => {
+    assert.deepEqual(postsModule.readNextFor(all, all[2]!).map((p) => p.slug), ['a', 'c', 'd']);
+    assert.deepEqual(postsModule.readNextFor(all, all[1]!), []);
+  });
+});
+
+describe('homeSections: featured, latest row, numbered list and topics of the home', () => {
+  const many = Array.from({ length: 10 }, (_, i) =>
+    toBlogPost(apiPost({ id: `p${i}`, slug: `p${i}`, tags: [`tag${i}`] })),
+  );
+
+  it('the newest is featured, the next 3 form the row and the next 4 the list, with no repeats', () => {
+    const { featured, latest, more, topics } = postsModule.homeSections(many);
+    assert.equal(featured?.slug, 'p0');
+    assert.deepEqual(latest.map((p) => p.slug), ['p1', 'p2', 'p3']);
+    assert.deepEqual(more.map((p) => p.slug), ['p4', 'p5', 'p6', 'p7']);
+    assert.equal(topics.length, 8);
+  });
+
+  it('with few posts the later sections are empty, and with none nothing is featured', () => {
+    const { latest, more } = postsModule.homeSections(many.slice(0, 2));
+    assert.deepEqual([latest.map((p) => p.slug), more], [['p1'], []]);
+    assert.deepEqual(postsModule.homeSections([]), { featured: undefined, latest: [], more: [], topics: [] });
+  });
+});

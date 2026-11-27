@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { absoluteUrl, site } from '../src/lib/site.ts';
+import { absoluteUrl, site, yearOf } from '../src/lib/site.ts';
 
 /*
  * La URL del sitio sale de un solo lugar (principio 5, L4): `site` de astro.config.mjs, que la arma desde SITE_URL.
@@ -30,5 +30,12 @@ describe('URL del sitio: una sola fuente', () => {
   it('fuera de Astro (estos tests) no inventa una URL: queda vacía y las rutas siguen siendo rutas', () => {
     assert.equal(site.url, '');
     assert.equal(absoluteUrl('/es/'), '/es/');
+  });
+});
+
+describe('yearOf: the year in the site time zone', () => {
+  it('New Year’s Eve night in Buenos Aires is still the old year, whatever the UTC date', () => {
+    assert.equal(yearOf(new Date('2027-01-01T02:30:00Z')), 2026);
+    assert.equal(yearOf(new Date('2027-01-01T03:00:00Z')), 2027);
   });
 });

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runInNewContext } from 'node:vm';
+import * as heroModule from '../src/lib/hero.ts';
 import { localizeHeroImage, orderHeroImages, resolveHero, toHeroSlide, type ApiHeroImage, type HeroSlide } from '../src/lib/hero.ts';
 import {
   HERO_ELEMENT_IDS,
@@ -495,5 +496,18 @@ describe('botón Reproducir/Pausar del video (S1, WCAG 2.2.2, L3)', () => {
     assert.equal(video0.paused, false);
     assert.equal(toggleLabel(run.toggle), 'pause');
     assert.equal(run.inserted.length, 1);
+  });
+});
+
+describe('heroShareImage: the og:image of the home comes from the hero', () => {
+  it('gallery: the first item (a video shares its poster) with its alt', () => {
+    const hero = resolveHero([heroVideo(1), heroImage(2)], false);
+    assert.deepEqual(heroModule.heroShareImage(hero), { src: heroVideo(1).media.url, alt: 'Video 1' });
+  });
+  it('static /hero.jpg: the photo without alt (it is decorative)', () => {
+    assert.deepEqual(heroModule.heroShareImage(resolveHero([], true)), { src: '/hero.jpg', alt: undefined });
+  });
+  it('typographic hero: no image to share', () => {
+    assert.equal(heroModule.heroShareImage(resolveHero([], false)), null);
   });
 });

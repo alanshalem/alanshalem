@@ -5,7 +5,7 @@ import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { absoluteImageUrl } from '../../../lib/cover.ts';
 import { formatDate, interpolate, paths, segments, ui, type Alternates } from '../../../lib/i18n.ts';
 import { getMediaIndex } from '../../../lib/media.ts';
-import { alternatesByGroup, getPosts, postPath, postsIn, tocEntries, type BlogPost } from '../../../lib/posts.ts';
+import { alternatesByGroup, getPosts, postPath, readNextFor, tocEntries, type BlogPost } from '../../../lib/posts.ts';
 import { responsiveProseHtml } from '../../../lib/responsive-image.ts';
 import { absoluteUrl } from '../../../lib/site.ts';
 
@@ -18,10 +18,7 @@ export async function getStaticPaths() {
       post,
       // Sus otras versiones publicadas (hreflang y selector ES | EN).
       alternates: alternates.get(post.translationGroupId) ?? {},
-      // "Seguir leyendo": los 3 posts más nuevos de su idioma que no sean este.
-      readNext: postsIn(posts, post.lang)
-        .filter((other) => other.slug !== post.slug)
-        .slice(0, 3),
+      readNext: readNextFor(posts, post),
     },
   }));
 }

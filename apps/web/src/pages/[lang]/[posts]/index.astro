@@ -2,8 +2,7 @@
 import PostCard from '../../../components/PostCard.astro';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { LANGS, alternatesFor, articleCount, paths, segments, ui, type Lang } from '../../../lib/i18n.ts';
-import { getPosts, postsIn, type BlogPost } from '../../../lib/posts.ts';
-import { yearOf } from '../../../lib/site.ts';
+import { getPosts, postsByYear, postsIn } from '../../../lib/posts.ts';
 
 // [posts] es el segmento traducido (articulos / articles): una sola página para los dos idiomas.
 export const getStaticPaths = () => LANGS.map((lang) => ({ params: { lang, posts: segments(lang).posts }, props: { lang } }));
@@ -15,13 +14,7 @@ interface Props {
 const { lang } = Astro.props;
 const t = ui(lang);
 const posts = postsIn(await getPosts(), lang);
-
-// Agrupado por año (los posts ya vienen del más nuevo al más viejo).
-const byYear = new Map<number, BlogPost[]>();
-for (const post of posts) {
-  const year = yearOf(post.publishedAt);
-  byYear.set(year, [...(byYear.get(year) ?? []), post]);
-}
+const years = postsByYear(posts);
 ---
 
 <BaseLayout lang={lang} title={t.posts} description={t.postsDescription} path={paths.posts(lang)} alternates={alternatesFor(paths.posts)}>
@@ -33,7 +26,7 @@ for (const post of posts) {
   <section class="section section--flush" aria-label={t.postsArchive}>
     {posts.length === 0 && <p class="empty">{t.noPosts}</p>}
     {
-      [...byYear].map(([year, yearPosts]) => (
+      years.map(({ year, posts: yearPosts }) => (
         <div class="year-block">
           <h2 class="year">{year}</h2>
           <div class="card-grid">

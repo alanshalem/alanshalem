@@ -15,6 +15,8 @@ export const SITE_TIME_ZONE = 'America/Argentina/Buenos_Aires';
 /** URL absoluta a partir de una ruta del sitio ("/es/articulos/" -> "https://mi-sitio.com/es/articulos/"). */
 export const absoluteUrl = (path: string): string => `${site.url}${path}`;
 
+// Built once, like the date formatters of lib/i18n.ts: Intl.DateTimeFormat is costly and the archive calls it per post.
+const YEAR_FORMAT = new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: SITE_TIME_ZONE });
+
 /** Año en la zona del sitio (para agrupar el archivo sin desfasajes de UTC). */
-export const yearOf = (date: Date): number =>
-  Number(new Intl.DateTimeFormat('en', { year: 'numeric', timeZone: SITE_TIME_ZONE }).format(date));
+export const yearOf = (date: Date): number => Number(YEAR_FORMAT.format(date));

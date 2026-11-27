@@ -101,6 +101,15 @@ export function resolveHero(gallery: readonly ApiHeroImage[], heroJpgExists: boo
   return heroJpgExists ? { kind: 'static', src: STATIC_HERO_SRC } : null;
 }
 
+/**
+ * The home's og:image: the first gallery item (a video shares its poster, `media`) with its alt, or the static photo,
+ * which has no alt (it is a decorative background). The typographic hero has no image to share.
+ */
+export function heroShareImage(hero: Hero): { src: string; alt: string | undefined } | null {
+  if (hero?.kind === 'gallery') return { src: hero.first.media.url, alt: hero.first.alt };
+  return hero ? { src: hero.src, alt: undefined } : null;
+}
+
 export const getHeroImages: () => Promise<ApiHeroImage[]> = oncePerBuild(() =>
   getInternal<ApiHeroImage[]>('/api/internal/hero-images', 'las fotos del hero').then(orderHeroImages),
 );

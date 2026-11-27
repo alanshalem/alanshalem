@@ -8,11 +8,11 @@ import ResponsiveImage from '../../components/ResponsiveImage.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { absoluteImageUrl } from '../../lib/cover.ts';
 import { generativeCover } from '../../lib/generative.ts';
-import { getHeroImages, localizeHeroImage, resolveHero } from '../../lib/hero.ts';
+import { getHeroImages, heroShareImage, localizeHeroImage, resolveHero } from '../../lib/hero.ts';
 import { HERO_ELEMENT_IDS, HERO_ROTATION_SCRIPT } from '../../lib/hero-rotation.ts';
 import { jsonForScript } from '../../lib/html.ts';
 import { LANGS, alternatesFor, articleCount, formatDate, interpolate, paths, ui, type Lang } from '../../lib/i18n.ts';
-import { getPosts, postPath, postsIn, tagsOf } from '../../lib/posts.ts';
+import { getPosts, homeSections, postPath, postsIn } from '../../lib/posts.ts';
 import { IMAGE_SIZES } from '../../lib/responsive-image.ts';
 import { getSettings } from '../../lib/settings.ts';
 import { absoluteUrl } from '../../lib/site.ts';
@@ -27,18 +27,14 @@ const { lang } = Astro.props;
 const t = ui(lang);
 const settings = await getSettings(lang);
 const posts = postsIn(await getPosts(), lang);
-const tags = tagsOf(posts).slice(0, 8);
+const { featured, latest, more, topics: tags } = homeSections(posts);
 
 // Hero (S1): galería del admin (rota en cada visita), o public/hero.jpg si alguien la dejó ahí; si no, tipográfico.
 // Mismo script en los dos idiomas: solo cambian los textos (alt, crédito) de las diapositivas.
 const heroJpgExists = existsSync(join(process.cwd(), 'public', 'hero.jpg'));
 const hero = resolveHero((await getHeroImages()).map((image) => localizeHeroImage(image, lang)), heroJpgExists);
-const heroSrc = hero?.kind === 'gallery' ? hero.first.media.url : hero?.src;
+const shareImage = heroShareImage(hero);
 const bioHtml = settings.bio ? renderMarkdown(settings.bio, { headingOffset: 2 }).html : null;
-
-const [featured, ...rest] = posts;
-const latest = rest.slice(0, 3);
-const more = posts.slice(4, 8);
 ---
 
 <BaseLayout
@@ -47,8 +43,8 @@ const more = posts.slice(4, 8);
   path={paths.home(lang)}
   alternates={alternatesFor(paths.home)}
   overlayHeader
-  image={heroSrc && absoluteImageUrl(heroSrc, absoluteUrl(paths.home(lang)))}
-  imageAlt={hero?.kind === 'gallery' ? hero.first.alt : undefined}
+  image={shareImage ? absoluteImageUrl(shareImage.src, absoluteUrl(paths.home(lang))) : undefined}
+  imageAlt={shareImage?.alt}
 >
   <section class:list={['hero', { 'hero--photo': hero, 'hero--type': !hero }]} aria-labelledby="hero-title">
     {

@@ -1,7 +1,8 @@
-import { excerpt, POST_BODY_RENDER_OPTIONS, readingTimeMinutes, renderMarkdown, slugify, type Heading } from '@blog/markdown';
+import { excerpt, POST_BODY_RENDER_OPTIONS, readingTimeOfText, renderMarkdown, slugify, type Heading } from '@blog/markdown';
 import { getInternal, oncePerBuild } from './api.ts';
 import { resolveCover, type Cover } from './cover.ts';
 import { isLang, paths, type Alternates, type Lang } from './i18n.ts';
+import { yearOf } from './site.ts';
 
 /** Forma en que la API entrega un post publicado (GET /api/internal/posts, L4). */
 export interface ApiPost {
@@ -67,7 +68,9 @@ export function toBlogPost(apiPost: ApiPost): BlogPost {
   if (!isLang(lang)) throw new Error(`El post "${apiPost.slug}" tiene un idioma "${lang}" que el sitio no publica.`);
   // Las mismas opciones que la vista previa del admin (@blog/markdown): "## sección, ### subsección" y el título del post
   // como único <h1>, figuras y tipografía inteligente; el idioma pone los títulos de cajas y notas en el del post.
-  const { html, headings } = renderMarkdown(apiPost.body, { ...POST_BODY_RENDER_OPTIONS, lang });
+  // One render feeds the page: its `text` is what the reader sees (figure captions, callout titles in the post's
+  // language), so the reading time matches the admin preview, which counts the same render.
+  const { html, headings, text } = renderMarkdown(apiPost.body, { ...POST_BODY_RENDER_OPTIONS, lang });
   const tags = apiPost.tags.map((name) => ({ name, slug: slugify(name) }));
   const cover = resolveCover({
     slug: apiPost.slug,
@@ -86,7 +89,7 @@ export function toBlogPost(apiPost: ApiPost): BlogPost {
     tags,
     publishedAt: new Date(apiPost.publishedAt ?? apiPost.createdAt),
     updatedAt: new Date(apiPost.updatedAt),
-    readingMinutes: readingTimeMinutes(apiPost.body),
+    readingMinutes: readingTimeOfText(text),
     html,
     headings,
     cover: rootRelative(cover, paths.post(lang, apiPost.slug)),
@@ -105,6 +108,32 @@ export const getPosts: () => Promise<BlogPost[]> = oncePerBuild(loadPosts);
 
 /** Los posts de un idioma, en el mismo orden. */
 export const postsIn = (posts: readonly BlogPost[], lang: Lang): BlogPost[] => posts.filter((post) => post.lang === lang);
+
+/** "Keep reading" under a post: how many of the newest posts of its language it suggests. */
+const READ_NEXT_COUNT = 3;
+
+/** The newest posts in the same language as `post`, without `post` itself (newest first, like `posts`). */
+export const readNextFor = (posts: readonly BlogPost[], post: Pick<BlogPost, 'lang' | 'slug'>): BlogPost[] =>
+  postsIn(posts, post.lang)
+    .filter((other) => other.slug !== post.slug)
+    .slice(0, READ_NEXT_COUNT);
+
+export interface YearGroup {
+  year: number;
+  posts: BlogPost[];
+}
+
+/** The archive by year (in the site time zone), keeping the order of `posts` (newest first) in and across years. */
+export function postsByYear(posts: readonly BlogPost[]): YearGroup[] {
+  const byYear = new Map<number, BlogPost[]>();
+  for (const post of posts) {
+    const year = yearOf(post.publishedAt);
+    const group = byYear.get(year);
+    if (group) group.push(post);
+    else byYear.set(year, [post]);
+  }
+  return [...byYear].map(([year, inYear]) => ({ year, posts: inYear }));
+}
 
 export interface TagEntry {
   tag: Tag;
@@ -125,6 +154,33 @@ export function tagsOf(posts: readonly BlogPost[]): TagEntry[] {
     }
   }
   return [...byTag.values()].sort((a, b) => b.posts.length - a.posts.length || a.tag.name.localeCompare(b.tag.name));
+}
+
+/** How many posts and topics each section of the home shows. */
+const HOME_LATEST_COUNT = 3;
+const HOME_MORE_COUNT = 4;
+const HOME_TOPICS_COUNT = 8;
+
+export interface HomeSections {
+  /** The newest post, shown large; undefined when nothing is published yet. */
+  featured: BlogPost | undefined;
+  /** The next ones, as a row of cards. */
+  latest: BlogPost[];
+  /** The ones after those, as a numbered list. */
+  more: BlogPost[];
+  /** The topics with the most posts. */
+  topics: TagEntry[];
+}
+
+/** What the home shows from the posts of its language (newest first): each post appears in one section only. */
+export function homeSections(posts: readonly BlogPost[]): HomeSections {
+  const [featured, ...rest] = posts;
+  return {
+    featured,
+    latest: rest.slice(0, HOME_LATEST_COUNT),
+    more: rest.slice(HOME_LATEST_COUNT, HOME_LATEST_COUNT + HOME_MORE_COUNT),
+    topics: tagsOf(posts).slice(0, HOME_TOPICS_COUNT),
+  };
 }
 
 /**
