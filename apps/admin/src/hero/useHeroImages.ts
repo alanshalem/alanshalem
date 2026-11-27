@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
+import { errorMessage } from '../api/problem.ts';
 import type { HeroImage, HeroImageInput, HeroMediaRef, MediaAsset, VideoAsset, VideoEdit } from '../api/types.ts';
-import type { I18n } from '../i18n/i18n.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { inUploadOrder } from './heroImage.ts';
 import { checkHeroSize } from './heroSize.ts';
-import { heroItemKind, heroMediaKind, pollDelay, videoProgress, type HeroMediaKind } from './heroVideo.ts';
+import { heroItemKind, heroMediaKind, pollDelay, videoProgress, videoWarnings, type HeroMediaKind } from './heroVideo.ts';
 import { readDimensions } from './readDimensions.ts';
 import { checkVideoDuration } from './videoEdit.ts';
 
@@ -25,13 +25,13 @@ export interface PendingUpload {
   status: UploadStatus;
   media: MediaAsset | null;
   video: VideoAsset | null;
-  /** Avisos que no impiden guardar: primero el del chequeo local; los del video, cuando responde la API. */
+  /**
+   * Non-blocking warnings, always from the admin's size rule in the UI language: first from the local precheck, then
+   * (videos) from the size the API measured (`videoWarnings`), never the API's own `warnings` text.
+   */
   warnings: string[];
   error: string | null;
 }
-
-const errorText = (caught: unknown, { t }: I18n): string =>
-  caught instanceof Error ? caught.message : t('error.unknownSentence');
 
 /** Qué sigue después del chequeo local: subir ya, abrir el editor (videos) o nada (rechazado, el error ya está). */
 type PrecheckOutcome = 'upload' | 'edit' | 'rejected';
@@ -72,10 +72,10 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
       .listHeroImages()
       .then((list) => setImages(inUploadOrder(list)))
       .catch((caught: unknown) => {
-        if (!onError(caught)) setLoadError(t('hero.loadError', { error: errorText(caught, i18n) }));
+        if (!onError(caught)) setLoadError(t('hero.loadError', { error: errorMessage(caught, t('error.unknownSentence')) }));
       })
       .finally(() => setLoading(false));
-    // Sin `i18n`: cambiar el idioma no vuelve a pedir la galería.
+    // Without `t`: switching the UI language does not fetch the gallery again.
   }, [onError]);
 
   useEffect(() => {
@@ -118,10 +118,10 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
   const failUnlessHandled = useCallback(
     (key: number, caught: unknown, describe = (error: string) => error): void => {
       if (mounted.current && !onError(caught)) {
-        patchPending(key, { status: 'failed', error: describe(errorText(caught, i18n)) });
+        patchPending(key, { status: 'failed', error: describe(errorMessage(caught, t('error.unknownSentence'))) });
       }
     },
-    [onError, i18n],
+    [onError, t],
   );
 
   // Refleja el estado del video y, mientras la API lo procesa, vuelve a consultar con espera creciente.
@@ -129,7 +129,7 @@ export function useHeroImages(onError: (error: unknown) => boolean) {
     function track(key: number, video: VideoAsset, attempt: number): void {
       if (!mounted.current || dropped.current.has(key)) return;
       const progress = videoProgress(video, i18n);
-      patchPending(key, { ...progress, video, warnings: video.warnings });
+      patchPending(key, { ...progress, video, warnings: videoWarnings(video, i18n) });
       if (progress.status !== 'processing') return;
 
       const timer = window.setTimeout(() => {

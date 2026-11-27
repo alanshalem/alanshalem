@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client.ts';
+import { errorMessage } from '../api/problem.ts';
 import { Banner, type Notice } from '../components/Banner.tsx';
 import { PageHead } from '../components/PageHead.tsx';
 import { HeroGallery } from '../hero/HeroGallery.tsx';
@@ -82,8 +83,7 @@ export function SettingsPage({ onError }: Props) {
       })
       .catch((caught: unknown) => {
         if (!onError(caught)) {
-          const error = caught instanceof Error ? caught.message : t('error.unknown');
-          setMessage({ kind: 'error', text: t('settings.loadError', { error }) });
+          setMessage({ kind: 'error', text: t('settings.loadError', { error: errorMessage(caught, t('error.unknown')) }) });
         }
       })
       .finally(() => setLoading(false));
@@ -120,7 +120,7 @@ export function SettingsPage({ onError }: Props) {
     } catch (caught) {
       if (!onError(caught)) {
         // El mensaje de la API (ProblemDetails) es la autoridad: se muestra tal cual.
-        setMessage({ kind: 'error', text: caught instanceof Error ? caught.message : t('settings.saveError') });
+        setMessage({ kind: 'error', text: errorMessage(caught, t('settings.saveError')) });
       }
     } finally {
       setBusy(false);

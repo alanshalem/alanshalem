@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
+import { errorMessage } from '../api/problem.ts';
 import type { Post } from '../api/types.ts';
 import { ToolPanel } from '../components/ToolPanel.tsx';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
@@ -54,7 +55,7 @@ export function SchedulePanel({ post, busy, onSchedule, onUnschedule, onError }:
       if (result) setStatus(success(result));
       return result;
     } catch (caught) {
-      if (!onError(caught)) setError({ text: caught instanceof Error ? caught.message : t('schedule.error'), invalid: false });
+      if (!onError(caught)) setError({ text: errorMessage(caught, t('schedule.error')), invalid: false });
       return null;
     }
   };

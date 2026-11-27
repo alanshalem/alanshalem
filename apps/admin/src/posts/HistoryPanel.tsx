@@ -1,4 +1,5 @@
 import { useId, useMemo, useRef, useState } from 'react';
+import { errorMessage } from '../api/problem.ts';
 import type { Post, PostInput } from '../api/types.ts';
 import { ToolPanel } from '../components/ToolPanel.tsx';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
@@ -51,7 +52,7 @@ export function HistoryPanel({ post, current, dirty, busy, onRestore, onError }:
       }
     } catch (caught) {
       // El mensaje de la API tal cual (un 409 de slug, por ejemplo), ya en el idioma de la interfaz.
-      if (!onError(caught)) setError(caught instanceof Error ? caught.message : t('history.restoreError'));
+      if (!onError(caught)) setError(errorMessage(caught, t('history.restoreError')));
     } finally {
       setRestoring(false);
     }

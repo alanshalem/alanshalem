@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type ReactNode } from 'react';
+import { errorMessage } from '../api/problem.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import { IMAGE_ACCEPT } from '../media.ts';
 import { isImageUrl } from '../settings/validate.ts';
@@ -16,8 +17,6 @@ interface Props {
   onUpload: (file: File) => Promise<string>;
   /** Error de validación de la URL (cliente o API). */
   error?: string | undefined;
-  /** Error del texto alternativo. */
-  altError?: string | undefined;
   /** Explicación debajo del bloque. */
   help?: ReactNode;
 }
@@ -26,7 +25,7 @@ interface Props {
  * Bloque de imagen reutilizable (portada del post): subir un archivo o pegar una URL,
  * texto alternativo, miniatura y botón para quitarla.
  */
-export function ImageField({ legend, url, alt, onUrlChange, onAltChange, altMaxLength, onUpload, error, altError, help }: Props) {
+export function ImageField({ legend, url, alt, onUrlChange, onAltChange, altMaxLength, onUpload, error, help }: Props) {
   const { t } = useUiLanguage();
   const id = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,8 +43,7 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, altMaxL
       onUrlChange(await onUpload(file));
       setStatus(alt.trim() === '' ? t('image.uploadedDescribe') : t('image.uploaded'));
     } catch (caught) {
-      const error = caught instanceof Error ? caught.message : t('error.unknown');
-      setStatus(t('upload.failed', { name: file.name, error }));
+      setStatus(t('upload.failed', { name: file.name, error: errorMessage(caught, t('error.unknown')) }));
     } finally {
       setUploading(false);
     }
@@ -120,10 +118,8 @@ export function ImageField({ legend, url, alt, onUrlChange, onAltChange, altMaxL
               onChange={(event) => onAltChange(event.target.value)}
               placeholder={t('image.altPlaceholder')}
               maxLength={altMaxLength}
-              aria-invalid={altError ? true : undefined}
             />
           </label>
-          {altError && <p className="field-error">{altError}</p>}
 
           <p className="field-status" role="status" aria-live="polite">
             {status}

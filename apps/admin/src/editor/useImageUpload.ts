@@ -1,4 +1,5 @@
 import { useRef, useState, type RefObject } from 'react';
+import { errorMessage } from '../api/problem.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { Lang } from '../languages.ts';
 import { applyEditKeepingFocus, applyEditToTextarea } from './applyEdit.ts';
@@ -49,7 +50,7 @@ export function useImageUpload(
       setStatus(null);
     } catch (error) {
       ok = false;
-      setStatus(t('upload.failed', { name: file.name, error: error instanceof Error ? error.message : t('error.unknown') }));
+      setStatus(t('upload.failed', { name: file.name, error: errorMessage(error, t('error.unknown')) }));
     }
 
     // Mientras subía se pudo seguir escribiendo: se busca el marcador cerca de donde quedó y no se mueve el cursor.

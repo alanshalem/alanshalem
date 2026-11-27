@@ -1,6 +1,6 @@
 /* Vista del editor (S2): solo editor, dividida o solo vista previa, y el modo foco. Se recuerda entre visitas. */
 
-export const VIEWS = ['editor', 'split', 'preview'] as const;
+const VIEWS = ['editor', 'split', 'preview'] as const;
 export type EditorView = (typeof VIEWS)[number];
 
 export interface ViewPrefs {

@@ -1,7 +1,8 @@
 import { slugify } from '@blog/markdown';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api/client.ts';
-import type { Post, PostInput } from '../api/types.ts';
+import { errorMessage } from '../api/problem.ts';
+import type { Post } from '../api/types.ts';
 import { Banner, type Notice } from '../components/Banner.tsx';
 import { ImageField } from '../components/ImageField.tsx';
 import { PageHead } from '../components/PageHead.tsx';
@@ -17,6 +18,7 @@ import { useUnsavedGuard } from '../navigation/useUnsavedGuard.ts';
 import { canAutosave, saveStatusText, type SaveState } from '../posts/autosave.ts';
 import { HistoryPanel } from '../posts/HistoryPanel.tsx';
 import { lintPost, type LintTarget } from '../posts/lint.ts';
+import { EMPTY_POST_FORM, toPostForm, toPostInput, type PostForm } from '../posts/postForm.ts';
 import { PostVersions } from '../posts/PostVersions.tsx';
 import { ReviewPanel } from '../posts/ReviewPanel.tsx';
 import { SchedulePanel } from '../posts/SchedulePanel.tsx';
@@ -34,47 +36,12 @@ interface Props {
   onError: (error: unknown) => boolean;
 }
 
-interface Form {
-  title: string;
-  slug: string;
-  summary: string;
-  tags: string; // separados por coma en la UI
-  body: string;
-  coverUrl: string;
-  coverAlt: string;
-}
-
-const EMPTY_FORM: Form = { title: '', slug: '', summary: '', tags: '', body: '', coverUrl: '', coverAlt: '' };
-
-const toForm = (post: Post): Form => ({
-  title: post.title,
-  slug: post.slug,
-  summary: post.summary,
-  tags: post.tags.join(', '),
-  body: post.body,
-  coverUrl: post.coverUrl ?? '',
-  coverAlt: post.coverAlt ?? '',
-});
-
-/** La portada ya validada y normalizada por `validateCover` (vacío = null). */
-const toInput = (form: Form, cover: Pick<PostInput, 'coverUrl' | 'coverAlt'>): PostInput => ({
-  title: form.title.trim(),
-  slug: form.slug.trim(),
-  summary: form.summary.trim(),
-  body: form.body,
-  tags: form.tags
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean),
-  ...cover,
-});
-
 export function PostEditorPage({ postId, onError }: Props) {
   const i18n = useUiLanguage();
   const { t } = i18n;
   const [post, setPost] = useState<Post | null>(null);
-  const [form, setForm] = useState<Form>(EMPTY_FORM);
-  const [saved, setSaved] = useState<string>(JSON.stringify(EMPTY_FORM)); // para detectar cambios sin guardar
+  const [form, setForm] = useState<PostForm>(EMPTY_POST_FORM);
+  const [saved, setSaved] = useState<string>(JSON.stringify(EMPTY_POST_FORM)); // para detectar cambios sin guardar
   const [slugTouched, setSlugTouched] = useState(false);
   // Solo se elige al crear; después el idioma es el del post (L4).
   const [newLang, setNewLang] = useState<Lang>(DEFAULT_LANG);
@@ -113,11 +80,11 @@ export function PostEditorPage({ postId, onError }: Props) {
     [title, summary, slug, coverUrl, coverAlt, lang, preview],
   );
   // El historial compara contra lo que se guardaría ahora (la normalización de la portada la hace la comparación).
-  const current = useMemo(() => toInput(form, { coverUrl: form.coverUrl, coverAlt: form.coverAlt }), [form]);
+  const current = useMemo(() => toPostInput(form), [form]);
 
   /** El post como lo devuelve la API, en el editor: al cargarlo y al restaurar una versión. */
   const showPost = (loaded: Post): void => {
-    const loadedForm = toForm(loaded);
+    const loadedForm = toPostForm(loaded);
     setPost(loaded);
     setForm(loadedForm);
     setSaved(JSON.stringify(loadedForm));
@@ -140,7 +107,7 @@ export function PostEditorPage({ postId, onError }: Props) {
   // actualiza `saved`, así que un borrador que ya se guardó solo no pregunta.
   useUnsavedGuard(dirty);
 
-  const update = <K extends keyof Form>(key: K, value: Form[K]): void => setForm((current) => ({ ...current, [key]: value }));
+  const update = <K extends keyof PostForm>(key: K, value: PostForm[K]): void => setForm((current) => ({ ...current, [key]: value }));
 
   const handleTitleChange = (title: string): void => {
     setTitleError(null);
@@ -175,9 +142,9 @@ export function PostEditorPage({ postId, onError }: Props) {
     setSaveState({ kind: 'saving' });
     setMessage(null);
     try {
-      const input = toInput(form, { coverUrl: cover.coverUrl, coverAlt: cover.coverAlt });
+      const input = toPostInput(form, { coverUrl: cover.coverUrl, coverAlt: cover.coverAlt });
       const result = post ? await api.updatePost(post.id, input) : await api.createPost(input, newLang);
-      const resultForm = toForm(result);
+      const resultForm = toPostForm(result);
       // Lo escrito mientras viajaba el pedido no se pisa: queda como cambio sin guardar.
       const keepForm = auto || formRef.current !== form;
       setPost(result);
@@ -191,7 +158,7 @@ export function PostEditorPage({ postId, onError }: Props) {
       return result;
     } catch (caught) {
       if (onError(caught)) return null;
-      return fail(caught instanceof Error ? caught.message : t('post.saveError'));
+      return fail(errorMessage(caught, t('post.saveError')));
     } finally {
       savingRef.current = false;
       setBusy(false);

@@ -6,6 +6,13 @@
  * - `title`: lo genérico ("Datos inválidos", "Conflicto").
  * Si la respuesta no es un ProblemDetails, se usa `fallback` (normalmente el statusText).
  */
+/**
+ * The text to show for something a call threw: an `Error`'s own message (an `ApiError` carries the API text, already
+ * in the UI language) or, for anything else, `fallback` (the context of the action that failed).
+ */
+export const errorMessage = (caught: unknown, fallback: string): string =>
+  caught instanceof Error ? caught.message : fallback;
+
 export function messageFromProblem(problem: unknown, fallback: string): string {
   if (typeof problem !== 'object' || problem === null) return fallback;
   const { detail, title, errors } = problem as { detail?: unknown; title?: unknown; errors?: unknown };

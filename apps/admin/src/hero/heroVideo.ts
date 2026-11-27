@@ -1,5 +1,6 @@
 import type { HeroImage, VideoAsset } from '../api/types.ts';
 import type { I18n } from '../i18n/i18n.ts';
+import { checkHeroSize } from './heroSize.ts';
 
 /* Reglas puras de los videos del hero (L13): qué archivos son videos, cada cuánto consultar y qué previsualizar. */
 
@@ -49,6 +50,16 @@ export function videoProgress(
     case 'failed':
       return { status: 'failed', error: video.error ?? i18n.t('hero.videoFailed') };
   }
+}
+
+/**
+ * The non-blocking warnings of an uploaded video: the admin's own size rule (`checkHeroSize`, the same one the local
+ * precheck runs) applied to the size the API measured, in the UI language. The API's `video.warnings` are not shown,
+ * so there is one source for what the admin says (and it also covers files the browser could not measure).
+ */
+export function videoWarnings(video: VideoAsset, i18n: I18n): string[] {
+  const check = checkHeroSize(video, i18n);
+  return check.ok && check.warning ? [check.warning] : [];
 }
 
 /** La fuente H.264 más liviana: cualquier navegador la reproduce y alcanza para una miniatura en movimiento. */

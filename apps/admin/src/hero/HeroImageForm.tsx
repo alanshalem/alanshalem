@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
+import { errorMessage } from '../api/problem.ts';
 import type { HeroImageInput } from '../api/types.ts';
 import type { MessageKey } from '../i18n/i18n.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
@@ -21,7 +22,7 @@ interface Props {
   canSave?: boolean | undefined;
   /** Error que viene de afuera del formulario (el chequeo de tamaño, la subida o el proceso del video). */
   error?: string | null | undefined;
-  /** Avisos que no impiden guardar (tamaño menor que el ideal, los `warnings` de la API). */
+  /** Non-blocking warnings (below the ideal size), already in the UI language. */
   warnings?: readonly string[] | undefined;
   saveLabel: string;
   onSave: (input: HeroImageInput) => Promise<void>;
@@ -80,7 +81,7 @@ export function HeroImageForm({
     try {
       await action();
     } catch (caught) {
-      setFailure(caught instanceof Error ? caught.message : t('error.unknownSentence'));
+      setFailure(errorMessage(caught, t('error.unknownSentence')));
     } finally {
       setRunning(null);
     }

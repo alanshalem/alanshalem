@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { api } from '../api/client.ts';
+import { errorMessage } from '../api/problem.ts';
 import { useUiLanguage } from '../i18n/UiLanguage.tsx';
 import type { Lang } from '../languages.ts';
 import { confirmNavigation, href, navigate } from '../useRoute.ts';
@@ -23,7 +24,7 @@ export function useCreateTranslation(onError: (error: unknown) => boolean) {
         const draft = await api.createTranslation(sourceId, lang);
         navigate(href.post(draft.id), { confirmed: true });
       } catch (caught) {
-        if (!onError(caught)) setError(caught instanceof Error ? caught.message : t('versions.createError'));
+        if (!onError(caught)) setError(errorMessage(caught, t('versions.createError')));
       } finally {
         setCreating(false);
       }

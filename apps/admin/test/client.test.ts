@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import { api, ApiError, setApiLanguage } from '../src/api/client.ts';
+import { errorMessage } from '../src/api/problem.ts';
 
 /* Contrato HTTP de los videos del hero (L13), con un fetch falso: ruta, método, cuerpo y respuesta. */
 
@@ -169,6 +170,19 @@ describe('api.createHeroImage / api.updateHeroImage: textos en inglés (L4)', ()
     await api.updateHeroImage('h1', input);
     assert.equal(calls[1]?.init.method, 'PUT');
     assert.deepEqual(JSON.parse(calls[1]?.init.body as string), input);
+  });
+});
+
+describe('errorMessage: the text a failed call shows', () => {
+  it('an Error shows its own message (an ApiError carries the API text, already in the UI language)', () => {
+    assert.equal(errorMessage(new ApiError(409, 'Ya existe una versión en inglés.'), 'fallback'), 'Ya existe una versión en inglés.');
+    assert.equal(errorMessage(new TypeError('Failed to fetch'), 'fallback'), 'Failed to fetch');
+  });
+
+  it('anything else that was thrown shows the fallback', () => {
+    assert.equal(errorMessage('boom', 'Could not save.'), 'Could not save.');
+    assert.equal(errorMessage(undefined, 'Could not save.'), 'Could not save.');
+    assert.equal(errorMessage({ message: 'not an Error' }, 'Could not save.'), 'Could not save.');
   });
 });
 

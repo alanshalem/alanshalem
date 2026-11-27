@@ -36,7 +36,7 @@ export function insertText(text: string): Command {
  * (adentro o justo afuera) lo saca; si no, lo agrega. Con cursor sin selección inserta
  * el par de marcadores y deja el cursor en el medio.
  */
-export function toggleInline(marker: string): Command {
+function toggleInline(marker: string): Command {
   const char = marker[0] ?? '';
   const length = marker.length;
   // `*` y `_` simples: una tira par (`**`) es negrita, no cursiva. Para el resto alcanza con que la tira sea >= al marcador.
@@ -101,7 +101,7 @@ export const toggleCode = toggleInline('`');
 export const toggleStrike = toggleInline('~~');
 
 const URL_PATTERN = /^https?:\/\/\S+$/i;
-export const looksLikeUrl = (text: string): boolean => URL_PATTERN.test(text.trim());
+const looksLikeUrl = (text: string): boolean => URL_PATTERN.test(text.trim());
 
 const LINK = /\[[^\]\n]*\]\(([^)\n]*)\)/g;
 
@@ -216,7 +216,7 @@ const ANY_LIST_PREFIX = /^(\s*)(?:[-*+]|\d+[.)])[ \t]+/;
  * Viñetas, lista numerada o cita sobre todas las líneas seleccionadas.
  * Si todas las líneas ya la tienen, la quita (toggle).
  */
-export function toggleLineKind(kind: LineKind): Command {
+function toggleLineKind(kind: LineKind): Command {
   const { has, make } = LINE_KINDS[kind];
 
   return (state) => {

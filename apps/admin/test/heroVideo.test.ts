@@ -8,6 +8,7 @@ import {
   previewSourceUrl,
   VIDEO_ACCEPT,
   videoProgress,
+  videoWarnings,
 } from '../src/hero/heroVideo.ts';
 import { i18nFor } from '../src/i18n/i18n.ts';
 
@@ -89,6 +90,28 @@ describe('videoProgress: estado del archivo pendiente según el video', () => {
       status: 'failed',
       error: 'Couldn’t process the video.',
     });
+  });
+});
+
+describe('videoWarnings: the size warning comes from the admin rule, in the UI language', () => {
+  // What the API sends in `warnings` (in whatever language it answered): the admin does not show it.
+  const apiWarning = 'Mide 1280×720, menos que lo ideal (1920×1080): puede perder nitidez en pantallas grandes.';
+
+  it('an English admin sees the English below-ideal warning, whatever text the API sent', () => {
+    assert.deepEqual(videoWarnings(video({ width: 1280, height: 720, warnings: [apiWarning] }), en), [
+      'It’s 1280×720, below the ideal (1920×1080): it may look soft on large screens.',
+    ]);
+  });
+
+  it('a Spanish admin sees the same rule in Spanish', () => {
+    assert.deepEqual(videoWarnings(video({ width: 1600, height: 900 }), es), [
+      'Mide 1600×900, menos que lo ideal (1920×1080): puede perder nitidez en pantallas grandes.',
+    ]);
+  });
+
+  it('the ideal size or larger: no warning, even if the API sent one', () => {
+    assert.deepEqual(videoWarnings(video({ width: 1920, height: 1080, warnings: [apiWarning] }), en), []);
+    assert.deepEqual(videoWarnings(video({ width: 3840, height: 2160 }), es), []);
   });
 });
 
