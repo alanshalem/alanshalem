@@ -14,9 +14,8 @@ on:
       - 'packages/tokens/src/tokens.json'
       - '.github/workflows/profile.yml'
 
-# Solo para commitear las imágenes nuevas; leer datos públicos no pide otro permiso.
-permissions:
-  contents: write
+# Nothing by default; the only job asks for what it needs below.
+permissions: {}
 
 # Una corrida programada y una por push no deben competir por commitear los mismos archivos.
 concurrency:
@@ -25,14 +24,27 @@ concurrency:
 
 jobs:
   render:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    # Only to commit the new images; reading public data needs no other permission.
+    permissions:
+      contents: write
     steps:
+      # Keeps the credentials (the default): the last step pushes with them.
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      # The Node of the production images, read the same way as in ci.yml (a workflow cannot reuse another one's
+      # steps): one version to update, apps/builder/Dockerfile.
+      - name: Node version of the production images
+        id: node
+        run: |
+          version=$(sed -n 's/^ARG NODE_IMAGE=node:\([0-9.]*\)-.*/\1/p' apps/builder/Dockerfile)
+          test -n "$version"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
-          node-version-file: package.json
+          node-version: ${{ steps.node.outputs.version }}
           package-manager-cache: false
 
       # Nunca commitear imágenes de un generador roto.
@@ -55,4 +67,16 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git commit -m 'chore(profile): refresh profile images [skip ci]'
-          git push
+          # master can move while this job runs (a push during the render): replay the commit on top of it and retry a
+          # few times. A rebase conflict (someone edited the same generated files) fails the run; the next one
+          # regenerates everything from the new master.
+          for attempt in 1 2 3; do
+            git pull --rebase --quiet
+            if git push; then
+              exit 0
+            fi
+            echo "::warning::Push attempt $attempt failed, retrying on top of the latest master."
+            sleep $((attempt * 5))
+          done
+          echo "::error::Could not push the profile images after 3 attempts."
+          exit 1
