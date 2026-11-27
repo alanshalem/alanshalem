@@ -1,8 +1,8 @@
 import { unescapeHtml } from './escape.ts';
 
 /**
- * Texto plano de un HTML de este renderer (lo que se lee, espacios normalizados). Como el renderer escapa todo `<`
- * del contenido, sacar los tags con una regex es seguro acá; no sirve para HTML de otro origen.
+ * Plain text of HTML from this renderer (what is read, whitespace normalized). Since the renderer escapes every `<`
+ * of the content, stripping tags with a regex is safe here; it does not work for HTML from any other source.
  */
 export function plainTextOf(html: string): string {
   return unescapeHtml(html.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();

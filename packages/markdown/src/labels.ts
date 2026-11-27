@@ -1,26 +1,26 @@
 import type { Lang } from './types.ts';
 
-/** Tipos de caja destacada (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`), en el orden de la sintaxis de GitHub. */
+/** Callout kinds (`> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`), in the order of GitHub's syntax. */
 export const CALLOUT_KINDS = ['note', 'tip', 'warning'] as const;
 export type CalloutKind = (typeof CALLOUT_KINDS)[number];
 
-/** Textos visibles o accesibles que agrega el renderer (no vienen del Markdown). */
+/** Visible or accessible texts the renderer adds (they do not come from the Markdown). */
 export interface Labels extends Record<CalloutKind, string> {
   footnotes: string;
   backToText: string;
-  /** Nombre accesible de la región con scroll que envuelve cada tabla. */
+  /** Accessible name of the scrollable region that wraps each table. */
   table: string;
 }
 
 const DEFAULT_LANG: Lang = 'es';
 
-// Una sola tabla: agregar un idioma o un tipo de caja es agregar una fila o una clave acá.
+// One single table: adding a language or a callout kind is adding a row or a key here.
 const LABELS: Record<Lang, Labels> = {
   es: { note: 'Nota', tip: 'Puntos clave', warning: 'Advertencia', footnotes: 'Notas al pie', backToText: 'Volver al texto', table: 'Tabla' },
   en: { note: 'Note', tip: 'Key takeaways', warning: 'Warning', footnotes: 'Footnotes', backToText: 'Back to text', table: 'Table' },
 };
 
-/** Los textos del idioma pedido; un idioma desconocido (p. ej. desde JS sin tipos) cae al español. */
+/** The texts of the requested language; an unknown language (e.g. from untyped JS) falls back to Spanish. */
 export function labelsFor(lang: Lang | undefined): Labels {
   return LABELS[lang ?? DEFAULT_LANG] ?? LABELS[DEFAULT_LANG];
 }

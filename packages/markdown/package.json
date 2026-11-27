@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Renderer Markdown -> HTML sin dependencias. Lo comparten el admin (preview) y Astro (build público).",
+  "description": "Dependency-free Markdown -> HTML renderer shared by the admin (preview) and Astro (public build).",
   "exports": {
     ".": "./src/index.ts"
   },

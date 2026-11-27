@@ -4,30 +4,29 @@ import { CALLOUT_KINDS, type CalloutKind, type Labels } from './labels.ts';
 import type { Heading } from './types.ts';
 
 /**
- * Renderer de bloques: encabezados, párrafos, figuras, listas, citas, cajas destacadas,
- * código, tablas y reglas.
+ * Block renderer: headings, paragraphs, figures, lists, quotes, callouts, code, tables and rules.
  *
- * Trabaja sobre un arreglo de líneas. Los contenedores (citas, ítems de lista) le quitan
- * su prefijo a las líneas y se llaman a sí mismos de forma recursiva.
- * Las definiciones de notas al pie se sacan antes (footnotes.ts): acá ya no llegan.
- * No soporta: HTML crudo, encabezados setext (subrayados con === / ---).
+ * Works on an array of lines. Containers (quotes, list items) strip their prefix from the lines and call
+ * themselves recursively.
+ * Footnote definitions are taken out before (footnotes.ts): they never reach this point.
+ * Not supported: raw HTML, setext headings (underlined with === / ---).
  */
 
 export interface BlockContext {
   headings: Heading[];
   slugger: (text: string) => string;
   headingOffset: number;
-  /** Nivel mínimo de un encabezado (opción `minHeadingLevel`, ya limitada a 1..6). */
+  /** Minimum heading level (the `minHeadingLevel` option, already clamped to 1..6). */
   minHeadingLevel: number;
-  /** Profundidad de anidamiento: protege contra entradas que intenten desbordar la pila. */
+  /** Nesting depth: guards against input that tries to overflow the stack. */
   depth: number;
-  /** En listas "apretadas" los párrafos de los ítems no llevan <p>. */
+  /** In "tight" lists the item paragraphs get no <p>. */
   tight: boolean;
   inline: InlineContext;
   labels: Labels;
-  /** Opción `figures`: imagen sola con título => <figure>. */
+  /** The `figures` option: a lone image with a title => <figure>. */
   figures: boolean;
-  /** Acá se anota la línea donde empieza cada bloque de nivel superior (`RenderResult.blockStarts`). */
+  /** Collects the line where each top-level block starts (`RenderResult.blockStarts`). */
   blockStarts: number[];
 }
 
@@ -40,12 +39,12 @@ const BLOCKQUOTE = /^ {0,3}>/;
 const LIST_ITEM = /^( {0,3})([-*+]|\d{1,9}[.)])([ \t]+|$)/;
 const TABLE_DELIMITER = /^ {0,3}\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)*\|?[ \t]*$/;
 const SAFE_LANGUAGE = /^[\w+#.-]{1,30}$/;
-// Marcador de caja estilo GitHub: solo en la primera línea de la cita, sin texto al lado.
+// GitHub-style callout marker: only on the first line of the quote, with nothing else on it.
 const CALLOUT_MARKER = new RegExp(`^\\[!(${CALLOUT_KINDS.join('|')})\\][ \\t]*$`, 'i');
 
 const isBlank = (line: string): boolean => line.trim() === '';
 
-/** Ancho de la sangría; un tab cuenta hasta el próximo múltiplo de 4. */
+/** Indentation width; a tab counts up to the next multiple of 4. */
 function indentOf(line: string): number {
   let width = 0;
   for (const char of line) {
@@ -56,7 +55,7 @@ function indentOf(line: string): number {
   return width;
 }
 
-/** Quita hasta `count` columnas de sangría del comienzo de la línea. */
+/** Strips up to `count` columns of indentation from the start of the line. */
 function stripIndent(line: string, count: number): string {
   let width = 0;
   let index = 0;
@@ -77,7 +76,7 @@ function stripIndent(line: string, count: number): string {
   return line.slice(index);
 }
 
-/** ¿Esta línea cierra el bloque de código abierto con `fence`? Un cierre más largo también cierra. */
+/** Does this line close the code block opened with `fence`? A longer closing fence closes it too. */
 export function closesFence(line: string, fence: string): boolean {
   const trimmed = line.trim();
   return (
@@ -85,7 +84,7 @@ export function closesFence(line: string, fence: string): boolean {
   );
 }
 
-/** ¿Esta línea abre un bloque nuevo? Sirve para saber cuándo termina un párrafo. */
+/** Does this line open a new block? Tells where a paragraph ends. */
 function startsBlock(line: string): boolean {
   if (FENCE_OPEN.test(line) || HEADING.test(line) || HR.test(line) || BLOCKQUOTE.test(line)) return true;
   const item = LIST_ITEM.exec(line);
@@ -93,7 +92,7 @@ function startsBlock(line: string): boolean {
   const hasContent = line.slice(item[0].length).trim() !== '';
   const marker = item[2] ?? '';
   const ordered = /\d/.test(marker);
-  // Una lista numerada solo interrumpe un párrafo si empieza en 1 ("2024. fue un gran año").
+  // An ordered list only interrupts a paragraph when it starts at 1 ("2024. was a great year").
   return hasContent && (!ordered || parseInt(marker, 10) === 1);
 }
 
@@ -110,7 +109,7 @@ export function renderBlocks(lines: string[], ctx: BlockContext): string {
       i += 1;
       continue;
     }
-    // Cada vuelta de acá abajo agrega exactamente un elemento al HTML: en el nivel superior, uno por bloque.
+    // Each pass below adds exactly one element to the HTML: at the top level, one per block.
     if (ctx.depth === 0) ctx.blockStarts.push(i);
 
     const fence = FENCE_OPEN.exec(line);
@@ -163,7 +162,7 @@ export function renderBlocks(lines: string[], ctx: BlockContext): string {
   return out.join('\n');
 }
 
-/* ------------------------------ Código ------------------------------ */
+/* ------------------------------- Code ------------------------------- */
 
 function parseFence(lines: string[], start: number, open: RegExpExecArray): { html: string; next: number } {
   const fence = open[1] ?? '```';
@@ -183,18 +182,18 @@ function parseFence(lines: string[], start: number, open: RegExpExecArray): { ht
   }
 
   const classAttr = SAFE_LANGUAGE.test(language) ? ` class="language-${escapeHtml(language)}"` : '';
-  // Una línea larga hace scroll horizontal: tabindex para poder recorrerla con el teclado (WCAG 2.1.1).
+  // A long line scrolls horizontally: tabindex makes it keyboard scrollable (WCAG 2.1.1).
   return { html: `<pre tabindex="0"><code${classAttr}>${escapeHtml(code.join('\n'))}</code></pre>`, next: i };
 }
 
-/* ---------------------------- Encabezados ---------------------------- */
+/* ------------------------------ Headings ----------------------------- */
 
 function renderHeading(match: RegExpExecArray, ctx: BlockContext): string {
   const level = Math.min(6, Math.max(ctx.minHeadingLevel, (match[1] ?? '#').length + ctx.headingOffset));
-  // Se quitan los # de cierre ("## Título ##"); un "#" suelto cuenta como título vacío.
+  // Closing #s are removed ("## Title ##"); a lone "#" counts as an empty title.
   const raw = (match[2] ?? '').replace(/[ \t]+#+[ \t]*$/, '').replace(/^#+[ \t]*$/, '').trim();
 
-  // Solo los encabezados de primer nivel de documento reciben ancla y entran al índice.
+  // Only document-level headings get an anchor and go into the table of contents.
   if (ctx.depth > 0) return `<h${level}>${renderInline(raw, ctx.inline)}</h${level}>`;
 
   const text = plainInline(raw);
@@ -203,7 +202,7 @@ function renderHeading(match: RegExpExecArray, ctx: BlockContext): string {
   return `<h${level} id="${id}">${renderInline(raw, ctx.inline)}</h${level}>`;
 }
 
-/* ------------------------------ Párrafos ------------------------------ */
+/* ----------------------------- Paragraphs ----------------------------- */
 
 function parseParagraph(lines: string[], start: number, ctx: BlockContext): { html: string; next: number } {
   const collected: string[] = [lines[start] ?? ''];
@@ -225,7 +224,7 @@ function parseParagraph(lines: string[], start: number, ctx: BlockContext): { ht
   return { html: ctx.tight ? inline : `<p>${inline}</p>`, next: i };
 }
 
-/* ------------------------------- Citas ------------------------------- */
+/* ------------------------------- Quotes ------------------------------- */
 
 function parseBlockquote(lines: string[], start: number, ctx: BlockContext): { html: string; next: number } {
   const inner: string[] = [];
@@ -236,7 +235,7 @@ function parseBlockquote(lines: string[], start: number, ctx: BlockContext): { h
     if (BLOCKQUOTE.test(line)) {
       inner.push(line.replace(/^ {0,3}> ?/, ''));
     } else {
-      // Continuación "perezosa": una línea de texto pegada a la cita sigue siendo parte del párrafo.
+      // "Lazy" continuation: a text line right after the quote is still part of its paragraph.
       const previous = inner[inner.length - 1];
       const canContinue = !isBlank(line) && !startsBlock(line) && previous !== undefined && !isBlank(previous);
       if (!canContinue) break;
@@ -254,19 +253,19 @@ function parseBlockquote(lines: string[], start: number, ctx: BlockContext): { h
   return { html: `<blockquote>\n${body}\n</blockquote>`, next: i };
 }
 
-/** Caja destacada: <aside> porque es contenido complementario, no una cita de otra persona. */
+/** Callout: an <aside> because it is complementary content, not a quote from someone else. */
 function renderCallout(kind: CalloutKind, body: string, labels: Labels): string {
   const title = `<p class="callout-title">${escapeHtml(labels[kind])}</p>`;
   return `<aside class="callout callout-${kind}">\n${body ? `${title}\n${body}` : title}\n</aside>`;
 }
 
-/* ------------------------------- Listas ------------------------------- */
+/* -------------------------------- Lists ------------------------------- */
 
 function parseList(lines: string[], start: number, ctx: BlockContext): { html: string; next: number } {
   const first = LIST_ITEM.exec(lines[start] ?? '');
   const firstMarker = first?.[2] ?? '-';
   const ordered = /\d/.test(firstMarker);
-  const markerKind = ordered ? firstMarker.slice(-1) : firstMarker; // '.' o ')' ; '-', '*' o '+'
+  const markerKind = ordered ? firstMarker.slice(-1) : firstMarker; // '.' or ')' ; '-', '*' or '+'
   const startNumber = ordered ? parseInt(firstMarker, 10) : 1;
 
   const isSibling = (line: string): boolean => {
@@ -288,7 +287,7 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
     const markerWidth = (match[1] ?? '').length + (match[2] ?? '').length;
     const spaces = (match[3] ?? '').replace(/\t/g, '    ').length;
     const rest = line.slice(match[0].length);
-    // Ítem vacío o con 5+ espacios (código indentado): el contenido arranca 1 espacio después del marcador.
+    // Empty item or 5+ spaces (indented code): the content starts 1 space after the marker.
     const contentIndent = markerWidth + (spaces === 0 || spaces >= 5 ? 1 : spaces);
     const firstContent = spaces >= 5 ? ' '.repeat(spaces - 1) + rest : rest;
 
@@ -299,12 +298,12 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
       const current = lines[i] ?? '';
 
       if (isBlank(current)) {
-        // Una línea en blanco sigue dentro del ítem solo si lo próximo está indentado.
+        // A blank line stays inside the item only when what follows is indented.
         let k = i;
         while (k < lines.length && isBlank(lines[k] ?? '')) k += 1;
         if (k < lines.length && indentOf(lines[k] ?? '') >= contentIndent) {
           for (; i < k; i += 1) itemLines.push('');
-          loose = true; // bloques separados por línea en blanco dentro del ítem
+          loose = true; // blocks separated by a blank line inside the item
           continue;
         }
         break;
@@ -316,7 +315,7 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
         continue;
       }
 
-      // Continuación perezosa de un párrafo.
+      // Lazy continuation of a paragraph.
       const previous = itemLines[itemLines.length - 1] ?? '';
       if (!isBlank(previous) && !startsBlock(current) && !LIST_ITEM.test(current)) {
         itemLines.push(current.replace(/^[ \t]+/, ''));
@@ -328,7 +327,7 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
 
     items.push(itemLines);
 
-    // ¿Sigue otro ítem hermano? Si hubo líneas en blanco entre medio, la lista es "suelta".
+    // Is a sibling item next? If blank lines came in between, the list is "loose".
     let k = i;
     while (k < lines.length && isBlank(lines[k] ?? '')) k += 1;
     if (k < lines.length && isSibling(lines[k] ?? '')) {
@@ -350,9 +349,9 @@ function parseList(lines: string[], start: number, ctx: BlockContext): { html: s
   return { html, next: i };
 }
 
-/* ------------------------------- Tablas ------------------------------- */
+/* ------------------------------- Tables ------------------------------- */
 
-/** Parte una fila en celdas; `\|` es un pipe literal. */
+/** Splits a row into cells; `\|` is a literal pipe. */
 function splitRow(line: string): string[] {
   let text = line.trim();
   if (text.startsWith('|')) text = text.slice(1);
@@ -412,14 +411,14 @@ function parseTable(lines: string[], start: number, ctx: BlockContext): { html: 
     const line = lines[i] ?? '';
     if (isBlank(line) || FENCE_OPEN.test(line) || HEADING.test(line) || BLOCKQUOTE.test(line)) break;
     const cells = splitRow(line);
-    // Filas con menos celdas se completan; las que sobran se descartan.
+    // Rows with fewer cells are padded; extra cells are dropped.
     const normalized = headerCells.map((_, column) => cells[column] ?? '');
     rows.push(`<tr>${normalized.map((c, column) => cell('td', c, column)).join('')}</tr>`);
     i += 1;
   }
 
   const body = rows.length > 0 ? `\n<tbody>\n${rows.join('\n')}\n</tbody>` : '';
-  // El envoltorio hace scroll horizontal en mobile: enfocable y con nombre para el teclado y el lector (WCAG 2.1.1).
+  // The wrapper scrolls horizontally on mobile: focusable and named for keyboard and screen readers (WCAG 2.1.1).
   const wrap = `<div class="table-wrap" tabindex="0" role="region" aria-label="${escapeHtml(ctx.labels.table)}">`;
   const html = `${wrap}<table>\n<thead>\n${head}\n</thead>${body}\n</table></div>`;
   return { html, next: i };

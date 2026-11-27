@@ -1,22 +1,22 @@
 /**
- * Tipografía inteligente: comillas “ ” ‘ ’, apóstrofo ’, rayas – — y puntos suspensivos ….
+ * Smart typography: quotes “ ” ‘ ’, apostrophe ’, dashes – — and ellipsis ….
  *
- * Se aplica al renderizar (el Markdown guardado sigue en ASCII fácil de tipear) y solo a los
- * tramos de texto común: el renderer en línea nunca la llama para código, URLs ni atributos.
- * Español e inglés usan las mismas comillas dobles “ ” (L4 admite «» o “” para el español):
- * así un post y su traducción tienen el mismo estilo, y `lang` no cambia esta función.
+ * Applied when rendering (the stored Markdown stays in easy-to-type ASCII) and only to plain text runs: the inline
+ * renderer never calls it for code, URLs or attributes.
+ * Spanish and English use the same double quotes “ ” (Spanish accepts «» or “”): that way a post and its
+ * translation share one style, and `lang` does not change this function.
  */
 
 const REPLACEMENTS: ReadonlyArray<[RegExp, string]> = [
-  [/---/g, '—'], // antes que '--', si no quedaría "–-"
+  [/---/g, '—'], // before '--', otherwise it would become "–-"
   [/--/g, '–'],
   [/\.\.\./g, '…'],
 ];
 
-// Las URLs sueltas en el texto no son links, pero cambiarles "--" o "..." las rompería al copiarlas.
+// Bare URLs in the text are not links, but changing their "--" or "..." would break them when copied.
 const BARE_URL = /(?:https?:\/\/|mailto:|www\.)[^\s"']+/gi;
 
-// Antes de una comilla de apertura: inicio, espacio, signo que abre o una comilla/raya ya convertida.
+// Before an opening quote: start, whitespace, an opening sign or an already converted quote/dash.
 const OPENING_CONTEXT = /[\s([{¡¿“‘–—]/u;
 const WORD_CHAR = /[\p{L}\p{N}]/u;
 
@@ -25,7 +25,7 @@ const opensQuote = (before: string | undefined): boolean => before === undefined
 /** A letter or digit of any script: the one definition of "inside a word" (apostrophes here, `_` emphasis in inline.ts). */
 export const isWordChar = (char: string | undefined): boolean => char !== undefined && WORD_CHAR.test(char);
 
-/** `before` es el carácter del documento justo antes de `text` (decide si una comilla abre o cierra). */
+/** `before` is the document character right before `text` (it decides whether a quote opens or closes). */
 export function smartenText(text: string, before: string | undefined): string {
   let out = '';
   let last = 0;
@@ -42,7 +42,7 @@ function smartenSegment(segment: string, before: string | undefined): string {
   let out = '';
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i] ?? '';
-    // Se mira lo ya convertido: tras “ o ‘ se abre, tras ” o ’ se cierra (comillas anidadas).
+    // Looks at the converted output: after “ or ‘ it opens, after ” or ’ it closes (nested quotes).
     const previous = out.length > 0 ? out[out.length - 1] : before;
     if (char === '"') out += opensQuote(previous) ? '“' : '”';
     else if (char === "'") out += isWordChar(previous) && isWordChar(text[i + 1]) ? '’' : opensQuote(previous) ? '‘' : '’';

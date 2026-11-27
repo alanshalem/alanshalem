@@ -7,9 +7,9 @@ import { createSlugger } from './slug.ts';
 import type { RenderOptions, RenderResult } from './types.ts';
 
 /**
- * Markdown -> { html, headings, blockStarts, text }, en un solo recorrido.
- * Función pura y sin dependencias: corre igual en el navegador (preview del admin)
- * y en Node (build de Astro), por eso lo que se ve en el editor es lo que se publica.
+ * Markdown -> { html, headings, blockStarts, text }, in one pass.
+ * A pure function without dependencies: it runs the same in the browser (admin preview) and in Node (Astro build),
+ * which is why what the editor shows is what gets published.
  */
 export function renderMarkdown(source: string, options: RenderOptions = {}): RenderResult {
   const headings: RenderResult['headings'] = [];
@@ -44,8 +44,8 @@ export function renderMarkdown(source: string, options: RenderOptions = {}): Ren
 }
 
 /**
- * `renderMarkdown(source).blockStarts`: las opciones no mueven los bordes de los bloques, por eso no se piden.
- * Quien además necesita el HTML usa el resultado del render, sin un segundo recorrido.
+ * `renderMarkdown(source).blockStarts`: options never move block boundaries, so none are taken.
+ * A caller that also needs the HTML uses the render result instead, without a second pass.
  */
 export function blockStartLines(source: string): number[] {
   return renderMarkdown(source).blockStarts;

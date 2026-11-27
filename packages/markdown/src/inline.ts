@@ -3,12 +3,11 @@ import { isWordChar, smartenText } from './typography.ts';
 import { isExternalUrl, sanitizeUrl } from './url.ts';
 
 /**
- * Renderer de elementos en línea: **negrita**, *cursiva*, ~~tachado~~, `código`,
- * [links](url), ![imágenes](url), <autolinks> y referencias a notas al pie [^id].
+ * Inline renderer: **bold**, *italic*, ~~strikethrough~~, `code`, [links](url), ![images](url), <autolinks>
+ * and footnote references [^id].
  *
- * Es un parser simple (no implementa el algoritmo completo de delimitadores de CommonMark):
- * un énfasis cierra con una tira de delimitadores del MISMO largo que la que lo abrió.
- * Es predecible y cubre lo que se usa al escribir un blog.
+ * A simple parser (it does not implement CommonMark's full delimiter algorithm): emphasis closes with a
+ * delimiter run of the SAME length as the one that opened it. Predictable, and it covers what blog writing uses.
  */
 
 interface Parsed {
@@ -16,14 +15,14 @@ interface Parsed {
   end: number;
 }
 
-/** Lo que el renderer en línea necesita saber del documento y de las opciones. */
+/** What the inline renderer needs to know about the document and the options. */
 export interface InlineContext {
   smartTypography: boolean;
-  /** HTML de la referencia `[^id]`, o null si no tiene definición (entonces queda como texto literal). */
+  /** HTML of the `[^id]` reference, or null when it has no definition (then it stays literal text). */
   footnoteRef: (id: string) => string | null;
 }
 
-// Caracteres que pueden disparar sintaxis. Todo lo demás se copia escapado de una vez.
+// Characters that can start syntax. Everything else is copied, escaped, in one go.
 const SPECIAL = /[\\`!\[<*_~\n]/g;
 const ASCII_PUNCTUATION = /[!-/:-@[-`{-~]/;
 const AUTOLINK = /<((?:https?:\/\/|mailto:)[^\s<>]+)>/y;
@@ -46,7 +45,7 @@ export function renderInline(source: string, ctx: InlineContext, insideLink = fa
     }
 
     if (source[i] === '\n') {
-      // Dos espacios al final de la línea = salto duro. Si no, es un salto blando.
+      // Two spaces at the end of the line = hard break. Otherwise it is a soft break.
       const hardBreak = html.endsWith('  ');
       html = html.replace(/ +$/, '') + (hardBreak ? '<br>\n' : '\n');
       i += 1;
@@ -66,13 +65,13 @@ export function renderInline(source: string, ctx: InlineContext, insideLink = fa
   return html;
 }
 
-/** Texto sin marcas de Markdown (para ids de encabezados, alt de imágenes y extractos). */
+/** Text without Markdown marks (for heading ids, image alt text and excerpts). */
 export function plainInline(source: string): string {
   return source
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/<((?:https?:\/\/|mailto:)[^\s<>]+)>/g, '$1')
-    .replace(/\[\^[^\]\s]+\]/g, '') // el número de una nota al pie no es parte del título
+    .replace(/\[\^[^\]\s]+\]/g, '') // a footnote number is not part of the title
     .replace(/\\([!-/:-@[-`{-~])/g, '$1')
     .replace(/[`*_~]/g, '')
     .replace(/\s+/g, ' ')
@@ -113,7 +112,7 @@ function parseSpecial(source: string, i: number, ctx: InlineContext, insideLink:
   }
 }
 
-/** `código` con tiras de backticks de cualquier largo. Si no cierra, la tira se muestra literal. */
+/** `code` with backtick runs of any length. If it never closes, the run is shown literally. */
 function parseCodeSpan(source: string, i: number): Parsed {
   let runLength = 0;
   while (source[i + runLength] === '`') runLength += 1;
@@ -128,7 +127,7 @@ function parseCodeSpan(source: string, i: number): Parsed {
 
     if (closeLength === runLength) {
       let content = source.slice(i + runLength, closeStart).replace(/\n/g, ' ');
-      // Un espacio a cada lado se descarta (permite escribir `` `x` ``).
+      // One space on each side is dropped (lets you write `` `x` ``).
       if (content.length > 2 && content.startsWith(' ') && content.endsWith(' ') && content.trim() !== '') {
         content = content.slice(1, -1);
       }
@@ -140,7 +139,7 @@ function parseCodeSpan(source: string, i: number): Parsed {
   return { html: '`'.repeat(runLength), end: i + runLength };
 }
 
-/** `[^id]` con definición. Sin definición devuelve null y el texto sigue su camino (queda literal). */
+/** `[^id]` with a definition. Without one it returns null and the text goes on (stays literal). */
 function parseFootnoteRef(source: string, i: number, ctx: InlineContext): Parsed | null {
   if (source[i + 1] !== '^') return null;
   FOOTNOTE_REF.lastIndex = i;
@@ -156,9 +155,9 @@ interface LinkTarget {
   end: number;
 }
 
-/** Partes de `[label](destino "título")`. `start` apunta al '['. */
+/** Parts of `[label](destination "title")`. `start` points at the '['. */
 function parseLinkTarget(source: string, start: number): LinkTarget | null {
-  // 1) Buscar el ']' que cierra, respetando corchetes anidados, escapes y código.
+  // 1) Find the closing ']', honoring nested brackets, escapes and code.
   let depth = 1;
   let j = start + 1;
   while (j < source.length) {
@@ -182,7 +181,7 @@ function parseLinkTarget(source: string, start: number): LinkTarget | null {
 
   const label = source.slice(start + 1, j);
 
-  // 2) Destino y título opcional.
+  // 2) Destination and optional title.
   let k = j + 2;
   while (source[k] === ' ') k += 1;
 
@@ -231,13 +230,13 @@ function parseLinkTarget(source: string, start: number): LinkTarget | null {
   return { label, destination, title, end: k + 1 };
 }
 
-/** `[texto](url "título")` o, con isImage, `![alt](url "título")`. `start` apunta al '['. */
+/** `[text](url "title")` or, with isImage, `![alt](url "title")`. `start` points at the '['. */
 function parseLinkOrImage(source: string, start: number, isImage: boolean, ctx: InlineContext): Parsed | null {
   const target = parseLinkTarget(source, start);
   if (!target) return null;
   const { label, title, end } = target;
 
-  // Una URL insegura nunca produce un href/src: queda solo el texto.
+  // An unsafe URL never produces an href/src: only the text is left.
   const url = sanitizeUrl(target.destination);
   const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
 
@@ -251,9 +250,9 @@ function parseLinkOrImage(source: string, start: number, isImage: boolean, ctx: 
 }
 
 /**
- * Figura: el párrafo es SOLO una imagen con título y URL segura. El título pasa a ser el
- * epígrafe (con formato en línea, escapado como todo texto) y no se repite como atributo.
- * Devuelve null si no aplica, y el párrafo se renderiza como siempre.
+ * Figure: the paragraph is ONLY an image with a title and a safe URL. The title becomes the caption (with inline
+ * formatting, escaped like all text) and is not repeated as an attribute.
+ * Returns null when it does not apply, and the paragraph renders as usual.
  */
 export function renderFigure(source: string, ctx: InlineContext): string | null {
   if (!source.startsWith('![')) return null;
@@ -276,7 +275,7 @@ function renderAnchor(url: string, innerHtml: string, titleAttr = ''): string {
 
 const isSpaceOrEdge = (char: string | undefined): boolean => char === undefined || /\s/.test(char);
 
-/** Reglas de apertura/cierre: `_` no abre ni cierra dentro de una palabra (snake_case_name queda intacto). */
+/** Open/close rules: `_` neither opens nor closes inside a word (snake_case_name stays intact). */
 function canOpen(source: string, i: number, length: number, delimiter: string): boolean {
   if (isSpaceOrEdge(source[i + length])) return false;
   if (delimiter === '_' && isWordChar(source[i - 1])) return false;
@@ -301,7 +300,7 @@ function parseEmphasis(source: string, i: number, ctx: InlineContext, insideLink
   let length = 0;
   while (source[i + length] === delimiter) length += 1;
 
-  // Soportado: * y _ en tiras de 1 a 3; ~ solo de 2 (~~tachado~~).
+  // Supported: * and _ in runs of 1 to 3; ~ only in runs of 2 (~~strikethrough~~).
   if (delimiter === '~' ? length !== 2 : length > 3) return null;
   if (!canOpen(source, i, length, delimiter)) return null;
 

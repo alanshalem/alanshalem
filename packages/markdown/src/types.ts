@@ -1,38 +1,38 @@
-/** Un encabezado del documento, útil para armar el índice (TOC) lateral. */
+/** A document heading, for building the side table of contents (TOC). */
 export interface Heading {
-  /** Nivel final en el HTML (ya con `headingOffset` y `minHeadingLevel` aplicados). */
+  /** Final level in the HTML (with `headingOffset` and `minHeadingLevel` already applied). */
   level: number;
-  /** Valor del atributo id del <hN>; es el ancla (#id). */
+  /** Value of the <hN> id attribute; it is the anchor (#id). */
   id: string;
-  /** Texto plano, sin marcas de Markdown. */
+  /** Plain text, without Markdown marks. */
   text: string;
 }
 
-/** Idioma del post: define los textos que agrega el renderer (títulos de cajas, notas al pie). */
+/** Post language: sets the texts the renderer adds (callout titles, footnotes). */
 export type Lang = 'es' | 'en';
 
 export interface RenderOptions {
   /**
-   * Cuánto bajar el nivel de todos los encabezados (`#` → <h2> con 1). Lo usan textos cortos que van debajo de otro
-   * título, como la bio de la home. Se limita a 5. Para el cuerpo de un post, ver minHeadingLevel.
+   * How much to lower every heading level (`#` → <h2> with 1). For short texts placed under another heading, like the
+   * home bio. Clamped to 5. For a post body, see minHeadingLevel.
    */
   headingOffset?: number;
   /**
-   * Nivel mínimo de los encabezados, después de headingOffset. Con 2, `#` y `##` salen como <h2> y `###` como <h3>:
-   * "## sección, ### subsección", como GitHub o Docs, y el <h1> queda para el título de la página (plataforma-calidad
-   * L5). Se limita a 1..6. Por defecto 1, para que el HTML existente no cambie.
+   * Minimum heading level, after headingOffset. With 2, `#` and `##` become <h2> and `###` <h3>: "## section,
+   * ### subsection", like GitHub or Docs, and the <h1> is left for the page title. Clamped to 1..6. Defaults to 1,
+   * so existing HTML does not change.
    */
   minHeadingLevel?: number;
-  /** Idioma de los textos agregados ("Nota" / "Note"...). Por defecto 'es'. */
+  /** Language of the added texts ("Nota" / "Note"...). Defaults to 'es'. */
   lang?: Lang;
   /**
-   * Comillas “ ” ‘ ’, rayas – — y … al renderizar (nunca en código, URLs ni atributos).
-   * Por defecto false para que el HTML existente no cambie; el sitio y el admin la activan.
+   * Quotes “ ” ‘ ’, dashes – — and … when rendering (never in code, URLs or attributes).
+   * Defaults to false so existing HTML does not change; the site and the admin turn it on.
    */
   smartTypography?: boolean;
   /**
-   * Una imagen sola en su párrafo y con título (`![alt](url "epígrafe")`) sale como
-   * <figure> + <figcaption>. Por defecto false por la misma razón que smartTypography.
+   * An image alone in its paragraph and with a title (`![alt](url "caption")`) becomes <figure> + <figcaption>.
+   * Defaults to false for the same reason as smartTypography.
    */
   figures?: boolean;
 }
@@ -41,11 +41,11 @@ export interface RenderResult {
   html: string;
   headings: Heading[];
   /**
-   * La línea (desde 0) donde empieza cada bloque de nivel superior, en orden: cada uno es un elemento de primer nivel
-   * del HTML (la sección de notas al pie, que va al final, no sale de un bloque). Sale del mismo recorrido que el
-   * render, así que no puede separarse de él: el admin la usa para el scroll sincronizado y el esquema de títulos.
+   * The line (from 0) where each top-level block starts, in order: each one is a top-level element of the HTML (the
+   * footnotes section at the end does not come from a block). It comes from the same pass as the render, so it cannot
+   * drift from it: the admin uses it for the synced scroll and the heading outline.
    */
   blockStarts: number[];
-  /** El texto plano de `html` (lo que se lee, sin marcas): contador de palabras y minutos de lectura. */
+  /** The plain text of `html` (what is read, without marks): word counter and reading minutes. */
   text: string;
 }

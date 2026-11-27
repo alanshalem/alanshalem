@@ -7,9 +7,9 @@ const HTML_ESCAPES: Record<string, string> = {
 };
 
 /**
- * Escapa texto para usarlo como contenido o como valor de atributo.
- * TODO el texto del usuario pasa por acá: es la barrera contra XSS.
- * Por diseño no existe HTML crudo en el Markdown: `<script>` se muestra como texto.
+ * Escapes text for use as content or as an attribute value.
+ * ALL user text goes through here: it is the barrier against XSS.
+ * By design there is no raw HTML in the Markdown: `<script>` is shown as text.
  */
 export function escapeHtml(text: string): string {
   return text.replace(/[&<>"']/g, (char) => HTML_ESCAPES[char] ?? char);

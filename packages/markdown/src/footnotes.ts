@@ -5,21 +5,21 @@ import type { Labels } from './labels.ts';
 import { createSlugger } from './slug.ts';
 
 /**
- * Notas al pie: `Texto[^id]` + `[^id]: nota` (la definición puede seguir en líneas indentadas).
+ * Footnotes: `Text[^id]` + `[^id]: note` (the definition may continue on indented lines).
  *
- * Las definiciones pueden estar después de su primera referencia, así que se sacan en una pasada
- * previa; la numeración sale del orden de la primera referencia y la sección va al final.
- * Sin definición, `[^id]` queda literal; una definición sin referencias no se muestra.
+ * Definitions may come after their first reference, so they are taken out in a previous pass; numbering follows the
+ * order of first references and the section goes at the end.
+ * Without a definition, `[^id]` stays literal; a definition without references is not shown.
  */
 
 const DEFINITION = /^ {0,3}\[\^([^\]\s]+)\]:[ \t]*(.*)$/;
 const CONTINUATION = /^[ \t]+\S/;
-// U+FE0E pide la versión de texto: sin él, iOS muestra ↩ como emoji.
+// U+FE0E asks for the text presentation: without it, iOS shows ↩ as an emoji.
 const BACK_ARROW = '↩\uFE0E';
 
 /**
- * Saca las definiciones del nivel superior (fuera de bloques de código). Cada línea sacada queda
- * en blanco para que los párrafos de alrededor no se unan. Con un id repetido gana la primera.
+ * Takes out the top-level definitions (outside code blocks). Each removed line is left blank so the surrounding
+ * paragraphs do not merge. With a repeated id the first one wins.
  */
 export function extractFootnoteDefinitions(lines: string[]): { lines: string[]; definitions: Map<string, string> } {
   const out: string[] = [];
@@ -62,18 +62,18 @@ interface Note {
 }
 
 export interface Footnotes {
-  /** Para InlineContext.footnoteRef: registra la referencia y devuelve su HTML. */
+  /** For InlineContext.footnoteRef: records the reference and returns its HTML. */
   reference: (id: string) => string | null;
-  /** La sección final (vacía si no hubo referencias). Se llama después de renderizar el cuerpo. */
+  /** The closing section (empty when there were no references). Called after rendering the body. */
   renderSection: (inline: InlineContext) => string;
 }
 
-// La primera referencia es "fnref-<slug>"; las siguientes llevan "_n" ('_' nunca sale de slugify).
+// The first reference is "fnref-<slug>"; later ones get "_n" (slugify never outputs '_').
 const referenceId = (slug: string, n: number): string => (n === 1 ? `fnref-${slug}` : `fnref-${slug}_${n}`);
 
 export function createFootnotes(definitions: Map<string, string>, labels: Labels): Footnotes {
   const slugger = createSlugger();
-  const notes = new Map<string, Note>(); // en orden de primera referencia = numeración
+  const notes = new Map<string, Note>(); // in order of first reference = numbering
 
   function reference(id: string): string | null {
     if (!definitions.has(id)) return null;
@@ -90,7 +90,7 @@ export function createFootnotes(definitions: Map<string, string>, labels: Labels
   function renderSection(inline: InlineContext): string {
     if (notes.size === 0) return '';
     const items: string[] = [];
-    // Una nota puede citar a otra todavía no referenciada: el Map también recorre las que se agregan.
+    // A note may cite one not referenced yet: iterating the Map also visits the entries added meanwhile.
     for (const [id, note] of notes) {
       const text = renderInline(definitions.get(id) ?? '', inline);
       items.push(`<li id="fn-${note.slug}"><p>${text} ${backReferences(note, labels)}</p></li>`);
@@ -101,7 +101,7 @@ export function createFootnotes(definitions: Map<string, string>, labels: Labels
   return { reference, renderSection };
 }
 
-/** Una vuelta (↩) por cada referencia de la nota, para volver al lugar exacto del texto. */
+/** One back link (↩) per reference of the note, to return to the exact place in the text. */
 function backReferences(note: Note, labels: Labels): string {
   const label = escapeHtml(labels.backToText);
   return Array.from({ length: note.references }, (_, index) => {

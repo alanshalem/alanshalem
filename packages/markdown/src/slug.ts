@@ -1,8 +1,8 @@
-/** "Introducción a Ñandú!" -> "introduccion-a-nandu" (ASCII, apto para URLs y anclas). */
+/** "Introducción a Ñandú!" -> "introduccion-a-nandu" (ASCII, fit for URLs and anchors). */
 export function slugify(text: string): string {
   const slug = text
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // saca los acentos
+    .replace(/[̀-ͯ]/g, '') // strips the accents
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -10,8 +10,8 @@ export function slugify(text: string): string {
 }
 
 /**
- * Generador de ids únicos dentro de un documento: si dos títulos dan el mismo slug,
- * el segundo queda "slug-2", el tercero "slug-3", etc.
+ * Generator of ids unique within a document: when two titles give the same slug, the second becomes "slug-2", the
+ * third "slug-3", and so on.
  */
 export function createSlugger(): (text: string) => string {
   const used = new Map<string, number>();
