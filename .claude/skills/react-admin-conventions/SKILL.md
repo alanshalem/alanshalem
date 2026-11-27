@@ -67,7 +67,7 @@ description: "Conventions of the React 19 + Vite admin in apps/admin, where src/
   so native undo/redo keeps working.
 - Preview = `@blog/markdown` with `POST_BODY_RENDER_OPTIONS` and the post language, inside `.paper .prose`:
   identical to the published page.
-- Block positions for scroll sync and the outline come from the preview render's `blockStarts` (same values as `blockStartLines()` of `@blog/markdown`); one render per update, never copy its regexes or re-parse.
+- Scroll sync anchors come from the preview render's `anchorLines` (top-level blocks plus every list item), with `blockStarts` as the fallback; the outline uses `blockStarts` (same values as `blockStartLines()` of `@blog/markdown`). One render per update, never copy its regexes or re-parse.
 
 ## Behavior every page keeps
 
