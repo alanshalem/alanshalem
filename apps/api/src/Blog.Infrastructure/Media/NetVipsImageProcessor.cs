@@ -1,4 +1,5 @@
 using Blog.Application.Abstractions;
+using Blog.Application.Media;
 using Blog.Domain;
 using Microsoft.Extensions.Logging;
 using NetVips;
@@ -9,8 +10,26 @@ namespace Blog.Infrastructure.Media;
 /// Image pipeline with libvips (NetVips). Processes one image at a time: encoding AVIF uses every core and quite a lot
 /// of memory, and the API shares the VPS with other apps.
 /// </summary>
-internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logger) : IImageProcessor
+internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logger) : IImageProcessor, IImageFormatSupport
 {
+    // The buffer loader of each format ImageSniffer recognizes. Which ones exist depends on how the bundled libvips
+    // (NetVips.Native) was built: probed in the API image, it has these and lacks HEVC (HEIC), JPEG XL, BMP and ICO.
+    private static readonly Dictionary<string, string> Loaders = new(StringComparer.Ordinal)
+    {
+        ["png"] = "pngload_buffer",
+        ["jpg"] = "jpegload_buffer",
+        ["gif"] = "gifload_buffer",
+        ["webp"] = "webpload_buffer",
+        ["avif"] = "heifload_buffer",
+        ["tif"] = "tiffload_buffer",
+        ["svg"] = "svgload_buffer",
+    };
+
+    // Only these loaders read their pages as the frames of an animation. A multi-page TIFF is a stack of documents or
+    // scans: only its first page is used, like a still image.
+    private static readonly string[] AnimationLoaders = ["gifload_buffer", "webpload_buffer", "heifload_buffer"];
+    private const string LoaderField = "vips-loader";
+
     // Quality calibrated for photos: to the naked eye the same as the original and much lighter than a JPEG.
     private const int AvifQuality = 50;
     private const int AvifEffort = 4; // 0-9: higher compresses barely more but takes several times longer
@@ -50,6 +69,9 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
         Cache.Max = 0;
     }
 
+    public bool CanDecode(string extension) =>
+        Loaders.TryGetValue(extension, out var loader) && NetVips.NetVips.TypeFind("VipsOperation", loader) != 0;
+
     public ImageSize? ReadSize(byte[] image)
     {
         try
@@ -82,7 +104,9 @@ internal sealed class NetVipsImageProcessor(ILogger<NetVipsImageProcessor> logge
     }
 
     private static int PagesOf(Image header) =>
-        header.GetTypeOf(PagesField) != 0 ? (int)header.Get(PagesField) : 1;
+        header.GetTypeOf(PagesField) != 0 && AnimationLoaders.Contains((string)header.Get(LoaderField))
+            ? (int)header.Get(PagesField)
+            : 1;
 
     /// <summary>
     /// A single decode, at the largest width and with shrink-on-load; the other variants come from this copy in memory.
