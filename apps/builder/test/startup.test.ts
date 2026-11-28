@@ -130,6 +130,26 @@ describe('a build stamps its release', () => {
     assert.deepEqual(await readdir(join(config.siteDir, 'releases')), []);
     await assert.rejects(readdir(join(config.siteDir, 'stamps')), { code: 'ENOENT' });
   });
+
+  it('a pruning failure after activation logs the error and never deletes the now-live release', linuxOnly, async () => {
+    const config = { ...configFor(await fakeWeb('echo "<h1>live</h1>" > "$OUT_DIR/index.html"')), keepReleases: 1 };
+    const oldRelease = await createReleaseDir(config.siteDir, new Date('2020-01-01T00:00:00Z'));
+    await writeFile(join(oldRelease, 'locked.txt'), 'x');
+    // Removing a file inside oldRelease requires write+execute permission on oldRelease: 0o555 makes pruning it fail with EACCES.
+    await chmod(oldRelease, 0o555);
+    const warnings: string[] = [];
+
+    try {
+      const result = await buildAndActivate(config, 'sha-live', (line) => warnings.push(line));
+
+      assert.equal(await readFile(join(config.siteDir, 'current', 'index.html'), 'utf8'), '<h1>live</h1>\n');
+      assert.equal(await readReleaseStamp(config.siteDir, result.release), 'sha-live');
+      assert.equal(warnings.length, 1);
+      assert.match(warnings[0]!, /prune/i);
+    } finally {
+      await chmod(oldRelease, 0o755);
+    }
+  });
 });
 
 describe('build on startup', () => {

@@ -55,28 +55,41 @@ function runAstroBuild(config: BuilderConfig, outDir: string): Promise<void> {
 
 /**
  * One full build: build -> check -> precompression -> version stamp -> atomic swap -> cleanup.
- * If anything fails, the half-built folder is deleted and the published version does NOT change.
+ * If anything fails before activation, the half-built folder is deleted and the published version does NOT change.
+ * Activation is the commit point: a cleanup failure after it is logged and never deletes the now-live release.
  *
  * @param version the builder version that builds it (version.ts), recorded for the release before it goes live
+ * @param log where non-fatal post-activation cleanup errors are reported
  */
-export async function buildAndActivate(config: BuilderConfig, version?: string): Promise<BuildResult> {
+export async function buildAndActivate(
+  config: BuilderConfig,
+  version?: string,
+  log: (message: string) => void = console.error,
+): Promise<BuildResult> {
   const startedAt = Date.now();
   const releaseDir = await createReleaseDir(config.siteDir);
 
+  let compressedFiles: number;
   try {
     await runAstroBuild(config, releaseDir);
     // Minimal sanity check: a "successful" build without a home page is not published.
     await access(join(releaseDir, 'index.html'));
 
-    const compressedFiles = await precompressSite(releaseDir);
+    compressedFiles = await precompressSite(releaseDir);
     if (version !== undefined) await writeReleaseStamp(config.siteDir, releaseDir, version);
     await activateRelease(config.siteDir, releaseDir);
-    await pruneReleases(config.siteDir, config.keepReleases);
-
-    return { release: releaseDir, durationMs: Date.now() - startedAt, compressedFiles };
   } catch (error) {
     await rm(releaseDir, { recursive: true, force: true });
     await removeReleaseStamp(config.siteDir, releaseDir);
     throw error;
   }
+
+  try {
+    await pruneReleases(config.siteDir, config.keepReleases);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    log(`failed to prune old releases (the new release stays active): ${detail}`);
+  }
+
+  return { release: releaseDir, durationMs: Date.now() - startedAt, compressedFiles };
 }

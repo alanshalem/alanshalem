@@ -23,7 +23,7 @@ const log = (message: string): void => console.log(`[builder] ${new Date().toISO
 const queue = new BuildQueue(
   async () => {
     log('building the site…');
-    const result: BuildResult = await buildAndActivate(config, version);
+    const result: BuildResult = await buildAndActivate(config, version, log);
     lastBuild = {
       at: new Date().toISOString(),
       ok: true,
