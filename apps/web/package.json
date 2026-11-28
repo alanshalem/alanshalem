@@ -12,6 +12,7 @@
     "typecheck": "astro check"
   },
   "dependencies": {
+    "@blog/diagrams": "workspace:*",
     "@blog/markdown": "workspace:*",
     "@blog/math": "workspace:*",
     "@blog/tokens": "workspace:*",

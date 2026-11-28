@@ -46,6 +46,22 @@
 }
 .prose pre code { font: inherit; background: none; border: 0; padding: 0; }
 
+/* Highlighted code (@blog/highlight: highlight.js classes, built at publish time, no script): the GitHub-dark syntax
+   colors of tokens.css, each 4.5:1 or more on --code-block-bg (apps/web/test/contrast.test.ts). Classes without a
+   rule (params, punctuation, property…) keep the block's --code-block-fg. */
+.prose .hljs-keyword, .prose .hljs-doctag, .prose .hljs-template-tag, .prose .hljs-template-variable, .prose .hljs-type, .prose .hljs-variable.language_ { color: var(--code-keyword); }
+.prose .hljs-title, .prose .hljs-title.class_, .prose .hljs-title.function_ { color: var(--code-entity); }
+.prose .hljs-attr, .prose .hljs-attribute, .prose .hljs-literal, .prose .hljs-meta, .prose .hljs-number, .prose .hljs-operator, .prose .hljs-selector-attr, .prose .hljs-selector-class, .prose .hljs-selector-id, .prose .hljs-variable { color: var(--code-constant); }
+.prose .hljs-string, .prose .hljs-regexp, .prose .hljs-meta .hljs-string { color: var(--code-string); }
+.prose .hljs-built_in, .prose .hljs-symbol, .prose .hljs-bullet { color: var(--code-variable); }
+.prose .hljs-comment, .prose .hljs-code, .prose .hljs-formula { color: var(--code-comment); }
+.prose .hljs-name, .prose .hljs-quote, .prose .hljs-selector-pseudo, .prose .hljs-selector-tag, .prose .hljs-addition { color: var(--code-tag); }
+.prose .hljs-deletion { color: var(--code-deleted); }
+.prose .hljs-section { color: var(--code-constant); font-weight: 700; }
+.prose .hljs-subst { color: var(--code-block-fg); }
+.prose .hljs-emphasis { font-style: italic; }
+.prose .hljs-strong { font-weight: 700; }
+
 /* Code blocks, tables and display math scroll horizontally: the renderer makes them focusable (tabindex="0") so the
    arrow keys can scroll them (WCAG 2.1.1); their focus looks like the links' (WCAG 2.4.7). On the sheet, --link-accent
    is the dark accent of .paper (≥ 3:1 on white). */
@@ -69,6 +85,11 @@
   white-space: pre-wrap;
 }
 .prose .math-display > .math-error { display: block; width: max-content; margin-inline: auto; }
+
+/* Diagrams (```mermaid, drawn in the browser by @blog/diagrams with the paper tokens as its theme): the SVG is centered
+   and scaled down to the column when it is wider. Its source is the code block shown until it is drawn, and again if
+   it cannot be; once drawn it stays hidden as the diagram's description. */
+.prose .diagram-render > svg { margin-inline: auto; height: auto; }
 
 /* Tables: the renderer wraps them in .table-wrap so they can scroll horizontally on mobile */
 .prose .table-wrap { overflow-x: auto; }

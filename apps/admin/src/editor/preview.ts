@@ -12,8 +12,8 @@ import { isTopLevelHeading } from './markdownSource.ts';
 
 /**
  * The options the site renders a post body with (`postBodyOptions` of @blog/math, the same the build uses: the post
- * body preset of @blog/markdown, TeX math and the post's language): the preview is what gets published (## = h2,
- * ### = h3, quotes, figures, callout titles, formulas).
+ * body preset of @blog/markdown, TeX math, highlighted code and the post's language): the preview is what gets published
+ * (## = h2, ### = h3, quotes, figures, callout titles, formulas, code colors, diagram figures, which useDiagrams draws).
  */
 export const previewOptions = (lang: Lang): RenderOptions => postBodyOptions(lang);
 

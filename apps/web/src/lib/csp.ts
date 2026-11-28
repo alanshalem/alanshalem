@@ -32,6 +32,19 @@ export const cspHash = (content: string): `sha256-${string}` =>
 /** The site's executable <script is:inline>s, by name (a test checks that src/ has no others). */
 export const INLINE_SCRIPTS = { MEDIA_GUARD_SCRIPT, HERO_ROTATION_SCRIPT } as const;
 
+/**
+ * Pages with a diagram also accept inline <style> elements (components/Diagrams.astro, through `Astro.csp`): Mermaid
+ * draws each SVG with a <style> of its own, built in the browser from the theme and the diagram, so no hash can cover
+ * it, and without it the nodes lose their fill and font. Only on those pages and only for style elements: Astro then
+ * writes `style-src-elem 'self' 'unsafe-inline'` instead of the style hashes; scripts keep theirs, and every other page
+ * keeps the policy below byte for byte. A style runs no code, and post content cannot add an element (the renderer
+ * escapes all of it).
+ */
+export const DIAGRAM_STYLE_RESOURCES = [
+  { resource: "'self'", kind: 'element' },
+  { resource: "'unsafe-inline'", kind: 'element' },
+] as const;
+
 /** `security.csp` of astro.config.mjs. */
 export const SITE_CSP = {
   directives: [

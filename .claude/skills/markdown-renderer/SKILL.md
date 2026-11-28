@@ -1,6 +1,6 @@
 ---
 name: markdown-renderer
-description: "Rules of the dependency-free Markdown renderer in packages/markdown shared by the Astro site and the admin preview, covering no raw HTML ever, the URL allowlist, opt-in options that keep existing output stable, POST_BODY_RENDER_OPTIONS so the preview equals the published page, and the footnote, callout, figure and smart typography extensions. Use when changing Markdown syntax or output, rendering a post body or short text, or adding editor features that depend on Markdown structure."
+description: "Rules of the dependency-free Markdown renderer in packages/markdown shared by the Astro site and the admin preview, covering no raw HTML ever, the URL allowlist, opt-in options that keep existing output stable, POST_BODY_RENDER_OPTIONS and postBodyOptions so the preview equals the published page, the injected math and code highlighting, Mermaid diagram figures, and the footnote, callout, figure and smart typography extensions. Use when changing Markdown syntax or output, rendering a post body or short text, or adding editor features that depend on Markdown structure."
 ---
 
 # Markdown renderer (`packages/markdown`)
@@ -9,8 +9,8 @@ description: "Rules of the dependency-free Markdown renderer in packages/markdow
 
 - Zero runtime dependencies. Public API in `src/index.ts`: `renderMarkdown`, `blockStartLines`,
   `POST_BODY_RENDER_OPTIONS`, `excerpt`, `readingTimeMinutes`, `readingTimeOfText`, `wordCount`, `toPlainText`,
-  `slugify`, `escapeHtml`, `unescapeHtml`, `sanitizeUrl`, types `Heading`, `Lang`, `MathRenderer`, `RenderOptions`,
-  `RenderResult`.
+  `slugify`, `escapeHtml`, `unescapeHtml`, `sanitizeUrl`, types `CodeHighlighter`, `Heading`, `Lang`, `MathRenderer`,
+  `RenderOptions`, `RenderResult`.
   `test/escape.test.ts` pins that exact list: adding or removing an export is a deliberate change to that test.
 - `unescapeHtml` is the exact inverse of `escapeHtml` (one table in `src/escape.ts`, decoded in one pass): plain text
   uses it, and any site or admin code that needs the text back imports it instead of keeping its own copy.
@@ -32,25 +32,32 @@ description: "Rules of the dependency-free Markdown renderer in packages/markdow
   control characters and spaced-out schemes (`java script:`) are rejected. External links get
   `rel="noopener noreferrer"` (`isExternalUrl`).
 - Do not add an "allow HTML" option. If a feature seems to need HTML, add Markdown syntax that renders it.
-- The one injected HTML is the `math` option's output (a `MathRenderer`): the renderer passes it the raw TeX and puts
-  its result in the page as is, so that function owns its safety. The only one wired in is `renderTex` of
-  `@blog/math` (Temml with `trust: false`; see that package for its security tests).
+- The only injected HTML is the output of two options, each a function that owns its safety: `math` (a
+  `MathRenderer`; the renderer passes it the raw TeX) and `highlight` (a `CodeHighlighter`; it gets the raw code and the
+  fence language). The ones wired in are `renderTex` of `@blog/math` (Temml with `trust: false`) and `highlightCode` of
+  `@blog/highlight` (highlight.js: its tests check that, for every language, removing the `<span class="…">` tags
+  leaves exactly `escapeHtml(code)`); see those packages for their security tests.
+- Diagrams inject nothing: a ```` ```mermaid ```` fence is escaped text in a figure; the browser draws it later
+  (`@blog/diagrams`, Mermaid with `securityLevel: 'strict'`).
 
 ## Options are opt-in
 
 `RenderOptions` (`src/types.ts`): `headingOffset`, `minHeadingLevel`, `lang` (`'es'` default), `smartTypography`,
-`figures`, `math`. New behavior that changes existing output is an option that defaults to off, so old content renders the
-same; preservation tests pin that.
+`figures`, `math`, `highlight`, `diagrams`. New behavior that changes existing output is an option that defaults to off, so old
+content renders the same; preservation tests pin that.
 
 ```ts
-// Post body, site and admin alike:
-renderMarkdown(body, { ...POST_BODY_RENDER_OPTIONS, lang: post.lang });
+// Post body, site and admin alike (@blog/math: the preset + math + highlight + the language):
+renderMarkdown(body, postBodyOptions(post.lang));
 // Short text under another heading (home bio):
 renderMarkdown(bio, { headingOffset: 2 });
 ```
 
 `POST_BODY_RENDER_OPTIONS` = `minHeadingLevel: 2` (standard headings: `##` → h2, `###` → h3, body `#` → h2; the post
-title is the page's only h1), `smartTypography: true`, `figures: true`.
+title is the page's only h1), `smartTypography: true`, `figures: true`, `diagrams: true`. The functions live in their own
+packages so this one keeps zero dependencies: `postBodyOptions(lang)` of `@blog/math` spreads the preset, `math:
+renderTex`, `highlight: highlightCode` (`HIGHLIGHT_RENDER_OPTIONS` of `@blog/highlight`) and the language; the site
+(`toBlogPost`) and the admin (`previewOptions`) both call it, and `packages/math/test/math.test.ts` pins it.
 
 ## Extensions (GitHub-compatible syntax)
 
@@ -74,14 +81,33 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
   tag) goes with it in `<span class="math-nowrap">`, so `($x$),` never wraps apart. That pass runs only when there
   are formulas and looks only around each slot (linear: a 50 KB token without spaces renders in ms; a global regex
   with unbounded runs on both sides took 1.5 s).
+- Code highlighting (only with the `highlight` option, a `(code, language) => html | null` function): a fence whose
+  language passes the safe-language pattern gets the function's HTML inside the same
+  `<pre tabindex="0"><code class="language-x">`; null (unknown language, plain text) keeps the escaped code, exactly as
+  without the option. Never called for a fence without a language, inline code, ```` ```math ```` with the math option or
+  ```` ```mermaid ```` with diagrams. Like formulas, each block leaves a `<%n>` slot (`src/code.ts`) filled at the end: the
+  highlighted HTML in `html`, the escaped code in `text`, so the highlighting tags never split words of the counter.
+  `@blog/highlight` is highlight.js core with a curated set (python, javascript/jsx, typescript/tsx, csharp, bash, shell,
+  sql, json, yaml, xml/html, css, markdown, go, rust, java, c, cpp, dockerfile, diff, r, powershell, ini/toml,
+  plaintext) and their aliases (`py`, `js`, `ts`, `sh`, `cs`, `yml`…), class-based (`hljs-*`, themed in `prose.css`;
+  no inline style, so no CSP change); chosen over Shiki for the admin bundle (~96 KB minified, ~32 KB gzip, against
+  megabytes of TextMate grammars).
+- Diagrams (only with the `diagrams` option): a ```` ```mermaid ```` fence (exactly that language) becomes
+  `<figure class="diagram"><pre class="diagram-source" tabindex="0"><code class="language-mermaid">source</code></pre></figure>`:
+  the escaped source is the no-JavaScript fallback (the same code block as without the option) and the text
+  alternative. One top-level block; its plain text is the source. `@blog/diagrams` draws it in the browser on the site
+  (a script only on pages where `hasDiagram(html)`, loading the self-hosted Mermaid bundle copied into
+  `/scripts/mermaid-<version>/` at build) and in the admin preview (`useDiagrams`, lazy `import('mermaid')`), with the
+  same config, theme tokens and accessible name (`role="img"`, `aria-label` from the labels, `aria-describedby` the
+  hidden source).
 - Smart typography by language: quotes, dashes, ellipsis — never inside code, URLs or attributes. What counts as a
   word character is one predicate, `isWordChar` (`src/typography.ts`), shared by smart quotes and the `_` emphasis
   rule in `src/inline.ts`.
 
 ## Accessible output
 
-- `<pre tabindex="0">` (scrollable code is keyboard reachable, WCAG 2.1.1); display math likewise in
-  `<div class="math-display" tabindex="0">`.
+- `<pre tabindex="0">` (scrollable code is keyboard reachable, WCAG 2.1.1), the diagram source included; display math
+  likewise in `<div class="math-display" tabindex="0">`.
 - Tables wrapped in `<div class="table-wrap" tabindex="0" role="region" aria-label="Tabla|Table">`.
 - Heading ids are unique per document (the internal `createSlugger`).
 
@@ -102,7 +128,7 @@ title is the page's only h1), `smartTypography: true`, `figures: true`.
 ## Tests
 
 `packages/markdown/test/*.test.ts` (node --test): `render.test.ts`, `blocks.test.ts`, `extensions.test.ts`,
-`accessibility.test.ts`, `math.test.ts`, `escape.test.ts` (the public API list, `escapeHtml`/`unescapeHtml` round trip). For each change: a RED test for the new syntax, plus a test proving Markdown that does not
+`accessibility.test.ts`, `math.test.ts`, `code.test.ts` (highlight and diagrams options), `escape.test.ts` (the public API list, `escapeHtml`/`unescapeHtml` round trip). For each change: a RED test for the new syntax, plus a test proving Markdown that does not
 use it renders exactly as before.
 
 ## Checklist

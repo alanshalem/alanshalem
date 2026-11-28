@@ -30,6 +30,8 @@ FROM node AS build
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/markdown/package.json packages/markdown/
 COPY packages/math/package.json packages/math/
+COPY packages/highlight/package.json packages/highlight/
+COPY packages/diagrams/package.json packages/diagrams/
 COPY packages/tokens/package.json packages/tokens/
 COPY apps/web/package.json apps/web/
 COPY apps/builder/package.json apps/builder/

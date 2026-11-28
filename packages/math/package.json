@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "TeX -> MathML for post bodies (Temml), injected into @blog/markdown by the site build and the admin preview.",
+  "description": "TeX -> MathML for post bodies (Temml), injected into @blog/markdown by the site build and the admin preview, and postBodyOptions(lang): how a post body renders (math, highlighted code, diagrams).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -12,6 +12,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@blog/highlight": "workspace:*",
     "@blog/markdown": "workspace:*",
     "temml": "0.14.0"
   },

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { highlightCode } from '@blog/highlight';
 import { POST_BODY_RENDER_OPTIONS, renderMarkdown } from '@blog/markdown';
 import * as math from '../src/index.ts';
 import { MATH_RENDER_OPTIONS, postBodyOptions, renderTex } from '../src/index.ts';
@@ -88,8 +89,8 @@ describe('security: math is never a path for HTML or URLs', () => {
 });
 
 describe('post body wiring: the site and the admin preview render the same', () => {
-  it('postBodyOptions is the markdown post body preset plus the math renderer and the language', () => {
-    assert.deepEqual(postBodyOptions('en'), { ...POST_BODY_RENDER_OPTIONS, math: renderTex, lang: 'en' });
+  it('postBodyOptions is the markdown post body preset plus the math renderer, the highlighter and the language', () => {
+    assert.deepEqual(postBodyOptions('en'), { ...POST_BODY_RENDER_OPTIONS, math: renderTex, highlight: highlightCode, lang: 'en' });
     assert.deepEqual(MATH_RENDER_OPTIONS, { math: renderTex });
     assert.ok(Object.isFrozen(MATH_RENDER_OPTIONS));
   });
@@ -98,6 +99,15 @@ describe('post body wiring: the site and the admin preview render the same', () 
     const out = page('Tasa ($\\text{tiempo}^{-1}$), ($\\text{tiempo}^{-1/2}$), ($D = \\sigma^2/2$), ($N_{\\text{ef}}$).\n\ncuesta $5 y $10');
     assert.equal((out.match(/<math>/g) ?? []).length, 4, out);
     assert.ok(out.endsWith('<p>cuesta $5 y $10</p>'), out);
+  });
+
+  it('code with a language is highlighted, an unknown one is escaped as always, mermaid is a diagram figure', () => {
+    assert.equal(
+      page('```python\nimport math\n```'),
+      '<pre tabindex="0"><code class="language-python"><span class="hljs-keyword">import</span> math</code></pre>',
+    );
+    assert.equal(page('```cobol\nA < B\n```'), '<pre tabindex="0"><code class="language-cobol">A &lt; B</code></pre>');
+    assert.match(page('```mermaid\ngraph TD\n```'), /^<figure class="diagram"><pre class="diagram-source" tabindex="0">/);
   });
 
   it('display math sits in its scrollable box', () => {

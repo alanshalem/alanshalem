@@ -38,6 +38,15 @@ the profile SVGs (`tooling/profile/src/theme.ts`) read their colors from the sam
 - Dark pages (home, listings) use `bg-page`, panels `bg-surface` `#141416`.
 - Reading pages: dark full-screen hero, then the white `.paper` sheet (`paper-bg` `#fff`, `paper-text` `#2c2724`),
   then dark again for "Seguir leyendo" ("Keep reading") and the footer. Code blocks use the GitHub-dark pair `#24292e` / `#e1e4e8`.
+- Highlighted code (`@blog/highlight`, highlight.js classes) takes its colors from the `--code-*` tokens of the `.paper`
+  block (GitHub-dark syntax colors; the comment gray lightened to `#959da5`), mapped to `hljs-*` classes in
+  `prose.css`: every token color reaches 4.5:1 on `--code-block-bg` and none sets a background
+  (`apps/web/test/contrast.test.ts`). A new color is a new `--code-*` token, never a value in the rule.
+- Diagrams (Mermaid, `@blog/diagrams`) sit on the sheet with the `base` theme built from the paper tokens at runtime
+  (`DIAGRAM_THEME_TOKENS`: fills `--paper-code-bg`, text `--paper-text`, lines and borders `--paper-muted` ≥ 3:1, the UI
+  font `--font-ui`), centered and scaled down to the column; the author's own `style … fill/stroke/color` lines win.
+  Mermaid's SVGs carry an inline `<style>`: only pages with a diagram allow inline style elements
+  (`DIAGRAM_STYLE_RESOURCES`, `apps/web/src/lib/csp.ts`).
 - Formulas on the sheet take the text color; display math is centered in its own focusable box that scrolls
   horizontally on narrow screens (`.math-display`), and TeX that does not compile shows its source as code in
   `--paper-error` with a wavy underline (6.5:1 on white; `apps/web/test/contrast.test.ts`).

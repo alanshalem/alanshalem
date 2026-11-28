@@ -69,8 +69,9 @@ export function toBlogPost(apiPost: ApiPost): BlogPost {
   // previous site.
   if (!isLang(lang)) throw new Error(`Post "${apiPost.slug}" has language "${lang}", which the site does not publish.`);
   // The same options as the admin preview (`postBodyOptions` of @blog/math): "## section, ### subsection" with the post
-  // title as the only <h1>, figures, smart typography and TeX math as MathML; the language puts callout and footnote
-  // titles in the post's language.
+  // title as the only <h1>, figures, smart typography, TeX math as MathML, highlighted code and Mermaid diagram figures
+  // (drawn by the page's diagram script only when there is one); the language puts callout and footnote titles in the
+  // post's language.
   // One render feeds the page: its `text` is what the reader sees (figure captions, callout titles in the post's
   // language), so the reading time matches the admin preview, which counts the same render.
   const { html, headings, text } = renderMarkdown(apiPost.body, postBodyOptions(lang));

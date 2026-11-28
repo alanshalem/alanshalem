@@ -1,0 +1,25 @@
+---
+/*
+ * Draws the post's Mermaid diagrams (```mermaid fences, rendered by @blog/markdown as <figure class="diagram"> around
+ * their source). Only pages with a diagram render this component ([slug].astro, `hasDiagram`), so only they load the
+ * script and, through it, the self-hosted Mermaid bundle (copied from node_modules into /scripts at build). Without
+ * JavaScript, or if a diagram does not parse, its source stays as a code block.
+ */
+import { DIAGRAM_STYLE_RESOURCES } from '../lib/csp.ts';
+
+// Mermaid's SVGs carry their own <style>: this page's CSP accepts inline style elements (see lib/csp.ts).
+for (const resource of DIAGRAM_STYLE_RESOURCES) Astro.csp?.insertStyleResource(resource);
+---
+
+<script>
+  import { createDiagramRenderer, MERMAID_SCRIPT_URL, type MermaidApi } from '@blog/diagrams';
+
+  const first = document.querySelector('figure.diagram');
+  if (first) {
+    // The self-hosted bundle, not a dependency of this script: `@vite-ignore` keeps it out of the site's bundle.
+    const load = async (): Promise<MermaidApi> => (await import(/* @vite-ignore */ MERMAID_SCRIPT_URL)).default;
+    // The theme comes from the design-system tokens where the diagrams are (the .paper sheet).
+    const renderer = createDiagramRenderer(load, (name) => getComputedStyle(first).getPropertyValue(name));
+    void renderer.render(document);
+  }
+</script>
