@@ -81,10 +81,11 @@ describe('pages with a diagram: Mermaid draws each SVG with its own <style>', ()
   const read = (file: URL): string => readFileSync(file, 'utf8');
   const diagrams = new URL('components/Diagrams.astro', SRC);
 
-  it("only style elements are relaxed ('self' and 'unsafe-inline'); scripts keep their hashes", () => {
+  it("only styles are relaxed (style elements, plus style-src for browsers without style-src-elem); scripts keep their hashes", () => {
     assert.deepEqual(DIAGRAM_STYLE_RESOURCES, [
       { resource: "'self'", kind: 'element' },
       { resource: "'unsafe-inline'", kind: 'element' },
+      { resource: "'unsafe-inline'", kind: 'default' },
     ]);
   });
 

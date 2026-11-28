@@ -39,10 +39,15 @@ export const INLINE_SCRIPTS = { MEDIA_GUARD_SCRIPT, HERO_ROTATION_SCRIPT } as co
  * writes `style-src-elem 'self' 'unsafe-inline'` instead of the style hashes; scripts keep theirs, and every other page
  * keeps the policy below byte for byte. A style runs no code, and post content cannot add an element (the renderer
  * escapes all of it).
+ * Astro also drops the hashes from `style-src` there, and a browser without `style-src-elem` (Safari < 15.4, Firefox
+ * < 108) falls back to it: an `'unsafe-inline'` in plain `style-src` (`kind: 'default'` in Astro) keeps the page's
+ * own inline CSS (the whole site stylesheet, `inlineStylesheets: 'always'`) working for them. They get
+ * `style-src 'self' 'unsafe-inline'`: the same that `style-src-elem` and `style-src-attr` allow newer browsers.
  */
 export const DIAGRAM_STYLE_RESOURCES = [
   { resource: "'self'", kind: 'element' },
   { resource: "'unsafe-inline'", kind: 'element' },
+  { resource: "'unsafe-inline'", kind: 'default' },
 ] as const;
 
 /** `security.csp` of astro.config.mjs. */

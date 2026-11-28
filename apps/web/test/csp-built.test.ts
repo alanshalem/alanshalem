@@ -116,6 +116,11 @@ describe('the CSP of the built pages', { timeout: 300_000 }, () => {
     assert.ok(!directives.get('style-src')?.some((source) => source.includes('sha256-')), 'no style hashes left beside it');
   });
 
+  it("a page with a diagram also allows inline styles in style-src: browsers without style-src-elem keep the site's inline CSS", () => {
+    const { directives } = policyOf(page('es/articulos/con-diagrama'));
+    assert.deepEqual(directives.get('style-src'), ["'self'", "'unsafe-inline'"]);
+  });
+
   it('a page with a diagram keeps every other directive and the script hashes of a plain page', () => {
     const diagram = policyOf(page('es/articulos/con-diagrama')).directives;
     const plain = policyOf(page('es/articulos/sin-diagrama')).directives;
