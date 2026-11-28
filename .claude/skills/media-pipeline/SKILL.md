@@ -15,7 +15,10 @@ The DTOs below are the contracts between the API (`Blog.Application/Media`, `Blo
 - **SVG is only rasterized**: librsvg (inside the bundled libvips) renders it to the usual AVIF/WebP; the SVG itself is
   never stored or served, so its scripts never reach a browser. Loading from a buffer has no base URL, so external
   `href`s (files, metadata endpoints) are not loaded (tested); an SVG declaring `<!ENTITY` or an internal DTD subset
-  is not even recognized. Rendered at its intrinsic size (no upscaling, like any image).
+  is not even recognized, nor is a DOCTYPE naming an external DTD outside www.w3.org (DTDs are never fetched either,
+  tested with a counting HTTP server). The header read reports the rendered canvas (width/height in any unit at 72 dpi,
+  else the viewBox, else the drawing's extent), so the 100 MP pixel limit refuses a huge canvas before rasterizing.
+  Rendered at its intrinsic size (no upscaling, like any image).
 - What decodes is what the bundled libvips (`NetVips.Native.linux-x64`, same bytes in the API image) has a loader for,
   probed in the image (2026-11, libvips 8.18.7): png, jpeg, gif, webp, heif (AV1 only), tiff, svg. **Not available**:
   HEVC (HEIC/iPhone photos: "Support for this compression format has not been built in: HEVC"), JPEG XL, BMP, ICO
