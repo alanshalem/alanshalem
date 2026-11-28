@@ -385,25 +385,181 @@ public class MediaPipelineTests
         });
     }
 
+    // The control of the test below: an <image> that does load (a data: URI, which needs no fetch) covers the whole
+    // canvas, so a fetched http or file image would show in the output pixels.
     [Fact]
-    public async Task An_svg_with_a_script_and_external_references_is_rasterized_without_running_or_fetching_them()
+    public async Task An_svg_image_that_loads_covers_the_canvas_so_a_fetched_one_would_show_in_the_pixels()
     {
         await using var database = await CreateDatabaseAsync();
-        var original = System.Text.Encoding.UTF8.GetBytes(
-            "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"700\" height=\"500\">" +
-            "<script>alert(1)</script><rect width=\"700\" height=\"500\" fill=\"#dc1e1e\"/>" +
-            "<image xlink:href=\"file:///etc/passwd\" width=\"700\" height=\"500\"/>" +
-            "<image href=\"http://169.254.169.254/latest/meta-data\" width=\"700\" height=\"500\"/></svg>");
+        using var green = TestImages.Solid(70, 50, 30, 200, 30);
+        var dataUri = "data:image/png;base64," + Convert.ToBase64String(TestImages.Png(green));
+
+        var asset = await UploadAsync(database, SvgOverRed(700, 500, $"<image href=\"{dataUri}\" width=\"700\" height=\"500\"/>"));
+
+        AssertCloseTo([30, 200, 30], asset.Color, tolerance: 2);
+    }
+
+    [Fact]
+    public async Task An_svg_with_a_script_and_external_images_is_rasterized_without_running_or_fetching_them()
+    {
+        await using var database = await CreateDatabaseAsync();
+        using var green = TestImages.Solid(70, 50, 30, 200, 30);
+        await using var server = new CountingHttpServer(TestImages.Png(green), "image/png");
+        using var blue = TestImages.Solid(70, 50, 30, 30, 220);
+        var bluePath = Path.Combine(Path.GetDirectoryName(database.FilePath)!, "blue.png");
+        await File.WriteAllBytesAsync(bluePath, TestImages.Png(blue));
+        var original = SvgOverRed(700, 500,
+            "<script>alert(1)</script>" +
+            $"<image href=\"{server.UrlOf("green.png")}\" width=\"700\" height=\"500\"/>" +
+            $"<image xlink:href=\"{server.UrlOf("legacy.png")}\" width=\"700\" height=\"500\"/>" +
+            $"<image href=\"{new Uri(bluePath).AbsoluteUri}\" width=\"700\" height=\"500\"/>");
 
         var asset = await UploadAsync(database, original);
 
-        // The red rectangle is all there is: nothing external was drawn over it (rasterizing may round one level).
+        Assert.Equal(0, server.Connections);
         AssertCloseTo([220, 30, 30], asset.Color, tolerance: 2);
+        Assert.All(asset.Variants, variant =>
+        {
+            // Every output pixel is the red rectangle: neither the green (http) nor the blue (file) image was drawn.
+            using var file = LoadFile(database, variant.Url);
+            using var greenBand = file[1];
+            using var blueBand = file[2];
+            Assert.True(greenBand.Max() < 80 && blueBand.Max() < 80, $"{variant.Url} contains a referenced image's color");
+        });
         Assert.All(database.MediaFiles(), file =>
         {
             Assert.Matches(@"\.(avif|webp)$", file);
             Assert.Equal(-1, File.ReadAllBytes(Path.Combine(database.MediaDirectory, file)).AsSpan().IndexOf("<script"u8));
         });
+
+        // The server does count a real request: its 0 above is evidence, not a server that never listened.
+        using var http = new HttpClient();
+        _ = await http.GetByteArrayAsync(server.UrlOf("green.png"));
+        Assert.Equal(1, server.Connections);
+    }
+
+    // The sniffer refuses these DOCTYPEs (ImageSnifferTests); this proves the loader behind it would not fetch them either.
+    [Theory]
+    [InlineData("SYSTEM \"{0}\"")]
+    [InlineData("PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"{0}\"")]
+    public async Task The_svg_loader_never_fetches_an_external_dtd(string externalId)
+    {
+        await using var database = await CreateDatabaseAsync();
+        await using var server = new CountingHttpServer("<!ENTITY fill \"#00ff00\">"u8.ToArray(), "application/xml-dtd");
+        var svg = System.Text.Encoding.UTF8.GetBytes(
+            $"<?xml version=\"1.0\"?><!DOCTYPE svg {string.Format(System.Globalization.CultureInfo.InvariantCulture, externalId, server.UrlOf("svg.dtd"))}>" +
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"80\"><rect width=\"100\" height=\"80\" fill=\"#dc1e1e\"/></svg>");
+
+        var processed = await database.InScopeAsync(async provider =>
+        {
+            var images = provider.GetRequiredService<IImageProcessor>();
+            Assert.Equal(new ImageSize(100, 80, 1), images.ReadSize(svg));
+            return await images.ProcessAsync(svg, MediaVariant.For(100), default);
+        });
+
+        Assert.NotNull(processed);
+        Assert.Equal(0, server.Connections);
+    }
+
+    // librsvg sizes an SVG by width/height (any unit, at 72 dpi), else by its viewBox: the header read must report the
+    // same canvas the pipeline renders, or the pixel limit would be checked against the wrong number.
+    [Theory]
+    [InlineData("width=\"300\" height=\"200\"", 300, 200)]
+    [InlineData("viewBox=\"0 0 300 200\"", 300, 200)]
+    [InlineData("width=\"100%\" height=\"100%\" viewBox=\"0 0 300 200\"", 300, 200)]
+    [InlineData("width=\"3in\" height=\"2in\"", 216, 144)]
+    public async Task Reading_the_size_of_an_svg_reports_the_canvas_the_pipeline_renders(string canvas, int width, int height)
+    {
+        await using var database = await CreateDatabaseAsync();
+        var svg = SvgWith(canvas, "<rect width=\"100%\" height=\"100%\" fill=\"#dc1e1e\"/>");
+
+        var size = await database.InScopeAsync(provider => Task.FromResult(provider.GetRequiredService<IImageProcessor>().ReadSize(svg)));
+        var asset = await UploadAsync(database, svg);
+
+        Assert.Equal(new ImageSize(width, height, 1), size);
+        Assert.All(asset.Variants, variant =>
+        {
+            using var file = LoadFile(database, variant.Url);
+            Assert.Equal((width, height), (file.Width, file.Height));
+        });
+    }
+
+    // A few hundred bytes of SVG can declare a canvas of billions of pixels: the header read reports it, so the pixel
+    // limit refuses it before anything is rasterized.
+    [Theory]
+    [InlineData("width=\"100000\" height=\"100000\"")]
+    [InlineData("viewBox=\"0 0 100000 100000\"")]
+    [InlineData("width=\"100%\" height=\"100%\" viewBox=\"0 0 100000 100000\"")]
+    [InlineData("width=\"2000in\" height=\"2000in\"")]
+    [InlineData("width=\"10001\" height=\"10000\"")]
+    public async Task An_svg_declaring_a_canvas_over_the_pixel_limit_is_refused_before_it_is_rasterized(string canvas)
+    {
+        await using var database = await CreateDatabaseAsync();
+        var svg = SvgWith(canvas, "<rect width=\"100%\" height=\"100%\" fill=\"#dc1e1e\"/>");
+
+        var (error, processed) = await UploadCountingAsync(database, svg);
+
+        Assert.Equal(MessageKeys.MediaTooManyPixels, error?.UserMessage.Key);
+        Assert.Equal("La imagen supera el máximo de 100 megapíxeles.", error?.Message);
+        Assert.Equal(0, processed);
+        await AssertNothingStoredAsync(database);
+    }
+
+    // The boundary: exactly 100 megapixels is within the limit (only the header is read here: rendering it is not the
+    // point and would take minutes).
+    [Fact]
+    public async Task An_svg_canvas_of_exactly_the_pixel_limit_is_reported_whole()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var svg = SvgWith("width=\"10000\" height=\"10000\"", "");
+
+        var size = await database.InScopeAsync(provider => Task.FromResult(provider.GetRequiredService<IImageProcessor>().ReadSize(svg)));
+
+        Assert.Equal(MediaService.MaxPixels, size?.Pixels);
+    }
+
+    // Without width, height or viewBox librsvg has no canvas, and libvips sizes the SVG by what it draws: still a
+    // number the header read reports, so a huge drawing meets the same pixel limit.
+    [Fact]
+    public async Task An_svg_without_size_or_viewbox_is_sized_by_its_drawing()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var svg = SvgWith("", "<rect width=\"120\" height=\"80\" fill=\"#dc1e1e\"/>");
+
+        var asset = await UploadAsync(database, svg);
+
+        Assert.Equal((120, 80), (asset.Width, asset.Height));
+        Assert.All(asset.Variants, variant =>
+        {
+            using var file = LoadFile(database, variant.Url);
+            Assert.Equal((120, 80), (file.Width, file.Height));
+        });
+    }
+
+    [Fact]
+    public async Task An_svg_without_size_or_viewbox_whose_drawing_is_over_the_pixel_limit_is_refused_before_it_is_rasterized()
+    {
+        await using var database = await CreateDatabaseAsync();
+        var svg = SvgWith("", "<rect width=\"100000\" height=\"100000\" fill=\"#dc1e1e\"/>");
+
+        var (error, processed) = await UploadCountingAsync(database, svg);
+
+        Assert.Equal(MessageKeys.MediaTooManyPixels, error?.UserMessage.Key);
+        Assert.Equal(0, processed);
+        await AssertNothingStoredAsync(database);
+    }
+
+    // Nothing to size it by (no width, height, viewBox nor drawing): a defined answer, never a guess at a canvas.
+    [Fact]
+    public async Task An_empty_svg_without_size_or_viewbox_is_refused_as_unreadable_and_stores_nothing()
+    {
+        await using var database = await CreateDatabaseAsync();
+
+        var (error, processed) = await UploadCountingAsync(database, SvgWith("", ""));
+
+        Assert.Equal(MessageKeys.MediaUnreadable, error?.UserMessage.Key);
+        Assert.Equal(0, processed);
+        await AssertNothingStoredAsync(database);
     }
 
     [Fact]
@@ -451,6 +607,7 @@ public class MediaPipelineTests
     [InlineData("not an image")]
     [InlineData("<html><script>alert(1)</script></html>")]
     [InlineData("<?xml version=\"1.0\"?><!DOCTYPE svg [<!ENTITY a \"aaaa\">]><svg>&a;</svg>")]
+    [InlineData("<?xml version=\"1.0\"?><!DOCTYPE svg SYSTEM \"http://attacker.example/svg.dtd\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"10\" height=\"10\"/>")]
     public async Task Rejects_files_that_are_not_a_supported_image_and_stores_nothing(string content)
     {
         await using var database = await CreateDatabaseAsync();
@@ -500,6 +657,37 @@ public class MediaPipelineTests
             return await media.UploadImageAsync(stream, default);
         });
 
+    /// <summary>Uploads through the real pipeline and counts how many times it got as far as rasterizing.</summary>
+    private static async Task<(DomainException? Error, int Processed)> UploadCountingAsync(SqliteTestDatabase database, byte[] content)
+    {
+        var processed = 0;
+        try
+        {
+            await database.InScopeAsync(async provider =>
+            {
+                var media = new MediaService(
+                    new CountingProcess(provider.GetRequiredService<IImageProcessor>(), () => processed++),
+                    provider.GetRequiredService<IMediaStorage>(),
+                    provider.GetRequiredService<IMediaAssetRepository>(),
+                    database.Clock);
+                await using var stream = new MemoryStream(content);
+                return await media.UploadImageAsync(stream, default);
+            });
+            return (null, processed);
+        }
+        catch (DomainException error)
+        {
+            return (error, processed);
+        }
+    }
+
+    private static byte[] SvgWith(string canvas, string content) => System.Text.Encoding.UTF8.GetBytes(
+        $"<svg xmlns=\"http://www.w3.org/2000/svg\" {canvas}>{content}</svg>");
+
+    private static byte[] SvgOverRed(int width, int height, string content) => System.Text.Encoding.UTF8.GetBytes(
+        $"<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" width=\"{width}\" height=\"{height}\">" +
+        $"<rect width=\"{width}\" height=\"{height}\" fill=\"#dc1e1e\"/>{content}</svg>");
+
     private static async Task AssertNothingStoredAsync(SqliteTestDatabase database)
     {
         Assert.Empty(database.MediaFiles());
@@ -524,6 +712,20 @@ public class MediaPipelineTests
 
         public Task<ProcessedImage?> ProcessAsync(byte[] image, IReadOnlyList<MediaVariant> variants, CancellationToken cancellationToken) =>
             inner.ProcessAsync(image, variants, cancellationToken);
+    }
+
+    /// <summary>The real pipeline, counting the uploads that reach rasterization.</summary>
+    private sealed class CountingProcess(IImageProcessor inner, Action onProcess) : IImageProcessor, IImageFormatSupport
+    {
+        public bool CanDecode(string extension) => ((IImageFormatSupport)inner).CanDecode(extension);
+
+        public ImageSize? ReadSize(byte[] image) => inner.ReadSize(image);
+
+        public Task<ProcessedImage?> ProcessAsync(byte[] image, IReadOnlyList<MediaVariant> variants, CancellationToken cancellationToken)
+        {
+            onProcess();
+            return inner.ProcessAsync(image, variants, cancellationToken);
+        }
     }
 
     private static void AssertCloseTo(int[] expected, string color, int tolerance = 6)

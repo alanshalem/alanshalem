@@ -36,6 +36,10 @@ public class ImageSnifferTests
     [InlineData("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>")]
     [InlineData("﻿<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- Created with Inkscape -->\n<svg\n width=\"10\"/>")]
     [InlineData("<?xml version=\"1.0\"?><!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\"><svg>")]
+    [InlineData("<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.0//EN\"\n  \"http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd\" ><svg>")]
+    [InlineData("<!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'https://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'><svg>")]
+    [InlineData("<!DOCTYPE svg SYSTEM \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\"><svg>")]
+    [InlineData("<!DOCTYPE svg><svg>")]
     public void Detects_svg_after_its_optional_bom_prolog_comments_and_doctype(string text) =>
         Assert.Equal("svg", ImageSniffer.DetectExtension(System.Text.Encoding.UTF8.GetBytes(text)));
 
@@ -45,6 +49,21 @@ public class ImageSnifferTests
     [InlineData("<!DOCTYPE svg [ ]><svg></svg>")]
     [InlineData("<svg><!ENTITY a \"x\"></svg>")]
     public void Rejects_svg_that_declares_entities_or_an_internal_dtd(string text) =>
+        Assert.Null(ImageSniffer.DetectExtension(System.Text.Encoding.UTF8.GetBytes(text)));
+
+    // An external DTD is only accepted from the W3C's own site (the SVG DTDs editors write): one anywhere else would be a
+    // request to the attacker's address, a local file or a relative path if a loader ever fetched it.
+    [Theory]
+    [InlineData("<!DOCTYPE svg SYSTEM \"http://attacker.example/svg.dtd\"><svg>")]
+    [InlineData("<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://attacker.example/svg11.dtd\"><svg>")]
+    [InlineData("<!DOCTYPE svg SYSTEM 'file:///etc/passwd'><svg>")]
+    [InlineData("<!DOCTYPE svg SYSTEM \"svg11.dtd\"><svg>")]
+    [InlineData("<!DOCTYPE svg SYSTEM \"http://www.w3.org.attacker.example/svg11.dtd\"><svg>")]
+    [InlineData("<!DOCTYPE svg SYSTEM \"http://attacker.example/a>b\"><svg>")]
+    [InlineData("<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\"><svg>")]
+    [InlineData("<!DOCTYPE svg SYSTEM><svg>")]
+    [InlineData("<!DOCTYPE svg SYSTEM \"http://www.w3.org/x.dtd\" \"extra\"><svg>")]
+    public void Rejects_svg_whose_doctype_names_an_external_dtd_outside_the_w3c(string text) =>
         Assert.Null(ImageSniffer.DetectExtension(System.Text.Encoding.UTF8.GetBytes(text)));
 
     [Fact]

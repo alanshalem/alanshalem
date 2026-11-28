@@ -6,7 +6,8 @@ namespace Blog.Application.Media;
 /// Identifies the format of an image by its first bytes ("magic bytes"), not by the extension or the Content-Type,
 /// which are controlled by whoever uploads the file. Raster formats plus SVG, which is accepted only to be rasterized:
 /// the pipeline stores AVIF and WebP and never the SVG itself, so its scripts never reach a browser. An SVG that
-/// declares XML entities or an internal DTD is not recognized (entity expansion bombs never reach the XML parser).
+/// declares XML entities or an internal DTD is not recognized (entity expansion bombs never reach the XML parser), nor
+/// one whose DOCTYPE names an external DTD anywhere but the W3C's site.
 /// </summary>
 public static class ImageSniffer
 {
@@ -19,6 +20,10 @@ public static class ImageSniffer
     private static readonly byte[] Utf8Bom = [0xEF, 0xBB, 0xBF];
     private static readonly byte[] JxlCodestream = [0xFF, 0x0A];
     private static readonly byte[] JxlContainer = [0x00, 0x00, 0x00, 0x0C, .. "JXL \r\n"u8, 0x87, 0x0A];
+    private static readonly byte[] XmlWhitespace = " \t\r\n"u8.ToArray();
+
+    // Where the SVG DTDs editors write live (Illustrator and older Inkscape name the SVG 1.0/1.1 ones).
+    private static readonly byte[][] W3cSites = ["http://www.w3.org/"u8.ToArray(), "https://www.w3.org/"u8.ToArray()];
 
     // HEIF brands of HEVC-coded images and sequences (ISO/IEC 23008-12). AVIF uses "avif"/"avis".
     private static readonly string[] HevcBrands = ["heic", "heix", "heim", "heis", "hevc", "hevx", "hevm", "hevs"];
@@ -101,7 +106,7 @@ public static class ImageSniffer
 
     /// <summary>
     /// An XML document whose root element is &lt;svg&gt;: optional BOM, XML declaration, comments, whitespace and a
-    /// DOCTYPE without an internal subset may come before it. Anything declaring entities is refused.
+    /// DOCTYPE (see <see cref="SkipDoctype"/>) may come before it. Anything declaring entities is refused.
     /// </summary>
     private static bool IsSvg(ReadOnlySpan<byte> data)
     {
@@ -122,9 +127,7 @@ public static class ImageSniffer
             }
             else if (rest.StartsWith("<!DOCTYPE"u8))
             {
-                var end = rest.IndexOf((byte)'>');
-                if (end < 0 || rest[..end].IndexOf((byte)'[') >= 0) return false; // internal subset: refused
-                rest = rest[(end + 1)..];
+                if (!SkipDoctype(ref rest)) return false;
             }
             else
             {
@@ -133,6 +136,66 @@ public static class ImageSniffer
         }
 
         return rest.StartsWith("<svg"u8) && rest.Length > 4 && rest[4] is (byte)' ' or (byte)'\t' or (byte)'\r' or (byte)'\n' or (byte)'>' or (byte)'/';
+    }
+
+    /// <summary>
+    /// <c>&lt;!DOCTYPE name&gt;</c>, optionally with <c>SYSTEM "uri"</c> or <c>PUBLIC "id" "uri"</c> whose uri is on the
+    /// W3C's site. An internal subset (<c>[</c>) is refused, and so is any other external DTD: the loader does not fetch
+    /// DTDs (tested), and this keeps an attacker's address, a local file or a relative path from ever being one.
+    /// </summary>
+    private static bool SkipDoctype(ref ReadOnlySpan<byte> text)
+    {
+        var rest = text["<!DOCTYPE"u8.Length..];
+        if (!SkipWhitespace(ref rest)) return false;
+
+        var nameEnd = rest.IndexOfAny(" \t\r\n>["u8);
+        if (nameEnd <= 0) return false;
+        rest = rest[nameEnd..];
+
+        if (SkipWhitespace(ref rest) && (rest.StartsWith("SYSTEM"u8) || rest.StartsWith("PUBLIC"u8)))
+        {
+            var isPublic = rest.StartsWith("PUBLIC"u8);
+            rest = rest["SYSTEM"u8.Length..];
+            if (!SkipWhitespace(ref rest)) return false;
+            if (isPublic && (!TakeQuoted(ref rest, out _) || !SkipWhitespace(ref rest))) return false;
+            if (!TakeQuoted(ref rest, out var systemId) || !IsOnW3cSite(systemId)) return false;
+            SkipWhitespace(ref rest);
+        }
+
+        if (!rest.StartsWith(">"u8)) return false; // an internal subset or anything unexpected: refused
+        text = rest[1..];
+        return true;
+    }
+
+    /// <returns>Whether any whitespace was skipped.</returns>
+    private static bool SkipWhitespace(ref ReadOnlySpan<byte> text)
+    {
+        var trimmed = text.TrimStart(XmlWhitespace);
+        var skipped = trimmed.Length < text.Length;
+        text = trimmed;
+        return skipped;
+    }
+
+    /// <summary>An XML literal: the text between matching single or double quotes.</summary>
+    private static bool TakeQuoted(ref ReadOnlySpan<byte> text, out ReadOnlySpan<byte> value)
+    {
+        value = default;
+        if (text.IsEmpty || text[0] is not ((byte)'"' or (byte)'\'')) return false;
+        var end = text[1..].IndexOf(text[0]);
+        if (end < 0) return false;
+        value = text.Slice(1, end);
+        text = text[(end + 2)..];
+        return true;
+    }
+
+    private static bool IsOnW3cSite(ReadOnlySpan<byte> uri)
+    {
+        foreach (var site in W3cSites)
+        {
+            if (uri.StartsWith(site)) return true;
+        }
+
+        return false;
     }
 
     private static bool SkipPast(ref ReadOnlySpan<byte> text, ReadOnlySpan<byte> terminator)
