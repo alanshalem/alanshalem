@@ -5,6 +5,7 @@ import { hasDiagram } from '@blog/diagrams';
 import { renderMarkdown } from '@blog/markdown';
 import { postBodyOptions } from '@blog/math';
 import { renderPreview } from '../src/editor/preview.ts';
+import { previewTokenReader } from '../src/editor/useDiagrams.ts';
 
 /* Code and diagrams in the preview: the same HTML as the page, and Mermaid only loaded when a diagram is shown. */
 
@@ -63,5 +64,31 @@ describe('Mermaid stays out of the admin bundle until a diagram is shown', () =>
     const hook = read('../src/editor/useDiagrams.ts');
     assert.match(hook, /if \(!preview \|\| !hasDiagram\(html\)\) return;/);
     assert.match(hook, /setTimeout\(\(\) => void renderer\.render\(preview\), DIAGRAM_DELAY_MS\)/);
+  });
+});
+
+describe('the diagram theme is read from the preview element shown now', () => {
+  /** getComputedStyle stand-in: each element has its own tokens; a detached one has none (what browsers answer). */
+  const styles = new Map<object, Record<string, string>>();
+  const computedStyle = (element: Element) =>
+    ({ getPropertyValue: (name: string) => styles.get(element)?.[name] ?? '' }) as CSSStyleDeclaration;
+
+  it('the renderer the hook keeps reads the element its ref holds at each read, not the first one', () => {
+    const first = {} as HTMLElement;
+    const replacement = {} as HTMLElement;
+    styles.set(replacement, { '--paper-text': '#1a1a1a' });
+    const ref: { current: HTMLElement | null } = { current: first };
+    const readToken = previewTokenReader(ref, computedStyle);
+
+    ref.current = replacement; // the editor swapped the preview element (a remount); the old one is detached
+    assert.equal(readToken('--paper-text'), '#1a1a1a');
+  });
+
+  it('without a preview element there is nothing to read', () => {
+    assert.equal(previewTokenReader({ current: null }, computedStyle)('--paper-text'), '');
+  });
+
+  it('the hook gives the renderer that reader', () => {
+    assert.match(read('../src/editor/useDiagrams.ts'), /createDiagramRenderer\(loadMermaid, previewTokenReader\(previewRef\)\)/);
   });
 });

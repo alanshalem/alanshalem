@@ -179,7 +179,10 @@ export interface DiagramRenderer {
    * on every keystroke: unchanged diagrams do not flash back to their source). Returns how many figures still wait.
    */
   applyCached: (root: ParentNode) => number;
-  /** Draws every figure not drawn yet (loading Mermaid the first time one is needed). */
+  /**
+   * Draws every figure not drawn yet (loading Mermaid the first time one is needed). Calls that overlap run one after
+   * another: a later one finds the figures the earlier one drew already remembered.
+   */
   render: (root: ParentNode) => Promise<void>;
 }
 
@@ -213,7 +216,7 @@ export function createDiagramRenderer(load: LoadMermaid, readToken: ReadToken): 
     return waiting;
   };
 
-  const render = async (root: ParentNode): Promise<void> => {
+  const drawPending = async (root: ParentNode): Promise<void> => {
     if (applyCached(root) === 0) return;
     mermaid ??= Promise.all([load(), loadFont(readToken)]).then(([api]) => {
       api.initialize(mermaidConfig(readToken));
@@ -237,6 +240,16 @@ export function createDiagramRenderer(load: LoadMermaid, readToken: ReadToken): 
         if (figure.isConnected) showSource(figure);
       }
     }
+  };
+
+  // The admin preview asks again whenever the typing pauses, maybe while a drawing is still running: without the queue,
+  // both calls would draw the same figures with Mermaid at the same time.
+  let queue: Promise<void> = Promise.resolve();
+  const render = (root: ParentNode): Promise<void> => {
+    if (applyCached(root) === 0) return Promise.resolve();
+    const run = queue.then(() => drawPending(root));
+    queue = run.catch(() => undefined);
+    return run;
   };
 
   return { applyCached, render };
