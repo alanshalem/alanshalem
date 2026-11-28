@@ -184,6 +184,17 @@ a:focus-visible { outline: 2px solid var(--link-accent); outline-offset: 3px; }
   --paper-error: #b42318; /* TeX that does not compile: 6.5:1 on the sheet */
   --code-block-bg: #24292e;
   --code-block-fg: #e1e4e8;
+  /* Highlighted code (@blog/highlight, prose.css): the GitHub-dark syntax colors of that pair; the comment gray is
+     lighter than GitHub's (#6a737d is 3.0:1) so every token reaches 4.5:1 on --code-block-bg
+     (apps/web/test/contrast.test.ts). */
+  --code-comment: #959da5;
+  --code-keyword: #f97583;
+  --code-string: #9ecbff;
+  --code-constant: #79b8ff;
+  --code-entity: #b392f0;
+  --code-variable: #ffab70;
+  --code-tag: #85e89d;
+  --code-deleted: #fdaeb7;
   /* Focus and hover underline on the sheet: the dark theme's light accent gets 2.1:1 and 1.5:1 against white; this one
      reaches 5.7:1 (WCAG 1.4.11). Every rule that uses them takes it from here. */
   --link-accent: var(--periwinkle-700);

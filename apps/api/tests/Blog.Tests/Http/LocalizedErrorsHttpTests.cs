@@ -118,6 +118,22 @@ public class LocalizedErrorsHttpTests(ApiFactory api)
             [warning], (await read.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("warnings").EnumerateArray().Select(item => item.GetString()));
     }
 
+    [Theory]
+    [InlineData(null, "Datos inválidos", "Las imágenes HEIC no se pueden procesar en este servidor. Convertila a PNG o JPG y subila de nuevo.")]
+    [InlineData(EnglishBrowser, "Invalid data", "HEIC images can't be processed on this server. Convert it to PNG or JPG and upload it again.")]
+    public async Task An_image_format_the_server_cannot_decode_is_named_in_the_language_of_the_request(
+        string? acceptLanguage, string title, string detail)
+    {
+        var admin = await api.AdminClientAsync();
+        using var form = new MultipartFormDataContent();
+        var heic = "\0\0\0\u0018ftypheic\0\0\0\0mif1heic"u8.ToArray();
+        form.Add(new ByteArrayContent(heic) { Headers = { ContentType = new MediaTypeHeaderValue("image/heic") } }, "file", "IMG_0001.HEIC");
+
+        using var response = await admin.SendAsync(WithLanguage(ApiFactory.Mutation(HttpMethod.Post, "/api/admin/media", form), acceptLanguage));
+
+        await AssertProblemAsync(response, HttpStatusCode.BadRequest, title, detail, "media.formatNotDecodable");
+    }
+
     [Fact]
     public async Task A_video_failed_before_the_catalog_shows_its_stored_text_as_is()
     {

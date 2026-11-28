@@ -1,3 +1,4 @@
+import { HIGHLIGHT_RENDER_OPTIONS } from '@blog/highlight';
 import { escapeHtml, POST_BODY_RENDER_OPTIONS, type Lang, type MathRenderer, type RenderOptions } from '@blog/markdown';
 import temml from 'temml';
 
@@ -24,6 +25,13 @@ export const MATH_RENDER_OPTIONS = Object.freeze({ math: renderTex } as const sa
 
 /**
  * How a post body renders, on the site build and in the admin preview alike, so the preview is the page:
- * `POST_BODY_RENDER_OPTIONS` of @blog/markdown, the math renderer and the post's language.
+ * `POST_BODY_RENDER_OPTIONS` of @blog/markdown (diagrams included), the math renderer, the code highlighter of
+ * @blog/highlight and the post's language. It lives here because math was the first injected renderer; the site and
+ * the admin import it from here.
  */
-export const postBodyOptions = (lang: Lang): RenderOptions => ({ ...POST_BODY_RENDER_OPTIONS, ...MATH_RENDER_OPTIONS, lang });
+export const postBodyOptions = (lang: Lang): RenderOptions => ({
+  ...POST_BODY_RENDER_OPTIONS,
+  ...MATH_RENDER_OPTIONS,
+  ...HIGHLIGHT_RENDER_OPTIONS,
+  lang,
+});

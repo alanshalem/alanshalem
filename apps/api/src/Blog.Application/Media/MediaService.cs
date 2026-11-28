@@ -29,7 +29,7 @@ public sealed class MediaService(IImageProcessor images, IMediaStorage storage, 
     internal async Task<MediaAsset> StoreImageAsync(Stream content, CancellationToken cancellationToken)
     {
         var original = await ReadWithinLimitAsync(content, cancellationToken);
-        EnsureSupportedFormat(original);
+        EnsureDecodableFormat(original);
 
         // Same image = same hash = same asset: it is not processed or stored twice. Its files are only regenerated if
         // missing on disk (for example, a database restored without its media folder), so dead URLs are never returned.
@@ -80,14 +80,30 @@ public sealed class MediaService(IImageProcessor images, IMediaStorage storage, 
         return buffer.AsSpan(0, total).ToArray();
     }
 
-    // Magic bytes decide before anything else: this way SVG (it can carry scripts) does not even reach the decoder.
-    private static void EnsureSupportedFormat(byte[] original)
+    // Magic bytes decide before anything else: only recognized images reach the decoder, and a format it cannot read
+    // (an iPhone's HEIC, a BMP, or SVG on a libvips without its rasterizer) is named instead of being called damaged.
+    private void EnsureDecodableFormat(byte[] original)
     {
-        if (ImageSniffer.DetectExtension(original) is null)
+        var extension = ImageSniffer.DetectExtension(original);
+        if (extension is null)
         {
-            throw new DomainException(MessageKeys.MediaUnsupportedFormat);
+            throw ImageSniffer.UndecodableFormatName(original) is { } name
+                ? new DomainException(MessageKeys.MediaFormatNotDecodable, ("format", name))
+                : new DomainException(MessageKeys.MediaUnsupportedFormat);
+        }
+
+        if (images is IImageFormatSupport formats && !formats.CanDecode(extension))
+        {
+            throw new DomainException(MessageKeys.MediaFormatNotDecodable, ("format", DisplayName(extension)));
         }
     }
+
+    private static string DisplayName(string extension) => extension switch
+    {
+        "jpg" => "JPEG",
+        "tif" => "TIFF",
+        _ => extension.ToUpperInvariant(),
+    };
 
     private ImageSize ReadSizeWithinLimit(byte[] original)
     {

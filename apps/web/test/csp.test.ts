@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
 import config from '../astro.config.mjs';
-import { cspHash, INLINE_SCRIPTS, SITE_CSP } from '../src/lib/csp.ts';
+import { cspHash, DIAGRAM_STYLE_RESOURCES, INLINE_SCRIPTS, SITE_CSP } from '../src/lib/csp.ts';
 import { HERO_ROTATION_SCRIPT } from '../src/lib/hero-rotation.ts';
 import { MEDIA_GUARD_SCRIPT } from '../src/lib/media-guard.ts';
 
@@ -74,5 +74,31 @@ describe('SITE_CSP: the policy astro.config.mjs passes to Astro', () => {
 
   it("styles: 'self' and the Astro hashes; 'unsafe-inline' only for style attributes (the photos' waiting color)", () => {
     assert.deepEqual(SITE_CSP.styleDirective.resources, ["'self'", { resource: "'unsafe-inline'", kind: 'attribute' }]);
+  });
+});
+
+describe('pages with a diagram: Mermaid draws each SVG with its own <style>', () => {
+  const read = (file: URL): string => readFileSync(file, 'utf8');
+  const diagrams = new URL('components/Diagrams.astro', SRC);
+
+  it("only styles are relaxed (style elements, plus style-src for browsers without style-src-elem); scripts keep their hashes", () => {
+    assert.deepEqual(DIAGRAM_STYLE_RESOURCES, [
+      { resource: "'self'", kind: 'element' },
+      { resource: "'unsafe-inline'", kind: 'element' },
+      { resource: "'unsafe-inline'", kind: 'default' },
+    ]);
+  });
+
+  it('only the diagram component changes the policy, with DIAGRAM_STYLE_RESOURCES', () => {
+    const changing = astroFiles(SRC).filter((file) => read(file).includes('Astro.csp'));
+    assert.deepEqual(changing.map((file) => file.href), [diagrams.href]);
+    assert.ok(read(diagrams).includes('for (const resource of DIAGRAM_STYLE_RESOURCES) Astro.csp?.insertStyleResource(resource);'));
+  });
+
+  it('only a post whose body has a diagram renders that component', () => {
+    const post = read(new URL('pages/[lang]/[posts]/[slug].astro', SRC));
+    assert.ok(post.includes('{hasDiagram(post.html) && <Diagrams />}'));
+    const uses = astroFiles(SRC).filter((file) => read(file).includes('<Diagrams'));
+    assert.deepEqual(uses.map((file) => file.pathname.split('/src/')[1]), ['pages/[lang]/[posts]/[slug].astro']);
   });
 });

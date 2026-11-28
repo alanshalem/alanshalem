@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { highlightCode } from '@blog/highlight';
 import { renderMarkdown } from '@blog/markdown';
 import { postBodyOptions, renderTex } from '@blog/math';
 import { availableActions, editorActions, inPalette } from '../src/editor/actions.ts';
@@ -102,7 +103,7 @@ describe('registry: the new actions reach the toolbar and the palette', () => {
 
 describe('preview with the same options as the site', () => {
   it('post language, smart typography, figures, standard headings and math', () => {
-    assert.deepEqual(previewOptions('en'), { minHeadingLevel: 2, lang: 'en', smartTypography: true, figures: true, math: renderTex });
+    assert.deepEqual(previewOptions('en'), { minHeadingLevel: 2, lang: 'en', smartTypography: true, figures: true, diagrams: true, math: renderTex, highlight: highlightCode });
     assert.deepEqual(previewOptions('es'), postBodyOptions('es'));
     const html = renderPreview('# Hola\n\n## Sección\n\n### Sub\n\n"citas" -- y...\n\n> [!NOTE]\n> x', 'en').html;
     // ## = h2, ### = h3 (what the H2/H3 buttons say) and a body # is a section too: the h1 is the title.

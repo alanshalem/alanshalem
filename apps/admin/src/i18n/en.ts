@@ -265,6 +265,11 @@ export const en: Dictionary = {
   'image.previewFailed': 'Couldn’t load the preview',
   'upload.progress': 'Uploading {name}…',
   'upload.failed': 'Couldn’t upload {name}: {error}',
+  'paste.unsupportedFile': 'Can’t insert {name}: it isn’t an image or a text file.',
+  'paste.binaryFile': '{name} isn’t a text file, so it wasn’t inserted.',
+  'paste.codeTooLarge': '{name} is larger than {max} KB, so it wasn’t inserted. Paste only the part you need.',
+  'paste.cannotUpload': 'Images can’t be uploaded here: insert it with ![description](https://…).',
+  'paste.imageWithoutAddress': 'That image has no usable web address: save it to your device and drag the file here.',
 
   // ----- Shared validation -----
   'validation.tooLong': '{subject} can’t be longer than {max} characters.',

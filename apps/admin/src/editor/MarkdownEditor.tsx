@@ -27,9 +27,10 @@ import { ShortcutsHelp } from './ShortcutsHelp.tsx';
 import { lineOffsets } from './text.ts';
 import { measureOffsetTops, scrollTextareaTo } from './textareaMetrics.ts';
 import type { Command } from './types.ts';
+import { useDiagrams } from './useDiagrams.ts';
 import { useEditorView } from './useEditorView.ts';
 import { useFind } from './useFind.ts';
-import { isImageFile, useImageUpload } from './useImageUpload.ts';
+import { useImageUpload } from './useImageUpload.ts';
 import { useScrollSync } from './useScrollSync.ts';
 import { nextView, type EditorView } from './view.ts';
 
@@ -90,6 +91,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
   const shown = showingOriginal ? original : { html: preview.html, lang };
   const originalLabel = showingOriginal ? t('editor.original', { lang: t(`lang.inSentence.${original.lang}`) }) : null;
   const onEditorScroll = useScrollSync(textareaRef, previewRef, view === 'split', shown.html, preview);
+  useDiagrams(previewRef, shown.html);
 
   const actions = useMemo(
     () => availableActions(editorActions(lang), { canUpload: upload.canUpload, canCompare: original !== null }),
@@ -230,10 +232,9 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
   const handlePaste = (event: ClipboardEvent<HTMLTextAreaElement>): void => {
     const plain = plainPasteRef.current;
     plainPasteRef.current = false;
-    const images = Array.from(event.clipboardData.files).filter(isImageFile);
-    if (images.length > 0 && upload.canUpload) {
+    // Files (images, code) and images without text: the paste plan decides (pasteFiles.ts).
+    if (upload.takeTransfer(event.clipboardData, { source: 'paste', plain })) {
       event.preventDefault();
-      upload.uploadImages(images);
       return;
     }
     if (plain) return; // Ctrl+Shift+V: the textarea's native paste is already plain text
@@ -247,10 +248,7 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
   };
 
   const handleDrop = (event: DragEvent<HTMLTextAreaElement>): void => {
-    const images = Array.from(event.dataTransfer.files).filter(isImageFile);
-    if (images.length === 0 || !upload.canUpload) return;
-    event.preventDefault();
-    upload.uploadImages(images);
+    if (upload.takeTransfer(event.dataTransfer, { source: 'drop' })) event.preventDefault();
   };
 
   const isPressed = (action: EditorAction): boolean | undefined => {
@@ -287,6 +285,9 @@ export function MarkdownEditor({ value, onChange, lang, onUploadImage, preview, 
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             onDrop={handleDrop}
+            onDragOver={(event) => {
+              if (upload.acceptsDrag(event.dataTransfer)) event.preventDefault();
+            }}
             onScroll={() => {
               onEditorScroll();
               find.onTextareaScroll();

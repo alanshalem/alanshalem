@@ -4,12 +4,12 @@ import { buildAndActivate, type BuildResult } from './build.ts';
 import { loadConfig } from './config.ts';
 import { BuildQueue } from './queue.ts';
 import { activeReleaseName } from './releases.ts';
+import { buildOnStartup } from './startup.ts';
+import { defaultVersionSources, resolveBuilderVersion } from './version.ts';
 
 const config = loadConfig();
-
-/** First start: how many times the initial build is tried, and the wait between tries. */
-const INITIAL_BUILD_ATTEMPTS = 6;
-const INITIAL_BUILD_RETRY_MS = 10_000;
+/** This builder's version: every release it builds is stamped with it (see startup.ts). */
+const version = await resolveBuilderVersion(process.env, defaultVersionSources(config.webDir));
 
 interface BuildStatus {
   at: string;
@@ -23,7 +23,7 @@ const log = (message: string): void => console.log(`[builder] ${new Date().toISO
 const queue = new BuildQueue(
   async () => {
     log('building the site…');
-    const result: BuildResult = await buildAndActivate(config);
+    const result: BuildResult = await buildAndActivate(config, version, log);
     lastBuild = {
       at: new Date().toISOString(),
       ok: true,
@@ -68,33 +68,17 @@ const server = createServer((request, response) => {
 
   if (method === 'GET' && url === '/status') {
     return void activeReleaseName(config.siteDir).then((active) =>
-      sendJson(response, 200, { active: active ?? null, busy: queue.isBusy, lastBuild: lastBuild ?? null }),
+      sendJson(response, 200, { active: active ?? null, version, busy: queue.isBusy, lastBuild: lastBuild ?? null }),
     );
   }
 
   return sendJson(response, 404, { error: 'not found' });
 });
 
-/**
- * First start: when no site is published yet, one is built. The API may take a few seconds to be ready (docker compose
- * starts them together), so it retries with a wait.
- */
-async function ensureInitialSite(): Promise<void> {
-  if (await activeReleaseName(config.siteDir)) return;
-  for (let attempt = 1; attempt <= INITIAL_BUILD_ATTEMPTS; attempt += 1) {
-    queue.request();
-    await queue.whenIdle();
-    if (lastBuild?.ok) return;
-    const retryIn = `retrying in ${INITIAL_BUILD_RETRY_MS / 1000} s`;
-    log(`initial build failed (attempt ${attempt}/${INITIAL_BUILD_ATTEMPTS}); ${retryIn}`);
-    await new Promise((resolve) => setTimeout(resolve, INITIAL_BUILD_RETRY_MS));
-  }
-  log('the initial build did not succeed. Publish a post or call POST /build to retry.');
-}
-
 server.listen(config.port, () => {
-  log(`listening on :${config.port}`);
-  void ensureInitialSite();
+  log(`listening on :${config.port} (builder ${version})`);
+  // No site yet, or one built by another builder version (a new image): build it, with retries (startup.ts).
+  void buildOnStartup(config.siteDir, version, queue, () => lastBuild?.ok === true, { log });
 });
 
 // Orderly shutdown: stop accepting requests and wait for the running build to finish.

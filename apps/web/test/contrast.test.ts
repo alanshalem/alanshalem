@@ -206,3 +206,44 @@ describe('focus and underline on the white sheet (WCAG 1.4.11)', () => {
     assert.match(block(prose, '.paper .prose .math-error'), /color:\s*var\(--paper-error\)/);
   });
 });
+
+/* ------------------------- Highlighted code and diagrams on the sheet ------------------------- */
+
+/** Every rule of a stylesheet (flat, no nesting) as selector + body. */
+const rulesOf = (css: string): Array<{ selector: string; body: string }> =>
+  [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ selector: m[1]!.trim(), body: m[2]! }));
+
+describe('highlighted code on the code block background (WCAG 1.4.3)', () => {
+  const codeBackground = hex(token('--code-block-bg', '.paper'));
+  const highlightRules = (): Array<{ selector: string; body: string }> =>
+    rulesOf(prose).filter((rule) => rule.selector.includes('.hljs-'));
+
+  it('every token color reaches 4.5:1 on the code block background, and none changes the background', () => {
+    const rules = highlightRules();
+    assert.ok(rules.length > 0, 'no highlight rules in prose.css');
+    for (const { selector, body } of rules) {
+      assert.doesNotMatch(body, /background/, selector);
+      const color = /(?:^|;)\s*color:\s*var\((--[\w-]+)\)/.exec(body)?.[1];
+      if (color === undefined) continue; // weight or style only
+      const ratio = contrast(hex(token(color, '.paper')), codeBackground);
+      assert.ok(ratio >= 4.5, `${selector} (${color}): ${ratio.toFixed(2)}:1`);
+    }
+  });
+
+  it('the plain code color also reaches 4.5:1', () => {
+    const ratio = contrast(hex(token('--code-block-fg', '.paper')), codeBackground);
+    assert.ok(ratio >= 4.5, `--code-block-fg: ${ratio.toFixed(2)}:1`);
+  });
+
+  it('the main token classes have a color from the code tokens, and only inside .prose', () => {
+    const colored = new Set<string>();
+    for (const { selector, body } of highlightRules()) {
+      for (const part of selector.split(',')) assert.match(part.trim(), /^\.prose \.hljs-/, part);
+      if (!/(?:^|;)\s*color:\s*var\(--code-[\w-]+\)/.test(body)) continue;
+      for (const match of selector.matchAll(/\.hljs-([\w-]+)/g)) colored.add(match[1]!);
+    }
+    for (const name of ['keyword', 'string', 'comment', 'number', 'title', 'built_in', 'attr', 'literal', 'type', 'meta', 'variable', 'name', 'selector-class', 'section', 'addition', 'deletion', 'regexp', 'symbol', 'bullet']) {
+      assert.ok(colored.has(name), `.hljs-${name} has no color`);
+    }
+  });
+});

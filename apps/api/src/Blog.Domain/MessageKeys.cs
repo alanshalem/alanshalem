@@ -80,6 +80,8 @@ public static class MessageKeys
     // ----- Images -----
     public const string MediaTooLarge = "media.tooLarge";
     public const string MediaUnsupportedFormat = "media.unsupportedFormat";
+    /// <summary>A known image format the server cannot decode ({format}: "HEIC", "BMP"…).</summary>
+    public const string MediaFormatNotDecodable = "media.formatNotDecodable";
     public const string MediaUnreadable = "media.unreadable";
     public const string MediaTooManyPixels = "media.tooManyPixels";
     public const string MediaUploadConflict = "media.uploadConflict";

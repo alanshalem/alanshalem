@@ -143,8 +143,11 @@ public static partial class MessageCatalog
 
         [MessageKeys.MediaTooLarge] = new("La imagen supera el máximo de {max} MB.", "The image exceeds the {max} MB maximum."),
         [MessageKeys.MediaUnsupportedFormat] = new(
-            "Formato no soportado. Subí una imagen PNG, JPG, GIF, WebP o AVIF.",
-            "Unsupported format. Upload a PNG, JPG, GIF, WebP or AVIF image."),
+            "Formato no soportado. Subí una imagen PNG, JPG, GIF, WebP, AVIF, TIFF o SVG.",
+            "Unsupported format. Upload a PNG, JPG, GIF, WebP, AVIF, TIFF or SVG image."),
+        [MessageKeys.MediaFormatNotDecodable] = new(
+            "Las imágenes {format} no se pueden procesar en este servidor. Convertila a PNG o JPG y subila de nuevo.",
+            "{format} images can't be processed on this server. Convert it to PNG or JPG and upload it again."),
         [MessageKeys.MediaUnreadable] = new(
             "No se pudo leer la imagen: el archivo está dañado o incompleto.",
             "The image couldn't be read: the file is damaged or incomplete."),

@@ -1,5 +1,7 @@
 ---
+import { hasDiagram } from '@blog/diagrams';
 import CoverMedia from '../../../components/CoverMedia.astro';
+import Diagrams from '../../../components/Diagrams.astro';
 import PostCard from '../../../components/PostCard.astro';
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { absoluteImageUrl } from '../../../lib/cover.ts';
@@ -101,6 +103,7 @@ const proseHtml = responsiveProseHtml(post.html, await getMediaIndex());
         )
       }
       <article class="prose" set:html={proseHtml} />
+      {hasDiagram(post.html) && <Diagrams />}
       {
         post.tags.length > 0 && (
           <footer class="end-matter">

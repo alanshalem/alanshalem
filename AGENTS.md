@@ -27,7 +27,9 @@ Admin ─► API ─► SQLite ; publish ─► durable rebuild request ─► b
 | `apps/admin` | Admin SPA under `/admin/`; native Markdown editor | React 19 + Vite |
 | `apps/builder` | Dependency-free Node service: runs `astro build`, precompresses, swaps `current` | Node ≥ 22.18 |
 | `packages/markdown` | Own Markdown renderer (no deps, no raw HTML); used by site and admin preview | TypeScript |
-| `packages/math` | TeX → MathML injected into the renderer's `math` option; `postBodyOptions(lang)` = how a post body renders on site and preview | TypeScript, Temml |
+| `packages/math` | TeX → MathML injected into the renderer's `math` option; `postBodyOptions(lang)` = how a post body renders on site and preview (math + code highlighting) | TypeScript, Temml |
+| `packages/highlight` | Build-time syntax highlighting for fenced code (class-based `hljs-*` spans), the renderer's `highlight` option | TypeScript, highlight.js core |
+| `packages/diagrams` | Mermaid runtime shared by the site (loaded only on pages with a diagram) and the admin preview (lazy) | TypeScript, Mermaid |
 | `packages/tokens` | Design tokens (`tokens.css`, the single source) and `.prose` styles | CSS |
 | `infra` | `docker-compose.yml` (VPS), `compose.dokploy.yml` (behind Dokploy's Traefik: production + staging), `compose.local.yml` + `local.env` (local prod copy), `compose.dev.yml`, `caddy/Caddyfile`, `backup.sh` / `restore.sh`, guard tests in `test/` | Docker, Caddy 2, Dokploy |
 | `.github` | project `README.md`, `workflows/ci.yml` (CI), `workflows/profile.yml` (profile images), `dependabot.yml` | GitHub Actions |
@@ -88,7 +90,7 @@ history, `pnpm audit --prod`, vulnerable NuGet packages). The same commands to r
   needs the builder Bearer token and Caddy answers 404 for it from outside. Behind Dokploy, Caddy answers 403 to any
   request without Traefik's `X-Proxy-Secret` (`PROXY_SECRET`, never in git): the shared `dokploy-network` is no trust
   boundary.
-- Uploads are verified by magic bytes (SVG rejected on purpose); originals of videos never reach `/media`.
+- Uploads are verified by magic bytes (SVG accepted only to be rasterized: never stored or served as SVG); originals of videos never reach `/media`.
 
 **Bilingual (es default, en)**
 - Post content: one version per language, translated **by hand only** (no machine translation anywhere).

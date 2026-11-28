@@ -50,8 +50,8 @@ describe('minHeadingLevel: the page title is the only h1 ("## section, ### subse
 });
 
 describe('POST_BODY_RENDER_OPTIONS: the post body options, shared by the site and the preview', () => {
-  it('standard headings, figures and smart typography; each post adds its language', () => {
-    assert.deepEqual(markdown.POST_BODY_RENDER_OPTIONS, { minHeadingLevel: 2, smartTypography: true, figures: true });
+  it('standard headings, figures, smart typography and diagrams; each post adds its language', () => {
+    assert.deepEqual(markdown.POST_BODY_RENDER_OPTIONS, { minHeadingLevel: 2, smartTypography: true, figures: true, diagrams: true });
     const { html: out } = renderMarkdown('# A\n\n## B\n\n### C\n\n"x"', { ...markdown.POST_BODY_RENDER_OPTIONS, lang: 'en' });
     assert.equal(out, '<h2 id="a">A</h2>\n<h2 id="b">B</h2>\n<h3 id="c">C</h3>\n<p>“x”</p>');
   });

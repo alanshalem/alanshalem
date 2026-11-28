@@ -1,0 +1,25 @@
+{
+  "name": "@blog/diagrams",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mermaid diagrams of post bodies, rendered in the browser: the shared config and accessibility pass (site and admin preview), the pinned Mermaid version and the files of its self-hosted bundle.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mermaid": "./src/mermaid.ts",
+    "./bundle": "./src/bundle.ts"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "mermaid": "12.4.0"
+  },
+  "devDependencies": {
+    "@blog/markdown": "workspace:*",
+    "@blog/tokens": "workspace:*",
+    "@types/node": "^22.0.0",
+    "typescript": "^7.0.2"
+  }
+}

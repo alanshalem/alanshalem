@@ -78,7 +78,7 @@ so Windows bind mounts and your `bin/`/`obj/` are not involved). A test that onl
 | API and builder ports across Dockerfiles, C#, TypeScript, Caddyfile and compose | `infra/test/ports.test.ts` |
 | Profile SVG colors ↔ `tokens.css` | `tooling/profile/test/theme.test.ts` |
 | Markdown public exports ↔ the documented list | `packages/markdown/test/escape.test.ts` |
-| Site and admin preview body options (math included) | `packages/math/test/math.test.ts` ("post body wiring") |
+| Site and admin preview body options (math and highlighting included) | `packages/math/test/math.test.ts` ("post body wiring") |
 | Renderer `anchorLines` ↔ the preview elements the scroll sync measures | `packages/markdown/test/blocks.test.ts`, `apps/admin/test/editor-scroll.test.ts` |
 
 ## Infra changes: text test + real run
