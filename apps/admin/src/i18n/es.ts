@@ -276,6 +276,13 @@ export const es = {
   'image.previewFailed': 'No se pudo cargar la vista previa',
   'upload.progress': 'Subiendo {name}…',
   'upload.failed': 'No se pudo subir {name}: {error}',
+  // Pasting or dropping files into the editor (images are uploaded, text and code files become code blocks).
+  'paste.unsupportedFile': 'No se puede insertar {name}: no es una imagen ni un archivo de texto.',
+  'paste.binaryFile': '{name} no es un archivo de texto, así que no se insertó.',
+  'paste.codeTooLarge': '{name} pesa más de {max} KB, así que no se insertó. Pegá solo la parte que necesitás.',
+  'paste.cannotUpload': 'Acá no se pueden subir imágenes: insertala con ![descripción](https://…).',
+  'paste.imageWithoutAddress':
+    'Esa imagen no tiene una dirección web que se pueda usar: guardala en tu equipo y arrastrá el archivo acá.',
 
   // ----- Shared validation (settings, cover, hero) -----
   'validation.tooLong': '{subject} no puede superar {max} caracteres.',

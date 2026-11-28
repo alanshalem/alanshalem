@@ -42,6 +42,8 @@ Caddy ─► /srv/site/current (HTML) · /srv/media (uploads) · /srv/admin (SPA
 | Admin state/effects | `use*.ts` hook in the feature folder; UI in `*.tsx` components |
 | Markdown syntax | `packages/markdown/src` (shared by site and admin preview) |
 | TeX math rendering (formula → MathML) | `packages/math/src/index.ts` (`renderTex`, Temml with `trust: false`), injected into the renderer's `math` option |
+| Code highlighting (fenced code → `hljs-*` spans) | `packages/highlight/src/index.ts` (`highlightCode`, highlight.js core, curated languages), injected into the renderer's `highlight` option; colors are the `--code-*` tokens |
+| Mermaid diagrams | `packages/diagrams` (strict Mermaid, theme from the paper tokens); site: `apps/web/src/components/Diagrams.astro` only on pages with a diagram; admin: `apps/admin/src/editor/useDiagrams.ts` |
 | Colors, fonts, spacing | `packages/tokens/src/tokens.css` (+ `prose.css` for post bodies) |
 | Caching, headers, routing of public URLs | `infra/caddy/Caddyfile` |
 
@@ -66,7 +68,7 @@ Caddy ─► /srv/site/current (HTML) · /srv/media (uploads) · /srv/admin (SPA
 | Site URL | Astro `site` (`apps/web/src/lib/site.ts`) | — |
 | Markdown block boundaries | `renderMarkdown(...).blockStarts` (or `blockStartLines()`) from `@blog/markdown` | the admin outline (and the scroll sync's fallback) read it from the single preview render (a copied regex drifted in 3 cases) |
 | Split-view scroll anchors (blocks + every list item) | `renderMarkdown(...).anchorLines` from `@blog/markdown` | the admin scroll sync pairs it with the preview's top-level elements and `li`s (`apps/admin/test/editor-scroll.test.ts`) |
-| Body render options | `postBodyOptions(lang)` (`packages/math/src/index.ts`) = `POST_BODY_RENDER_OPTIONS` (`packages/markdown/src/presets.ts`) + the TeX renderer + the post's language | the site build and the admin preview (`apps/admin/src/editor/preview.ts`) both call it; `packages/math/test/math.test.ts` pins the wiring |
+| Body render options | `postBodyOptions(lang)` (`packages/math/src/index.ts`) = `POST_BODY_RENDER_OPTIONS` (`packages/markdown/src/presets.ts`) + the TeX renderer + the code highlighter + the post's language | the site build and the admin preview (`apps/admin/src/editor/preview.ts`) both call it; `packages/math/test/math.test.ts` pins the wiring |
 | Editor actions | `apps/admin/src/editor/actions.ts` | toolbar, palette, shortcuts and help read the same list |
 | Design tokens | `packages/tokens/src/tokens.css` | `apps/web/test/contrast.test.ts`; the profile SVGs read the same file (`tooling/profile/src/theme.ts`) |
 | Dev file watching | `tooling/dev-watch.ts` | used by both Vite configs |

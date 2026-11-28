@@ -40,6 +40,14 @@ The home hero rotates on every visit between photos and short videos (≤ 15 s) 
 stored optimized (AVIF + WebP at several widths, no metadata, with libvips) and every video is trimmed, stripped of its
 audio and encoded with ffmpeg to AV1 + H.264 at 720p and 1080p.
 
+In the post editor, pasting or dropping files works like this (decided in `apps/admin/src/editor/pasteFiles.ts`):
+images (a screenshot, an image copied in the browser, dragged PNG/JPG/GIF/WebP/AVIF/TIFF/SVG files) are uploaded and
+inserted as `![...](/media/...)`; text and code files (`.py`, `.ts`, `.cs`, `.sql`, `Dockerfile`, …, up to 256 KB,
+binary files refused) are inserted as a fenced code block with the language from their extension
+(`apps/admin/src/editor/codeFiles.ts`), nothing uploaded; an image copied from a web page without a file is inserted
+by its `https://` address (never fetched). Text copied from Word or Excel pastes as text, as before. What cannot be
+inserted (a PDF, a binary file, a HEIC photo the server cannot decode) is said in the editor's status line.
+
 The idea: **visitors never touch the API or the database**. Everything public is pre-generated HTML, so the server
 barely works at rest and the site stays up even if the API goes down.
 
@@ -459,7 +467,10 @@ docker compose --env-file .env ps              # api and builder are healthy aga
 docker image prune -f                          # the old images left without a name
 ```
 
-Database migrations run on their own when the API starts. A failed build never touches the published site.
+Database migrations run on their own when the API starts. A failed build never touches the published site. When the
+builder starts with a version other than the one that built the published release (a new image with new pages,
+styles or fonts), it rebuilds the site once on its own, with the same retries as the first build; `GET /status`
+shows its `version`.
 
 **Deploying the version that adds the session epoch logs the admin out once.** Session cookies issued before that
 version carry no epoch, so the new API rejects them: sign in again after the update. Later updates keep the session.
@@ -598,7 +609,10 @@ Staging is behind basic auth: a check there needs the credentials (or watch prod
   is the one Traefik reports (Caddy trusts it with `CADDY_TRUSTED_PROXIES`; Traefik drops what a visitor sends), and
   only on requests that carry Traefik's `X-Proxy-Secret` (`PROXY_SECRET`): any other request gets a 403, so another
   container on the shared `dokploy-network` can neither forge it nor skip the staging basic auth.
-- Image uploads validated by *magic bytes* (PNG, JPG, GIF, WebP, AVIF), max 8 MB; SVG rejected on purpose.
+- Image uploads validated by *magic bytes* (PNG, JPG, GIF, WebP, AVIF, TIFF, SVG), max 8 MB and 100 MP. SVG is only
+  rasterized on the server (librsvg in the bundled libvips, without loading external references; entity declarations
+  refused): the site stores and serves the AVIF/WebP, never the SVG. HEIC, BMP, ICO and JPEG XL are recognized and
+  refused by name (the bundled libvips has no decoder for them).
 - Videos (MP4, MOV, WebM, MKV) validated by *magic bytes* and ffprobe, max 200 MB and 15 s; the original (with audio
   and metadata) never reaches `/media`.
 - Markdown **does not accept raw HTML** (everything is escaped) and URLs pass an allowlist (`http`, `https`, `mailto`,
