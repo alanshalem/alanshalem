@@ -1,3 +1,4 @@
+import type { CodeHighlighter } from './code.ts';
 import type { MathRenderer } from './math.ts';
 
 /** A document heading, for building the side table of contents (TOC). */
@@ -44,6 +45,21 @@ export interface RenderOptions {
    * then `$` is plain text as always.
    */
   math?: MathRenderer;
+  /**
+   * Syntax highlighting of fenced code with a language: the renderer passes this function the raw code and the
+   * language, and puts its HTML inside the same `<pre tabindex="0"><code class="language-x">`; null keeps the escaped
+   * code. Its output goes into the page as is, so it must be safe (the site and the admin inject @blog/highlight's).
+   * The plain text (`text`) carries the code, never the highlighting's tags. Undefined by default: code is escaped as
+   * always.
+   */
+  highlight?: CodeHighlighter;
+  /**
+   * A ````mermaid```` fence becomes `<figure class="diagram">` around its escaped source in
+   * `<pre class="diagram-source" tabindex="0"><code class="language-mermaid">`: the browser draws the diagram from it
+   * (@blog/diagrams) and, if it cannot, the source stays as a code block and the text alternative. Defaults to false
+   * so existing HTML does not change.
+   */
+  diagrams?: boolean;
 }
 
 export interface RenderResult {

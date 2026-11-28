@@ -1,4 +1,5 @@
 import { renderBlocks } from './blocks.ts';
+import { createHighlightedCode } from './code.ts';
 import { createFootnotes, extractFootnoteDefinitions } from './footnotes.ts';
 import type { InlineContext } from './inline.ts';
 import { labelsFor } from './labels.ts';
@@ -23,6 +24,7 @@ export function renderMarkdown(source: string, options: RenderOptions = {}): Ren
   const { lines, definitions } = extractFootnoteDefinitions(source.replace(/\r\n?/g, '\n').split('\n'));
   const footnotes = createFootnotes(definitions, labels);
   const formulas = options.math ? createFormulas(options.math) : null;
+  const code = options.highlight ? createHighlightedCode(options.highlight) : null;
   const inline: InlineContext = {
     smartTypography: options.smartTypography ?? false,
     footnoteRef: footnotes.reference,
@@ -39,15 +41,21 @@ export function renderMarkdown(source: string, options: RenderOptions = {}): Ren
     inline,
     labels,
     figures: options.figures ?? false,
+    code: code?.slot ?? null,
+    diagrams: options.diagrams ?? false,
     blockStarts,
     anchorLines,
     lineBase: 0,
   });
   const section = footnotes.renderSection(inline);
-  const html = section ? `${body}\n${section}` : body;
+  const withSlots = section ? `${body}\n${section}` : body;
+  if (!formulas && !code) return { html: withSlots, headings, blockStarts, anchorLines, text: plainTextOf(withSlots) };
 
-  if (!formulas) return { html, headings, blockStarts, anchorLines, text: plainTextOf(html) };
-  return { html: formulas.html(html), headings, blockStarts, anchorLines, text: plainTextOf(formulas.textHtml(html)) };
+  // The slots are filled at the end: formulas and highlighted code in `html`, their sources in the plain text.
+  const same = (html: string): string => html;
+  const html = (code?.html ?? same)((formulas?.html ?? same)(withSlots));
+  const text = plainTextOf((code?.textHtml ?? same)((formulas?.textHtml ?? same)(withSlots)));
+  return { html, headings, blockStarts, anchorLines, text };
 }
 
 /**

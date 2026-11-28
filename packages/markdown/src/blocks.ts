@@ -1,3 +1,4 @@
+import type { CodeSlot } from './code.ts';
 import { escapeHtml } from './escape.ts';
 import { plainInline, renderFigure, renderInline, type InlineContext } from './inline.ts';
 import { CALLOUT_KINDS, type CalloutKind, type Labels } from './labels.ts';
@@ -6,7 +7,8 @@ import type { Heading } from './types.ts';
 
 /**
  * Block renderer: headings, paragraphs, figures, lists, quotes, callouts, code, tables, rules and, with the `math`
- * option, display math (`$$` blocks and ```` ```math ```` fences).
+ * option, display math (`$$` blocks and ```` ```math ```` fences); with `highlight`, highlighted code; with `diagrams`,
+ * ```` ```mermaid ```` fences as diagram figures.
  *
  * Works on an array of lines. Containers (quotes, list items) strip their prefix from the lines and call
  * themselves recursively.
@@ -28,6 +30,10 @@ export interface BlockContext {
   labels: Labels;
   /** The `figures` option: a lone image with a title => <figure>. */
   figures: boolean;
+  /** With the `highlight` option: the slot of a highlighted code block (code.ts). Null without it. */
+  code: CodeSlot | null;
+  /** The `diagrams` option: a ```mermaid fence => <figure class="diagram">. */
+  diagrams: boolean;
   /** Collects the line where each top-level block starts (`RenderResult.blockStarts`). */
   blockStarts: number[];
   /** Collects, in document order, each top-level block's line and each list item's (`RenderResult.anchorLines`). */
@@ -209,9 +215,20 @@ function parseFence(
   // ```math is display math (GitHub's syntax) when the option is on; without it, a code block like any other.
   if (language === 'math' && ctx.inline.math) return { html: ctx.inline.math(code.join('\n'), true), next: i };
 
-  const classAttr = SAFE_LANGUAGE.test(language) ? ` class="language-${escapeHtml(language)}"` : '';
+  const source = code.join('\n');
+  // ```mermaid is a diagram when the option is on: the browser draws it from this source (@blog/diagrams), which stays
+  // as the fallback (the same code block as without the option) and the diagram's text alternative.
+  if (language === 'mermaid' && ctx.diagrams) {
+    const fallback = `<pre class="diagram-source" tabindex="0"><code class="language-mermaid">${escapeHtml(source)}</code></pre>`;
+    return { html: `<figure class="diagram">${fallback}</figure>`, next: i };
+  }
+
+  const safeLanguage = SAFE_LANGUAGE.test(language);
+  const classAttr = safeLanguage ? ` class="language-${escapeHtml(language)}"` : '';
+  // With the `highlight` option, a slot the end of the render fills with the highlighted code (null: escaped as always).
+  const body = (safeLanguage && ctx.code?.(source, language)) || escapeHtml(source);
   // A long line scrolls horizontally: tabindex makes it keyboard scrollable (WCAG 2.1.1).
-  return { html: `<pre tabindex="0"><code${classAttr}>${escapeHtml(code.join('\n'))}</code></pre>`, next: i };
+  return { html: `<pre tabindex="0"><code${classAttr}>${body}</code></pre>`, next: i };
 }
 
 /* ------------------------------ Headings ----------------------------- */

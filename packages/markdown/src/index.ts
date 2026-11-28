@@ -5,4 +5,5 @@ export { slugify } from './slug.ts';
 export { escapeHtml, unescapeHtml } from './escape.ts';
 export { sanitizeUrl } from './url.ts';
 export type { Heading, Lang, RenderOptions, RenderResult } from './types.ts';
+export type { CodeHighlighter } from './code.ts';
 export type { MathRenderer } from './math.ts';
